@@ -6,13 +6,13 @@ import (
 	"strings"
 )
 
-// Token is the type of the lexeme.
-type Token int
+// TokenID is the type of token.
+type TokenID int
 
-// Lexeme is a string of characters that belongs to a certain token category.
-type Lexeme struct {
+// Token struct.
+type Token struct {
+	ID      TokenID
 	Literal string
-	Tok     Token
 	Offset  int
 	Line    int
 	Column  int
@@ -21,7 +21,7 @@ type Lexeme struct {
 // The list of tokens.
 //
 const (
-	ILLEGAL Token = iota
+	ILLEGAL TokenID = iota
 	EOF
 	COMMENT
 
@@ -31,6 +31,8 @@ const (
 	FLOAT
 	STRING
 	CHAR
+	TRUE
+	FALSE
 	literalEnd
 
 	operatorBeg
@@ -141,10 +143,10 @@ var tokens = [...]string{
 	BREAK:    "break",
 }
 
-var keywords map[string]Token
+var keywords map[string]TokenID
 
 func init() {
-	keywords = make(map[string]Token)
+	keywords = make(map[string]TokenID)
 	for i := keywordBeg + 1; i < keywordEnd; i++ {
 		keywords[tokens[i]] = i
 	}
@@ -152,16 +154,16 @@ func init() {
 
 // Lookup returns the identifier's token type.
 //
-func Lookup(ident string) Token {
+func Lookup(ident string) TokenID {
 	if tok, ok := keywords[ident]; ok {
 		return tok
 	}
 	return IDENT
 }
 
-func (tok Token) String() string {
+func (tok TokenID) String() string {
 	s := ""
-	if 0 <= tok && tok < Token(len(tokens)) {
+	if 0 <= tok && tok < TokenID(len(tokens)) {
 		s = strings.ToUpper(tokens[tok])
 	}
 	if s == "" {
@@ -170,7 +172,17 @@ func (tok Token) String() string {
 	return s
 }
 
-func (l Lexeme) String() string {
-	s := fmt.Sprintf("%d:%d: %v:%s", l.Line, l.Column, l.Tok, l.Literal)
+func (t Token) String() string {
+	s := fmt.Sprintf("%d:%d: %v", t.Line, t.Column, t.ID)
+
+	if len(t.Literal) > 0 {
+		s += ":" + t.Literal
+	}
+
 	return s
+}
+
+// IsValid returns true if it's a valid true.
+func (t Token) IsValid() bool {
+	return t.Line > 0
 }

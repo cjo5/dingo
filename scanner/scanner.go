@@ -22,10 +22,11 @@ func (s *Scanner) Init(src []byte) {
 	s.next()
 }
 
-func (s *Scanner) Scan() token.Lexeme {
+// Scan returns the next token from the byte stream.
+func (s *Scanner) Scan() token.Token {
 	s.skipWhitespace()
 
-	lex := token.Lexeme{
+	tok := token.Token{
 		Offset:  s.chOffset,
 		Line:    s.lineCount,
 		Column:  (s.chOffset - s.lineOffset) + 1,
@@ -36,94 +37,104 @@ func (s *Scanner) Scan() token.Lexeme {
 
 	switch ch1 := s.ch; {
 	case isLetter(ch1):
-		lex.Tok, lex.Literal = s.scanIdent()
+		tok.ID, tok.Literal = s.scanIdent()
 	case isDigit(ch1):
-		lex.Tok, lex.Literal = s.scanNumber()
+		tok.ID, tok.Literal = s.scanNumber()
 	default:
 		s.next()
 		ch2 := s.ch
 
 		switch ch1 {
 		case -1:
-			lex.Tok = token.EOF
+			tok.ID = token.EOF
 		case '(':
-			lex.Tok = token.LPAREN
+			tok.ID = token.LPAREN
 		case ')':
-			lex.Tok = token.RPAREN
+			tok.ID = token.RPAREN
 		case '{':
-			lex.Tok = token.LBRACE
+			tok.ID = token.LBRACE
 		case '}':
-			lex.Tok = token.RBRACE
+			tok.ID = token.RBRACE
 		case '.':
-			lex.Tok = token.DOT
+			tok.ID = token.DOT
 		case ',':
-			lex.Tok = token.COMMA
+			tok.ID = token.COMMA
 		case ';':
-			lex.Tok = token.SEMICOLON
+			tok.ID = token.SEMICOLON
 		case ':':
-			lex.Tok = token.COMMA
+			tok.ID = token.COMMA
 		case '+':
-			lex.Tok = token.ADD
+			tok.ID = token.ADD
 			if ch2 == '=' {
-				lex.Tok = token.ADD_ASSIGN
+				tok.ID = token.ADD_ASSIGN
 			}
 		case '-':
-			lex.Tok = token.SUB
+			tok.ID = token.SUB
 			if ch2 == '=' {
-				lex.Tok = token.SUB_ASSIGN
+				tok.ID = token.SUB_ASSIGN
 			}
 		case '*':
-			lex.Tok = token.MUL
+			tok.ID = token.MUL
 			if ch2 == '=' {
-				lex.Tok = token.MUL_ASSIGN
+				s.next()
+				tok.ID = token.MUL_ASSIGN
 			}
 		case '/':
-			lex.Tok = token.DIV
+			tok.ID = token.DIV
 			if ch2 == '=' {
-				lex.Tok = token.DIV_ASSIGN
+				s.next()
+				tok.ID = token.DIV_ASSIGN
 			}
 		case '%':
-			lex.Tok = token.MOD
+			tok.ID = token.MOD
 			if ch2 == '=' {
-				lex.Tok = token.MOD_ASSIGN
+				s.next()
+				tok.ID = token.MOD_ASSIGN
 			}
 		case '=':
-			lex.Tok = token.ASSIGN
+			tok.ID = token.ASSIGN
 			if ch2 == '=' {
-				lex.Tok = token.EQ
+				s.next()
+				tok.ID = token.EQ
 			}
 		case '&':
-			lex.Tok = token.AND
+			tok.ID = token.AND
 			if ch2 == '&' {
-				lex.Tok = token.LAND
+				s.next()
+				tok.ID = token.LAND
 			}
 		case '|':
-			lex.Tok = token.OR
+			tok.ID = token.OR
 			if ch2 == '|' {
-				lex.Tok = token.LOR
+				s.next()
+				tok.ID = token.LOR
 			}
 		case '!':
-			lex.Tok = token.LNOT
+			tok.ID = token.LNOT
 			if ch2 == '=' {
-				lex.Tok = token.NEQ
+				s.next()
+				tok.ID = token.NEQ
 			}
 		case '>':
-			lex.Tok = token.GT
+			tok.ID = token.GT
 			if ch2 == '=' {
-				lex.Tok = token.GTEQ
+				s.next()
+				tok.ID = token.GTEQ
 			}
 		case '<':
-			lex.Tok = token.LT
+			tok.ID = token.LT
 			if ch2 == '=' {
-				lex.Tok = token.LTEQ
+				s.next()
+				tok.ID = token.LTEQ
 			}
 		default:
-			lex.Tok = token.ILLEGAL
-			lex.Literal = string(s.src[startOffset:s.chOffset])
+			tok.ID = token.ILLEGAL
 		}
+
+		tok.Literal = string(s.src[startOffset:s.chOffset])
 	}
 
-	return lex
+	return tok
 }
 
 func isLetter(ch rune) bool {
@@ -144,7 +155,7 @@ func (s *Scanner) next() {
 		s.readOffset++
 
 		if s.ch == '\n' {
-			s.lineOffset = s.chOffset + 1
+			s.lineOffset = s.readOffset
 			s.lineCount++
 		}
 	} else {
@@ -159,7 +170,7 @@ func (s *Scanner) skipWhitespace() {
 	}
 }
 
-func (s *Scanner) scanIdent() (token.Token, string) {
+func (s *Scanner) scanIdent() (token.TokenID, string) {
 	startOffset := s.chOffset
 
 	for isLetter(s.ch) || isDigit(s.ch) {
@@ -177,7 +188,7 @@ func (s *Scanner) scanIdent() (token.Token, string) {
 }
 
 // Only supports integers for now.
-func (s *Scanner) scanNumber() (token.Token, string) {
+func (s *Scanner) scanNumber() (token.TokenID, string) {
 	startOffset := s.chOffset
 
 	for isDigit(s.ch) {
