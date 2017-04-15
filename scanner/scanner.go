@@ -66,11 +66,13 @@ func (s *Scanner) Scan() token.Token {
 		case '+':
 			tok.ID = token.ADD
 			if ch2 == '=' {
+				s.next()
 				tok.ID = token.ADD_ASSIGN
 			}
 		case '-':
 			tok.ID = token.SUB
 			if ch2 == '=' {
+				s.next()
 				tok.ID = token.SUB_ASSIGN
 			}
 		case '*':

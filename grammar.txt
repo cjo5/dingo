@@ -1,9 +1,22 @@
-expression = equality
-equality   = comparison ( ( "!=" | "==" ) comparison )*
-comparison = term ( ( ">" | ">=" | "<" | "<=" ) term )*
-term       = factor ( ( "-" | "+" ) factor )*
-factor     = unary ( ( "/" | "*" ) unary )*
-unary      = ( "!" | "-" ) unary
+# {} : 0 or more
+# *  : 0 or more
+# [] : optional
+
+module = ['module' IDENT ';'] stmt*
+
+stmt = blockStmt | printStmt | ifStmt | whileStmt | exprStmt
+blockStmt = '{' stmt* '}'
+printStmt = 'print' expr ';'
+exprStmt = expr [('=' | '+=' | '-=' | '*=' | '/=' | '%=' ) expr] ';'
+ifStmt = 'if' expr blockStmt {'elif' expr blockStmt} ['else' expr blockStmt]
+whileStmt = 'while' '{' stmt* '}'
+
+expr = equality
+equality   = comparison {( '!=' | '==' ) comparison}
+comparison = term {( '>' | '>=' | '<' | '<=' ) term}
+term       = factor {( '-' | '+' ) factor}
+factor     = unary {( '/' | '*' ) unary}
+unary      = ( '!' | '-' ) unary
            | primary
-primary    = NUMBER | STRING | "false" | "true" | "nil"
-           | "(" expression ")"
+primary    = NUMBER | STRING | IDENT | 'false' | 'true'
+           | '(' expr ')'

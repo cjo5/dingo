@@ -79,68 +79,74 @@ const (
 	keywordBeg
 	IF
 	ELSE
+	ELIF
 	FOR
 	WHILE
 	CONTINUE
 	BREAK
+	PRINT
+	MODULE
 	keywordEnd
 )
 
 var tokens = [...]string{
 	ILLEGAL: "ILLEGAL",
-	EOF:     "EOF",
-	COMMENT: "COMMENT",
+	EOF:     "eof",
+	COMMENT: "comment",
 
-	IDENT:  "IDENT",
-	INT:    "INT",
-	FLOAT:  "FLOAT",
-	STRING: "STRING",
+	IDENT:  "ident",
+	INT:    "int",
+	FLOAT:  "float",
+	STRING: "string",
 	CHAR:   "CHAR",
 
-	LPAREN:    "LPAREN",
-	RPAREN:    "RPAREN",
-	LBRACE:    "LBRACE",
-	RBRACE:    "RBRACE",
-	LBRACK:    "LBRACK",
-	RBRACK:    "RBRACK",
-	DOT:       "DOT",
-	COMMA:     "COMMA",
-	SEMICOLON: "SEMICOLON",
-	COLON:     "COLON",
+	LPAREN:    "(",
+	RPAREN:    ")",
+	LBRACE:    "{",
+	RBRACE:    "}",
+	LBRACK:    "[",
+	RBRACK:    "]",
+	DOT:       ".",
+	COMMA:     ",",
+	SEMICOLON: ";",
+	COLON:     ":",
 
-	ADD: "ADD",
-	SUB: "SUB",
-	MUL: "MUL",
-	DIV: "DIV",
-	MOD: "MOD",
+	ADD: "+",
+	SUB: "-",
+	MUL: "*",
+	DIV: "/",
+	MOD: "%",
 
-	ASSIGN:     "ASSIGN",
-	ADD_ASSIGN: "ADD_ASSIGN",
-	SUB_ASSIGN: "SUB_ASSIGN",
-	MUL_ASSIGN: "MUL_ASSIGN",
-	DIV_ASSIGN: "DIV_ASSIGN",
-	MOD_ASSIGN: "MOD_ASSIGN",
+	ASSIGN:     "=",
+	ADD_ASSIGN: "+=",
+	SUB_ASSIGN: "-=",
+	MUL_ASSIGN: "*=",
+	DIV_ASSIGN: "/=",
+	MOD_ASSIGN: "%=",
 
-	AND: "AND",
-	OR:  "OR",
+	AND: "&",
+	OR:  "|",
 
-	LAND: "LAND",
-	LOR:  "LOR",
-	LNOT: "LNOT",
+	LAND: "&&",
+	LOR:  "||",
+	LNOT: "!",
 
-	EQ:   "EQ",
-	NEQ:  "NEQ",
-	GT:   "GT",
-	GTEQ: "GTEQ",
-	LT:   "LT",
-	LTEQ: "LTEQ",
+	EQ:   "==",
+	NEQ:  "!=",
+	GT:   ">",
+	GTEQ: ">=",
+	LT:   "<",
+	LTEQ: ">=",
 
 	IF:       "if",
 	ELSE:     "else",
+	ELIF:     "elif",
 	FOR:      "for",
 	WHILE:    "while",
 	CONTINUE: "continue",
 	BREAK:    "break",
+	PRINT:    "print",
+	MODULE:   "module",
 }
 
 var keywords map[string]TokenID
@@ -180,6 +186,10 @@ func (t Token) String() string {
 	}
 
 	return s
+}
+
+func (t Token) Pos() string {
+	return fmt.Sprintf("%d:%d", t.Line, t.Column)
 }
 
 // IsValid returns true if it's a valid true.

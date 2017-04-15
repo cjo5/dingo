@@ -17,6 +17,34 @@ func Print(n Node) string {
 	return p.buffer.String()
 }
 
+func (p *printer) visitModule(mod *Module) {
+
+}
+
+func (p *printer) visitBlockStmt(stmt *BlockStmt) {
+
+}
+
+func (p *printer) visitPrintStmt(stmt *PrintStmt) {
+
+}
+
+func (p *printer) visitIfStmt(stmt *IfStmt) {
+
+}
+
+func (p *printer) visitWhileStmt(stmt *WhileStmt) {
+
+}
+
+func (p *printer) visitExprStmt(stmt *ExprStmt) {
+
+}
+
+func (p *printer) visitAssignStmt(stmt *AssignStmt) {
+
+}
+
 func (p *printer) visitBinary(expr *BinaryExpr) {
 	expr.Left.Accept(p)
 	expr.Right.Accept(p)
@@ -43,4 +71,8 @@ func (p *printer) visitUnary(expr *UnaryExpr) {
 
 func (p *printer) visitLiteral(expr *Literal) {
 	p.buffer.WriteString(expr.Value.Literal)
+}
+
+func (p *printer) visitIdent(expr *Ident) {
+	p.buffer.WriteString(expr.Name.Literal)
 }

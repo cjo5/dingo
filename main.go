@@ -8,10 +8,14 @@ import (
 )
 
 func main() {
-	src := []byte("-5+2*3")
+	//src := []byte("-6*2+2;")
 
-	tree, _ := parser.Parse(src)
+	tree, err := parser.ParseFile("scripts/test1.nerd")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
 	s := ast.Print(tree)
-
 	fmt.Println(s)
 }
