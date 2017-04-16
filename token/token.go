@@ -98,7 +98,7 @@ var tokens = [...]string{
 	INT:    "int",
 	FLOAT:  "float",
 	STRING: "string",
-	CHAR:   "CHAR",
+	CHAR:   "char",
 
 	LPAREN:    "(",
 	RPAREN:    ")",

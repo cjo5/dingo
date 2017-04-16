@@ -23,9 +23,10 @@ func (s *Scanner) Init(src []byte) {
 }
 
 // Scan returns the next token from the byte stream.
-func (s *Scanner) Scan() token.Token {
+func (s *Scanner) Scan() (token.Token, *string) {
 	s.skipWhitespace()
 
+	var errMsg string
 	tok := token.Token{
 		Offset:  s.chOffset,
 		Line:    s.lineCount,
@@ -40,6 +41,9 @@ func (s *Scanner) Scan() token.Token {
 		tok.ID, tok.Literal = s.scanIdent()
 	case isDigit(ch1):
 		tok.ID, tok.Literal = s.scanNumber()
+	case ch1 == '"':
+		tok.Literal, errMsg = s.scanString()
+		tok.ID = token.STRING
 	default:
 		s.next()
 		ch2 := s.ch
@@ -136,7 +140,11 @@ func (s *Scanner) Scan() token.Token {
 		tok.Literal = string(s.src[startOffset:s.chOffset])
 	}
 
-	return tok
+	if errMsg != "" {
+		return tok, &errMsg
+	}
+
+	return tok, nil
 }
 
 func isLetter(ch rune) bool {
@@ -198,4 +206,29 @@ func (s *Scanner) scanNumber() (token.TokenID, string) {
 	}
 
 	return token.INT, string(s.src[startOffset:s.chOffset])
+}
+
+func (s *Scanner) scanString() (string, string) {
+	var errMsg string
+	startOffset := s.chOffset
+	s.next()
+
+	for {
+		ch := s.ch
+
+		if ch == '\n' {
+			errMsg = "string literal not terminated"
+			break
+		}
+
+		s.next()
+		if ch == '"' {
+			break
+		}
+		if ch == '\\' {
+			s.next() // TODO: handle multi-char escape
+		}
+	}
+
+	return string(s.src[startOffset:s.chOffset]), errMsg
 }

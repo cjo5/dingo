@@ -37,6 +37,10 @@ func (p *printer) visitWhileStmt(stmt *WhileStmt) {
 
 }
 
+func (p *printer) visitBranchStmt(stmt *BranchStmt) {
+
+}
+
 func (p *printer) visitExprStmt(stmt *ExprStmt) {
 
 }

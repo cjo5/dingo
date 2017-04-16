@@ -1,0 +1,6 @@
+- Symbol table and type checking
+- Comments
+- Improve scanner error handling
+- Change statement terminator from semicolon to newline
+- Improve parser error handling
+- Rewrite expression grammar and parser to something simpler

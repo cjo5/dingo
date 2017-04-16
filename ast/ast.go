@@ -12,6 +12,7 @@ type AstVisitor interface {
 	visitPrintStmt(stmt *PrintStmt)
 	visitIfStmt(stmt *IfStmt)
 	visitWhileStmt(stmt *WhileStmt)
+	visitBranchStmt(stmt *BranchStmt)
 	visitExprStmt(stmt *ExprStmt)
 	visitAssignStmt(stmt *AssignStmt)
 
@@ -82,13 +83,17 @@ type IfStmt struct {
 	If   token.Token
 	Cond Expr
 	Body *BlockStmt
-	Else *IfStmt
+	Else Stmt
 }
 
 type WhileStmt struct {
 	While token.Token
 	Cond  Expr
 	Body  *BlockStmt
+}
+
+type BranchStmt struct {
+	Tok token.Token
 }
 
 type ExprStmt struct {
@@ -123,6 +128,9 @@ func (s *IfStmt) Last() token.Token {
 func (s *WhileStmt) First() token.Token { return s.While }
 func (s *WhileStmt) Last() token.Token  { return s.Body.Last() }
 
+func (s *BranchStmt) First() token.Token { return s.Tok }
+func (s *BranchStmt) Last() token.Token  { return s.Tok }
+
 func (s *ExprStmt) First() token.Token { return s.X.First() }
 func (s *ExprStmt) Last() token.Token  { return s.X.Last() }
 
@@ -134,6 +142,7 @@ func (s *BlockStmt) stmtNode()  {}
 func (s *PrintStmt) stmtNode()  {}
 func (s *IfStmt) stmtNode()     {}
 func (s *WhileStmt) stmtNode()  {}
+func (s *BranchStmt) stmtNode() {}
 func (s *ExprStmt) stmtNode()   {}
 func (s *AssignStmt) stmtNode() {}
 
@@ -142,6 +151,7 @@ func (s *BlockStmt) Accept(visitor AstVisitor)  { visitor.visitBlockStmt(s) }
 func (s *PrintStmt) Accept(visitor AstVisitor)  { visitor.visitPrintStmt(s) }
 func (s *IfStmt) Accept(visitor AstVisitor)     { visitor.visitIfStmt(s) }
 func (s *WhileStmt) Accept(visitor AstVisitor)  { visitor.visitWhileStmt(s) }
+func (s *BranchStmt) Accept(visitor AstVisitor) { visitor.visitBranchStmt(s) }
 func (s *ExprStmt) Accept(visitor AstVisitor)   { visitor.visitExprStmt(s) }
 func (s *AssignStmt) Accept(visitor AstVisitor) { visitor.visitAssignStmt(s) }
 

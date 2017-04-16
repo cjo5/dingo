@@ -4,18 +4,20 @@
 
 module = ['module' IDENT ';'] stmt*
 
-stmt = blockStmt | printStmt | ifStmt | whileStmt | exprStmt
+stmt = blockStmt | printStmt | ifStmt | whileStmt | 'break' ';' | 'continue' ';' | exprStmt
 blockStmt = '{' stmt* '}'
 printStmt = 'print' expr ';'
 exprStmt = expr [('=' | '+=' | '-=' | '*=' | '/=' | '%=' ) expr] ';'
-ifStmt = 'if' expr blockStmt {'elif' expr blockStmt} ['else' expr blockStmt]
+ifStmt = 'if' expr blockStmt {'elif' expr blockStmt} ['else' blockStmt]
 whileStmt = 'while' '{' stmt* '}'
 
-expr = equality
+expr = logicalOr
+logicalOr = logicalAnd {'||' logicalAnd}
+logicalAnd = equality {'&&' equality}
 equality   = comparison {( '!=' | '==' ) comparison}
 comparison = term {( '>' | '>=' | '<' | '<=' ) term}
 term       = factor {( '-' | '+' ) factor}
-factor     = unary {( '/' | '*' ) unary}
+factor     = unary {( '/' | '%' | '*' ) unary}
 unary      = ( '!' | '-' ) unary
            | primary
 primary    = NUMBER | STRING | IDENT | 'false' | 'true'
