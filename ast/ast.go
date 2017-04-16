@@ -83,7 +83,7 @@ type IfStmt struct {
 	If   token.Token
 	Cond Expr
 	Body *BlockStmt
-	Else Stmt
+	Else Stmt // Optional
 }
 
 type WhileStmt struct {

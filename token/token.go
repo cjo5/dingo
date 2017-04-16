@@ -180,11 +180,9 @@ func (tok TokenID) String() string {
 
 func (t Token) String() string {
 	s := fmt.Sprintf("%d:%d: %v", t.Line, t.Column, t.ID)
-
-	if len(t.Literal) > 0 {
+	if t.ID == IDENT || t.ID == STRING || t.ID == INT {
 		s += ":" + t.Literal
 	}
-
 	return s
 }
 
