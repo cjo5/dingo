@@ -1,14 +1,13 @@
 package ast
 
-import (
-	"github.com/jhnl/interpreter/token"
-)
+import "github.com/jhnl/interpreter/token"
 
 // AstVisitor interface.
 type AstVisitor interface {
 	visitModule(mod *Module)
 
 	visitBlockStmt(stmt *BlockStmt)
+	visitDeclStmt(stmt *DeclStmt)
 	visitPrintStmt(stmt *PrintStmt)
 	visitIfStmt(stmt *IfStmt)
 	visitWhileStmt(stmt *WhileStmt)
@@ -45,6 +44,7 @@ type Stmt interface {
 type Module struct {
 	Mod   token.Token
 	Name  *Ident
+	Scope *Scope
 	Stmts []Stmt
 }
 
@@ -70,8 +70,16 @@ type BadStmt struct {
 
 type BlockStmt struct {
 	Lbrace token.Token
+	Scope  *Scope
 	Stmts  []Stmt
 	Rbrace token.Token
+}
+
+type DeclStmt struct {
+	Decl   token.Token
+	Name   *Ident
+	Assign token.Token
+	X      Expr
 }
 
 type PrintStmt struct {
@@ -114,6 +122,9 @@ func (s *BadStmt) Last() token.Token  { return s.To }
 func (s *BlockStmt) First() token.Token { return s.Lbrace }
 func (s *BlockStmt) Last() token.Token  { return s.Rbrace }
 
+func (s *DeclStmt) First() token.Token { return s.Decl }
+func (s *DeclStmt) Last() token.Token  { return s.X.Last() }
+
 func (s *PrintStmt) First() token.Token { return s.Print }
 func (s *PrintStmt) Last() token.Token  { return s.X.Last() }
 
@@ -139,6 +150,7 @@ func (s *AssignStmt) Last() token.Token  { return s.Right.Last() }
 
 func (s *BadStmt) stmtNode()    {}
 func (s *BlockStmt) stmtNode()  {}
+func (s *DeclStmt) stmtNode()   {}
 func (s *PrintStmt) stmtNode()  {}
 func (s *IfStmt) stmtNode()     {}
 func (s *WhileStmt) stmtNode()  {}
@@ -148,6 +160,7 @@ func (s *AssignStmt) stmtNode() {}
 
 func (s *BadStmt) Accept(visitor AstVisitor)    {}
 func (s *BlockStmt) Accept(visitor AstVisitor)  { visitor.visitBlockStmt(s) }
+func (s *DeclStmt) Accept(visitor AstVisitor)   { visitor.visitDeclStmt(s) }
 func (s *PrintStmt) Accept(visitor AstVisitor)  { visitor.visitPrintStmt(s) }
 func (s *IfStmt) Accept(visitor AstVisitor)     { visitor.visitIfStmt(s) }
 func (s *WhileStmt) Accept(visitor AstVisitor)  { visitor.visitWhileStmt(s) }

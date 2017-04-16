@@ -68,6 +68,13 @@ func (p *printer) visitBlockStmt(stmt *BlockStmt) {
 	}
 }
 
+func (p *printer) visitDeclStmt(stmt *DeclStmt) {
+	defer dec(inc(p))
+	p.printToken(stmt.Decl)
+	stmt.Name.Accept(p)
+	stmt.X.Accept(p)
+}
+
 func (p *printer) visitPrintStmt(stmt *PrintStmt) {
 	defer dec(inc(p))
 	p.printToken(stmt.Print)

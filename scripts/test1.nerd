@@ -1,25 +1,25 @@
 module main;
 
-a = 1 + 1;
-b = 2 - 2;
-c = 3 * 3;
-d = 4 / 4;
-e = 5 % 5;
+var a = 1 + 1;
+var b = 2 - 2;
+var c = 3 * 3;
+var d = 4 / 4;
+var e = 5 % 5;
 
-f = 0;
+var f = 0;
 f += a;
 f -= b;
 f *= c;
 f /= d;
 f %= e;
 
-g = (a+5) * (b - 2) / c;
+var g = (a+5) * (b - 2) / c;
 
 print "hello world";
 
-x = 0;
-y = 10;
-stop = false;
+var x = 0;
+var y = 10;
+var stop = false;
 
 while (x < 5 || y > 0) && !stop {
     x += 1;

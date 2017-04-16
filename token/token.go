@@ -31,8 +31,6 @@ const (
 	FLOAT
 	STRING
 	CHAR
-	TRUE
-	FALSE
 	literalEnd
 
 	operatorBeg
@@ -86,6 +84,10 @@ const (
 	BREAK
 	PRINT
 	MODULE
+	VAR
+	// TODO: true and false should be builtin types instead of keywords
+	TRUE
+	FALSE
 	keywordEnd
 )
 
@@ -147,6 +149,9 @@ var tokens = [...]string{
 	BREAK:    "break",
 	PRINT:    "print",
 	MODULE:   "module",
+	VAR:      "var",
+	TRUE:     "true",
+	FALSE:    "false",
 }
 
 var keywords map[string]TokenID

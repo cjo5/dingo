@@ -6,6 +6,7 @@ module = ['module' IDENT ';'] stmt*
 
 stmt = blockStmt | printStmt | ifStmt | whileStmt | 'break' ';' | 'continue' ';' | exprStmt
 blockStmt = '{' stmt* '}'
+declStmt = 'var' IDENT '=' expr ';'
 printStmt = 'print' expr ';'
 exprStmt = expr [('=' | '+=' | '-=' | '*=' | '/=' | '%=' ) expr] ';'
 ifStmt = 'if' expr blockStmt {'elif' expr blockStmt} ['else' blockStmt]

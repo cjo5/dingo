@@ -9,7 +9,7 @@ import (
 	"github.com/jhnl/interpreter/token"
 )
 
-func ParseFile(filename string) (ast.Node, error) {
+func ParseFile(filename string) (*ast.Module, error) {
 	buf, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return nil, err
@@ -17,7 +17,7 @@ func ParseFile(filename string) (ast.Node, error) {
 	return Parse(buf)
 }
 
-func Parse(src []byte) (ast.Node, error) {
+func Parse(src []byte) (*ast.Module, error) {
 	var p parser
 	p.init(src)
 	p.next()
@@ -34,6 +34,7 @@ func Parse(src []byte) (ast.Node, error) {
 type parser struct {
 	trace   bool
 	scanner scanner.Scanner
+	scope   *ast.Scope
 	token   token.Token
 
 	errors scanner.ErrorList
@@ -42,6 +43,29 @@ type parser struct {
 func (p *parser) init(src []byte) {
 	p.trace = false
 	p.scanner.Init(src)
+}
+
+func (p *parser) openScope() {
+	p.scope = ast.NewScope(p.scope)
+}
+
+func (p *parser) closeScope() {
+	p.scope = p.scope.Outer
+}
+
+func (p *parser) declare(decl *ast.DeclStmt) {
+	sym := ast.NewSymbol(ast.VarSymbol, decl)
+	if existing := p.scope.Insert(sym); existing != nil {
+		msg := fmt.Sprintf("redeclaration of '%s', previously declared at %s", decl.Name.Name.Literal, existing.Pos())
+		p.error(decl.Name.Name, msg)
+	}
+}
+
+func (p *parser) resolve(name token.Token) {
+	if existing := p.scope.Lookup(name.Literal); existing == nil {
+		msg := fmt.Sprintf("'%s' undefined", name.Literal)
+		p.error(name, msg)
+	}
 }
 
 func (p *parser) next() {
@@ -101,16 +125,21 @@ func (p *parser) parseModule() *ast.Module {
 		mod.Name = p.parseIdent()
 		p.expectSemi()
 	}
-
+	p.openScope()
 	for p.token.ID != token.EOF {
 		mod.Stmts = append(mod.Stmts, p.parseStmt())
 	}
+	mod.Scope = p.scope
+	p.closeScope()
 	return mod
 }
 
 func (p *parser) parseStmt() ast.Stmt {
 	if p.token.ID == token.LBRACE {
 		return p.parseBlockStmt()
+	}
+	if p.token.ID == token.VAR {
+		return p.parseDeclStmt()
 	}
 	if p.token.ID == token.PRINT {
 		return p.parsePrintStmt()
@@ -131,6 +160,7 @@ func (p *parser) parseStmt() ast.Stmt {
 }
 
 func (p *parser) parseBlockStmt() *ast.BlockStmt {
+	p.openScope()
 	block := &ast.BlockStmt{}
 	block.Lbrace = p.token
 	p.expect(token.LBRACE)
@@ -139,7 +169,21 @@ func (p *parser) parseBlockStmt() *ast.BlockStmt {
 	}
 	block.Rbrace = p.token
 	p.expect(token.RBRACE)
+	block.Scope = p.scope
+	p.closeScope()
 	return block
+}
+
+func (p *parser) parseDeclStmt() *ast.DeclStmt {
+	decl := &ast.DeclStmt{}
+	decl.Decl = p.token
+	p.next()
+	decl.Name = p.parseIdent()
+	p.expect(token.ASSIGN)
+	decl.X = p.parseExpr()
+	p.expectSemi()
+	p.declare(decl)
+	return decl
 }
 
 func (p *parser) parsePrintStmt() *ast.PrintStmt {
@@ -278,7 +322,9 @@ func (p *parser) parsePrimary() ast.Expr {
 		p.next()
 		return &ast.Literal{Value: tok}
 	case token.IDENT:
-		return p.parseIdent()
+		ident := p.parseIdent()
+		p.resolve(ident.Name) // TODO: cleanup?
+		return ident
 	case token.LPAREN:
 		p.next()
 		x := p.parseExpr()

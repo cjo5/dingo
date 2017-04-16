@@ -1,6 +1,10 @@
-- Symbol table and type checking
+TODO:
+- Symbol table, declare and lookup vars
+- VM and bytecode compiler
+- Add functions
 - Comments
-- Improve scanner error handling
 - Change statement terminator from semicolon to newline
+- Statically typed or Lua?
+- Improve scanner error handling
 - Improve parser error handling
 - Rewrite expression grammar and parser to something simpler
