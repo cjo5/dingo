@@ -4,7 +4,7 @@
 
 module = ['module' IDENT ';'] stmt*
 
-stmt = blockStmt | printStmt | ifStmt | whileStmt | 'break' ';' | 'continue' ';' | exprStmt
+stmt = blockStmt | declStmt | printStmt | ifStmt | whileStmt | 'break' ';' | 'continue' ';' | exprStmt
 blockStmt = '{' stmt* '}'
 declStmt = 'var' IDENT '=' expr ';'
 printStmt = 'print' expr ';'

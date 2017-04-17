@@ -88,7 +88,16 @@ func (p *parser) error(tok token.Token, msg string) {
 }
 
 func (p *parser) sync() {
-	for p.token.ID != token.SEMICOLON && p.token.ID != token.EOF {
+loop:
+	for {
+		switch p.token.ID {
+		case token.SEMICOLON: // TODO: Remove this?
+			break loop
+		case token.VAR, token.PRINT, token.IF, token.BREAK, token.CONTINUE:
+			return
+		case token.EOF:
+			return
+		}
 		p.next()
 	}
 	p.next()
@@ -333,7 +342,7 @@ func (p *parser) parsePrimary() ast.Expr {
 	default:
 		// TODO: Sync?
 		tok := p.token
-		p.error(tok, "expected expression")
+		p.error(tok, fmt.Sprintf("got '%s', expected expression", tok.ID))
 		p.next()
 		return &ast.BadExpr{From: tok, To: tok}
 	}

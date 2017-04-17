@@ -3,7 +3,6 @@ package token
 import (
 	"fmt"
 	"strconv"
-	"strings"
 )
 
 // TokenID is the type of token.
@@ -175,7 +174,7 @@ func Lookup(ident string) TokenID {
 func (tok TokenID) String() string {
 	s := ""
 	if 0 <= tok && tok < TokenID(len(tokens)) {
-		s = strings.ToUpper(tokens[tok])
+		s = tokens[tok]
 	}
 	if s == "" {
 		s = "token(" + strconv.Itoa(int(tok)) + ")"
