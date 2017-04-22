@@ -1,0 +1,21 @@
+; Bytecode program that iterates n times and prints the current iteration
+
+.i
+
+    iload 0
+    gstore i
+    goto loop_end
+loop_start:
+    gload i
+    print
+    cload "\n"
+    print
+    gload i
+    iload 1
+    add
+    gstore i
+loop_end:
+    gload i
+    iload 5
+    cmplt loop_start
+    halt
