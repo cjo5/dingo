@@ -30,6 +30,8 @@ func DumpMemory(mem DataMemory, output *os.File) {
 		s := ""
 		if tmp, ok := c.(string); ok {
 			s = strconv.Quote(tmp)
+		} else {
+			s = fmt.Sprintf("%s", c)
 		}
 		output.WriteString(fmt.Sprintf("%04d: %s <%T>\n", i, s, c))
 	}
