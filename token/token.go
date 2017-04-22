@@ -17,7 +17,7 @@ type Token struct {
 	Column  int
 }
 
-// The list of tokens.
+// List of tokens.
 //
 const (
 	ILLEGAL TokenID = iota
@@ -33,6 +33,7 @@ const (
 	literalEnd
 
 	operatorBeg
+
 	LPAREN
 	RPAREN
 	LBRACE
@@ -71,7 +72,7 @@ const (
 	LT
 	LTEQ
 
-	operatorEend
+	operatorEnd
 
 	keywordBeg
 	IF

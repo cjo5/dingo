@@ -1,8 +1,12 @@
 TODO:
 - Symbol table, declare and lookup vars
-- VM and bytecode compiler
+- VM 
+- Convert AST to IR (CFG?)
+- Compile IR to bytecode
 - Add functions
-- Comments
+- Add Comments
+- Bytecode assembler
+- Bytecode disassembler?
 - Change statement terminator from semicolon to newline
 - Statically typed or Lua?
 - Improve scanner error handling
