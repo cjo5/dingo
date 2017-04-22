@@ -12,7 +12,7 @@ type Instruction struct {
 	arg1 int
 }
 
-// List of opcodes
+// List of opcodes.
 const (
 	opArg0Start Opcode = iota
 
@@ -102,12 +102,12 @@ func (in Instruction) String() string {
 	return in.Op.String()
 }
 
-// NewInstr0 creates an instruction with 0 arguments
+// NewInstr0 creates an instruction with 0 arguments.
 func NewInstr0(op Opcode) Instruction {
 	return Instruction{Op: op}
 }
 
-// NewInstr1 creates an instruction with 1 arguments
+// NewInstr1 creates an instruction with 1 argument.
 func NewInstr1(op Opcode, arg1 int) Instruction {
 	return Instruction{Op: op, arg1: arg1}
 }

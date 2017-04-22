@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/jhnl/interpreter/ast"
 	"github.com/jhnl/interpreter/parser"
@@ -61,13 +62,17 @@ func testVM() {
 	mem.Globals = make([]interface{}, 2)
 	mem.Constants = append(mem.Constants, "\n")
 
-	vm := vm.NewMachine()
+	machine := vm.NewMachine(os.Stdout)
 
-	vm.Disasm(code, mem)
-	vm.Exec(code, mem)
+	fmt.Println("Constants")
+	vm.DumpMemory(mem, os.Stdout)
+	fmt.Println("\nCode")
+	vm.Disasm(code, os.Stdout)
+	fmt.Println()
 
-	if vm.RuntimeError() {
-		vm.PrintTrace()
+	machine.Exec(code, mem)
+	if machine.RuntimeError() {
+		fmt.Println("Runtime error:", machine.Err)
 	}
 }
 

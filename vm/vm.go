@@ -13,35 +13,46 @@ type DataMemory struct {
 	Constants []interface{}
 }
 
+// VM is the execution context for a bytecode program.
 type VM struct {
 	ip       int // Instruction pointer
 	halt     bool
 	operands []interface{}
+	inited   bool
 
-	err    string
-	inited bool
+	output *os.File
+	Err    string
 }
 
-func NewMachine() *VM {
-	vm := &VM{}
-	vm.reset()
-	return vm
-}
-
-func (vm *VM) Disasm(code CodeMemory, mem DataMemory) {
-	fmt.Println("Constants")
+// DumpMemory prints the content of a program's data memory.
+func DumpMemory(mem DataMemory, output *os.File) {
 	for i, c := range mem.Constants {
 		s := ""
 		if tmp, ok := c.(string); ok {
 			s = strconv.Quote(tmp)
 		}
-		fmt.Printf("%04d: %s <%T>\n", i, s, c)
+		output.WriteString(fmt.Sprintf("%04d: %s <%T>\n", i, s, c))
 	}
-	fmt.Println("\nCode")
+}
+
+// Disasm prints a bytecode program in human-readable format.
+func Disasm(code CodeMemory, output *os.File) {
 	for i, c := range code {
-		fmt.Printf("%04x: %s\n", i, c)
+		output.WriteString(fmt.Sprintf("%04x: %s\n", i, c))
 	}
-	fmt.Println()
+}
+
+// NewMachine creates a new VM.
+func NewMachine(output *os.File) *VM {
+	vm := &VM{}
+	vm.output = output
+	vm.reset()
+	return vm
+}
+
+// RuntimeError returns true if an error occured during program execution.
+func (vm *VM) RuntimeError() bool {
+	return len(vm.Err) > 0
 }
 
 // Exec executes a bytecode program.
@@ -79,7 +90,7 @@ func (vm *VM) Exec(code CodeMemory, mem DataMemory) {
 					vm.panic(op, fmt.Sprintf("incompatible type '%T'", t))
 					break
 				}
-				os.Stdout.Write([]byte(str))
+				vm.output.WriteString(str)
 			}
 		case opBinaryStart < op && op < opBinaryEnd:
 			if arg1, arg2, ok := vm.pop2IntArgs(op); ok {
@@ -217,19 +228,11 @@ func (vm *VM) reset() {
 	vm.ip = 0
 	vm.halt = false
 	vm.operands = nil
-	vm.err = ""
 	vm.inited = true
+	vm.Err = ""
 }
 
 func (vm *VM) panic(op Opcode, msg string) {
-	vm.err = fmt.Sprintf("%s: %s", op, msg)
+	vm.Err = fmt.Sprintf("%s: %s", op, msg)
 	vm.halt = true
-}
-
-func (vm *VM) RuntimeError() bool {
-	return len(vm.err) > 0
-}
-
-func (vm *VM) PrintTrace() {
-	fmt.Println("Runtime error:", vm.err)
 }
