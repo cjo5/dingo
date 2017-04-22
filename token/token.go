@@ -138,7 +138,7 @@ var tokens = [...]string{
 	GT:   ">",
 	GTEQ: ">=",
 	LT:   "<",
-	LTEQ: ">=",
+	LTEQ: "<=",
 
 	IF:       "if",
 	ELSE:     "else",

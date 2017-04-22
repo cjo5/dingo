@@ -40,22 +40,30 @@ func testVM() {
 	var code vm.CodeMemory
 	var mem vm.DataMemory
 
-	code = append(code, vm.NewInstr1(vm.CPUSH, 1))
-	code = append(code, vm.NewInstr0(vm.PRINT))
-	code = append(code, vm.NewInstr1(vm.CPUSH, 0))
-	code = append(code, vm.NewInstr0(vm.PRINT))
+	loopVarAddress := 0
+	iterCount := 9
 
-	code = append(code, vm.NewInstr1(vm.IPUSH, 5))
-	code = append(code, vm.NewInstr1(vm.IPUSH, 2))
-	code = append(code, vm.NewInstr0(vm.BINARY_SUB))
+	code = append(code, vm.NewInstr1(vm.ILOAD, 0))
+	code = append(code, vm.NewInstr1(vm.GSTORE, loopVarAddress))
+	code = append(code, vm.NewInstr1(vm.GOTO, 11))
+	code = append(code, vm.NewInstr1(vm.GLOAD, loopVarAddress)) // Address of loop_start
 	code = append(code, vm.NewInstr0(vm.PRINT))
-	code = append(code, vm.NewInstr1(vm.CPUSH, 0))
+	code = append(code, vm.NewInstr1(vm.CLOAD, 0))
 	code = append(code, vm.NewInstr0(vm.PRINT))
+	code = append(code, vm.NewInstr1(vm.GLOAD, loopVarAddress))
+	code = append(code, vm.NewInstr1(vm.ILOAD, 1))
+	code = append(code, vm.NewInstr0(vm.BINARY_ADD))
+	code = append(code, vm.NewInstr1(vm.GSTORE, loopVarAddress))
+	code = append(code, vm.NewInstr1(vm.GLOAD, loopVarAddress)) // Address of loop_end
+	code = append(code, vm.NewInstr1(vm.ILOAD, iterCount))
+	code = append(code, vm.NewInstr1(vm.CMP_LT, 3))
 
+	mem.Globals = make([]interface{}, 2)
 	mem.Constants = append(mem.Constants, "\n")
-	mem.Constants = append(mem.Constants, "hello world")
 
 	vm := vm.NewMachine()
+
+	vm.Disasm(code, mem)
 	vm.Exec(code, mem)
 
 	if vm.RuntimeError() {

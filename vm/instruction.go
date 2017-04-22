@@ -18,25 +18,43 @@ const (
 
 	NOP
 	HALT
+	DUP
 	PRINT
 
+	opBinaryStart
 	BINARY_ADD
 	BINARY_SUB
 	BINARY_MUL
 	BINARY_DIV
 	BINARY_MOD
+	opBinaryEnd
 
 	opArg0End
 
 	opArg1Start
-	IPUSH // Immediate push
-	CPUSH // Constant push
+	ILOAD  // Push immediate
+	CLOAD  // Push constant
+	GLOAD  // Push global
+	GSTORE // Pop and store global
+
+	// Branch opcodes
+	GOTO
+	opCmpStart
+	CMP_EQ
+	CMP_NE
+	CMP_GT
+	CMP_GE
+	CMP_LT
+	CMP_LE
+	opCmpEnd
+
 	opArg1End
 )
 
 var mnemonics = [...]string{
 	NOP:   "nop",
 	HALT:  "halt",
+	DUP:   "dup",
 	PRINT: "print",
 
 	BINARY_ADD: "add",
@@ -45,8 +63,17 @@ var mnemonics = [...]string{
 	BINARY_DIV: "div",
 	BINARY_MOD: "mod",
 
-	IPUSH: "ipush",
-	CPUSH: "cpush",
+	ILOAD:  "iload",
+	CLOAD:  "cload",
+	GLOAD:  "gload",
+	GSTORE: "gstore",
+
+	GOTO:   "goto",
+	CMP_EQ: "cmpeq",
+	CMP_NE: "cmpne",
+	CMP_GT: "cmpgt",
+	CMP_LT: "cmplt",
+	CMP_LE: "cmple",
 }
 
 func (op Opcode) String() string {
@@ -70,7 +97,7 @@ func (op Opcode) ArgCount() int {
 
 func (in Instruction) String() string {
 	if in.Op.ArgCount() == 1 {
-		return fmt.Sprintf("%s %d", in.Op, in.arg1)
+		return fmt.Sprintf("%s 0x%x", in.Op, in.arg1)
 	}
 	return in.Op.String()
 }
