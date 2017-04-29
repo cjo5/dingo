@@ -13,10 +13,11 @@ type printer struct {
 	level  int
 }
 
+// Print walks the ast in pre-order and generates a text representation of it.
 func Print(n Node) string {
 	p := &printer{}
 
-	n.Accept(p)
+	p.walk(n)
 	return p.buffer.String()
 }
 
@@ -53,95 +54,126 @@ func (p *printer) printToken(tok token.Token) {
 	p.printf("[%v]", tok)
 }
 
-func (p *printer) visitModule(mod *Module) {
+func (p *printer) walk(n Node) {
+	switch t := n.(type) {
+	case *Module:
+		p.printModule(t)
+	case *BlockStmt:
+		p.printBlockStmt(t)
+	case *DeclStmt:
+		p.printDeclStmt(t)
+	case *PrintStmt:
+		p.printPrintStmt(t)
+	case *IfStmt:
+		p.printIfStmt(t)
+	case *WhileStmt:
+		p.printWhileStmt(t)
+	case *BranchStmt:
+		p.printBranchStmt(t)
+	case *ExprStmt:
+		p.printExprStmt(t)
+	case *AssignStmt:
+		p.printAssignStmt(t)
+	case *BinaryExpr:
+		p.printBinary(t)
+	case *UnaryExpr:
+		p.printUnary(t)
+	case *Literal:
+		p.printLiteral(t)
+	case *Ident:
+		p.printIdent(t)
+	}
+}
+
+func (p *printer) printModule(mod *Module) {
 	if mod.Name != nil {
 		p.printf("[module %v]", mod.Name.Name)
 	}
 	for _, s := range mod.Stmts {
-		s.Accept(p)
+		p.walk(s)
 	}
 }
 
-func (p *printer) visitBlockStmt(stmt *BlockStmt) {
+func (p *printer) printBlockStmt(stmt *BlockStmt) {
 	for _, s := range stmt.Stmts {
-		s.Accept(p)
+		p.walk(s)
 	}
 }
 
-func (p *printer) visitDeclStmt(stmt *DeclStmt) {
+func (p *printer) printDeclStmt(stmt *DeclStmt) {
 	defer dec(inc(p))
 	p.printToken(stmt.Decl)
-	stmt.Name.Accept(p)
-	stmt.X.Accept(p)
+	p.walk(stmt.Name)
+	p.walk(stmt.X)
 }
 
-func (p *printer) visitPrintStmt(stmt *PrintStmt) {
+func (p *printer) printPrintStmt(stmt *PrintStmt) {
 	defer dec(inc(p))
 	p.printToken(stmt.Print)
-	stmt.X.Accept(p)
+	p.walk(stmt.X)
 }
 
-func (p *printer) visitIfStmt(stmt *IfStmt) {
+func (p *printer) printIfStmt(stmt *IfStmt) {
 	defer dec(inc(p))
 
 	p.printToken(stmt.If)
 	p.print("COND")
-	stmt.Cond.Accept(p)
+	p.walk(stmt.Cond)
 	p.print("BODY")
-	stmt.Body.Accept(p)
+	p.walk(stmt.Body)
 
 	if stmt.Else != nil {
 		p.print("ELSE/ELIF")
-		stmt.Else.Accept(p)
+		p.walk(stmt.Else)
 	}
 }
 
-func (p *printer) visitWhileStmt(stmt *WhileStmt) {
+func (p *printer) printWhileStmt(stmt *WhileStmt) {
 	defer dec(inc(p))
 
 	p.printToken(stmt.While)
 	p.print("COND")
-	stmt.Cond.Accept(p)
+	p.walk(stmt.Cond)
 	p.print("BODY")
-	stmt.Body.Accept(p)
+	p.walk(stmt.Body)
 }
 
-func (p *printer) visitBranchStmt(stmt *BranchStmt) {
+func (p *printer) printBranchStmt(stmt *BranchStmt) {
 	defer dec(inc(p))
 	p.printToken(stmt.Tok)
 }
 
-func (p *printer) visitExprStmt(stmt *ExprStmt) {
+func (p *printer) printExprStmt(stmt *ExprStmt) {
 	defer dec(inc(p))
-	stmt.X.Accept(p)
+	p.walk(stmt.X)
 }
 
-func (p *printer) visitAssignStmt(stmt *AssignStmt) {
+func (p *printer) printAssignStmt(stmt *AssignStmt) {
 	defer dec(inc(p))
 	p.printToken(stmt.Assign)
-	stmt.Left.Accept(p)
-	stmt.Right.Accept(p)
+	p.walk(stmt.Left)
+	p.walk(stmt.Right)
 }
 
-func (p *printer) visitBinary(expr *BinaryExpr) {
+func (p *printer) printBinary(expr *BinaryExpr) {
 	defer dec(inc(p))
 	p.printToken(expr.Op)
-	expr.Left.Accept(p)
-	expr.Right.Accept(p)
+	p.walk(expr.Left)
+	p.walk(expr.Right)
 }
 
-func (p *printer) visitUnary(expr *UnaryExpr) {
+func (p *printer) printUnary(expr *UnaryExpr) {
 	defer dec(inc(p))
 	p.printToken(expr.Op)
-	expr.X.Accept(p)
+	p.walk(expr.X)
 }
 
-func (p *printer) visitLiteral(expr *Literal) {
+func (p *printer) printLiteral(expr *Literal) {
 	defer dec(inc(p))
 	p.printToken(expr.Value)
 }
 
-func (p *printer) visitIdent(expr *Ident) {
+func (p *printer) printIdent(expr *Ident) {
 	defer dec(inc(p))
 	p.printToken(expr.Name)
 }

@@ -6,8 +6,10 @@ import (
 	"strconv"
 )
 
+// CodeMemory represents a program's instructions.
 type CodeMemory []Instruction
 
+// DataMemory represents a program's globals and constants.
 type DataMemory struct {
 	Globals   []interface{}
 	Constants []interface{}
@@ -72,13 +74,13 @@ func (vm *VM) Exec(code CodeMemory, mem DataMemory) {
 		ip2 := vm.ip + 1
 
 		switch op := in.Op; {
-		case op == HALT:
+		case op == Halt:
 			vm.halt = true
-		case op == DUP:
+		case op == Dup:
 			if arg := vm.peek1Arg(op); arg != nil {
 				vm.push(arg)
 			}
-		case op == PRINT:
+		case op == Print:
 			if arg := vm.pop1Arg(op); arg != nil {
 				str := ""
 				switch t := arg.(type) {
@@ -98,34 +100,34 @@ func (vm *VM) Exec(code CodeMemory, mem DataMemory) {
 			if arg1, arg2, ok := vm.pop2IntArgs(op); ok {
 				res := 0
 				switch op {
-				case BINARY_ADD:
+				case BinaryAdd:
 					res = arg1 + arg2
-				case BINARY_SUB:
+				case BinarySub:
 					res = arg1 - arg2
-				case BINARY_MUL:
+				case BinaryMul:
 					res = arg1 * arg2
-				case BINARY_DIV:
+				case BinaryDiv:
 					res = arg1 / arg2
-				case BINARY_MOD:
+				case BinaryMod:
 					res = arg1 % arg2
 				}
 				vm.push(res)
 			}
-		case op == ILOAD:
+		case op == Iload:
 			vm.push(in.arg1)
-		case op == CLOAD:
+		case op == Cload:
 			if in.arg1 < len(mem.Constants) {
 				vm.push(mem.Constants[in.arg1])
 			} else {
 				vm.panic(op, fmt.Sprintf("index '%d' out of range", in.arg1))
 			}
-		case op == GLOAD:
+		case op == Gload:
 			if in.arg1 < len(mem.Globals) {
 				vm.push(mem.Globals[in.arg1])
 			} else {
 				vm.panic(op, fmt.Sprintf("index '%d' out of range", in.arg1))
 			}
-		case op == GSTORE:
+		case op == Gstore:
 			if arg := vm.pop1Arg(op); arg != nil {
 				if in.arg1 < len(mem.Globals) {
 					mem.Globals[in.arg1] = arg
@@ -133,32 +135,32 @@ func (vm *VM) Exec(code CodeMemory, mem DataMemory) {
 					vm.panic(op, fmt.Sprintf("index '%d' out of range", in.arg1))
 				}
 			}
-		case op == GOTO:
+		case op == Goto:
 			ip2 = in.arg1
 		case opCmpStart < op && op < opCmpEnd:
 			if arg1, arg2, ok := vm.pop2IntArgs(op); ok {
 				switch op {
-				case CMP_EQ:
+				case CmpEq:
 					if arg1 == arg2 {
 						ip2 = in.arg1
 					}
-				case CMP_NE:
+				case CmpNe:
 					if arg1 != arg2 {
 						ip2 = in.arg1
 					}
-				case CMP_GT:
+				case CmpGt:
 					if arg1 > arg2 {
 						ip2 = in.arg1
 					}
-				case CMP_GE:
+				case CmpGe:
 					if arg1 >= arg2 {
 						ip2 = in.arg1
 					}
-				case CMP_LT:
+				case CmpLt:
 					if arg1 < arg2 {
 						ip2 = in.arg1
 					}
-				case CMP_LE:
+				case CmpLe:
 					if arg1 <= arg2 {
 						ip2 = in.arg1
 					}

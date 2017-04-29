@@ -2,30 +2,10 @@ package ast
 
 import "github.com/jhnl/interpreter/token"
 
-// AstVisitor interface.
-type AstVisitor interface {
-	visitModule(mod *Module)
-
-	visitBlockStmt(stmt *BlockStmt)
-	visitDeclStmt(stmt *DeclStmt)
-	visitPrintStmt(stmt *PrintStmt)
-	visitIfStmt(stmt *IfStmt)
-	visitWhileStmt(stmt *WhileStmt)
-	visitBranchStmt(stmt *BranchStmt)
-	visitExprStmt(stmt *ExprStmt)
-	visitAssignStmt(stmt *AssignStmt)
-
-	visitBinary(expr *BinaryExpr)
-	visitUnary(expr *UnaryExpr)
-	visitLiteral(expr *Literal)
-	visitIdent(expr *Ident)
-}
-
 // Node interface.
 type Node interface {
 	First() token.Token
 	Last() token.Token
-	Accept(AstVisitor)
 }
 
 // Expr is the main interface for expression nodes.
@@ -58,8 +38,6 @@ func (m *Module) Last() token.Token {
 	}
 	return m.Name.Last()
 }
-
-func (m *Module) Accept(visitor AstVisitor) { visitor.visitModule(m) }
 
 // Stmt nodes
 
@@ -158,16 +136,6 @@ func (s *BranchStmt) stmtNode() {}
 func (s *ExprStmt) stmtNode()   {}
 func (s *AssignStmt) stmtNode() {}
 
-func (s *BadStmt) Accept(visitor AstVisitor)    {}
-func (s *BlockStmt) Accept(visitor AstVisitor)  { visitor.visitBlockStmt(s) }
-func (s *DeclStmt) Accept(visitor AstVisitor)   { visitor.visitDeclStmt(s) }
-func (s *PrintStmt) Accept(visitor AstVisitor)  { visitor.visitPrintStmt(s) }
-func (s *IfStmt) Accept(visitor AstVisitor)     { visitor.visitIfStmt(s) }
-func (s *WhileStmt) Accept(visitor AstVisitor)  { visitor.visitWhileStmt(s) }
-func (s *BranchStmt) Accept(visitor AstVisitor) { visitor.visitBranchStmt(s) }
-func (s *ExprStmt) Accept(visitor AstVisitor)   { visitor.visitExprStmt(s) }
-func (s *AssignStmt) Accept(visitor AstVisitor) { visitor.visitAssignStmt(s) }
-
 // Expr nodes
 
 type BadExpr struct {
@@ -210,12 +178,6 @@ func (x *Literal) Last() token.Token  { return x.Value }
 
 func (x *Ident) First() token.Token { return x.Name }
 func (x *Ident) Last() token.Token  { return x.Name }
-
-func (x *BadExpr) Accept(visitor AstVisitor)    {}
-func (x *BinaryExpr) Accept(visitor AstVisitor) { visitor.visitBinary(x) }
-func (x *UnaryExpr) Accept(visitor AstVisitor)  { visitor.visitUnary(x) }
-func (x *Literal) Accept(visitor AstVisitor)    { visitor.visitLiteral(x) }
-func (x *Ident) Accept(visitor AstVisitor)      { visitor.visitIdent(x) }
 
 func (x *BadExpr) exprNode()    {}
 func (x *BinaryExpr) exprNode() {}

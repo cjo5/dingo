@@ -16,64 +16,64 @@ type Instruction struct {
 const (
 	opArg0Start Opcode = iota
 
-	NOP
-	HALT
-	DUP
-	PRINT
+	Nop
+	Halt
+	Dup
+	Print
 
 	opBinaryStart
-	BINARY_ADD
-	BINARY_SUB
-	BINARY_MUL
-	BINARY_DIV
-	BINARY_MOD
+	BinaryAdd
+	BinarySub
+	BinaryMul
+	BinaryDiv
+	BinaryMod
 	opBinaryEnd
 
 	opArg0End
 
 	opArg1Start
-	ILOAD  // Push immediate
-	CLOAD  // Push constant
-	GLOAD  // Push global
-	GSTORE // Pop and store global
+	Iload  // Push immediate
+	Cload  // Push constant
+	Gload  // Push global
+	Gstore // Pop and store global
 
 	// Branch opcodes
-	GOTO
+	Goto
 	opCmpStart
-	CMP_EQ
-	CMP_NE
-	CMP_GT
-	CMP_GE
-	CMP_LT
-	CMP_LE
+	CmpEq
+	CmpNe
+	CmpGt
+	CmpGe
+	CmpLt
+	CmpLe
 	opCmpEnd
 
 	opArg1End
 )
 
 var mnemonics = [...]string{
-	NOP:   "nop",
-	HALT:  "halt",
-	DUP:   "dup",
-	PRINT: "print",
+	Nop:   "nop",
+	Halt:  "halt",
+	Dup:   "dup",
+	Print: "print",
 
-	BINARY_ADD: "add",
-	BINARY_SUB: "sub",
-	BINARY_MUL: "mul",
-	BINARY_DIV: "div",
-	BINARY_MOD: "mod",
+	BinaryAdd: "add",
+	BinarySub: "sub",
+	BinaryMul: "mul",
+	BinaryDiv: "div",
+	BinaryMod: "mod",
 
-	ILOAD:  "iload",
-	CLOAD:  "cload",
-	GLOAD:  "gload",
-	GSTORE: "gstore",
+	Iload:  "iload",
+	Cload:  "cload",
+	Gload:  "gload",
+	Gstore: "gstore",
 
-	GOTO:   "goto",
-	CMP_EQ: "cmpeq",
-	CMP_NE: "cmpne",
-	CMP_GT: "cmpgt",
-	CMP_LT: "cmplt",
-	CMP_LE: "cmple",
+	Goto:  "goto",
+	CmpEq: "cmpeq",
+	CmpNe: "cmpne",
+	CmpGt: "cmpgt",
+	CmpLt: "cmplt",
+	CmpLe: "cmple",
 }
 
 func (op Opcode) String() string {

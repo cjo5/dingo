@@ -91,11 +91,11 @@ func (p *parser) sync() {
 loop:
 	for {
 		switch p.token.ID {
-		case token.SEMICOLON: // TODO: Remove this?
+		case token.Semicolon: // TODO: Remove this?
 			break loop
-		case token.VAR, token.PRINT, token.IF, token.BREAK, token.CONTINUE:
+		case token.Var, token.Print, token.If, token.Break, token.Continue:
 			return
-		case token.EOF:
+		case token.Eof:
 			return
 		}
 		p.next()
@@ -121,21 +121,21 @@ func (p *parser) expect(id token.TokenID) bool {
 }
 
 func (p *parser) expectSemi() {
-	if !p.expect(token.SEMICOLON) {
+	if !p.expect(token.Semicolon) {
 		p.sync()
 	}
 }
 
 func (p *parser) parseModule() *ast.Module {
 	mod := &ast.Module{}
-	if p.token.ID == token.MODULE {
+	if p.token.ID == token.Module {
 		mod.Mod = p.token
-		p.expect(token.MODULE)
+		p.expect(token.Module)
 		mod.Name = p.parseIdent()
 		p.expectSemi()
 	}
 	p.openScope()
-	for p.token.ID != token.EOF {
+	for p.token.ID != token.Eof {
 		mod.Stmts = append(mod.Stmts, p.parseStmt())
 	}
 	mod.Scope = p.scope
@@ -144,22 +144,22 @@ func (p *parser) parseModule() *ast.Module {
 }
 
 func (p *parser) parseStmt() ast.Stmt {
-	if p.token.ID == token.LBRACE {
+	if p.token.ID == token.Lbrace {
 		return p.parseBlockStmt()
 	}
-	if p.token.ID == token.VAR {
+	if p.token.ID == token.Var {
 		return p.parseDeclStmt()
 	}
-	if p.token.ID == token.PRINT {
+	if p.token.ID == token.Print {
 		return p.parsePrintStmt()
 	}
-	if p.token.ID == token.IF {
+	if p.token.ID == token.If {
 		return p.parseIfStmt()
 	}
-	if p.token.ID == token.WHILE {
+	if p.token.ID == token.While {
 		return p.parseWhileStmt()
 	}
-	if p.token.ID == token.BREAK || p.token.ID == token.CONTINUE {
+	if p.token.ID == token.Break || p.token.ID == token.Continue {
 		tok := p.token
 		p.next()
 		p.expectSemi()
@@ -172,12 +172,12 @@ func (p *parser) parseBlockStmt() *ast.BlockStmt {
 	p.openScope()
 	block := &ast.BlockStmt{}
 	block.Lbrace = p.token
-	p.expect(token.LBRACE)
-	for p.token.ID != token.RBRACE && p.token.ID != token.EOF {
+	p.expect(token.Lbrace)
+	for p.token.ID != token.Rbrace && p.token.ID != token.Eof {
 		block.Stmts = append(block.Stmts, p.parseStmt())
 	}
 	block.Rbrace = p.token
-	p.expect(token.RBRACE)
+	p.expect(token.Rbrace)
 	block.Scope = p.scope
 	p.closeScope()
 	return block
@@ -188,7 +188,7 @@ func (p *parser) parseDeclStmt() *ast.DeclStmt {
 	decl.Decl = p.token
 	p.next()
 	decl.Name = p.parseIdent()
-	p.expect(token.ASSIGN)
+	p.expect(token.Assign)
 	decl.X = p.parseExpr()
 	p.expectSemi()
 	p.declare(decl)
@@ -198,7 +198,7 @@ func (p *parser) parseDeclStmt() *ast.DeclStmt {
 func (p *parser) parsePrintStmt() *ast.PrintStmt {
 	s := &ast.PrintStmt{}
 	s.Print = p.token
-	p.expect(token.PRINT)
+	p.expect(token.Print)
 	s.X = p.parseExpr()
 	p.expectSemi()
 	return s
@@ -210,9 +210,9 @@ func (p *parser) parseIfStmt() *ast.IfStmt {
 	p.next()
 	s.Cond = p.parseExpr()
 	s.Body = p.parseBlockStmt()
-	if p.token.ID == token.ELIF {
+	if p.token.ID == token.Elif {
 		s.Else = p.parseIfStmt()
-	} else if p.token.ID == token.ELSE {
+	} else if p.token.ID == token.Else {
 		p.next() // We might wanna save this token...
 		s.Else = p.parseBlockStmt()
 	}
@@ -231,8 +231,8 @@ func (p *parser) parseWhileStmt() *ast.WhileStmt {
 
 func (p *parser) parseExprStmt() ast.Stmt {
 	x := p.parseExpr()
-	if p.token.ID == token.ASSIGN || p.token.ID == token.ADD_ASSIGN || p.token.ID == token.SUB_ASSIGN ||
-		p.token.ID == token.MUL_ASSIGN || p.token.ID == token.DIV_ASSIGN || p.token.ID == token.MOD_ASSIGN {
+	if p.token.ID == token.Assign || p.token.ID == token.AddAssign || p.token.ID == token.SubAssign ||
+		p.token.ID == token.MulAssign || p.token.ID == token.DivAssign || p.token.ID == token.ModAssign {
 		assign := p.token
 		p.next()
 		rhs := p.parseExpr()
@@ -249,7 +249,7 @@ func (p *parser) parseExpr() ast.Expr {
 
 func (p *parser) parseLogicalOr() ast.Expr {
 	expr := p.parseLogicalAnd()
-	for p.token.ID == token.LOR {
+	for p.token.ID == token.Lor {
 		op := p.token
 		p.next()
 		right := p.parseLogicalAnd()
@@ -260,7 +260,7 @@ func (p *parser) parseLogicalOr() ast.Expr {
 
 func (p *parser) parseLogicalAnd() ast.Expr {
 	expr := p.parseEquality()
-	for p.token.ID == token.LAND {
+	for p.token.ID == token.Land {
 		op := p.token
 		p.next()
 		right := p.parseEquality()
@@ -271,7 +271,7 @@ func (p *parser) parseLogicalAnd() ast.Expr {
 
 func (p *parser) parseEquality() ast.Expr {
 	expr := p.parseComparison()
-	for p.token.ID == token.EQ || p.token.ID == token.NEQ {
+	for p.token.ID == token.Eq || p.token.ID == token.Neq {
 		op := p.token
 		p.next()
 		right := p.parseComparison()
@@ -282,8 +282,8 @@ func (p *parser) parseEquality() ast.Expr {
 
 func (p *parser) parseComparison() ast.Expr {
 	expr := p.parseTerm()
-	for p.token.ID == token.GT || p.token.ID == token.GTEQ ||
-		p.token.ID == token.LT || p.token.ID == token.LTEQ {
+	for p.token.ID == token.Gt || p.token.ID == token.Gteq ||
+		p.token.ID == token.Lt || p.token.ID == token.Lteq {
 		op := p.token
 		p.next()
 		right := p.parseTerm()
@@ -294,7 +294,7 @@ func (p *parser) parseComparison() ast.Expr {
 
 func (p *parser) parseTerm() ast.Expr {
 	expr := p.parseFactor()
-	for p.token.ID == token.ADD || p.token.ID == token.SUB {
+	for p.token.ID == token.Add || p.token.ID == token.Sub {
 		op := p.token
 		p.next()
 		right := p.parseFactor()
@@ -305,7 +305,7 @@ func (p *parser) parseTerm() ast.Expr {
 
 func (p *parser) parseFactor() ast.Expr {
 	expr := p.parseUnary()
-	for p.token.ID == token.MUL || p.token.ID == token.DIV || p.token.ID == token.MOD {
+	for p.token.ID == token.Mul || p.token.ID == token.Div || p.token.ID == token.Mod {
 		op := p.token
 		p.next()
 		right := p.parseUnary()
@@ -315,7 +315,7 @@ func (p *parser) parseFactor() ast.Expr {
 }
 
 func (p *parser) parseUnary() ast.Expr {
-	if p.token.ID == token.SUB || p.token.ID == token.LNOT {
+	if p.token.ID == token.Sub || p.token.ID == token.Lnot {
 		op := p.token
 		p.next()
 		x := p.parseUnary()
@@ -326,18 +326,18 @@ func (p *parser) parseUnary() ast.Expr {
 
 func (p *parser) parsePrimary() ast.Expr {
 	switch p.token.ID {
-	case token.INT, token.STRING, token.TRUE, token.FALSE:
+	case token.Int, token.String, token.True, token.False:
 		tok := p.token
 		p.next()
 		return &ast.Literal{Value: tok}
-	case token.IDENT:
+	case token.Ident:
 		ident := p.parseIdent()
 		p.resolve(ident.Name) // TODO: cleanup?
 		return ident
-	case token.LPAREN:
+	case token.Lparen:
 		p.next()
 		x := p.parseExpr()
-		p.expect(token.RPAREN)
+		p.expect(token.Rparen)
 		return x
 	default:
 		// TODO: Sync?
@@ -350,6 +350,6 @@ func (p *parser) parsePrimary() ast.Expr {
 
 func (p *parser) parseIdent() *ast.Ident {
 	tok := p.token
-	p.expect(token.IDENT)
+	p.expect(token.Ident)
 	return &ast.Ident{Name: tok}
 }

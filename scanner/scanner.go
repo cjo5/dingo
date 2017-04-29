@@ -43,98 +43,98 @@ func (s *Scanner) Scan() (token.Token, *string) {
 		tok.ID, tok.Literal = s.scanNumber()
 	case ch1 == '"':
 		tok.Literal, errMsg = s.scanString()
-		tok.ID = token.STRING
+		tok.ID = token.String
 	default:
 		s.next()
 		ch2 := s.ch
 
 		switch ch1 {
 		case -1:
-			tok.ID = token.EOF
+			tok.ID = token.Eof
 		case '(':
-			tok.ID = token.LPAREN
+			tok.ID = token.Lparen
 		case ')':
-			tok.ID = token.RPAREN
+			tok.ID = token.Rparen
 		case '{':
-			tok.ID = token.LBRACE
+			tok.ID = token.Lbrace
 		case '}':
-			tok.ID = token.RBRACE
+			tok.ID = token.Rbrace
 		case '.':
-			tok.ID = token.DOT
+			tok.ID = token.Dot
 		case ',':
-			tok.ID = token.COMMA
+			tok.ID = token.Comma
 		case ';':
-			tok.ID = token.SEMICOLON
+			tok.ID = token.Semicolon
 		case ':':
-			tok.ID = token.COMMA
+			tok.ID = token.Colon
 		case '+':
-			tok.ID = token.ADD
+			tok.ID = token.Add
 			if ch2 == '=' {
 				s.next()
-				tok.ID = token.ADD_ASSIGN
+				tok.ID = token.AddAssign
 			}
 		case '-':
-			tok.ID = token.SUB
+			tok.ID = token.Sub
 			if ch2 == '=' {
 				s.next()
-				tok.ID = token.SUB_ASSIGN
+				tok.ID = token.SubAssign
 			}
 		case '*':
-			tok.ID = token.MUL
+			tok.ID = token.Mul
 			if ch2 == '=' {
 				s.next()
-				tok.ID = token.MUL_ASSIGN
+				tok.ID = token.MulAssign
 			}
 		case '/':
-			tok.ID = token.DIV
+			tok.ID = token.Div
 			if ch2 == '=' {
 				s.next()
-				tok.ID = token.DIV_ASSIGN
+				tok.ID = token.DivAssign
 			}
 		case '%':
-			tok.ID = token.MOD
+			tok.ID = token.Mod
 			if ch2 == '=' {
 				s.next()
-				tok.ID = token.MOD_ASSIGN
+				tok.ID = token.ModAssign
 			}
 		case '=':
-			tok.ID = token.ASSIGN
+			tok.ID = token.Assign
 			if ch2 == '=' {
 				s.next()
-				tok.ID = token.EQ
+				tok.ID = token.Eq
 			}
 		case '&':
-			tok.ID = token.AND
+			tok.ID = token.And
 			if ch2 == '&' {
 				s.next()
-				tok.ID = token.LAND
+				tok.ID = token.Land
 			}
 		case '|':
-			tok.ID = token.OR
+			tok.ID = token.Or
 			if ch2 == '|' {
 				s.next()
-				tok.ID = token.LOR
+				tok.ID = token.Lor
 			}
 		case '!':
-			tok.ID = token.LNOT
+			tok.ID = token.Lnot
 			if ch2 == '=' {
 				s.next()
-				tok.ID = token.NEQ
+				tok.ID = token.Neq
 			}
 		case '>':
-			tok.ID = token.GT
+			tok.ID = token.Gt
 			if ch2 == '=' {
 				s.next()
-				tok.ID = token.GTEQ
+				tok.ID = token.Gteq
 			}
 		case '<':
-			tok.ID = token.LT
+			tok.ID = token.Lt
 			if ch2 == '=' {
 				s.next()
-				tok.ID = token.LTEQ
+				tok.ID = token.Lteq
 			}
 		default:
-			tok.ID = token.ILLEGAL
+			tok.ID = token.Illegal
 		}
 
 		tok.Literal = string(s.src[startOffset:s.chOffset])
@@ -188,7 +188,7 @@ func (s *Scanner) scanIdent() (token.TokenID, string) {
 	}
 
 	lit := string(s.src[startOffset:s.chOffset])
-	tok := token.IDENT
+	tok := token.Ident
 
 	if len(lit) > 1 {
 		tok = token.Lookup(lit)
@@ -205,7 +205,7 @@ func (s *Scanner) scanNumber() (token.TokenID, string) {
 		s.next()
 	}
 
-	return token.INT, string(s.src[startOffset:s.chOffset])
+	return token.Int, string(s.src[startOffset:s.chOffset])
 }
 
 func (s *Scanner) scanString() (string, string) {

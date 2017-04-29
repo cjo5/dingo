@@ -13,7 +13,7 @@ import (
 func testParse() {
 	//src := []byte("-6*2+2;")
 
-	tree, err := parser.ParseFile("scripts/test1.nerd")
+	tree, err := parser.ParseFile("examples/test1.lang")
 	if err != nil {
 		printed := false
 		if errList, ok := err.(scanner.ErrorList); ok {
@@ -44,20 +44,20 @@ func testVM() {
 	loopVarAddress := 0
 	iterCount := 9
 
-	code = append(code, vm.NewInstr1(vm.ILOAD, 0))
-	code = append(code, vm.NewInstr1(vm.GSTORE, loopVarAddress))
-	code = append(code, vm.NewInstr1(vm.GOTO, 11))
-	code = append(code, vm.NewInstr1(vm.GLOAD, loopVarAddress)) // Address of loop_start
-	code = append(code, vm.NewInstr0(vm.PRINT))
-	code = append(code, vm.NewInstr1(vm.CLOAD, 0))
-	code = append(code, vm.NewInstr0(vm.PRINT))
-	code = append(code, vm.NewInstr1(vm.GLOAD, loopVarAddress))
-	code = append(code, vm.NewInstr1(vm.ILOAD, 1))
-	code = append(code, vm.NewInstr0(vm.BINARY_ADD))
-	code = append(code, vm.NewInstr1(vm.GSTORE, loopVarAddress))
-	code = append(code, vm.NewInstr1(vm.GLOAD, loopVarAddress)) // Address of loop_end
-	code = append(code, vm.NewInstr1(vm.ILOAD, iterCount))
-	code = append(code, vm.NewInstr1(vm.CMP_LT, 3))
+	code = append(code, vm.NewInstr1(vm.Iload, 0))
+	code = append(code, vm.NewInstr1(vm.Gstore, loopVarAddress))
+	code = append(code, vm.NewInstr1(vm.Goto, 11))
+	code = append(code, vm.NewInstr1(vm.Gload, loopVarAddress)) // Address of loop_start
+	code = append(code, vm.NewInstr0(vm.Print))
+	code = append(code, vm.NewInstr1(vm.Cload, 0))
+	code = append(code, vm.NewInstr0(vm.Print))
+	code = append(code, vm.NewInstr1(vm.Gload, loopVarAddress))
+	code = append(code, vm.NewInstr1(vm.Iload, 1))
+	code = append(code, vm.NewInstr0(vm.BinaryAdd))
+	code = append(code, vm.NewInstr1(vm.Gstore, loopVarAddress))
+	code = append(code, vm.NewInstr1(vm.Gload, loopVarAddress)) // Address of loop_end
+	code = append(code, vm.NewInstr1(vm.Iload, iterCount))
+	code = append(code, vm.NewInstr1(vm.CmpLt, 3))
 
 	mem.Globals = make([]interface{}, 2)
 	mem.Constants = append(mem.Constants, "\n")
@@ -77,6 +77,6 @@ func testVM() {
 }
 
 func main() {
-	//testParse()
-	testVM()
+	testParse()
+	//testVM()
 }

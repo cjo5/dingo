@@ -20,138 +20,138 @@ type Token struct {
 // List of tokens.
 //
 const (
-	ILLEGAL TokenID = iota
-	EOF
-	COMMENT
+	Illegal TokenID = iota
+	Eof
+	Comment
 
 	literalBeg
-	IDENT
-	INT
-	FLOAT
-	STRING
-	CHAR
+	Ident
+	Int
+	Float
+	String
+	Char
 	literalEnd
 
 	operatorBeg
 
-	LPAREN
-	RPAREN
-	LBRACE
-	RBRACE
-	LBRACK
-	RBRACK
-	DOT
-	COMMA
-	SEMICOLON
-	COLON
+	Lparen
+	Rparen
+	Lbrace
+	Rbrace
+	Lbrack
+	Rbrack
+	Dot
+	Comma
+	Semicolon
+	Colon
 
-	AND
-	OR
+	And
+	Or
 
-	ADD
-	SUB
-	MUL
-	DIV
-	MOD
+	Add
+	Sub
+	Mul
+	Div
+	Mod
 
-	ASSIGN
-	ADD_ASSIGN
-	SUB_ASSIGN
-	MUL_ASSIGN
-	DIV_ASSIGN
-	MOD_ASSIGN
+	Assign
+	AddAssign
+	SubAssign
+	MulAssign
+	DivAssign
+	ModAssign
 
-	LAND
-	LOR
-	LNOT
+	Land
+	Lor
+	Lnot
 
-	EQ
-	NEQ
-	GT
-	GTEQ
-	LT
-	LTEQ
+	Eq
+	Neq
+	Gt
+	Gteq
+	Lt
+	Lteq
 
 	operatorEnd
 
 	keywordBeg
-	IF
-	ELSE
-	ELIF
-	FOR
-	WHILE
-	CONTINUE
-	BREAK
-	PRINT
-	MODULE
-	VAR
+	If
+	Else
+	Elif
+	For
+	While
+	Continue
+	Break
+	Print
+	Module
+	Var
 	// TODO: true and false should be builtin types instead of keywords
-	TRUE
-	FALSE
+	True
+	False
 	keywordEnd
 )
 
 var tokens = [...]string{
-	ILLEGAL: "ILLEGAL",
-	EOF:     "eof",
-	COMMENT: "comment",
+	Illegal: "ILLEGAL",
+	Eof:     "eof",
+	Comment: "comment",
 
-	IDENT:  "ident",
-	INT:    "int",
-	FLOAT:  "float",
-	STRING: "string",
-	CHAR:   "char",
+	Ident:  "ident",
+	Int:    "int",
+	Float:  "float",
+	String: "string",
+	Char:   "char",
 
-	LPAREN:    "(",
-	RPAREN:    ")",
-	LBRACE:    "{",
-	RBRACE:    "}",
-	LBRACK:    "[",
-	RBRACK:    "]",
-	DOT:       ".",
-	COMMA:     ",",
-	SEMICOLON: ";",
-	COLON:     ":",
+	Lparen:    "(",
+	Rparen:    ")",
+	Lbrace:    "{",
+	Rbrace:    "}",
+	Lbrack:    "[",
+	Rbrack:    "]",
+	Dot:       ".",
+	Comma:     ",",
+	Semicolon: ";",
+	Colon:     ":",
 
-	ADD: "+",
-	SUB: "-",
-	MUL: "*",
-	DIV: "/",
-	MOD: "%",
+	Add: "+",
+	Sub: "-",
+	Mul: "*",
+	Div: "/",
+	Mod: "%",
 
-	ASSIGN:     "=",
-	ADD_ASSIGN: "+=",
-	SUB_ASSIGN: "-=",
-	MUL_ASSIGN: "*=",
-	DIV_ASSIGN: "/=",
-	MOD_ASSIGN: "%=",
+	Assign:    "=",
+	AddAssign: "+=",
+	SubAssign: "-=",
+	MulAssign: "*=",
+	DivAssign: "/=",
+	ModAssign: "%=",
 
-	AND: "&",
-	OR:  "|",
+	And: "&",
+	Or:  "|",
 
-	LAND: "&&",
-	LOR:  "||",
-	LNOT: "!",
+	Land: "&&",
+	Lor:  "||",
+	Lnot: "!",
 
-	EQ:   "==",
-	NEQ:  "!=",
-	GT:   ">",
-	GTEQ: ">=",
-	LT:   "<",
-	LTEQ: "<=",
+	Eq:   "==",
+	Neq:  "!=",
+	Gt:   ">",
+	Gteq: ">=",
+	Lt:   "<",
+	Lteq: "<=",
 
-	IF:       "if",
-	ELSE:     "else",
-	ELIF:     "elif",
-	FOR:      "for",
-	WHILE:    "while",
-	CONTINUE: "continue",
-	BREAK:    "break",
-	PRINT:    "print",
-	MODULE:   "module",
-	VAR:      "var",
-	TRUE:     "true",
-	FALSE:    "false",
+	If:       "if",
+	Else:     "else",
+	Elif:     "elif",
+	For:      "for",
+	While:    "while",
+	Continue: "continue",
+	Break:    "break",
+	Print:    "print",
+	Module:   "module",
+	Var:      "var",
+	True:     "true",
+	False:    "false",
 }
 
 var keywords map[string]TokenID
@@ -169,7 +169,7 @@ func Lookup(ident string) TokenID {
 	if tok, ok := keywords[ident]; ok {
 		return tok
 	}
-	return IDENT
+	return Ident
 }
 
 func (tok TokenID) String() string {
@@ -185,7 +185,7 @@ func (tok TokenID) String() string {
 
 func (t Token) String() string {
 	s := fmt.Sprintf("%d:%d: %v", t.Line, t.Column, t.ID)
-	if t.ID == IDENT || t.ID == STRING || t.ID == INT {
+	if t.ID == Ident || t.ID == String || t.ID == Int {
 		s += ":" + t.Literal
 	}
 	return s
