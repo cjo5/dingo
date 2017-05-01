@@ -9,3 +9,5 @@ if x < 5 {
 } else {
     print "bigger than or equal to 10";
 }
+
+print "\n";

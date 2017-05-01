@@ -301,8 +301,8 @@ func (c *compiler) compileUnaryExpr(expr *ast.UnaryExpr) {
 
 func (c *compiler) compileLiteral(lit *ast.Literal) {
 	if lit.Value.ID == token.String {
-		// TODO: Format string, remove quotes, fix newlines etc...
-		addr := c.defineConstant(lit.Value.Literal)
+		s := c.unescapeString(lit.Value.Literal)
+		addr := c.defineConstant(s)
 		c.currBlock.addInstr1(vm.Cload, addr)
 	} else if lit.Value.ID == token.Int {
 		val, _ := strconv.Atoi(lit.Value.Literal)
@@ -312,6 +312,53 @@ func (c *compiler) compileLiteral(lit *ast.Literal) {
 	} else if lit.Value.ID == token.False {
 		c.currBlock.addInstr1(vm.Iload, 0)
 	}
+}
+
+func (c *compiler) unescapeString(literal string) string {
+	// TODO:
+	// - Should this be done some place else?
+	// - Improve rune handling
+
+	escaped := []rune(literal)
+	var unescaped []rune
+
+	start := 0
+	n := len(escaped)
+
+	// Remove quotes
+	if n >= 2 {
+		start++
+		n--
+	}
+
+	for i := start; i < n; i++ {
+		ch1 := escaped[i]
+		if ch1 == '\\' && (i+1) < len(escaped) {
+			i++
+			ch2 := escaped[i]
+
+			if ch2 == 'a' {
+				ch1 = 0x07
+			} else if ch2 == 'b' {
+				ch1 = 0x08
+			} else if ch2 == 'f' {
+				ch1 = 0x0c
+			} else if ch2 == 'n' {
+				ch1 = 0x0a
+			} else if ch2 == 'r' {
+				ch1 = 0x0d
+			} else if ch2 == 't' {
+				ch1 = 0x09
+			} else if ch2 == 'v' {
+				ch1 = 0x0b
+			} else {
+				ch1 = ch2
+			}
+		}
+		unescaped = append(unescaped, ch1)
+	}
+
+	return string(unescaped)
 }
 
 func (c *compiler) compileIdent(id *ast.Ident) {
