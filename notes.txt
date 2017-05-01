@@ -1,12 +1,11 @@
-TODO:
-- Symbol table, declare and lookup vars
-- VM 
-- Convert AST to IR (CFG?)
-- Compile IR to bytecode
+TODO (in no particular order):
 - Add functions
 - Add Comments
-- Bytecode disassembler
+- Add floats
+- Semantic analysis
 - Change statement terminator from semicolon to newline
+- Bytecode assembler
+- Offset jumps
 - Statically typed or Lua?
 - Improve scanner error handling
 - Improve parser error handling

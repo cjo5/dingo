@@ -70,8 +70,6 @@ func (p *printer) walk(n Node) {
 		p.printWhileStmt(t)
 	case *BranchStmt:
 		p.printBranchStmt(t)
-	case *ExprStmt:
-		p.printExprStmt(t)
 	case *AssignStmt:
 		p.printAssignStmt(t)
 	case *BinaryExpr:
@@ -95,6 +93,8 @@ func (p *printer) printModule(mod *Module) {
 }
 
 func (p *printer) printBlockStmt(stmt *BlockStmt) {
+	defer dec(inc(p))
+	p.print("BLOCK")
 	for _, s := range stmt.Stmts {
 		p.walk(s)
 	}
@@ -119,7 +119,6 @@ func (p *printer) printIfStmt(stmt *IfStmt) {
 	p.printToken(stmt.If)
 	p.print("COND")
 	p.walk(stmt.Cond)
-	p.print("BODY")
 	p.walk(stmt.Body)
 
 	if stmt.Else != nil {
@@ -134,7 +133,6 @@ func (p *printer) printWhileStmt(stmt *WhileStmt) {
 	p.printToken(stmt.While)
 	p.print("COND")
 	p.walk(stmt.Cond)
-	p.print("BODY")
 	p.walk(stmt.Body)
 }
 
@@ -143,15 +141,10 @@ func (p *printer) printBranchStmt(stmt *BranchStmt) {
 	p.printToken(stmt.Tok)
 }
 
-func (p *printer) printExprStmt(stmt *ExprStmt) {
-	defer dec(inc(p))
-	p.walk(stmt.X)
-}
-
 func (p *printer) printAssignStmt(stmt *AssignStmt) {
 	defer dec(inc(p))
 	p.printToken(stmt.Assign)
-	p.walk(stmt.Left)
+	p.walk(stmt.ID)
 	p.walk(stmt.Right)
 }
 

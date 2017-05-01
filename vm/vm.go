@@ -27,13 +27,13 @@ type VM struct {
 }
 
 // DumpMemory prints the content of a program's data memory.
-func DumpMemory(mem DataMemory, output *os.File) {
-	for i, c := range mem.Constants {
+func DumpMemory(mem []interface{}, output *os.File) {
+	for i, c := range mem {
 		s := ""
 		if tmp, ok := c.(string); ok {
 			s = strconv.Quote(tmp)
 		} else {
-			s = fmt.Sprintf("%s", c)
+			s = fmt.Sprintf("%v", c)
 		}
 		output.WriteString(fmt.Sprintf("%04d: %s <%T>\n", i, s, c))
 	}
@@ -110,60 +110,67 @@ func (vm *VM) Exec(code CodeMemory, mem DataMemory) {
 					res = arg1 / arg2
 				case BinaryMod:
 					res = arg1 % arg2
+				case CmpEq:
+					if arg1 == arg2 {
+						res = 1
+					}
+				case CmpNe:
+					if arg1 != arg2 {
+						res = 1
+					}
+				case CmpGt:
+					if arg1 > arg2 {
+						res = 1
+					}
+				case CmpGe:
+					if arg1 >= arg2 {
+						res = 1
+					}
+				case CmpLt:
+					if arg1 < arg2 {
+						res = 1
+					}
+				case CmpLe:
+					if arg1 <= arg2 {
+						res = 1
+					}
 				}
 				vm.push(res)
 			}
 		case op == Iload:
-			vm.push(in.arg1)
+			vm.push(in.Arg1)
 		case op == Cload:
-			if in.arg1 < len(mem.Constants) {
-				vm.push(mem.Constants[in.arg1])
+			if in.Arg1 < len(mem.Constants) {
+				vm.push(mem.Constants[in.Arg1])
 			} else {
-				vm.panic(op, fmt.Sprintf("index '%d' out of range", in.arg1))
+				vm.panic(op, fmt.Sprintf("index '%d' out of range", in.Arg1))
 			}
 		case op == Gload:
-			if in.arg1 < len(mem.Globals) {
-				vm.push(mem.Globals[in.arg1])
+			if in.Arg1 < len(mem.Globals) {
+				vm.push(mem.Globals[in.Arg1])
 			} else {
-				vm.panic(op, fmt.Sprintf("index '%d' out of range", in.arg1))
+				vm.panic(op, fmt.Sprintf("index '%d' out of range", in.Arg1))
 			}
 		case op == Gstore:
 			if arg := vm.pop1Arg(op); arg != nil {
-				if in.arg1 < len(mem.Globals) {
-					mem.Globals[in.arg1] = arg
+				if in.Arg1 < len(mem.Globals) {
+					mem.Globals[in.Arg1] = arg
 				} else {
-					vm.panic(op, fmt.Sprintf("index '%d' out of range", in.arg1))
+					vm.panic(op, fmt.Sprintf("index '%d' out of range", in.Arg1))
 				}
 			}
 		case op == Goto:
-			ip2 = in.arg1
-		case opCmpStart < op && op < opCmpEnd:
-			if arg1, arg2, ok := vm.pop2IntArgs(op); ok {
-				switch op {
-				case CmpEq:
-					if arg1 == arg2 {
-						ip2 = in.arg1
-					}
-				case CmpNe:
-					if arg1 != arg2 {
-						ip2 = in.arg1
-					}
-				case CmpGt:
-					if arg1 > arg2 {
-						ip2 = in.arg1
-					}
-				case CmpGe:
-					if arg1 >= arg2 {
-						ip2 = in.arg1
-					}
-				case CmpLt:
-					if arg1 < arg2 {
-						ip2 = in.arg1
-					}
-				case CmpLe:
-					if arg1 <= arg2 {
-						ip2 = in.arg1
-					}
+			ip2 = in.Arg1
+		case op == IfFalse:
+			if arg, ok := vm.pop1IntArg(op); ok {
+				if arg == 0 {
+					ip2 = in.Arg1
+				}
+			}
+		case op == IfTrue:
+			if arg, ok := vm.pop1IntArg(op); ok {
+				if arg != 0 {
+					ip2 = in.Arg1
 				}
 			}
 		}
@@ -187,6 +194,19 @@ func (vm *VM) pop2IntArgs(op Opcode) (int, int, bool) {
 		return 0, 0, false
 	}
 	return arg1Int, arg2Int, true
+}
+
+func (vm *VM) pop1IntArg(op Opcode) (int, bool) {
+	arg := vm.pop1Arg(op)
+	if arg == nil {
+		return 0, false
+	}
+	argInt, ok := arg.(int)
+	if !ok {
+		vm.panic(op, fmt.Sprintf("incompatible type '%T'", arg))
+		return 0, false
+	}
+	return argInt, true
 }
 
 func (vm *VM) pop1Arg(op Opcode) interface{} {

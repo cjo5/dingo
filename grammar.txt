@@ -8,7 +8,7 @@ stmt = blockStmt | declStmt | printStmt | ifStmt | whileStmt | 'break' ';' | 'co
 blockStmt = '{' stmt* '}'
 declStmt = 'var' IDENT '=' expr ';'
 printStmt = 'print' expr ';'
-exprStmt = expr [('=' | '+=' | '-=' | '*=' | '/=' | '%=' ) expr] ';'
+assignStmt = IDENT ('=' | '+=' | '-=' | '*=' | '/=' | '%=' ) expr ';'
 ifStmt = 'if' expr blockStmt {'elif' expr blockStmt} ['else' blockStmt]
 whileStmt = 'while' '{' stmt* '}'
 

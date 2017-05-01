@@ -1,4 +1,4 @@
-package scanner
+package parser
 
 import "github.com/jhnl/interpreter/token"
 
@@ -125,13 +125,13 @@ func (s *Scanner) Scan() (token.Token, *string) {
 			tok.ID = token.Gt
 			if ch2 == '=' {
 				s.next()
-				tok.ID = token.Gteq
+				tok.ID = token.GtEq
 			}
 		case '<':
 			tok.ID = token.Lt
 			if ch2 == '=' {
 				s.next()
-				tok.ID = token.Lteq
+				tok.ID = token.LtEq
 			}
 		default:
 			tok.ID = token.Illegal

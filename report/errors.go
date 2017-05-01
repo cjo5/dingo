@@ -1,4 +1,4 @@
-package scanner
+package report
 
 import (
 	"fmt"

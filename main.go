@@ -5,18 +5,18 @@ import (
 	"os"
 
 	"github.com/jhnl/interpreter/ast"
+	"github.com/jhnl/interpreter/gen"
 	"github.com/jhnl/interpreter/parser"
-	"github.com/jhnl/interpreter/scanner"
+	"github.com/jhnl/interpreter/report"
 	"github.com/jhnl/interpreter/vm"
 )
 
-func testParse() {
-	//src := []byte("-6*2+2;")
+func exec(filename string) {
+	tree, err := parser.ParseFile(filename)
 
-	tree, err := parser.ParseFile("examples/test1.lang")
 	if err != nil {
 		printed := false
-		if errList, ok := err.(scanner.ErrorList); ok {
+		if errList, ok := err.(report.ErrorList); ok {
 			if len(errList) > 1 {
 				fmt.Println("Errors:")
 				for idx, e := range errList {
@@ -25,16 +25,28 @@ func testParse() {
 				printed = true
 			}
 		}
-
 		if !printed {
 			fmt.Println("Error:", err)
 		}
-
 		return
 	}
 
-	s := ast.Print(tree)
-	fmt.Println(s)
+	fmt.Println(ast.Print(tree))
+	code, mem := gen.Compile(tree)
+
+	fmt.Printf("Constants (%d):\n", len(mem.Constants))
+	vm.DumpMemory(mem.Constants, os.Stdout)
+	fmt.Printf("Globals (%d):\n", len(mem.Globals))
+	vm.DumpMemory(mem.Globals, os.Stdout)
+	fmt.Printf("\nCode (%d):\n", len(code))
+	vm.Disasm(code, os.Stdout)
+	fmt.Println()
+
+	machine := vm.NewMachine(os.Stdout)
+	machine.Exec(code, mem)
+	if machine.RuntimeError() {
+		fmt.Println("Runtime error:", machine.Err)
+	}
 }
 
 func testVM() {
@@ -65,7 +77,7 @@ func testVM() {
 	machine := vm.NewMachine(os.Stdout)
 
 	fmt.Println("Constants")
-	vm.DumpMemory(mem, os.Stdout)
+	vm.DumpMemory(mem.Constants, os.Stdout)
 	fmt.Println("\nCode")
 	vm.Disasm(code, os.Stdout)
 	fmt.Println()
@@ -77,6 +89,6 @@ func testVM() {
 }
 
 func main() {
-	testParse()
+	exec("examples/test2.lang")
 	//testVM()
 }

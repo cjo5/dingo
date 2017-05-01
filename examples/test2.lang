@@ -1,0 +1,11 @@
+module main;
+
+var x = 11;
+
+if x < 5 {
+    print "less than 5";
+} elif x < 10 {
+    print "bigger than or equal to 5 and less than 10";
+} else {
+    print "bigger than or equal to 10";
+}

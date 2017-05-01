@@ -5,7 +5,7 @@ import (
 	"io/ioutil"
 
 	"github.com/jhnl/interpreter/ast"
-	"github.com/jhnl/interpreter/scanner"
+	"github.com/jhnl/interpreter/report"
 	"github.com/jhnl/interpreter/token"
 )
 
@@ -33,11 +33,11 @@ func Parse(src []byte) (*ast.Module, error) {
 
 type parser struct {
 	trace   bool
-	scanner scanner.Scanner
+	scanner Scanner
 	scope   *ast.Scope
 	token   token.Token
 
-	errors scanner.ErrorList
+	errors report.ErrorList
 }
 
 func (p *parser) init(src []byte) {
@@ -120,10 +120,18 @@ func (p *parser) expect(id token.TokenID) bool {
 	return true
 }
 
-func (p *parser) expectSemi() {
+func (p *parser) expectSemi() bool {
+	res := true
 	if !p.expect(token.Semicolon) {
 		p.sync()
+		res = false
+	} else {
+		// Consume empty statements
+		for p.token.ID == token.Semicolon {
+			p.next()
+		}
 	}
+	return res
 }
 
 func (p *parser) parseModule() *ast.Module {
@@ -165,7 +173,13 @@ func (p *parser) parseStmt() ast.Stmt {
 		p.expectSemi()
 		return &ast.BranchStmt{Tok: tok}
 	}
-	return p.parseExprStmt()
+	if p.token.ID == token.Ident {
+		return p.parseAssignStmt()
+	}
+	tok := p.token
+	p.next()
+	p.error(tok, fmt.Sprintf("got '%s', expected statement", tok.ID))
+	return &ast.BadStmt{From: tok, To: tok}
 }
 
 func (p *parser) parseBlockStmt() *ast.BlockStmt {
@@ -190,8 +204,14 @@ func (p *parser) parseDeclStmt() *ast.DeclStmt {
 	decl.Name = p.parseIdent()
 	p.expect(token.Assign)
 	decl.X = p.parseExpr()
-	p.expectSemi()
-	p.declare(decl)
+
+	// TODO: Remove this check when functions have been added
+	if p.expectSemi() && p.scope.Outer != nil {
+		p.error(decl.Name.Name, "Variables must be declared in global scope")
+	} else {
+		p.declare(decl)
+	}
+
 	return decl
 }
 
@@ -229,18 +249,13 @@ func (p *parser) parseWhileStmt() *ast.WhileStmt {
 	return s
 }
 
-func (p *parser) parseExprStmt() ast.Stmt {
-	x := p.parseExpr()
-	if p.token.ID == token.Assign || p.token.ID == token.AddAssign || p.token.ID == token.SubAssign ||
-		p.token.ID == token.MulAssign || p.token.ID == token.DivAssign || p.token.ID == token.ModAssign {
-		assign := p.token
-		p.next()
-		rhs := p.parseExpr()
-		p.expectSemi()
-		return &ast.AssignStmt{Left: x, Assign: assign, Right: rhs}
-	}
+func (p *parser) parseAssignStmt() ast.Stmt {
+	id := p.parseIdent()
+	assign := p.token
+	p.next()
+	rhs := p.parseExpr()
 	p.expectSemi()
-	return &ast.ExprStmt{X: x}
+	return &ast.AssignStmt{ID: id, Assign: assign, Right: rhs}
 }
 
 func (p *parser) parseExpr() ast.Expr {
@@ -282,8 +297,8 @@ func (p *parser) parseEquality() ast.Expr {
 
 func (p *parser) parseComparison() ast.Expr {
 	expr := p.parseTerm()
-	for p.token.ID == token.Gt || p.token.ID == token.Gteq ||
-		p.token.ID == token.Lt || p.token.ID == token.Lteq {
+	for p.token.ID == token.Gt || p.token.ID == token.GtEq ||
+		p.token.ID == token.Lt || p.token.ID == token.LtEq {
 		op := p.token
 		p.next()
 		right := p.parseTerm()

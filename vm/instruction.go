@@ -9,7 +9,7 @@ type Opcode int
 
 type Instruction struct {
 	Op   Opcode
-	arg1 int
+	Arg1 int
 }
 
 // List of opcodes.
@@ -27,6 +27,12 @@ const (
 	BinaryMul
 	BinaryDiv
 	BinaryMod
+	CmpEq
+	CmpNe
+	CmpGt
+	CmpGe
+	CmpLt
+	CmpLe
 	opBinaryEnd
 
 	opArg0End
@@ -39,14 +45,8 @@ const (
 
 	// Branch opcodes
 	Goto
-	opCmpStart
-	CmpEq
-	CmpNe
-	CmpGt
-	CmpGe
-	CmpLt
-	CmpLe
-	opCmpEnd
+	IfTrue  // Branch if true
+	IfFalse // Branch if false
 
 	opArg1End
 )
@@ -62,18 +62,20 @@ var mnemonics = [...]string{
 	BinaryMul: "mul",
 	BinaryDiv: "div",
 	BinaryMod: "mod",
+	CmpEq:     "cmpeq",
+	CmpNe:     "cmpne",
+	CmpGt:     "cmpgt",
+	CmpLt:     "cmplt",
+	CmpLe:     "cmple",
 
 	Iload:  "iload",
 	Cload:  "cload",
 	Gload:  "gload",
 	Gstore: "gstore",
 
-	Goto:  "goto",
-	CmpEq: "cmpeq",
-	CmpNe: "cmpne",
-	CmpGt: "cmpgt",
-	CmpLt: "cmplt",
-	CmpLe: "cmple",
+	Goto:    "goto",
+	IfTrue:  "iftrue",
+	IfFalse: "iffalse",
 }
 
 func (op Opcode) String() string {
@@ -97,7 +99,7 @@ func (op Opcode) ArgCount() int {
 
 func (in Instruction) String() string {
 	if in.Op.ArgCount() == 1 {
-		return fmt.Sprintf("%s 0x%x", in.Op, in.arg1)
+		return fmt.Sprintf("%s 0x%x", in.Op, in.Arg1)
 	}
 	return in.Op.String()
 }
@@ -109,5 +111,5 @@ func NewInstr0(op Opcode) Instruction {
 
 // NewInstr1 creates an instruction with 1 argument.
 func NewInstr1(op Opcode, arg1 int) Instruction {
-	return Instruction{Op: op, arg1: arg1}
+	return Instruction{Op: op, Arg1: arg1}
 }

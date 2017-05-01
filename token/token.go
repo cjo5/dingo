@@ -68,9 +68,9 @@ const (
 	Eq
 	Neq
 	Gt
-	Gteq
+	GtEq
 	Lt
-	Lteq
+	LtEq
 
 	operatorEnd
 
@@ -136,9 +136,9 @@ var tokens = [...]string{
 	Eq:   "==",
 	Neq:  "!=",
 	Gt:   ">",
-	Gteq: ">=",
+	GtEq: ">=",
 	Lt:   "<",
-	Lteq: "<=",
+	LtEq: "<=",
 
 	If:       "if",
 	Else:     "else",

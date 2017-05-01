@@ -82,12 +82,8 @@ type BranchStmt struct {
 	Tok token.Token
 }
 
-type ExprStmt struct {
-	X Expr
-}
-
 type AssignStmt struct {
-	Left   Expr
+	ID     *Ident
 	Assign token.Token
 	Right  Expr
 }
@@ -120,10 +116,7 @@ func (s *WhileStmt) Last() token.Token  { return s.Body.Last() }
 func (s *BranchStmt) First() token.Token { return s.Tok }
 func (s *BranchStmt) Last() token.Token  { return s.Tok }
 
-func (s *ExprStmt) First() token.Token { return s.X.First() }
-func (s *ExprStmt) Last() token.Token  { return s.X.Last() }
-
-func (s *AssignStmt) First() token.Token { return s.Left.First() }
+func (s *AssignStmt) First() token.Token { return s.ID.First() }
 func (s *AssignStmt) Last() token.Token  { return s.Right.Last() }
 
 func (s *BadStmt) stmtNode()    {}
@@ -133,7 +126,6 @@ func (s *PrintStmt) stmtNode()  {}
 func (s *IfStmt) stmtNode()     {}
 func (s *WhileStmt) stmtNode()  {}
 func (s *BranchStmt) stmtNode() {}
-func (s *ExprStmt) stmtNode()   {}
 func (s *AssignStmt) stmtNode() {}
 
 // Expr nodes
