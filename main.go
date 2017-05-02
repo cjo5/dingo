@@ -89,6 +89,6 @@ func testVM() {
 }
 
 func main() {
-	exec("examples/test2.lang")
+	exec("examples/test3.lang")
 	//testVM()
 }

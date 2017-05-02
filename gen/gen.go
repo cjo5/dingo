@@ -172,18 +172,16 @@ func (c *compiler) compileIfStmt(stmt *ast.IfStmt) {
 }
 
 func (c *compiler) compileWhileStmt(stmt *ast.WhileStmt) {
-	join := &block{}
-	cond := &block{}
-	cond.next = join
 	loop := &block{}
-	loop.next = cond
+	cond := &block{}
+	join := &block{}
 	c.currBlock.addJumpInstr(vm.NewInstr0(vm.Goto), cond)
-	c.currBlock = loop
+	c.setNextBlock(loop)
 	c.compileBlockStmt(stmt.Body)
-	c.currBlock = cond
+	c.setNextBlock(cond)
 	c.compileExpr(stmt.Cond)
 	c.currBlock.addJumpInstr(vm.NewInstr0(vm.IfTrue), loop)
-	c.currBlock = join
+	c.setNextBlock(join)
 }
 
 func (c *compiler) compileBranchStmt(stmt *ast.BranchStmt) {
@@ -305,7 +303,10 @@ func (c *compiler) compileLiteral(lit *ast.Literal) {
 		addr := c.defineConstant(s)
 		c.currBlock.addInstr1(vm.Cload, addr)
 	} else if lit.Value.ID == token.Int {
-		val, _ := strconv.Atoi(lit.Value.Literal)
+		val, err := strconv.Atoi(lit.Value.Literal)
+		if err != nil {
+			panic(err)
+		}
 		c.currBlock.addInstr1(vm.Iload, val)
 	} else if lit.Value.ID == token.True {
 		c.currBlock.addInstr1(vm.Iload, 1)
