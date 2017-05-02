@@ -73,9 +73,17 @@ func (p *parser) next() {
 		fmt.Println(p.token)
 	}
 	var errMsg *string
-	p.token, errMsg = p.scanner.Scan()
-	if errMsg != nil {
-		p.error(p.token, *errMsg)
+
+	// TODO: Find a better way to handle comments.
+	for {
+		p.token, errMsg = p.scanner.Scan()
+		if errMsg != nil {
+			p.error(p.token, *errMsg)
+			errMsg = nil
+		}
+		if p.token.ID != token.Comment {
+			break
+		}
 	}
 }
 

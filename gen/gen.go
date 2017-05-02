@@ -154,7 +154,7 @@ func (c *compiler) compileIfStmt(stmt *ast.IfStmt) {
 	} else {
 		// A sequence of if / else if / else is compiled recursively.
 		// The jump instruction at the end of a conditional block needs
-		// to be patched with the block that follows the chain
+		// to be patched with the block that follows the chain.
 		//
 
 		tmp := c.currBlock

@@ -1,8 +1,8 @@
 TODO (in no particular order):
-- Add comments
 - Add functions
 - Add floats
 - Add characters
+- Coherent error handling and reporting
 - Parse escape sequences in string literal
 - Semantic analysis
 - Change statement terminator from semicolon to newline

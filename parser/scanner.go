@@ -11,6 +11,7 @@ type Scanner struct {
 	readOffset int
 }
 
+// Init a Scanner with the source code to scan.
 func (s *Scanner) Init(src []byte) {
 	s.src = src
 	s.ch = ' '
@@ -34,8 +35,6 @@ func (s *Scanner) Scan() (token.Token, *string) {
 		Literal: "",
 	}
 
-	startOffset := s.chOffset
-
 	switch ch1 := s.ch; {
 	case isLetter(ch1):
 		tok.ID, tok.Literal = s.scanIdent()
@@ -45,6 +44,7 @@ func (s *Scanner) Scan() (token.Token, *string) {
 		tok.Literal, errMsg = s.scanString()
 		tok.ID = token.String
 	default:
+		startOffset := s.chOffset
 		s.next()
 		ch2 := s.ch
 
@@ -86,10 +86,20 @@ func (s *Scanner) Scan() (token.Token, *string) {
 				tok.ID = token.MulAssign
 			}
 		case '/':
-			tok.ID = token.Div
-			if ch2 == '=' {
+			if ch2 == '/' {
+				// Read entire line
 				s.next()
-				tok.ID = token.DivAssign
+				for s.ch != '\n' && s.ch != -1 {
+					s.next()
+				}
+				s.next()
+				tok.ID = token.Comment
+			} else {
+				tok.ID = token.Div
+				if ch2 == '=' {
+					s.next()
+					tok.ID = token.DivAssign
+				}
 			}
 		case '%':
 			tok.ID = token.Mod
