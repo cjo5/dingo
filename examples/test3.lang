@@ -6,8 +6,9 @@ module main;
 // Test comment
 
 var i = 0;
+var stop = false;
 
-while i < 5 {
+while i < 5 || stop {
     print i;
     print "\n";
     i += 1;

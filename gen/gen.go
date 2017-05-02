@@ -227,32 +227,32 @@ func (c *compiler) compileExpr(expr ast.Expr) {
 
 func (c *compiler) compileBinaryExpr(expr *ast.BinaryExpr) {
 	if expr.Op.ID == token.Lor || expr.Op.ID == token.Land {
-		c.compileExpr(expr.Left)
-
 		// TODO: Make it more efficient if expression is part of control flow (if, while etc)
 
-		join := &block{}
-		target1 := &block{} // true
-		target1.addInstr1(vm.Iload, 1)
-		target1.addJumpInstr0(vm.Goto, join)
-		target2 := &block{} // false
-		target2.addInstr1(vm.Iload, 0)
-		target2.next = join
 		jump2 := &block{}
-		jump2.next = target1
+		target0 := &block{} // false
+		target1 := &block{} // true
+		join := &block{}
+		jump2.next = target0
+		target0.addInstr1(vm.Iload, 0)
+		target0.addJumpInstr0(vm.Goto, join)
+		target0.next = target1
+		target1.addInstr1(vm.Iload, 1)
+		target1.next = join
 
+		c.compileExpr(expr.Left)
 		if expr.Op.ID == token.Lor {
-			c.currBlock.addJumpInstr0(vm.IfTrue, target2)
+			c.currBlock.addJumpInstr0(vm.IfTrue, target1)
 			c.setNextBlock(jump2)
 			c.compileExpr(expr.Right)
-			c.currBlock.addJumpInstr0(vm.IfFalse, join)
+			c.currBlock.addJumpInstr0(vm.IfTrue, target1)
 		} else { // Land
-			c.currBlock.addJumpInstr0(vm.IfFalse, target2)
+			c.currBlock.addJumpInstr0(vm.IfFalse, target0)
 			c.setNextBlock(jump2)
 			c.compileExpr(expr.Right)
-			c.currBlock.addJumpInstr0(vm.IfFalse, join)
+			c.currBlock.addJumpInstr0(vm.IfTrue, target1)
 		}
-		c.setNextBlock(join)
+		c.currBlock = join
 	} else {
 		c.compileExpr(expr.Left)
 		c.compileExpr(expr.Right)
