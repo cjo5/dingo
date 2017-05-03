@@ -32,12 +32,13 @@ func Parse(src []byte) (*ast.Module, error) {
 }
 
 type parser struct {
-	trace   bool
+	errors  report.ErrorList
 	scanner Scanner
-	scope   *ast.Scope
-	token   token.Token
+	trace   bool
 
-	errors report.ErrorList
+	token  token.Token
+	scope  *ast.Scope
+	inLoop bool
 }
 
 func (p *parser) init(src []byte) {
@@ -176,6 +177,10 @@ func (p *parser) parseStmt() ast.Stmt {
 		return p.parseWhileStmt()
 	}
 	if p.token.ID == token.Break || p.token.ID == token.Continue {
+		if !p.inLoop {
+			p.error(p.token, fmt.Sprintf("%s can only be used in a loop", p.token.ID))
+		}
+
 		tok := p.token
 		p.next()
 		p.expectSemi()
@@ -250,10 +255,12 @@ func (p *parser) parseIfStmt() *ast.IfStmt {
 
 func (p *parser) parseWhileStmt() *ast.WhileStmt {
 	s := &ast.WhileStmt{}
+	p.inLoop = true
 	s.While = p.token
 	p.next()
 	s.Cond = p.parseExpr()
 	s.Body = p.parseBlockStmt()
+	p.inLoop = false
 	return s
 }
 

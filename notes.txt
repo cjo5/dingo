@@ -4,11 +4,13 @@ TODO (in no particular order):
 - Add characters
 - Coherent error handling and reporting
 - Parse escape sequences in string literal
+- Support relative jump addresses
 - Semantic analysis
 - Change statement terminator from semicolon to newline
 - Bytecode assembler
 - Offset jumps
-- Statically typed or Lua?
+- Static or dynamic typing?
+- Compile to LLVM?
 - Improve scanner error handling
 - Improve parser error handling
 - Rewrite expression grammar and parser to something simpler

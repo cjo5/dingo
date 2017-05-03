@@ -6,10 +6,18 @@ module main;
 // Test comment
 
 var i = 0;
-var stop = false;
+var sum = 0;
 
-while i < 5 || stop {
-    print i;
-    print "\n";
+while i < 5 {
+    sum += i;
+
+    if i == 2 {
+        i += 2;
+        continue;
+    }
+
     i += 1;
 }
+
+print sum;
+print "\n";

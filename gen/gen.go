@@ -25,8 +25,15 @@ type block struct {
 type compiler struct {
 	startBlock *block
 	currBlock  *block
-	constants  map[string]int
-	globals    map[string]int
+
+	// Jump targets used when compiling if and while statements.
+	// If statement: target0 is branch taken and target1 is not taken.
+	// While statement: target0 is loop condition and target1 is block following the loop.
+	target0 *block
+	target1 *block
+
+	constants map[string]int
+	globals   map[string]int
 
 	flattenedBlocks []*block
 }
@@ -175,6 +182,8 @@ func (c *compiler) compileWhileStmt(stmt *ast.WhileStmt) {
 	loop := &block{}
 	cond := &block{}
 	join := &block{}
+	c.target0 = cond
+	c.target1 = join
 	c.currBlock.addJumpInstr(vm.NewInstr0(vm.Goto), cond)
 	c.setNextBlock(loop)
 	c.compileBlockStmt(stmt.Body)
@@ -182,11 +191,16 @@ func (c *compiler) compileWhileStmt(stmt *ast.WhileStmt) {
 	c.compileExpr(stmt.Cond)
 	c.currBlock.addJumpInstr(vm.NewInstr0(vm.IfTrue), loop)
 	c.setNextBlock(join)
+	c.target0 = nil
+	c.target1 = nil
 }
 
 func (c *compiler) compileBranchStmt(stmt *ast.BranchStmt) {
-	// TODO
-	panic("compileBranchStmt not implemented")
+	if stmt.Tok.ID == token.Continue {
+		c.currBlock.addJumpInstr(vm.NewInstr0(vm.Goto), c.target0)
+	} else { // break
+		c.currBlock.addJumpInstr(vm.NewInstr0(vm.Goto), c.target1)
+	}
 }
 
 func (c *compiler) compileAssignStmt(stmt *ast.AssignStmt) {
