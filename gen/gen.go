@@ -117,8 +117,8 @@ func (c *compiler) compileStmt(stmt ast.Stmt) {
 	switch t := stmt.(type) {
 	case *ast.BlockStmt:
 		c.compileBlockStmt(t)
-	case *ast.DeclStmt:
-		c.compileDeclStmt(t)
+	case *ast.VarDecl:
+		c.compileVarDecl(t)
 	case *ast.PrintStmt:
 		c.compilePrintStmt(t)
 	case *ast.IfStmt:
@@ -129,6 +129,8 @@ func (c *compiler) compileStmt(stmt ast.Stmt) {
 		c.compileBranchStmt(t)
 	case *ast.AssignStmt:
 		c.compileAssignStmt(t)
+	default:
+		panic(fmt.Sprintf("Unable to compile stmt %T", t))
 	}
 }
 
@@ -136,7 +138,7 @@ func (c *compiler) compileBlockStmt(stmt *ast.BlockStmt) {
 	c.compileStmtList(stmt.Stmts)
 }
 
-func (c *compiler) compileDeclStmt(stmt *ast.DeclStmt) {
+func (c *compiler) compileVarDecl(stmt *ast.VarDecl) {
 	c.compileExpr(stmt.X)
 	addr := c.insertGlobal(stmt.Name.Name.Literal)
 	c.currBlock.addInstr1(vm.Gstore, addr)
@@ -236,6 +238,8 @@ func (c *compiler) compileExpr(expr ast.Expr) {
 		c.compileLiteral(t)
 	case *ast.Ident:
 		c.compileIdent(t)
+	default:
+		panic(fmt.Sprintf("Unable to compile expr %T", t))
 	}
 }
 

@@ -53,11 +53,18 @@ type BlockStmt struct {
 	Rbrace token.Token
 }
 
-type DeclStmt struct {
+type VarDecl struct {
 	Decl   token.Token
 	Name   *Ident
 	Assign token.Token
 	X      Expr
+}
+
+type FuncDecl struct {
+	Decl   token.Token
+	Name   *Ident
+	Fields []*Ident
+	Body   *BlockStmt
 }
 
 type PrintStmt struct {
@@ -96,8 +103,11 @@ func (s *BadStmt) Last() token.Token  { return s.To }
 func (s *BlockStmt) First() token.Token { return s.Lbrace }
 func (s *BlockStmt) Last() token.Token  { return s.Rbrace }
 
-func (s *DeclStmt) First() token.Token { return s.Decl }
-func (s *DeclStmt) Last() token.Token  { return s.X.Last() }
+func (s *VarDecl) First() token.Token { return s.Decl }
+func (s *VarDecl) Last() token.Token  { return s.X.Last() }
+
+func (s *FuncDecl) First() token.Token { return s.Decl }
+func (s *FuncDecl) Last() token.Token  { return s.Body.Last() }
 
 func (s *PrintStmt) First() token.Token { return s.Print }
 func (s *PrintStmt) Last() token.Token  { return s.X.Last() }
@@ -121,7 +131,8 @@ func (s *AssignStmt) Last() token.Token  { return s.Right.Last() }
 
 func (s *BadStmt) stmtNode()    {}
 func (s *BlockStmt) stmtNode()  {}
-func (s *DeclStmt) stmtNode()   {}
+func (s *VarDecl) stmtNode()    {}
+func (s *FuncDecl) stmtNode()   {}
 func (s *PrintStmt) stmtNode()  {}
 func (s *IfStmt) stmtNode()     {}
 func (s *WhileStmt) stmtNode()  {}

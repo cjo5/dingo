@@ -4,9 +4,10 @@
 
 module = ['module' IDENT ';'] stmt*
 
-stmt = blockStmt | declStmt | printStmt | ifStmt | whileStmt | 'break' ';' | 'continue' ';' | exprStmt
+stmt = blockStmt | declStmt | funcDecl | printStmt | ifStmt | whileStmt | 'break' ';' | 'continue' ';' | exprStmt
+varDecl = 'var' IDENT '=' expr ';'
+funcDecl = 'fun' IDENT '(' [ident {',' ident}] ')' blockStmt
 blockStmt = '{' stmt* '}'
-declStmt = 'var' IDENT '=' expr ';'
 printStmt = 'print' expr ';'
 assignStmt = IDENT ('=' | '+=' | '-=' | '*=' | '/=' | '%=' ) expr ';'
 ifStmt = 'if' expr blockStmt {'elif' expr blockStmt} ['else' blockStmt]

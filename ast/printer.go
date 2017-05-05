@@ -60,8 +60,10 @@ func (p *printer) walk(n Node) {
 		p.printModule(t)
 	case *BlockStmt:
 		p.printBlockStmt(t)
-	case *DeclStmt:
-		p.printDeclStmt(t)
+	case *VarDecl:
+		p.printVarDecl(t)
+	case *FuncDecl:
+		p.printFuncDecl(t)
 	case *PrintStmt:
 		p.printPrintStmt(t)
 	case *IfStmt:
@@ -100,11 +102,24 @@ func (p *printer) printBlockStmt(stmt *BlockStmt) {
 	}
 }
 
-func (p *printer) printDeclStmt(stmt *DeclStmt) {
+func (p *printer) printVarDecl(stmt *VarDecl) {
 	defer dec(inc(p))
 	p.printToken(stmt.Decl)
 	p.walk(stmt.Name)
 	p.walk(stmt.X)
+}
+
+func (p *printer) printFuncDecl(stmt *FuncDecl) {
+	defer dec(inc(p))
+	p.printToken(stmt.Decl)
+	p.walk(stmt.Name)
+	p.level++
+	p.print("FIELDS")
+	for _, field := range stmt.Fields {
+		p.walk(field)
+	}
+	p.level--
+	p.walk(stmt.Body)
 }
 
 func (p *printer) printPrintStmt(stmt *PrintStmt) {
@@ -115,12 +130,12 @@ func (p *printer) printPrintStmt(stmt *PrintStmt) {
 
 func (p *printer) printIfStmt(stmt *IfStmt) {
 	defer dec(inc(p))
-
 	p.printToken(stmt.If)
+	p.level++
 	p.print("COND")
 	p.walk(stmt.Cond)
+	p.level--
 	p.walk(stmt.Body)
-
 	if stmt.Else != nil {
 		p.print("ELSE/ELIF")
 		p.walk(stmt.Else)
@@ -129,10 +144,11 @@ func (p *printer) printIfStmt(stmt *IfStmt) {
 
 func (p *printer) printWhileStmt(stmt *WhileStmt) {
 	defer dec(inc(p))
-
 	p.printToken(stmt.While)
+	p.level++
 	p.print("COND")
 	p.walk(stmt.Cond)
+	p.level--
 	p.walk(stmt.Body)
 }
 

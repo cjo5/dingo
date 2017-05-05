@@ -2,6 +2,8 @@ package ast
 
 import (
 	"fmt"
+
+	"github.com/jhnl/interpreter/token"
 )
 
 type SymbolID int
@@ -19,8 +21,8 @@ type Scope struct {
 
 type Symbol struct {
 	ID   SymbolID
-	Name string
-	Decl *DeclStmt
+	Name token.Token
+	Decl Stmt
 }
 
 // NewScope creates a new scope nested in the outer scope.
@@ -30,14 +32,14 @@ func NewScope(outer *Scope) *Scope {
 }
 
 // NewSymbol creates a new symbol of a given ID and name.
-func NewSymbol(id SymbolID, decl *DeclStmt) *Symbol {
-	return &Symbol{ID: id, Name: decl.Name.Name.Literal, Decl: decl}
+func NewSymbol(id SymbolID, name token.Token, decl Stmt) *Symbol {
+	return &Symbol{ID: id, Name: name, Decl: decl}
 }
 
 func (s *Scope) Insert(sym *Symbol) *Symbol {
 	var existing *Symbol
-	if existing = s.Symbols[sym.Name]; existing == nil {
-		s.Symbols[sym.Name] = sym
+	if existing = s.Symbols[sym.Name.Literal]; existing == nil {
+		s.Symbols[sym.Name.Literal] = sym
 	}
 	return existing
 }
@@ -57,5 +59,5 @@ func doLookup(s *Scope, name string) *Symbol {
 }
 
 func (s *Symbol) Pos() string {
-	return fmt.Sprintf("%d:%d", s.Decl.Name.Name.Line, s.Decl.Name.Name.Column)
+	return fmt.Sprintf("%d:%d", s.Name.Line, s.Name.Column)
 }

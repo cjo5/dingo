@@ -54,11 +54,11 @@ func (p *parser) closeScope() {
 	p.scope = p.scope.Outer
 }
 
-func (p *parser) declare(decl *ast.DeclStmt) {
-	sym := ast.NewSymbol(ast.VarSymbol, decl)
+func (p *parser) declare(id ast.SymbolID, name token.Token, decl ast.Stmt) {
+	sym := ast.NewSymbol(ast.VarSymbol, name, decl)
 	if existing := p.scope.Insert(sym); existing != nil {
-		msg := fmt.Sprintf("redeclaration of '%s', previously declared at %s", decl.Name.Name.Literal, existing.Pos())
-		p.error(decl.Name.Name, msg)
+		msg := fmt.Sprintf("redeclaration of '%s', previously declared at %s", name.Literal, existing.Pos())
+		p.error(name, msg)
 	}
 }
 
@@ -165,7 +165,7 @@ func (p *parser) parseStmt() ast.Stmt {
 		return p.parseBlockStmt()
 	}
 	if p.token.ID == token.Var {
-		return p.parseDeclStmt()
+		return p.parseVarDecl()
 	}
 	if p.token.ID == token.Print {
 		return p.parsePrintStmt()
@@ -210,8 +210,8 @@ func (p *parser) parseBlockStmt() *ast.BlockStmt {
 	return block
 }
 
-func (p *parser) parseDeclStmt() *ast.DeclStmt {
-	decl := &ast.DeclStmt{}
+func (p *parser) parseVarDecl() *ast.VarDecl {
+	decl := &ast.VarDecl{}
 	decl.Decl = p.token
 	p.next()
 	decl.Name = p.parseIdent()
@@ -222,7 +222,7 @@ func (p *parser) parseDeclStmt() *ast.DeclStmt {
 	if p.expectSemi() && p.scope.Outer != nil {
 		p.error(decl.Name.Name, "Variables must be declared in global scope")
 	} else {
-		p.declare(decl)
+		p.declare(ast.VarSymbol, decl.Name.Name, decl)
 	}
 
 	return decl
