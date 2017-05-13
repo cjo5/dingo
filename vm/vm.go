@@ -125,6 +125,18 @@ func (vm *VM) Exec(ip int, code CodeMemory, mem DataMemory) {
 				}
 				vm.output.WriteString(str)
 			}
+		case Neg:
+			if arg, ok := vm.pop1IntArg(op); ok {
+				vm.push(-arg)
+			}
+		case Inv:
+			if arg, ok := vm.pop1IntArg(op); ok {
+				res := 0
+				if arg == 0 {
+					res = 1
+				}
+				vm.push(res)
+			}
 		case BinaryAdd, BinarySub, BinaryMul, BinaryDiv, BinaryMod,
 			CmpEq, CmpNe, CmpGt, CmpGe, CmpLt, CmpLe:
 			if arg1, arg2, ok := vm.pop2IntArgs(op); ok {

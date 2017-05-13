@@ -408,15 +408,11 @@ func (c *compiler) compileBinaryExpr(expr *ast.BinaryExpr) {
 }
 
 func (c *compiler) compileUnaryExpr(expr *ast.UnaryExpr) {
-	if expr.Op.ID == token.Sub {
-		c.currBlock.addInstr1(vm.Iload, 0)
-	}
 	c.compileExpr(expr.X)
 	if expr.Op.ID == token.Sub {
-		c.currBlock.addInstr0(vm.BinarySub)
+		c.currBlock.addInstr0(vm.Neg)
 	} else {
-		// TODO: logical NOT
-		panic(fmt.Sprintf("compileUnaryExpr for op %s is not implemented", expr.Op))
+		c.currBlock.addInstr0(vm.Inv)
 	}
 }
 

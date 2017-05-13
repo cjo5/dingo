@@ -23,6 +23,8 @@ const (
 	Ret
 	Print
 
+	Neg
+	Inv
 	BinaryAdd
 	BinarySub
 	BinaryMul
@@ -63,6 +65,8 @@ var mnemonics = [...]string{
 	Ret:   "ret",
 	Print: "print",
 
+	Neg:       "neg",
+	Inv:       "inv",
 	BinaryAdd: "add",
 	BinarySub: "sub",
 	BinaryMul: "mul",
