@@ -14,12 +14,16 @@ func ParseFile(filename string) (*ast.Module, error) {
 	if err != nil {
 		return nil, err
 	}
-	return Parse(buf)
+	return parse(buf, filename)
 }
 
 func Parse(src []byte) (*ast.Module, error) {
+	return parse(src, "")
+}
+
+func parse(src []byte, filename string) (*ast.Module, error) {
 	var p parser
-	p.init(src)
+	p.init(src, filename)
 	p.next()
 
 	mod := p.parseModule()
@@ -32,8 +36,8 @@ func Parse(src []byte) (*ast.Module, error) {
 }
 
 type parser struct {
-	errors  report.ErrorList
 	scanner Scanner
+	errors  report.ErrorList
 	trace   bool
 
 	token      token.Token
@@ -42,9 +46,9 @@ type parser struct {
 	inFunction bool
 }
 
-func (p *parser) init(src []byte) {
+func (p *parser) init(src []byte, filename string) {
 	p.trace = false
-	p.scanner.Init(src)
+	p.scanner.Init(src, filename, &p.errors)
 }
 
 func (p *parser) openScope() {
@@ -74,15 +78,9 @@ func (p *parser) next() {
 	if p.trace && p.token.IsValid() {
 		fmt.Println(p.token)
 	}
-	var errMsg *string
 
-	// TODO: Find a better way to handle comments.
 	for {
-		p.token, errMsg = p.scanner.Scan()
-		if errMsg != nil {
-			p.error(p.token, *errMsg)
-			errMsg = nil
-		}
+		p.token = p.scanner.Scan()
 		if p.token.ID != token.Comment {
 			break
 		}
@@ -90,11 +88,7 @@ func (p *parser) next() {
 }
 
 func (p *parser) error(tok token.Token, msg string) {
-	// For now, don't add the error if it's on the same line as the last error.
-	if n := len(p.errors); n > 0 && p.errors[n-1].Tok.Line == tok.Line {
-		return
-	}
-	p.errors.Add(tok, msg)
+	p.errors.Add(tok.Pos, msg)
 }
 
 func (p *parser) sync() {
@@ -105,7 +99,7 @@ loop:
 			break loop
 		case token.Var, token.Print, token.If, token.Break, token.Continue:
 			return
-		case token.Eof:
+		case token.EOF:
 			return
 		}
 		p.next()
@@ -153,7 +147,7 @@ func (p *parser) parseModule() *ast.Module {
 		p.expectSemi()
 	}
 	p.openScope()
-	for p.token.ID != token.Eof {
+	for p.token.ID != token.EOF {
 		mod.Stmts = append(mod.Stmts, p.parseStmt())
 	}
 	mod.Scope = p.scope
@@ -209,7 +203,7 @@ func (p *parser) parseBlockStmt(newScope bool) *ast.BlockStmt {
 	block := &ast.BlockStmt{}
 	block.Lbrace = p.token
 	p.expect(token.Lbrace)
-	for p.token.ID != token.Rbrace && p.token.ID != token.Eof {
+	for p.token.ID != token.Rbrace && p.token.ID != token.EOF {
 		block.Stmts = append(block.Stmts, p.parseStmt())
 	}
 	block.Rbrace = p.token
@@ -246,7 +240,7 @@ func (p *parser) parseFuncDecl() *ast.FuncDecl {
 		field := p.parseIdent()
 		p.declare(ast.VarSymbol, field.Name, field)
 		decl.Fields = append(decl.Fields, field)
-		for p.token.ID != token.Eof && p.token.ID != token.Rparen {
+		for p.token.ID != token.EOF && p.token.ID != token.Rparen {
 			p.expect(token.Comma)
 			field = p.parseIdent()
 			p.declare(ast.VarSymbol, field.Name, field)
@@ -263,7 +257,7 @@ func (p *parser) parseFuncDecl() *ast.FuncDecl {
 
 	// Ensure there is atleast 1 return statement and that every return has an expression
 
-	lit0 := token.Token{ID: token.Int, Line: -1, Column: -1, Offset: -1, Literal: "0"}
+	lit0 := token.Synthetic(token.Int, "0")
 	endsWithReturn := false
 	for i, stmt := range decl.Body.Stmts {
 		if t, ok := stmt.(*ast.ReturnStmt); ok {
@@ -277,7 +271,7 @@ func (p *parser) parseFuncDecl() *ast.FuncDecl {
 	}
 
 	if !endsWithReturn {
-		tok := token.Token{ID: token.Return, Line: -1, Column: -1, Offset: -1, Literal: "return"}
+		tok := token.Synthetic(token.Return, "return")
 		returnStmt := &ast.ReturnStmt{Return: tok, X: &ast.Literal{Value: lit0}}
 		decl.Body.Stmts = append(decl.Body.Stmts, returnStmt)
 	}
@@ -353,7 +347,7 @@ func (p *parser) parseAssignStmt(id *ast.Ident) *ast.AssignStmt {
 	p.next()
 	rhs := p.parseExpr()
 	p.expectSemi()
-	return &ast.AssignStmt{ID: id, Assign: assign, Right: rhs}
+	return &ast.AssignStmt{Name: id, Assign: assign, Right: rhs}
 }
 
 func (p *parser) parseCallStmt(id *ast.Ident) *ast.ExprStmt {
@@ -488,7 +482,7 @@ func (p *parser) parseCallExpr(id *ast.Ident) *ast.CallExpr {
 	var args []ast.Expr
 	if p.token.ID != token.Rparen {
 		args = append(args, p.parseExpr())
-		for p.token.ID != token.Eof && p.token.ID != token.Rparen {
+		for p.token.ID != token.EOF && p.token.ID != token.Rparen {
 			p.expect(token.Comma)
 			args = append(args, p.parseExpr())
 		}

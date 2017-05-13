@@ -23,7 +23,6 @@ const (
 	Ret
 	Print
 
-	opBinaryStart
 	BinaryAdd
 	BinarySub
 	BinaryMul
@@ -35,7 +34,6 @@ const (
 	CmpGe
 	CmpLt
 	CmpLe
-	opBinaryEnd
 
 	opArg0End
 

@@ -8,20 +8,32 @@ import (
 // TokenID is the type of token.
 type TokenID int
 
+// Position of token in a file.
+type Position struct {
+	Filename string
+	Line     int
+	Column   int
+}
+
+func (p Position) String() string {
+	if len(p.Filename) == 0 {
+		return fmt.Sprintf("%d:%d", p.Line, p.Column)
+	}
+	return fmt.Sprintf("%s:%d:%d", p.Filename, p.Line, p.Column)
+}
+
 // Token struct.
 type Token struct {
 	ID      TokenID
 	Literal string
-	Offset  int
-	Line    int
-	Column  int
+	Pos     Position
 }
 
 // List of tokens.
 //
 const (
 	Illegal TokenID = iota
-	Eof
+	EOF
 	Comment
 
 	literalBeg
@@ -97,7 +109,7 @@ const (
 
 var tokens = [...]string{
 	Illegal: "ILLEGAL",
-	Eof:     "eof",
+	EOF:     "eof",
 	Comment: "comment",
 
 	Ident:  "ident",
@@ -190,23 +202,23 @@ func (tok TokenID) String() string {
 }
 
 func (t Token) String() string {
-	s := fmt.Sprintf("%d:%d: %v", t.Line, t.Column, t.ID)
+	s := fmt.Sprintf("%s: %v", t.Pos, t.ID)
 	if t.ID == Ident || t.ID == String || t.ID == Int {
 		s += ":" + t.Literal
 	}
 	return s
 }
 
-func (t Token) Pos() string {
-	return fmt.Sprintf("%d:%d", t.Line, t.Column)
-}
-
 // IsValid returns true if it's a valid token.
 func (t Token) IsValid() bool {
-	return t.Line > 0
+	return t.Pos.Line > 0
 }
 
 // IsAssignOperator returns true if the token represents an assignment operator ('=', '+=', '-=', '*=', '/=', '%=').
 func (t Token) IsAssignOperator() bool {
 	return assignBeg < t.ID && t.ID < assignEnd
+}
+
+func Synthetic(id TokenID, literal string) Token {
+	return Token{ID: id, Literal: literal, Pos: Position{Filename: "", Line: -1, Column: -1}}
 }

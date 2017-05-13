@@ -1,9 +1,17 @@
 package parser
 
-import "github.com/jhnl/interpreter/token"
+import (
+	"fmt"
 
+	"github.com/jhnl/interpreter/report"
+	"github.com/jhnl/interpreter/token"
+)
+
+// Scanner struct.
 type Scanner struct {
 	src        []byte
+	filename   string
+	errors     *report.ErrorList
 	ch         rune
 	chOffset   int
 	lineOffset int
@@ -12,26 +20,25 @@ type Scanner struct {
 }
 
 // Init a Scanner with the source code to scan.
-func (s *Scanner) Init(src []byte) {
+func (s *Scanner) Init(src []byte, filename string, errors *report.ErrorList) {
 	s.src = src
+	s.filename = filename
+	s.errors = errors
 	s.ch = ' '
 	s.chOffset = 0
+	s.readOffset = 0
 	s.lineOffset = 0
 	s.lineCount = 1
-	s.readOffset = 0
-
 	s.next()
 }
 
 // Scan returns the next token from the byte stream.
-func (s *Scanner) Scan() (token.Token, *string) {
+func (s *Scanner) Scan() token.Token {
 	s.skipWhitespace()
 
-	var errMsg string
+	pos := s.newPos()
 	tok := token.Token{
-		Offset:  s.chOffset,
-		Line:    s.lineCount,
-		Column:  (s.chOffset - s.lineOffset) + 1,
+		Pos:     pos,
 		Literal: "",
 	}
 
@@ -41,16 +48,15 @@ func (s *Scanner) Scan() (token.Token, *string) {
 	case isDigit(ch1):
 		tok.ID, tok.Literal = s.scanNumber()
 	case ch1 == '"':
-		tok.Literal, errMsg = s.scanString()
+		tok.Literal = s.scanString(pos)
 		tok.ID = token.String
 	default:
 		startOffset := s.chOffset
 		s.next()
-		ch2 := s.ch
 
 		switch ch1 {
 		case -1:
-			tok.ID = token.Eof
+			tok.ID = token.EOF
 		case '(':
 			tok.ID = token.Lparen
 		case ')':
@@ -68,25 +74,13 @@ func (s *Scanner) Scan() (token.Token, *string) {
 		case ':':
 			tok.ID = token.Colon
 		case '+':
-			tok.ID = token.Add
-			if ch2 == '=' {
-				s.next()
-				tok.ID = token.AddAssign
-			}
+			tok.ID = s.scanOptionalEqual(token.Add, token.AddAssign)
 		case '-':
-			tok.ID = token.Sub
-			if ch2 == '=' {
-				s.next()
-				tok.ID = token.SubAssign
-			}
+			tok.ID = s.scanOptionalEqual(token.Sub, token.SubAssign)
 		case '*':
-			tok.ID = token.Mul
-			if ch2 == '=' {
-				s.next()
-				tok.ID = token.MulAssign
-			}
+			tok.ID = s.scanOptionalEqual(token.Mul, token.MulAssign)
 		case '/':
-			if ch2 == '/' {
+			if s.ch == '/' {
 				// Read entire line
 				s.next()
 				for s.ch != '\n' && s.ch != -1 {
@@ -95,54 +89,22 @@ func (s *Scanner) Scan() (token.Token, *string) {
 				s.next()
 				tok.ID = token.Comment
 			} else {
-				tok.ID = token.Div
-				if ch2 == '=' {
-					s.next()
-					tok.ID = token.DivAssign
-				}
+				tok.ID = s.scanOptionalEqual(token.Div, token.DivAssign)
 			}
 		case '%':
-			tok.ID = token.Mod
-			if ch2 == '=' {
-				s.next()
-				tok.ID = token.ModAssign
-			}
+			tok.ID = s.scanOptionalEqual(token.Mod, token.ModAssign)
 		case '=':
-			tok.ID = token.Assign
-			if ch2 == '=' {
-				s.next()
-				tok.ID = token.Eq
-			}
+			tok.ID = s.scanOptionalEqual(token.Assign, token.Eq)
 		case '&':
-			tok.ID = token.And
-			if ch2 == '&' {
-				s.next()
-				tok.ID = token.Land
-			}
+			tok.ID = s.scanOptionalEqual(token.And, token.Land)
 		case '|':
-			tok.ID = token.Or
-			if ch2 == '|' {
-				s.next()
-				tok.ID = token.Lor
-			}
+			tok.ID = s.scanOptionalEqual(token.Or, token.Lor)
 		case '!':
-			tok.ID = token.Lnot
-			if ch2 == '=' {
-				s.next()
-				tok.ID = token.Neq
-			}
+			tok.ID = s.scanOptionalEqual(token.Lnot, token.Neq)
 		case '>':
-			tok.ID = token.Gt
-			if ch2 == '=' {
-				s.next()
-				tok.ID = token.GtEq
-			}
+			tok.ID = s.scanOptionalEqual(token.Gt, token.GtEq)
 		case '<':
-			tok.ID = token.Lt
-			if ch2 == '=' {
-				s.next()
-				tok.ID = token.LtEq
-			}
+			tok.ID = s.scanOptionalEqual(token.Lt, token.LtEq)
 		default:
 			tok.ID = token.Illegal
 		}
@@ -150,11 +112,7 @@ func (s *Scanner) Scan() (token.Token, *string) {
 		tok.Literal = string(s.src[startOffset:s.chOffset])
 	}
 
-	if errMsg != "" {
-		return tok, &errMsg
-	}
-
-	return tok, nil
+	return tok
 }
 
 func isLetter(ch rune) bool {
@@ -171,9 +129,7 @@ func (s *Scanner) next() {
 	if s.readOffset < len(s.src) {
 		s.chOffset = s.readOffset
 		s.ch = rune(s.src[s.chOffset])
-
 		s.readOffset++
-
 		if s.ch == '\n' {
 			s.lineOffset = s.readOffset
 			s.lineCount++
@@ -184,10 +140,26 @@ func (s *Scanner) next() {
 	}
 }
 
+func (s *Scanner) newPos() token.Position {
+	return token.Position{Filename: s.filename, Line: s.lineCount, Column: (s.chOffset - s.lineOffset) + 1}
+}
+
+func (s *Scanner) error(pos token.Position, msg string) {
+	s.errors.Add(pos, fmt.Sprintf("syntax error: %s", msg))
+}
+
 func (s *Scanner) skipWhitespace() {
 	for s.ch == ' ' || s.ch == '\t' || s.ch == '\n' {
 		s.next()
 	}
+}
+
+func (s *Scanner) scanOptionalEqual(tok0 token.TokenID, tok1 token.TokenID) token.TokenID {
+	if s.ch == '=' {
+		s.next()
+		return tok1
+	}
+	return tok0
 }
 
 func (s *Scanner) scanIdent() (token.TokenID, string) {
@@ -210,16 +182,13 @@ func (s *Scanner) scanIdent() (token.TokenID, string) {
 // Only supports integers for now.
 func (s *Scanner) scanNumber() (token.TokenID, string) {
 	startOffset := s.chOffset
-
 	for isDigit(s.ch) {
 		s.next()
 	}
-
 	return token.Int, string(s.src[startOffset:s.chOffset])
 }
 
-func (s *Scanner) scanString() (string, string) {
-	var errMsg string
+func (s *Scanner) scanString(pos token.Position) string {
 	startOffset := s.chOffset
 	s.next()
 
@@ -227,7 +196,7 @@ func (s *Scanner) scanString() (string, string) {
 		ch := s.ch
 
 		if ch == '\n' {
-			errMsg = "string literal not terminated"
+			s.error(pos, "string literal not terminated")
 			break
 		}
 
@@ -240,5 +209,5 @@ func (s *Scanner) scanString() (string, string) {
 		}
 	}
 
-	return string(s.src[startOffset:s.chOffset]), errMsg
+	return string(s.src[startOffset:s.chOffset])
 }

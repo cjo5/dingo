@@ -174,7 +174,7 @@ func (p *printer) printBranchStmt(stmt *BranchStmt) {
 func (p *printer) printAssignStmt(stmt *AssignStmt) {
 	defer dec(inc(p))
 	p.printToken(stmt.Assign)
-	p.walk(stmt.ID)
+	p.walk(stmt.Name)
 	p.walk(stmt.Right)
 }
 

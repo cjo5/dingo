@@ -1,10 +1,6 @@
 package ast
 
-import (
-	"fmt"
-
-	"github.com/jhnl/interpreter/token"
-)
+import "github.com/jhnl/interpreter/token"
 
 type SymbolID int
 
@@ -74,5 +70,5 @@ func (s *Scope) IsGlobal() bool {
 }
 
 func (s *Symbol) Pos() string {
-	return fmt.Sprintf("%d:%d", s.Name.Line, s.Name.Column)
+	return s.Name.Pos.String()
 }

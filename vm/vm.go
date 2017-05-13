@@ -89,27 +89,27 @@ func (vm *VM) Exec(ip int, code CodeMemory, mem DataMemory) {
 		in := code[vm.ip]
 		ip2 := vm.ip + 1
 
-		switch op := in.Op; {
-		case op == Nop:
+		switch op := in.Op; op {
+		case Nop:
 			// Do nothing
-		case op == Halt:
+		case Halt:
 			vm.halt = true
-		case op == Dup:
+		case Dup:
 			if arg := vm.peek1Arg(op); arg != nil {
 				vm.push(arg)
 			}
-		case op == Pop:
+		case Pop:
 			vm.pop()
-		case op == Ret:
+		case Ret:
 			if len(vm.callStack) > 0 {
 				idx := len(vm.callStack) - 1
 				ip2 = vm.currFrame.retAddress
 				vm.currFrame = vm.callStack[idx]
 				vm.callStack = vm.callStack[:idx]
 			} else {
-				vm.panic(op, "empty call stack")
+				internalPanic(op, "empty call stack")
 			}
-		case op == Print:
+		case Print:
 			if arg := vm.pop1Arg(op); arg != nil {
 				str := ""
 				switch t := arg.(type) {
@@ -120,12 +120,13 @@ func (vm *VM) Exec(ip int, code CodeMemory, mem DataMemory) {
 				case string:
 					str = t
 				default:
-					vm.panic(op, fmt.Sprintf("incompatible type '%T'", t))
+					vm.runtimePanic(op, fmt.Sprintf("incompatible type '%T'", t))
 					break
 				}
 				vm.output.WriteString(str)
 			}
-		case opBinaryStart < op && op < opBinaryEnd:
+		case BinaryAdd, BinarySub, BinaryMul, BinaryDiv, BinaryMod,
+			CmpEq, CmpNe, CmpGt, CmpGe, CmpLt, CmpLe:
 			if arg1, arg2, ok := vm.pop2IntArgs(op); ok {
 				res := 0
 				switch op {
@@ -166,57 +167,57 @@ func (vm *VM) Exec(ip int, code CodeMemory, mem DataMemory) {
 				}
 				vm.push(res)
 			}
-		case op == Iload:
+		case Iload:
 			vm.push(in.Arg1)
-		case op == Cload:
+		case Cload:
 			if in.Arg1 < len(mem.Constants) {
 				vm.push(mem.Constants[in.Arg1])
 			} else {
-				vm.panic(op, fmt.Sprintf("index '%d' out of range", in.Arg1))
+				indexOutOfRange(op, in.Arg1)
 			}
-		case op == Gload:
+		case Gload:
 			if in.Arg1 < len(mem.Globals) {
 				vm.push(mem.Globals[in.Arg1])
 			} else {
-				vm.panic(op, fmt.Sprintf("index '%d' out of range", in.Arg1))
+				indexOutOfRange(op, in.Arg1)
 			}
-		case op == Gstore:
+		case Gstore:
 			if arg := vm.pop1Arg(op); arg != nil {
 				if in.Arg1 < len(mem.Globals) {
 					mem.Globals[in.Arg1] = arg
 				} else {
-					vm.panic(op, fmt.Sprintf("index '%d' out of range", in.Arg1))
+					indexOutOfRange(op, in.Arg1)
 				}
 			}
-		case op == Load:
+		case Load:
 			if in.Arg1 < len(vm.currFrame.locals) {
 				vm.push(vm.currFrame.locals[in.Arg1])
 			} else {
-				vm.panic(op, fmt.Sprintf("index '%d' out of range", in.Arg1))
+				indexOutOfRange(op, in.Arg1)
 			}
-		case op == Store:
+		case Store:
 			if arg := vm.pop1Arg(op); arg != nil {
 				if in.Arg1 < len(vm.currFrame.locals) {
 					vm.currFrame.locals[in.Arg1] = arg
 				} else {
-					vm.panic(op, fmt.Sprintf("index '%d' out of range", in.Arg1))
+					indexOutOfRange(op, in.Arg1)
 				}
 			}
-		case op == Goto:
+		case Goto:
 			ip2 = in.Arg1
-		case op == IfFalse:
+		case IfFalse:
 			if arg, ok := vm.pop1IntArg(op); ok {
 				if arg == 0 {
 					ip2 = in.Arg1
 				}
 			}
-		case op == IfTrue:
+		case IfTrue:
 			if arg, ok := vm.pop1IntArg(op); ok {
 				if arg != 0 {
 					ip2 = in.Arg1
 				}
 			}
-		case op == Call:
+		case Call:
 			if in.Arg1 < len(mem.Constants) {
 				c := mem.Constants[in.Arg1]
 				if fun, ok := c.(*FunctionDescriptor); ok {
@@ -230,18 +231,18 @@ func (vm *VM) Exec(ip int, code CodeMemory, mem DataMemory) {
 						if arg := vm.pop1Arg(op); arg != nil {
 							vm.currFrame.locals[i] = arg
 						} else {
-							vm.panic(op, fmt.Sprintf("invalid arg count %d", fun.ArgCount))
+							internalPanic(op, fmt.Sprintf("invalid arg count %d", fun.ArgCount))
 							break
 						}
 					}
 				} else {
-					vm.panic(op, fmt.Sprintf("expected FunctionDescriptor, got %T", c))
+					vm.runtimePanic(op, fmt.Sprintf("expected FunctionDescriptor, got %T", c))
 				}
 			} else {
-				vm.panic(op, fmt.Sprintf("index '%d out of range", in.Arg1))
+				indexOutOfRange(op, in.Arg1)
 			}
 		default:
-			vm.panic(op, "not implemented")
+			internalPanic(op, "not implemented")
 		}
 		vm.ip = ip2
 	}
@@ -253,13 +254,13 @@ func (vm *VM) pop2IntArgs(op Opcode) (int, int, bool) {
 	arg2 := vm.pop()
 	arg1 := vm.pop()
 	if arg1 == nil || arg2 == nil {
-		vm.panic(op, "2 arguments required")
+		internalPanic(op, "2 arguments required")
 		return 0, 0, false
 	}
 	arg1Int, ok1 := arg1.(int)
 	arg2Int, ok2 := arg2.(int)
 	if !ok1 || !ok2 {
-		vm.panic(op, fmt.Sprintf("incompatible types '%T' and '%T'", arg1, arg2))
+		vm.runtimePanic(op, fmt.Sprintf("incompatible types '%T' and '%T'", arg1, arg2))
 		return 0, 0, false
 	}
 	return arg1Int, arg2Int, true
@@ -272,7 +273,7 @@ func (vm *VM) pop1IntArg(op Opcode) (int, bool) {
 	}
 	argInt, ok := arg.(int)
 	if !ok {
-		vm.panic(op, fmt.Sprintf("incompatible type '%T'", arg))
+		vm.runtimePanic(op, fmt.Sprintf("incompatible type '%T'", arg))
 		return 0, false
 	}
 	return argInt, true
@@ -282,7 +283,7 @@ func (vm *VM) pop1Arg(op Opcode) interface{} {
 	if arg := vm.pop(); arg != nil {
 		return arg
 	}
-	vm.panic(op, "1 argument required")
+	internalPanic(op, "1 argument required")
 	return nil
 }
 
@@ -290,7 +291,7 @@ func (vm *VM) peek1Arg(op Opcode) interface{} {
 	if arg := vm.peek(); arg != nil {
 		return arg
 	}
-	vm.panic(op, "1 argument required")
+	internalPanic(op, "1 argument required")
 	return nil
 }
 
@@ -327,7 +328,15 @@ func (vm *VM) reset() {
 	vm.Err = ""
 }
 
-func (vm *VM) panic(op Opcode, msg string) {
+func (vm *VM) runtimePanic(op Opcode, msg string) {
 	vm.Err = fmt.Sprintf("%s: %s", op, msg)
 	vm.halt = true
+}
+
+func internalPanic(op Opcode, msg string) {
+	panic(fmt.Sprintf("%s: %s", op, msg))
+}
+
+func indexOutOfRange(op Opcode, index int) {
+	internalPanic(op, fmt.Sprintf("index '%d' out of range", index))
 }

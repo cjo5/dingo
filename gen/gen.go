@@ -132,7 +132,7 @@ func (c *compiler) compileModule(mod *ast.Module) {
 	for _, stmt := range mod.Stmts {
 		switch t := stmt.(type) {
 		case *ast.VarDecl:
-			c.defineVar(t.Name.Name.Literal)
+			c.defineVar(t.Name.Literal())
 			stmts = append(stmts, stmt)
 		case *ast.FuncDecl:
 			funcs = append(funcs, t)
@@ -150,9 +150,8 @@ func (c *compiler) compileModule(mod *ast.Module) {
 		entry := &block{}
 		c.currBlock = entry
 		fun := &function{}
-		c.functions[decl.Name.Name.Literal] = fun
+		c.functions[decl.Name.Literal()] = fun
 		c.compileFuncDecl(fun, decl)
-		fmt.Println("Add", decl.Name.Name.Literal)
 	}
 
 	c.startBlock = &block{}
@@ -206,7 +205,7 @@ func (c *compiler) compileBlockStmt(stmt *ast.BlockStmt) {
 
 func (c *compiler) compileVarDecl(stmt *ast.VarDecl) {
 	c.compileExpr(stmt.X)
-	addr, global := c.defineVar(stmt.Name.Name.Literal)
+	addr, global := c.defineVar(stmt.Name.Literal())
 	if global {
 		c.currBlock.addInstr1(vm.Gstore, addr)
 	} else {
@@ -301,7 +300,7 @@ func (c *compiler) compileAssignStmt(stmt *ast.AssignStmt) {
 	if assign == token.AddAssign || assign == token.SubAssign ||
 		assign == token.MulAssign || assign == token.DivAssign ||
 		assign == token.ModAssign {
-		c.compileIdent(stmt.ID)
+		c.compileIdent(stmt.Name)
 	}
 	c.compileExpr(stmt.Right)
 	if assign == token.AddAssign {
@@ -315,7 +314,7 @@ func (c *compiler) compileAssignStmt(stmt *ast.AssignStmt) {
 	} else if assign == token.ModAssign {
 		c.currBlock.addInstr0(vm.BinaryMod)
 	}
-	addr, global := c.lookupVar(stmt.ID.Name.Literal)
+	addr, global := c.lookupVar(stmt.Name.Literal())
 	if global {
 		c.currBlock.addInstr1(vm.Gstore, addr)
 	} else {
@@ -487,7 +486,7 @@ func (c *compiler) unescapeString(literal string) string {
 }
 
 func (c *compiler) compileIdent(id *ast.Ident) {
-	addr, global := c.lookupVar(id.Name.Literal)
+	addr, global := c.lookupVar(id.Literal())
 	if global {
 		c.currBlock.addInstr1(vm.Gload, addr)
 	} else {
@@ -499,7 +498,7 @@ func (c *compiler) compileCallExpr(expr *ast.CallExpr) {
 	for _, arg := range expr.Args {
 		c.compileExpr(arg)
 	}
-	if addr, ok := c.lookupFunc(expr.Name.Name.Literal); ok {
+	if addr, ok := c.lookupFunc(expr.Name.Literal()); ok {
 		c.currBlock.addInstr1(vm.Call, addr)
 		c.setNextBlock(&block{})
 	} else {

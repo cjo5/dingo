@@ -1,23 +1,21 @@
 TODO (in no particular order):
-- Add floats
 - Semantic analysis
+    - Type checking
     - Move semantic checking from parser
+- Add floats
 - Add characters
-- Coherent error handling and reporting
 - Parse escape sequences in string literal
 - Support relative jump addresses
 - Change statement terminator from semicolon to newline
 - Offset jumps
-- Static or dynamic typing?
 - Compile to LLVM?
-- Improve scanner error handling
-- Improve parser error handling
 - Rewrite expression grammar and parser to something simpler
+- Improve parser synchronization
 - Improve expression statements
 - Improve bytecode disassembly
 - Print vm state
 - Support use-before-declaration of functions
-- Nested comments
+- Nested comments?
 - Isolate bytecode instructions for functions?
 - Scoped variables should expand and shrink locals array
 - Modules
