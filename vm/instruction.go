@@ -19,6 +19,8 @@ const (
 	Nop
 	Halt
 	Dup
+	Pop
+	Ret
 	Print
 
 	opBinaryStart
@@ -40,13 +42,17 @@ const (
 	opArg1Start
 	Iload  // Push immediate
 	Cload  // Push constant
-	Gload  // Push global
-	Gstore // Pop and store global
+	Gload  // Push global variable
+	Gstore // Pop and store global variable
+	Load   // Push local variable
+	Store  // Pop loal variable
 
 	// Branch opcodes
 	Goto
 	IfTrue  // Branch if true
 	IfFalse // Branch if false
+
+	Call
 
 	opArg1End
 )
@@ -55,6 +61,8 @@ var mnemonics = [...]string{
 	Nop:   "nop",
 	Halt:  "halt",
 	Dup:   "dup",
+	Pop:   "pop",
+	Ret:   "ret",
 	Print: "print",
 
 	BinaryAdd: "add",
@@ -72,10 +80,14 @@ var mnemonics = [...]string{
 	Cload:  "cload",
 	Gload:  "gload",
 	Gstore: "gstore",
+	Load:   "load",
+	Store:  "store",
 
 	Goto:    "goto",
 	IfTrue:  "iftrue",
 	IfFalse: "iffalse",
+
+	Call: "call",
 }
 
 func (op Opcode) String() string {

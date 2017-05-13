@@ -5,19 +5,35 @@ module main;
 // Test comment
 // Test comment
 
-var i = 0;
-var sum = 0;
-
-while i < 5 {
-    sum += i;
-
-    if i == 2 {
-        i += 2;
-        continue;
-    }
-
-    i += 1;
+fun println(a) {
+    print a;
+    print "\n";
 }
 
-print sum;
-print "\n";
+fun factorial(a) {
+    if a == 0 {
+        return 1;
+    }
+    return a * factorial(a-1);
+}
+
+fun main() {
+    var i = 0;
+    var sum = 0;
+
+    while i < 5 {
+        sum += i;
+
+        if i == 2 {
+            i += 2;
+            continue;
+        }
+
+        i += 1;
+    }
+
+    println(sum);
+}
+
+//main();
+println(factorial(10));

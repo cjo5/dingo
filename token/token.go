@@ -54,12 +54,14 @@ const (
 	Div
 	Mod
 
+	assignBeg
 	Assign
 	AddAssign
 	SubAssign
 	MulAssign
 	DivAssign
 	ModAssign
+	assignEnd
 
 	Land
 	Lor
@@ -80,11 +82,13 @@ const (
 	Elif
 	For
 	While
+	Return
 	Continue
 	Break
 	Print
 	Module
 	Var
+	Func
 	// TODO: true and false should be builtin types instead of keywords
 	True
 	False
@@ -145,11 +149,13 @@ var tokens = [...]string{
 	Elif:     "elif",
 	For:      "for",
 	While:    "while",
+	Return:   "return",
 	Continue: "continue",
 	Break:    "break",
 	Print:    "print",
 	Module:   "module",
 	Var:      "var",
+	Func:     "fun",
 	True:     "true",
 	False:    "false",
 }
@@ -195,7 +201,12 @@ func (t Token) Pos() string {
 	return fmt.Sprintf("%d:%d", t.Line, t.Column)
 }
 
-// IsValid returns true if it's a valid true.
+// IsValid returns true if it's a valid token.
 func (t Token) IsValid() bool {
 	return t.Line > 0
+}
+
+// IsAssignOperator returns true if the token represents an assignment operator ('=', '+=', '-=', '*=', '/=', '%=').
+func (t Token) IsAssignOperator() bool {
+	return assignBeg < t.ID && t.ID < assignEnd
 }

@@ -1,26 +1,27 @@
-# {} : 0 or more
-# *  : 0 or more
-# [] : optional
+# {..} : 0 or more
+# (..)*  : 0 or more
+# [..] : optional
 
-module = ['module' IDENT ';'] stmt*
+module = ['module' IDENT ';'] decl*
 
-stmt = blockStmt | declStmt | funcDecl | printStmt | ifStmt | whileStmt | 'break' ';' | 'continue' ';' | exprStmt
-varDecl = 'var' IDENT '=' expr ';'
-funcDecl = 'fun' IDENT '(' [ident {',' ident}] ')' blockStmt
+stmt = blockStmt | varDecl | funcDecl | printStmt | ifStmt | whileStmt | returnStmt | 'break' ';' | 'continue' ';'
 blockStmt = '{' stmt* '}'
+varDecl = 'var' IDENT '=' expr ';'
+funcDecl = 'fun' IDENT '(' [IDENT {',' IDENT} ] ')' blockStmt
 printStmt = 'print' expr ';'
 assignStmt = IDENT ('=' | '+=' | '-=' | '*=' | '/=' | '%=' ) expr ';'
+callStmt = call ';'
 ifStmt = 'if' expr blockStmt {'elif' expr blockStmt} ['else' blockStmt]
 whileStmt = 'while' '{' stmt* '}'
+returnStmt = 'return' [expr] ';'
 
 expr = logicalOr
 logicalOr = logicalAnd {'||' logicalAnd}
 logicalAnd = equality {'&&' equality}
-equality   = comparison {( '!=' | '==' ) comparison}
+equality = comparison {( '!=' | '==' ) comparison}
 comparison = term {( '>' | '>=' | '<' | '<=' ) term}
-term       = factor {( '-' | '+' ) factor}
-factor     = unary {( '/' | '%' | '*' ) unary}
-unary      = ( '!' | '-' ) unary
-           | primary
-primary    = NUMBER | STRING | IDENT | 'false' | 'true'
-           | '(' expr ')'
+term = factor {( '-' | '+' ) factor}
+factor = unary {( '/' | '%' | '*' ) unary}
+unary = ( '!' | '-' ) unary | primary
+primary = NUMBER | STRING | IDENT | call | 'false' | 'true' | '(' expr ')'
+call = IDENT '(' [IDENT {',' IDENT} ] ')'

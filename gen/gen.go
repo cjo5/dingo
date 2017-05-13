@@ -10,6 +10,13 @@ import (
 	"github.com/jhnl/interpreter/vm"
 )
 
+type function struct {
+	constantAddress int
+	argCount        int
+	localCount      int
+	entry           *block // Function entry point
+}
+
 type instruction struct {
 	in     vm.Instruction
 	target *block // Jump target
@@ -23,30 +30,30 @@ type block struct {
 }
 
 type compiler struct {
-	startBlock *block
-	currBlock  *block
+	globalAddress   int
+	constantAddress int
+	stringLiterals  map[string]int
+	functions       map[string]*function
+	startBlock      *block
+	flattenedBlocks []*block
 
 	// Jump targets used when compiling if and while statements.
 	// If statement: target0 is branch taken and target1 is not taken.
 	// While statement: target0 is loop condition and target1 is block following the loop.
-	target0 *block
-	target1 *block
-
-	constants map[string]int
-	globals   map[string]int
-
-	flattenedBlocks []*block
+	currBlock    *block
+	target0      *block
+	target1      *block
+	scope        *ast.Scope
+	localAddress int
 }
 
-// Compile generates bytecode in two steps.
+// Compile ast to bytecode.
 // 1. Convert AST to CFG, where a node in the CFG is a basic block with bytecode instructions.
 // 2. Flatten CFG to linear bytecode and patch jump addresses.
-func Compile(mod *ast.Module) (vm.CodeMemory, vm.DataMemory) {
+func Compile(mod *ast.Module) (int, vm.CodeMemory, vm.DataMemory) {
 	c := &compiler{}
-	c.constants = make(map[string]int, 4)
-	c.globals = make(map[string]int, 4)
-	c.startBlock = &block{}
-	c.setNextBlock(c.startBlock)
+	c.stringLiterals = make(map[string]int)
+	c.functions = make(map[string]*function)
 	c.compileModule(mod)
 	return c.createProgram()
 }
@@ -54,29 +61,38 @@ func Compile(mod *ast.Module) (vm.CodeMemory, vm.DataMemory) {
 // AST to CFG
 //
 
-func (c *compiler) defineConstant(literal string) int {
-	if addr, ok := c.constants[literal]; ok {
+func (c *compiler) defineString(literal string) int {
+	if addr, ok := c.stringLiterals[literal]; ok {
 		return addr
 	}
-	addr := len(c.constants)
-	c.constants[literal] = addr
+	addr := c.constantAddress
+	c.constantAddress++
+	c.stringLiterals[literal] = addr
 	return addr
 }
 
-func (c *compiler) insertGlobal(id string) int {
-	if addr, ok := c.globals[id]; ok {
-		return addr
+func (c *compiler) defineVar(id string) (int, bool) {
+	sym, global := c.scope.Lookup(id)
+	if global {
+		sym.Address = c.globalAddress
+		c.globalAddress++
+	} else {
+		sym.Address = c.localAddress
+		c.localAddress++
 	}
-	addr := len(c.globals)
-	c.globals[id] = addr
-	return addr
+	return sym.Address, global
 }
 
-func (c *compiler) lookupGlobal(id string) int {
-	if addr, ok := c.globals[id]; ok {
-		return addr
+func (c *compiler) lookupVar(id string) (int, bool) {
+	sym, global := c.scope.Lookup(id)
+	return sym.Address, global
+}
+
+func (c *compiler) lookupFunc(id string) (int, bool) {
+	if f, ok := c.functions[id]; ok {
+		return f.constantAddress, true
 	}
-	return -1
+	return -1, false
 }
 
 func (c *compiler) setNextBlock(block *block) {
@@ -104,7 +120,48 @@ func (b *block) addInstr1(op vm.Opcode, arg1 int) {
 }
 
 func (c *compiler) compileModule(mod *ast.Module) {
-	c.compileStmtList(mod.Stmts)
+	// 1. Define all globals
+	// 2. Compile functions
+	// 3. Compile statements
+
+	var stmts []ast.Stmt
+	var funcs []*ast.FuncDecl
+
+	c.scope = mod.Scope
+
+	for _, stmt := range mod.Stmts {
+		switch t := stmt.(type) {
+		case *ast.VarDecl:
+			c.defineVar(t.Name.Name.Literal)
+			stmts = append(stmts, stmt)
+		case *ast.FuncDecl:
+			funcs = append(funcs, t)
+		default:
+			stmts = append(stmts, stmt)
+		}
+	}
+
+	// Ugly hack...
+	// We first define globals so they have the correct addresses when the functions are compiled.
+	// When the statements are compiled, the globals are defined once again so the globalAddress needs to be reset so they get the same address.
+	c.globalAddress = 0
+
+	for _, decl := range funcs {
+		entry := &block{}
+		c.currBlock = entry
+		fun := &function{}
+		c.functions[decl.Name.Name.Literal] = fun
+		c.compileFuncDecl(fun, decl)
+		fmt.Println("Add", decl.Name.Name.Literal)
+	}
+
+	c.startBlock = &block{}
+	c.currBlock = c.startBlock
+
+	for _, stmt := range stmts {
+		c.compileStmt(stmt)
+	}
+	c.currBlock.addInstr0(vm.Halt)
 }
 
 func (c *compiler) compileStmtList(stmts []ast.Stmt) {
@@ -125,23 +182,51 @@ func (c *compiler) compileStmt(stmt ast.Stmt) {
 		c.compileIfStmt(t)
 	case *ast.WhileStmt:
 		c.compileWhileStmt(t)
+	case *ast.ReturnStmt:
+		c.compileReturnStmt(t)
 	case *ast.BranchStmt:
 		c.compileBranchStmt(t)
 	case *ast.AssignStmt:
 		c.compileAssignStmt(t)
+	case *ast.ExprStmt:
+		c.compileExprStmt(t)
 	default:
 		panic(fmt.Sprintf("Unable to compile stmt %T", t))
 	}
 }
 
 func (c *compiler) compileBlockStmt(stmt *ast.BlockStmt) {
+	outer := c.scope
+	if stmt.Scope != nil {
+		c.scope = stmt.Scope
+	}
 	c.compileStmtList(stmt.Stmts)
+	c.scope = outer
 }
 
 func (c *compiler) compileVarDecl(stmt *ast.VarDecl) {
 	c.compileExpr(stmt.X)
-	addr := c.insertGlobal(stmt.Name.Name.Literal)
-	c.currBlock.addInstr1(vm.Gstore, addr)
+	addr, global := c.defineVar(stmt.Name.Name.Literal)
+	if global {
+		c.currBlock.addInstr1(vm.Gstore, addr)
+	} else {
+		c.currBlock.addInstr1(vm.Store, addr)
+	}
+}
+
+func (c *compiler) compileFuncDecl(fun *function, stmt *ast.FuncDecl) {
+	fun.entry = c.currBlock
+	fun.argCount = len(stmt.Fields)
+	fun.constantAddress = c.constantAddress
+	c.constantAddress++
+
+	outer := c.scope
+	c.scope = stmt.Scope
+	c.localAddress = 0
+	c.compileBlockStmt(stmt.Body)
+
+	fun.localCount = c.localAddress
+	c.scope = outer
 }
 
 func (c *compiler) compilePrintStmt(stmt *ast.PrintStmt) {
@@ -197,6 +282,12 @@ func (c *compiler) compileWhileStmt(stmt *ast.WhileStmt) {
 	c.target1 = nil
 }
 
+func (c *compiler) compileReturnStmt(stmt *ast.ReturnStmt) {
+	c.compileExpr(stmt.X)
+	c.currBlock.addInstr0(vm.Ret)
+	c.setNextBlock(&block{})
+}
+
 func (c *compiler) compileBranchStmt(stmt *ast.BranchStmt) {
 	if stmt.Tok.ID == token.Continue {
 		c.currBlock.addJumpInstr(vm.NewInstr0(vm.Goto), c.target0)
@@ -224,8 +315,21 @@ func (c *compiler) compileAssignStmt(stmt *ast.AssignStmt) {
 	} else if assign == token.ModAssign {
 		c.currBlock.addInstr0(vm.BinaryMod)
 	}
-	addr := c.lookupGlobal(stmt.ID.Name.Literal)
-	c.currBlock.addInstr1(vm.Gstore, addr)
+	addr, global := c.lookupVar(stmt.ID.Name.Literal)
+	if global {
+		c.currBlock.addInstr1(vm.Gstore, addr)
+	} else {
+		c.currBlock.addInstr1(vm.Store, addr)
+	}
+}
+
+func (c *compiler) compileExprStmt(stmt *ast.ExprStmt) {
+	c.compileExpr(stmt.X)
+
+	if _, ok := stmt.X.(*ast.CallExpr); ok {
+		// Pop unused return value
+		c.currBlock.addInstr0(vm.Pop)
+	}
 }
 
 func (c *compiler) compileExpr(expr ast.Expr) {
@@ -238,6 +342,8 @@ func (c *compiler) compileExpr(expr ast.Expr) {
 		c.compileLiteral(t)
 	case *ast.Ident:
 		c.compileIdent(t)
+	case *ast.CallExpr:
+		c.compileCallExpr(t)
 	default:
 		panic(fmt.Sprintf("Unable to compile expr %T", t))
 	}
@@ -318,7 +424,7 @@ func (c *compiler) compileUnaryExpr(expr *ast.UnaryExpr) {
 func (c *compiler) compileLiteral(lit *ast.Literal) {
 	if lit.Value.ID == token.String {
 		s := c.unescapeString(lit.Value.Literal)
-		addr := c.defineConstant(s)
+		addr := c.defineString(s)
 		c.currBlock.addInstr1(vm.Cload, addr)
 	} else if lit.Value.ID == token.Int {
 		val, err := strconv.Atoi(lit.Value.Literal)
@@ -381,19 +487,39 @@ func (c *compiler) unescapeString(literal string) string {
 }
 
 func (c *compiler) compileIdent(id *ast.Ident) {
-	addr := c.lookupGlobal(id.Name.Literal)
-	c.currBlock.addInstr1(vm.Gload, addr)
+	addr, global := c.lookupVar(id.Name.Literal)
+	if global {
+		c.currBlock.addInstr1(vm.Gload, addr)
+	} else {
+		c.currBlock.addInstr1(vm.Load, addr)
+	}
+}
+
+func (c *compiler) compileCallExpr(expr *ast.CallExpr) {
+	for _, arg := range expr.Args {
+		c.compileExpr(arg)
+	}
+	if addr, ok := c.lookupFunc(expr.Name.Name.Literal); ok {
+		c.currBlock.addInstr1(vm.Call, addr)
+		c.setNextBlock(&block{})
+	} else {
+		panic(fmt.Sprintf("Failed to find %s", expr.Name.Name))
+	}
 }
 
 // CFG to linear bytecode
 //
 
-func (c *compiler) createProgram() (vm.CodeMemory, vm.DataMemory) {
+func (c *compiler) createProgram() (int, vm.CodeMemory, vm.DataMemory) {
+	for _, fun := range c.functions {
+		c.dfs(fun.entry)
+	}
 	c.dfs(c.startBlock)
 	c.calculateBlockAddresses()
+	entry := c.startBlock.address
 	code := c.getCodeMemory()
 	mem := c.getDataMemory()
-	return code, mem
+	return entry, code, mem
 }
 
 // Flatten the CFG by doing a postordering depth-first search of the graph.
@@ -402,17 +528,14 @@ func (c *compiler) dfs(block *block) {
 		return
 	}
 	block.visited = true
-
 	if block.next != nil {
 		c.dfs(block.next)
 	}
-
 	for _, in := range block.instructions {
 		if in.target != nil {
 			c.dfs(in.target)
 		}
 	}
-
 	c.flattenedBlocks = append(c.flattenedBlocks, block)
 }
 
@@ -438,7 +561,6 @@ func (c *compiler) getCodeMemory() vm.CodeMemory {
 			code = append(code, in.in)
 		}
 	}
-	code = append(code, vm.NewInstr0(vm.Halt))
 
 	return code
 }
@@ -446,13 +568,19 @@ func (c *compiler) getCodeMemory() vm.CodeMemory {
 func (c *compiler) getDataMemory() vm.DataMemory {
 	var data vm.DataMemory
 
-	data.Constants = make([]interface{}, len(c.constants))
-	for k, v := range c.constants {
+	data.Constants = make([]interface{}, c.constantAddress)
+	for k, v := range c.stringLiterals {
 		data.Constants[v] = k
 	}
-	data.Globals = make([]interface{}, len(c.globals))
-	for _, v := range c.globals {
-		data.Globals[v] = 0
+
+	for k, f := range c.functions {
+		desc := &vm.FunctionDescriptor{Name: k, Address: f.entry.address, ArgCount: f.argCount, LocalCount: f.localCount}
+		data.Constants[f.constantAddress] = desc
+	}
+
+	data.Globals = make([]interface{}, c.globalAddress)
+	for i := range data.Globals {
+		data.Globals[i] = 0
 	}
 
 	return data

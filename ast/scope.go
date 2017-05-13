@@ -20,9 +20,10 @@ type Scope struct {
 }
 
 type Symbol struct {
-	ID   SymbolID
-	Name token.Token
-	Decl Stmt
+	ID      SymbolID
+	Name    token.Token
+	Decl    Node
+	Address int // Variable's address in global array or local array
 }
 
 // NewScope creates a new scope nested in the outer scope.
@@ -32,7 +33,7 @@ func NewScope(outer *Scope) *Scope {
 }
 
 // NewSymbol creates a new symbol of a given ID and name.
-func NewSymbol(id SymbolID, name token.Token, decl Stmt) *Symbol {
+func NewSymbol(id SymbolID, name token.Token, decl Node) *Symbol {
 	return &Symbol{ID: id, Name: name, Decl: decl}
 }
 
@@ -44,18 +45,32 @@ func (s *Scope) Insert(sym *Symbol) *Symbol {
 	return existing
 }
 
-func (s *Scope) Lookup(name string) *Symbol {
+func (s *Scope) Lookup(name string) (*Symbol, bool) {
 	return doLookup(s, name)
 }
 
-func doLookup(s *Scope, name string) *Symbol {
+func doLookup(s *Scope, name string) (*Symbol, bool) {
 	if s == nil {
-		return nil
+		return nil, false
 	}
 	if res := s.Symbols[name]; res != nil {
-		return res
+		return res, s.IsGlobal()
 	}
 	return doLookup(s.Outer, name)
+}
+
+// Address of name. Returns true if global scope.
+func (s *Scope) Address(name string) (int, bool) {
+	sym, global := doLookup(s, name)
+	if sym != nil {
+		return sym.Address, global
+	}
+	return 0, false
+}
+
+// IsGlobal returns true if it's the global scope.
+func (s *Scope) IsGlobal() bool {
+	return s.Outer == nil
 }
 
 func (s *Symbol) Pos() string {

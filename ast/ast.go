@@ -63,6 +63,7 @@ type VarDecl struct {
 type FuncDecl struct {
 	Decl   token.Token
 	Name   *Ident
+	Scope  *Scope
 	Fields []*Ident
 	Body   *BlockStmt
 }
@@ -85,6 +86,11 @@ type WhileStmt struct {
 	Body  *BlockStmt
 }
 
+type ReturnStmt struct {
+	Return token.Token
+	X      Expr
+}
+
 type BranchStmt struct {
 	Tok token.Token
 }
@@ -93,6 +99,10 @@ type AssignStmt struct {
 	ID     *Ident
 	Assign token.Token
 	Right  Expr
+}
+
+type ExprStmt struct {
+	X Expr
 }
 
 // Implementation for stmt nodes.
@@ -123,11 +133,22 @@ func (s *IfStmt) Last() token.Token {
 func (s *WhileStmt) First() token.Token { return s.While }
 func (s *WhileStmt) Last() token.Token  { return s.Body.Last() }
 
+func (s *ReturnStmt) First() token.Token { return s.Return }
+func (s *ReturnStmt) Last() token.Token {
+	if s.X != nil {
+		return s.X.Last()
+	}
+	return s.Return
+}
+
 func (s *BranchStmt) First() token.Token { return s.Tok }
 func (s *BranchStmt) Last() token.Token  { return s.Tok }
 
 func (s *AssignStmt) First() token.Token { return s.ID.First() }
 func (s *AssignStmt) Last() token.Token  { return s.Right.Last() }
+
+func (s *ExprStmt) First() token.Token { return s.X.First() }
+func (s *ExprStmt) Last() token.Token  { return s.X.Last() }
 
 func (s *BadStmt) stmtNode()    {}
 func (s *BlockStmt) stmtNode()  {}
@@ -136,8 +157,10 @@ func (s *FuncDecl) stmtNode()   {}
 func (s *PrintStmt) stmtNode()  {}
 func (s *IfStmt) stmtNode()     {}
 func (s *WhileStmt) stmtNode()  {}
+func (s *ReturnStmt) stmtNode() {}
 func (s *BranchStmt) stmtNode() {}
 func (s *AssignStmt) stmtNode() {}
+func (s *ExprStmt) stmtNode()   {}
 
 // Expr nodes
 
@@ -165,6 +188,13 @@ type Ident struct {
 	Name token.Token
 }
 
+type CallExpr struct {
+	Name   *Ident
+	Lparen token.Token
+	Args   []Expr
+	Rparen token.Token
+}
+
 // Implementations for expr nodes.
 
 func (x *BadExpr) First() token.Token { return x.From }
@@ -182,8 +212,12 @@ func (x *Literal) Last() token.Token  { return x.Value }
 func (x *Ident) First() token.Token { return x.Name }
 func (x *Ident) Last() token.Token  { return x.Name }
 
+func (x *CallExpr) First() token.Token { return x.Name.First() }
+func (x *CallExpr) Last() token.Token  { return x.Rparen }
+
 func (x *BadExpr) exprNode()    {}
 func (x *BinaryExpr) exprNode() {}
 func (x *UnaryExpr) exprNode()  {}
 func (x *Literal) exprNode()    {}
 func (x *Ident) exprNode()      {}
+func (x *CallExpr) exprNode()   {}

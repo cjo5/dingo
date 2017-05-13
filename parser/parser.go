@@ -36,9 +36,10 @@ type parser struct {
 	scanner Scanner
 	trace   bool
 
-	token  token.Token
-	scope  *ast.Scope
-	inLoop bool
+	token      token.Token
+	scope      *ast.Scope
+	inLoop     bool
+	inFunction bool
 }
 
 func (p *parser) init(src []byte) {
@@ -54,8 +55,8 @@ func (p *parser) closeScope() {
 	p.scope = p.scope.Outer
 }
 
-func (p *parser) declare(id ast.SymbolID, name token.Token, decl ast.Stmt) {
-	sym := ast.NewSymbol(ast.VarSymbol, name, decl)
+func (p *parser) declare(id ast.SymbolID, name token.Token, decl ast.Node) {
+	sym := ast.NewSymbol(id, name, decl)
 	if existing := p.scope.Insert(sym); existing != nil {
 		msg := fmt.Sprintf("redeclaration of '%s', previously declared at %s", name.Literal, existing.Pos())
 		p.error(name, msg)
@@ -63,7 +64,7 @@ func (p *parser) declare(id ast.SymbolID, name token.Token, decl ast.Stmt) {
 }
 
 func (p *parser) resolve(name token.Token) {
-	if existing := p.scope.Lookup(name.Literal); existing == nil {
+	if existing, _ := p.scope.Lookup(name.Literal); existing == nil {
 		msg := fmt.Sprintf("'%s' undefined", name.Literal)
 		p.error(name, msg)
 	}
@@ -162,10 +163,13 @@ func (p *parser) parseModule() *ast.Module {
 
 func (p *parser) parseStmt() ast.Stmt {
 	if p.token.ID == token.Lbrace {
-		return p.parseBlockStmt()
+		return p.parseBlockStmt(true)
 	}
 	if p.token.ID == token.Var {
 		return p.parseVarDecl()
+	}
+	if p.token.ID == token.Func {
+		return p.parseFuncDecl()
 	}
 	if p.token.ID == token.Print {
 		return p.parsePrintStmt()
@@ -175,6 +179,9 @@ func (p *parser) parseStmt() ast.Stmt {
 	}
 	if p.token.ID == token.While {
 		return p.parseWhileStmt()
+	}
+	if p.token.ID == token.Return {
+		return p.parseReturnStmt()
 	}
 	if p.token.ID == token.Break || p.token.ID == token.Continue {
 		if !p.inLoop {
@@ -187,7 +194,7 @@ func (p *parser) parseStmt() ast.Stmt {
 		return &ast.BranchStmt{Tok: tok}
 	}
 	if p.token.ID == token.Ident {
-		return p.parseAssignStmt()
+		return p.parseAssignOrCallStmt()
 	}
 	tok := p.token
 	p.next()
@@ -195,8 +202,10 @@ func (p *parser) parseStmt() ast.Stmt {
 	return &ast.BadStmt{From: tok, To: tok}
 }
 
-func (p *parser) parseBlockStmt() *ast.BlockStmt {
-	p.openScope()
+func (p *parser) parseBlockStmt(newScope bool) *ast.BlockStmt {
+	if newScope {
+		p.openScope()
+	}
 	block := &ast.BlockStmt{}
 	block.Lbrace = p.token
 	p.expect(token.Lbrace)
@@ -206,7 +215,9 @@ func (p *parser) parseBlockStmt() *ast.BlockStmt {
 	block.Rbrace = p.token
 	p.expect(token.Rbrace)
 	block.Scope = p.scope
-	p.closeScope()
+	if newScope {
+		p.closeScope()
+	}
 	return block
 }
 
@@ -217,12 +228,58 @@ func (p *parser) parseVarDecl() *ast.VarDecl {
 	decl.Name = p.parseIdent()
 	p.expect(token.Assign)
 	decl.X = p.parseExpr()
+	p.expect(token.Semicolon)
+	p.declare(ast.VarSymbol, decl.Name.Name, decl)
+	return decl
+}
 
-	// TODO: Remove this check when functions have been added
-	if p.expectSemi() && p.scope.Outer != nil {
-		p.error(decl.Name.Name, "Variables must be declared in global scope")
-	} else {
-		p.declare(ast.VarSymbol, decl.Name.Name, decl)
+func (p *parser) parseFuncDecl() *ast.FuncDecl {
+	decl := &ast.FuncDecl{}
+	decl.Decl = p.token
+	p.next()
+	decl.Name = p.parseIdent()
+	p.declare(ast.FuncSymbol, decl.Name.Name, decl)
+	p.openScope()
+
+	p.expect(token.Lparen)
+	if p.token.ID == token.Ident {
+		field := p.parseIdent()
+		p.declare(ast.VarSymbol, field.Name, field)
+		decl.Fields = append(decl.Fields, field)
+		for p.token.ID != token.Eof && p.token.ID != token.Rparen {
+			p.expect(token.Comma)
+			field = p.parseIdent()
+			p.declare(ast.VarSymbol, field.Name, field)
+			decl.Fields = append(decl.Fields, field)
+		}
+	}
+	p.expect(token.Rparen)
+
+	p.inFunction = true
+	decl.Body = p.parseBlockStmt(false)
+	p.inFunction = false
+	decl.Scope = p.scope
+	p.closeScope()
+
+	// Ensure there is atleast 1 return statement and that every return has an expression
+
+	lit0 := token.Token{ID: token.Int, Line: -1, Column: -1, Offset: -1, Literal: "0"}
+	endsWithReturn := false
+	for i, stmt := range decl.Body.Stmts {
+		if t, ok := stmt.(*ast.ReturnStmt); ok {
+			if t.X == nil {
+				t.X = &ast.Literal{Value: lit0}
+			}
+			if (i + 1) == len(decl.Body.Stmts) {
+				endsWithReturn = true
+			}
+		}
+	}
+
+	if !endsWithReturn {
+		tok := token.Token{ID: token.Return, Line: -1, Column: -1, Offset: -1, Literal: "return"}
+		returnStmt := &ast.ReturnStmt{Return: tok, X: &ast.Literal{Value: lit0}}
+		decl.Body.Stmts = append(decl.Body.Stmts, returnStmt)
 	}
 
 	return decl
@@ -242,12 +299,12 @@ func (p *parser) parseIfStmt() *ast.IfStmt {
 	s.If = p.token
 	p.next()
 	s.Cond = p.parseExpr()
-	s.Body = p.parseBlockStmt()
+	s.Body = p.parseBlockStmt(true)
 	if p.token.ID == token.Elif {
 		s.Else = p.parseIfStmt()
 	} else if p.token.ID == token.Else {
 		p.next() // We might wanna save this token...
-		s.Else = p.parseBlockStmt()
+		s.Else = p.parseBlockStmt(true)
 	}
 
 	return s
@@ -259,18 +316,50 @@ func (p *parser) parseWhileStmt() *ast.WhileStmt {
 	s.While = p.token
 	p.next()
 	s.Cond = p.parseExpr()
-	s.Body = p.parseBlockStmt()
+	s.Body = p.parseBlockStmt(true)
 	p.inLoop = false
 	return s
 }
 
-func (p *parser) parseAssignStmt() ast.Stmt {
+func (p *parser) parseReturnStmt() *ast.ReturnStmt {
+	if !p.inFunction {
+		p.error(p.token, fmt.Sprintf("%s can only be used in a function", p.token.ID))
+	}
+	s := &ast.ReturnStmt{}
+	s.Return = p.token
+	p.next()
+	if p.token.ID != token.Semicolon {
+		s.X = p.parseExpr()
+	}
+	p.expect(token.Semicolon)
+	return s
+}
+
+func (p *parser) parseAssignOrCallStmt() ast.Stmt {
 	id := p.parseIdent()
+	if p.token.IsAssignOperator() {
+		return p.parseAssignStmt(id)
+	} else if p.token.ID == token.Lparen {
+		return p.parseCallStmt(id)
+	}
+	tok := p.token
+	p.next()
+	p.error(tok, fmt.Sprintf("got %s, expected assign or call statement", tok.ID))
+	return &ast.BadStmt{From: id.Name, To: tok}
+}
+
+func (p *parser) parseAssignStmt(id *ast.Ident) *ast.AssignStmt {
 	assign := p.token
 	p.next()
 	rhs := p.parseExpr()
 	p.expectSemi()
 	return &ast.AssignStmt{ID: id, Assign: assign, Right: rhs}
+}
+
+func (p *parser) parseCallStmt(id *ast.Ident) *ast.ExprStmt {
+	x := p.parseCallExpr(id)
+	p.expect(token.Semicolon)
+	return &ast.ExprStmt{X: x}
 }
 
 func (p *parser) parseExpr() ast.Expr {
@@ -363,6 +452,9 @@ func (p *parser) parsePrimary() ast.Expr {
 	case token.Ident:
 		ident := p.parseIdent()
 		p.resolve(ident.Name) // TODO: cleanup?
+		if p.token.ID == token.Lparen {
+			return p.parseCallExpr(ident)
+		}
 		return ident
 	case token.Lparen:
 		p.next()
@@ -382,4 +474,32 @@ func (p *parser) parseIdent() *ast.Ident {
 	tok := p.token
 	p.expect(token.Ident)
 	return &ast.Ident{Name: tok}
+}
+
+func (p *parser) parseCallExpr(id *ast.Ident) *ast.CallExpr {
+	sym, _ := p.scope.Lookup(id.Name.Literal)
+	if sym == nil {
+		p.error(id.Name, fmt.Sprintf("'%s' undefined", id.Name.Literal))
+	} else if sym.ID != ast.FuncSymbol {
+		p.error(id.Name, fmt.Sprintf("'%s' is not a function", sym.Name.Literal))
+	}
+	lparen := p.token
+	p.expect(token.Lparen)
+	var args []ast.Expr
+	if p.token.ID != token.Rparen {
+		args = append(args, p.parseExpr())
+		for p.token.ID != token.Eof && p.token.ID != token.Rparen {
+			p.expect(token.Comma)
+			args = append(args, p.parseExpr())
+		}
+	}
+	if sym != nil {
+		decl, _ := sym.Decl.(*ast.FuncDecl)
+		if len(decl.Fields) != len(args) {
+			p.error(id.Name, fmt.Sprintf("'%s' takes %d argument(s), but called with %d", sym.Name.Literal, len(decl.Fields), len(args)))
+		}
+	}
+	rparen := p.token
+	p.expect(token.Rparen)
+	return &ast.CallExpr{Name: id, Lparen: lparen, Args: args, Rparen: rparen}
 }

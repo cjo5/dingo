@@ -70,10 +70,14 @@ func (p *printer) walk(n Node) {
 		p.printIfStmt(t)
 	case *WhileStmt:
 		p.printWhileStmt(t)
+	case *ReturnStmt:
+		p.printReturnStmt(t)
 	case *BranchStmt:
 		p.printBranchStmt(t)
 	case *AssignStmt:
 		p.printAssignStmt(t)
+	case *ExprStmt:
+		p.printExprStmt(t)
 	case *BinaryExpr:
 		p.printBinary(t)
 	case *UnaryExpr:
@@ -82,6 +86,8 @@ func (p *printer) walk(n Node) {
 		p.printLiteral(t)
 	case *Ident:
 		p.printIdent(t)
+	case *CallExpr:
+		p.printCallExpr(t)
 	}
 }
 
@@ -137,7 +143,7 @@ func (p *printer) printIfStmt(stmt *IfStmt) {
 	p.level--
 	p.walk(stmt.Body)
 	if stmt.Else != nil {
-		p.print("ELSE/ELIF")
+		p.print("ELIF/ELSE")
 		p.walk(stmt.Else)
 	}
 }
@@ -152,6 +158,14 @@ func (p *printer) printWhileStmt(stmt *WhileStmt) {
 	p.walk(stmt.Body)
 }
 
+func (p *printer) printReturnStmt(stmt *ReturnStmt) {
+	defer dec(inc(p))
+	p.printToken(stmt.Return)
+	if stmt.X != nil {
+		p.walk(stmt.X)
+	}
+}
+
 func (p *printer) printBranchStmt(stmt *BranchStmt) {
 	defer dec(inc(p))
 	p.printToken(stmt.Tok)
@@ -162,6 +176,11 @@ func (p *printer) printAssignStmt(stmt *AssignStmt) {
 	p.printToken(stmt.Assign)
 	p.walk(stmt.ID)
 	p.walk(stmt.Right)
+}
+
+func (p *printer) printExprStmt(stmt *ExprStmt) {
+	defer dec(inc(p))
+	p.walk(stmt.X)
 }
 
 func (p *printer) printBinary(expr *BinaryExpr) {
@@ -185,4 +204,13 @@ func (p *printer) printLiteral(expr *Literal) {
 func (p *printer) printIdent(expr *Ident) {
 	defer dec(inc(p))
 	p.printToken(expr.Name)
+}
+
+func (p *printer) printCallExpr(expr *CallExpr) {
+	defer dec(inc(p))
+	p.print("CALL")
+	p.walk(expr.Name)
+	for _, arg := range expr.Args {
+		p.walk(arg)
+	}
 }

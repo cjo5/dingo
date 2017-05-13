@@ -32,7 +32,7 @@ func exec(filename string) {
 	}
 
 	fmt.Println(ast.Print(tree))
-	code, mem := gen.Compile(tree)
+	ip, code, mem := gen.Compile(tree)
 
 	fmt.Printf("Constants (%d):\n", len(mem.Constants))
 	vm.DumpMemory(mem.Constants, os.Stdout)
@@ -43,7 +43,7 @@ func exec(filename string) {
 	fmt.Println()
 
 	machine := vm.NewMachine(os.Stdout)
-	machine.Exec(code, mem)
+	machine.Exec(ip, code, mem)
 	if machine.RuntimeError() {
 		fmt.Println("Runtime error:", machine.Err)
 	}
@@ -82,7 +82,7 @@ func testVM() {
 	vm.Disasm(code, os.Stdout)
 	fmt.Println()
 
-	machine.Exec(code, mem)
+	machine.Exec(0, code, mem)
 	if machine.RuntimeError() {
 		fmt.Println("Runtime error:", machine.Err)
 	}

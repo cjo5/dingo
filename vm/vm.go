@@ -15,12 +15,31 @@ type DataMemory struct {
 	Constants []interface{}
 }
 
+type FunctionDescriptor struct {
+	Name       string
+	Address    int
+	ArgCount   int
+	LocalCount int
+}
+
+type Frame struct {
+	function   *FunctionDescriptor
+	retAddress int
+	locals     []interface{}
+}
+
+func (fd FunctionDescriptor) String() string {
+	return fmt.Sprintf(".%s(address=0x%x, argCount=%d, localCount=%d)", fd.Name, fd.Address, fd.ArgCount, fd.LocalCount)
+}
+
 // VM is the execution context for a bytecode program.
 type VM struct {
-	ip       int // Instruction pointer
-	halt     bool
-	operands []interface{}
-	inited   bool
+	inited    bool
+	halt      bool
+	ip        int // Instruction pointer
+	operands  []interface{}
+	callStack []*Frame
+	currFrame *Frame
 
 	output *os.File
 	Err    string
@@ -59,26 +78,36 @@ func (vm *VM) RuntimeError() bool {
 	return len(vm.Err) > 0
 }
 
-// Exec executes a bytecode program.
-//
-// TODO:
-// - Support for floats
-//
-func (vm *VM) Exec(code CodeMemory, mem DataMemory) {
+// Exec a bytecode program.
+func (vm *VM) Exec(ip int, code CodeMemory, mem DataMemory) {
 	if !vm.inited {
 		vm.reset()
 	}
-
+	vm.currFrame = &Frame{}
+	vm.ip = ip
 	for vm.ip < len(code) && !vm.halt {
 		in := code[vm.ip]
 		ip2 := vm.ip + 1
 
 		switch op := in.Op; {
+		case op == Nop:
+			// Do nothing
 		case op == Halt:
 			vm.halt = true
 		case op == Dup:
 			if arg := vm.peek1Arg(op); arg != nil {
 				vm.push(arg)
+			}
+		case op == Pop:
+			vm.pop()
+		case op == Ret:
+			if len(vm.callStack) > 0 {
+				idx := len(vm.callStack) - 1
+				ip2 = vm.currFrame.retAddress
+				vm.currFrame = vm.callStack[idx]
+				vm.callStack = vm.callStack[:idx]
+			} else {
+				vm.panic(op, "empty call stack")
 			}
 		case op == Print:
 			if arg := vm.pop1Arg(op); arg != nil {
@@ -159,6 +188,20 @@ func (vm *VM) Exec(code CodeMemory, mem DataMemory) {
 					vm.panic(op, fmt.Sprintf("index '%d' out of range", in.Arg1))
 				}
 			}
+		case op == Load:
+			if in.Arg1 < len(vm.currFrame.locals) {
+				vm.push(vm.currFrame.locals[in.Arg1])
+			} else {
+				vm.panic(op, fmt.Sprintf("index '%d' out of range", in.Arg1))
+			}
+		case op == Store:
+			if arg := vm.pop1Arg(op); arg != nil {
+				if in.Arg1 < len(vm.currFrame.locals) {
+					vm.currFrame.locals[in.Arg1] = arg
+				} else {
+					vm.panic(op, fmt.Sprintf("index '%d' out of range", in.Arg1))
+				}
+			}
 		case op == Goto:
 			ip2 = in.Arg1
 		case op == IfFalse:
@@ -173,6 +216,32 @@ func (vm *VM) Exec(code CodeMemory, mem DataMemory) {
 					ip2 = in.Arg1
 				}
 			}
+		case op == Call:
+			if in.Arg1 < len(mem.Constants) {
+				c := mem.Constants[in.Arg1]
+				if fun, ok := c.(*FunctionDescriptor); ok {
+					vm.callStack = append(vm.callStack, vm.currFrame)
+					vm.currFrame = &Frame{}
+					vm.currFrame.function = fun
+					vm.currFrame.retAddress = ip2
+					vm.currFrame.locals = make([]interface{}, fun.LocalCount+fun.ArgCount)
+					ip2 = fun.Address
+					for i := 0; i < fun.ArgCount; i++ {
+						if arg := vm.pop1Arg(op); arg != nil {
+							vm.currFrame.locals[i] = arg
+						} else {
+							vm.panic(op, fmt.Sprintf("invalid arg count %d", fun.ArgCount))
+							break
+						}
+					}
+				} else {
+					vm.panic(op, fmt.Sprintf("expected FunctionDescriptor, got %T", c))
+				}
+			} else {
+				vm.panic(op, fmt.Sprintf("index '%d out of range", in.Arg1))
+			}
+		default:
+			vm.panic(op, "not implemented")
 		}
 		vm.ip = ip2
 	}
@@ -249,10 +318,12 @@ func (vm *VM) peek() interface{} {
 }
 
 func (vm *VM) reset() {
-	vm.ip = 0
-	vm.halt = false
-	vm.operands = nil
 	vm.inited = true
+	vm.halt = false
+	vm.ip = 0
+	vm.operands = nil
+	vm.callStack = nil
+	vm.currFrame = nil
 	vm.Err = ""
 }
 
