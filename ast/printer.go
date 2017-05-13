@@ -51,7 +51,7 @@ func (p *printer) print(msg string) {
 }
 
 func (p *printer) printToken(tok token.Token) {
-	p.printf("[%v]", tok)
+	p.printf("[%s]", tok)
 }
 
 func (p *printer) walk(n Node) {

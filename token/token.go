@@ -16,10 +16,7 @@ type Position struct {
 }
 
 func (p Position) String() string {
-	if len(p.Filename) == 0 {
-		return fmt.Sprintf("%d:%d", p.Line, p.Column)
-	}
-	return fmt.Sprintf("%s:%d:%d", p.Filename, p.Line, p.Column)
+	return fmt.Sprintf("%d:%d", p.Line, p.Column)
 }
 
 // Token struct.
