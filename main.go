@@ -15,18 +15,10 @@ func exec(filename string) {
 	tree, err := parser.ParseFile(filename)
 
 	if err != nil {
-		printed := false
 		if errList, ok := err.(report.ErrorList); ok {
-			if len(errList) > 1 {
-				fmt.Println("Errors:")
-				for idx, e := range errList {
-					fmt.Println(fmt.Sprintf("[%d] %s", idx, e))
-				}
-				printed = true
+			for idx, e := range errList {
+				fmt.Println(fmt.Sprintf("[%d] %s", idx, e))
 			}
-		}
-		if !printed {
-			fmt.Println("Error:", err)
 		}
 		return
 	}

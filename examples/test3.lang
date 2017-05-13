@@ -36,4 +36,4 @@ fun main() {
 }
 
 //main();
-println(factorial(10));
+println(factorial(5));

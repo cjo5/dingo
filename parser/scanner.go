@@ -1,8 +1,6 @@
 package parser
 
 import (
-	"fmt"
-
 	"github.com/jhnl/interpreter/report"
 	"github.com/jhnl/interpreter/token"
 )
@@ -81,13 +79,32 @@ func (s *Scanner) Scan() token.Token {
 			tok.ID = s.scanOptionalEqual(token.Mul, token.MulAssign)
 		case '/':
 			if s.ch == '/' {
-				// Read entire line
+				// Single-line comment
 				s.next()
 				for s.ch != '\n' && s.ch != -1 {
 					s.next()
 				}
 				s.next()
 				tok.ID = token.Comment
+			} else if s.ch == '*' {
+				// Multi-line comment
+				s.next()
+				found := false
+				for s.ch != -1 {
+					ch := s.ch
+					s.next()
+					if ch == '*' {
+						if s.ch == '/' {
+							s.next()
+							found = true
+							break
+						}
+					}
+				}
+				if !found {
+					s.error(pos, "multi-line comment not closed")
+				}
+				tok.ID = token.MultiComment
 			} else {
 				tok.ID = s.scanOptionalEqual(token.Div, token.DivAssign)
 			}
@@ -145,7 +162,7 @@ func (s *Scanner) newPos() token.Position {
 }
 
 func (s *Scanner) error(pos token.Position, msg string) {
-	s.errors.Add(pos, fmt.Sprintf("syntax error: %s", msg))
+	s.errors.Add(pos, msg)
 }
 
 func (s *Scanner) skipWhitespace() {

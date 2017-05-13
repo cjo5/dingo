@@ -81,7 +81,7 @@ func (p *parser) next() {
 
 	for {
 		p.token = p.scanner.Scan()
-		if p.token.ID != token.Comment {
+		if p.token.ID != token.Comment && p.token.ID != token.MultiComment {
 			break
 		}
 	}

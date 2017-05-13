@@ -35,6 +35,7 @@ const (
 	Illegal TokenID = iota
 	EOF
 	Comment
+	MultiComment
 
 	literalBeg
 	Ident
