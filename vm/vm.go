@@ -129,7 +129,7 @@ func (vm *VM) Exec(ip int, code CodeMemory, mem DataMemory) {
 			if arg, ok := vm.pop1IntArg(op); ok {
 				vm.push(-arg)
 			}
-		case Inv:
+		case Not:
 			if arg, ok := vm.pop1IntArg(op); ok {
 				res := 0
 				if arg == 0 {

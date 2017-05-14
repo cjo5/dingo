@@ -24,7 +24,7 @@ const (
 	Print
 
 	Neg
-	Inv
+	Not
 	BinaryAdd
 	BinarySub
 	BinaryMul
@@ -66,7 +66,7 @@ var mnemonics = [...]string{
 	Print: "print",
 
 	Neg:       "neg",
-	Inv:       "inv",
+	Not:       "not",
 	BinaryAdd: "add",
 	BinarySub: "sub",
 	BinaryMul: "mul",

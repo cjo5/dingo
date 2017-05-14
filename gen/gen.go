@@ -412,7 +412,7 @@ func (c *compiler) compileUnaryExpr(expr *ast.UnaryExpr) {
 	if expr.Op.ID == token.Sub {
 		c.currBlock.addInstr0(vm.Neg)
 	} else {
-		c.currBlock.addInstr0(vm.Inv)
+		c.currBlock.addInstr0(vm.Not)
 	}
 }
 
