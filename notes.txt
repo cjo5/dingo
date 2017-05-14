@@ -5,6 +5,8 @@ TODO (in no particular order):
 - Add floats
 - Add characters
 - Add tests
+- Add closures
+- Add arrays
 - Parse escape sequences in string literal
 - Support relative jump addresses
 - Change statement terminator from semicolon to newline

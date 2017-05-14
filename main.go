@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/jhnl/interpreter/ast"
 	"github.com/jhnl/interpreter/gen"
 	"github.com/jhnl/interpreter/parser"
 	"github.com/jhnl/interpreter/report"
+	"github.com/jhnl/interpreter/sem"
 	"github.com/jhnl/interpreter/vm"
 )
 
@@ -23,7 +23,7 @@ func exec(filename string) {
 		return
 	}
 
-	fmt.Println(ast.Print(tree))
+	fmt.Println(sem.Print(tree))
 	ip, code, mem := gen.Compile(tree)
 
 	fmt.Printf("Constants (%d):\n", len(mem.Constants))

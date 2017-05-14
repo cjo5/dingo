@@ -6,7 +6,7 @@ import (
 )
 
 // Scanner struct.
-type Scanner struct {
+type scanner struct {
 	src        []byte
 	filename   string
 	errors     *report.ErrorList
@@ -17,8 +17,8 @@ type Scanner struct {
 	readOffset int
 }
 
-// Init a Scanner with the source code to scan.
-func (s *Scanner) Init(src []byte, filename string, errors *report.ErrorList) {
+// Init a scanner with the source code to scan.
+func (s *scanner) init(src []byte, filename string, errors *report.ErrorList) {
 	s.src = src
 	s.filename = filename
 	s.errors = errors
@@ -31,7 +31,7 @@ func (s *Scanner) Init(src []byte, filename string, errors *report.ErrorList) {
 }
 
 // Scan returns the next token from the byte stream.
-func (s *Scanner) Scan() token.Token {
+func (s *scanner) scan() token.Token {
 	s.skipWhitespace()
 
 	pos := s.newPos()
@@ -142,7 +142,7 @@ func isDigit(ch rune) bool {
 
 // Only supports ASCII characters for now
 //
-func (s *Scanner) next() {
+func (s *scanner) next() {
 	if s.readOffset < len(s.src) {
 		s.chOffset = s.readOffset
 		s.ch = rune(s.src[s.chOffset])
@@ -157,21 +157,21 @@ func (s *Scanner) next() {
 	}
 }
 
-func (s *Scanner) newPos() token.Position {
+func (s *scanner) newPos() token.Position {
 	return token.Position{Filename: s.filename, Line: s.lineCount, Column: (s.chOffset - s.lineOffset) + 1}
 }
 
-func (s *Scanner) error(pos token.Position, msg string) {
+func (s *scanner) error(pos token.Position, msg string) {
 	s.errors.Add(pos, msg)
 }
 
-func (s *Scanner) skipWhitespace() {
+func (s *scanner) skipWhitespace() {
 	for s.ch == ' ' || s.ch == '\t' || s.ch == '\n' {
 		s.next()
 	}
 }
 
-func (s *Scanner) scanOptionalEqual(tok0 token.TokenID, tok1 token.TokenID) token.TokenID {
+func (s *scanner) scanOptionalEqual(tok0 token.ID, tok1 token.ID) token.ID {
 	if s.ch == '=' {
 		s.next()
 		return tok1
@@ -179,7 +179,7 @@ func (s *Scanner) scanOptionalEqual(tok0 token.TokenID, tok1 token.TokenID) toke
 	return tok0
 }
 
-func (s *Scanner) scanIdent() (token.TokenID, string) {
+func (s *scanner) scanIdent() (token.ID, string) {
 	startOffset := s.chOffset
 
 	for isLetter(s.ch) || isDigit(s.ch) {
@@ -197,7 +197,7 @@ func (s *Scanner) scanIdent() (token.TokenID, string) {
 }
 
 // Only supports integers for now.
-func (s *Scanner) scanNumber() (token.TokenID, string) {
+func (s *scanner) scanNumber() (token.ID, string) {
 	startOffset := s.chOffset
 	for isDigit(s.ch) {
 		s.next()
@@ -205,7 +205,7 @@ func (s *Scanner) scanNumber() (token.TokenID, string) {
 	return token.Int, string(s.src[startOffset:s.chOffset])
 }
 
-func (s *Scanner) scanString(pos token.Position) string {
+func (s *scanner) scanString(pos token.Position) string {
 	startOffset := s.chOffset
 	s.next()
 

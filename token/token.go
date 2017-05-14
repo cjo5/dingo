@@ -5,8 +5,8 @@ import (
 	"strconv"
 )
 
-// TokenID is the type of token.
-type TokenID int
+// ID of token.
+type ID int
 
 // Position of token in a file.
 type Position struct {
@@ -21,7 +21,7 @@ func (p Position) String() string {
 
 // Token struct.
 type Token struct {
-	ID      TokenID
+	ID      ID
 	Literal string
 	Pos     Position
 }
@@ -29,7 +29,7 @@ type Token struct {
 // List of tokens.
 //
 const (
-	Illegal TokenID = iota
+	Illegal ID = iota
 	EOF
 	Comment
 	MultiComment
@@ -170,27 +170,27 @@ var tokens = [...]string{
 	False:    "false",
 }
 
-var keywords map[string]TokenID
+var keywords map[string]ID
 
 func init() {
-	keywords = make(map[string]TokenID)
+	keywords = make(map[string]ID)
 	for i := keywordBeg + 1; i < keywordEnd; i++ {
 		keywords[tokens[i]] = i
 	}
 }
 
-// Lookup returns the identifier's token type.
+// Lookup returns the identifier's token ID.
 //
-func Lookup(ident string) TokenID {
+func Lookup(ident string) ID {
 	if tok, ok := keywords[ident]; ok {
 		return tok
 	}
 	return Ident
 }
 
-func (tok TokenID) String() string {
+func (tok ID) String() string {
 	s := ""
-	if 0 <= tok && tok < TokenID(len(tokens)) {
+	if 0 <= tok && tok < ID(len(tokens)) {
 		s = tokens[tok]
 	}
 	if s == "" {
@@ -217,6 +217,7 @@ func (t Token) IsAssignOperator() bool {
 	return assignBeg < t.ID && t.ID < assignEnd
 }
 
-func Synthetic(id TokenID, literal string) Token {
+// Synthetic creates an artificial token that does not have a representation in the source code.
+func Synthetic(id ID, literal string) Token {
 	return Token{ID: id, Literal: literal, Pos: Position{Filename: "", Line: -1, Column: -1}}
 }

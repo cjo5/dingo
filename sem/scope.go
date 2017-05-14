@@ -1,4 +1,4 @@
-package ast
+package sem
 
 import "github.com/jhnl/interpreter/token"
 
