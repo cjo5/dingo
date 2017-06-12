@@ -5,8 +5,7 @@ import "github.com/jhnl/interpreter/token"
 type SymbolID int
 
 const (
-	Invalid = iota
-	VarSymbol
+	VarSymbol SymbolID = iota
 	FuncSymbol
 )
 

@@ -123,7 +123,7 @@ func (s *scanner) scan() token.Token {
 		case '<':
 			tok.ID = s.scanOptionalEqual(token.Lt, token.LtEq)
 		default:
-			tok.ID = token.Illegal
+			tok.ID = token.Invalid
 		}
 
 		tok.Literal = string(s.src[startOffset:s.chOffset])

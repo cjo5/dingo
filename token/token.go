@@ -29,7 +29,7 @@ type Token struct {
 // List of tokens.
 //
 const (
-	Illegal ID = iota
+	Invalid ID = iota
 	EOF
 	Comment
 	MultiComment
@@ -106,7 +106,7 @@ const (
 )
 
 var tokens = [...]string{
-	Illegal: "ILLEGAL",
+	Invalid: "invalid",
 	EOF:     "eof",
 	Comment: "comment",
 
