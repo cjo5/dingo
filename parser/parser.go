@@ -69,8 +69,7 @@ func (p *parser) declare(id sem.SymbolID, name token.Token, decl sem.Node) {
 
 func (p *parser) resolve(name token.Token) {
 	if existing, _ := p.scope.Lookup(name.Literal); existing == nil {
-		msg := fmt.Sprintf("'%s' undefined", name.Literal)
-		p.error(name, msg)
+		p.error(name, "'%s' undefined", name.Literal)
 	}
 }
 
@@ -87,8 +86,8 @@ func (p *parser) next() {
 	}
 }
 
-func (p *parser) error(tok token.Token, msg string) {
-	p.errors.Add(tok.Pos, msg)
+func (p *parser) error(tok token.Token, format string, args ...interface{}) {
+	p.errors.Add(tok.Pos, format, args...)
 }
 
 func (p *parser) sync() {
@@ -117,7 +116,7 @@ func (p *parser) match(id token.ID) bool {
 
 func (p *parser) expect(id token.ID) bool {
 	if !p.match(id) {
-		p.error(p.token, fmt.Sprintf("got '%s', expected '%s'", p.token.ID, id))
+		p.error(p.token, "got '%s', expected '%s'", p.token.ID, id)
 		p.next()
 		return false
 	}
@@ -163,7 +162,7 @@ func (p *parser) parseDecl() sem.Decl {
 	}
 	tok := p.token
 	p.next()
-	p.error(tok, fmt.Sprintf("got '%s', expected declaration", tok.ID))
+	p.error(tok, "got '%s', expected declaration", tok.ID)
 	return &sem.BadDecl{From: tok, To: tok}
 }
 
@@ -252,7 +251,7 @@ func (p *parser) parseStmt() sem.Stmt {
 	}
 	if p.token.ID == token.Break || p.token.ID == token.Continue {
 		if !p.inLoop {
-			p.error(p.token, fmt.Sprintf("%s can only be used in a loop", p.token.ID))
+			p.error(p.token, "%s can only be used in a loop", p.token.ID)
 		}
 
 		tok := p.token
@@ -265,7 +264,7 @@ func (p *parser) parseStmt() sem.Stmt {
 	}
 	tok := p.token
 	p.next()
-	p.error(tok, fmt.Sprintf("got '%s', expected statement", tok.ID))
+	p.error(tok, "got '%s', expected statement", tok.ID)
 	return &sem.BadStmt{From: tok, To: tok}
 }
 
@@ -331,7 +330,7 @@ func (p *parser) parseWhileStmt() *sem.WhileStmt {
 
 func (p *parser) parseReturnStmt() *sem.ReturnStmt {
 	if !p.inFunction {
-		p.error(p.token, fmt.Sprintf("%s can only be used in a function", p.token.ID))
+		p.error(p.token, "%s can only be used in a function", p.token.ID)
 	}
 	s := &sem.ReturnStmt{}
 	s.Return = p.token
@@ -352,7 +351,7 @@ func (p *parser) parseAssignOrCallStmt() sem.Stmt {
 	}
 	tok := p.token
 	p.next()
-	p.error(tok, fmt.Sprintf("got %s, expected assign or call statement", tok.ID))
+	p.error(tok, "got %s, expected assign or call statement", tok.ID)
 	return &sem.BadStmt{From: id.Name, To: tok}
 }
 
@@ -472,7 +471,7 @@ func (p *parser) parsePrimary() sem.Expr {
 	default:
 		// TODO: Sync?
 		tok := p.token
-		p.error(tok, fmt.Sprintf("got '%s', expected expression", tok.ID))
+		p.error(tok, "got '%s', expected expression", tok.ID)
 		p.next()
 		return &sem.BadExpr{From: tok, To: tok}
 	}
@@ -487,9 +486,9 @@ func (p *parser) parseIdent() *sem.Ident {
 func (p *parser) parseCallExpr(id *sem.Ident) *sem.CallExpr {
 	sym, _ := p.scope.Lookup(id.Name.Literal)
 	if sym == nil {
-		p.error(id.Name, fmt.Sprintf("'%s' undefined", id.Name.Literal))
+		p.error(id.Name, "'%s' undefined", id.Name.Literal)
 	} else if sym.ID != sem.FuncSymbol {
-		p.error(id.Name, fmt.Sprintf("'%s' is not a function", sym.Name.Literal))
+		p.error(id.Name, "'%s' is not a function", sym.Name.Literal)
 	}
 	lparen := p.token
 	p.expect(token.Lparen)
@@ -504,7 +503,7 @@ func (p *parser) parseCallExpr(id *sem.Ident) *sem.CallExpr {
 	if sym != nil {
 		decl, _ := sym.Decl.(*sem.FuncDecl)
 		if len(decl.Fields) != len(args) {
-			p.error(id.Name, fmt.Sprintf("'%s' takes %d argument(s), but called with %d", sym.Name.Literal, len(decl.Fields), len(args)))
+			p.error(id.Name, "'%s' takes %d argument(s), but called with %d", sym.Name.Literal, len(decl.Fields), len(args))
 		}
 	}
 	rparen := p.token

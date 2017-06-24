@@ -17,12 +17,12 @@ func (e Error) Error() string {
 
 type ErrorList []*Error
 
-func (e *ErrorList) Add(pos token.Position, msg string) {
+func (e *ErrorList) Add(pos token.Position, format string, args ...interface{}) {
 	// TODO: Save all errors and filter redudant errors in final presentation
 	if n := len(*e); n > 0 && (*e)[n-1].Pos.Line == pos.Line {
 		return
 	}
-	err := &Error{Pos: pos, Msg: msg}
+	err := &Error{Pos: pos, Msg: fmt.Sprintf(format, args...)}
 	*e = append(*e, err)
 }
 
