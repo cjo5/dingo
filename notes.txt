@@ -6,7 +6,7 @@ TODO (in no particular order):
 - Add characters
 - Add arrays
 - Add tests
-- Add closures
+- Add closures / functions as values
 - Add cmd package for executable
 - Parse escape sequences in string literal
 - Support relative jump addresses

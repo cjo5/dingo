@@ -148,71 +148,23 @@ func (p *parser) parseModule() *sem.Module {
 	}
 	p.openScope()
 	for p.token.ID != token.EOF {
-		mod.Stmts = append(mod.Stmts, p.parseStmt())
+		mod.Decls = append(mod.Decls, p.parseDecl())
 	}
 	mod.Scope = p.scope
 	p.closeScope()
 	return mod
 }
 
-func (p *parser) parseStmt() sem.Stmt {
-	if p.token.ID == token.Lbrace {
-		return p.parseBlockStmt(true)
-	}
+func (p *parser) parseDecl() sem.Decl {
 	if p.token.ID == token.Var {
 		return p.parseVarDecl()
-	}
-	if p.token.ID == token.Func {
+	} else if p.token.ID == token.Func {
 		return p.parseFuncDecl()
-	}
-	if p.token.ID == token.Print {
-		return p.parsePrintStmt()
-	}
-	if p.token.ID == token.If {
-		return p.parseIfStmt()
-	}
-	if p.token.ID == token.While {
-		return p.parseWhileStmt()
-	}
-	if p.token.ID == token.Return {
-		return p.parseReturnStmt()
-	}
-	if p.token.ID == token.Break || p.token.ID == token.Continue {
-		if !p.inLoop {
-			p.error(p.token, fmt.Sprintf("%s can only be used in a loop", p.token.ID))
-		}
-
-		tok := p.token
-		p.next()
-		p.expectSemi()
-		return &sem.BranchStmt{Tok: tok}
-	}
-	if p.token.ID == token.Ident {
-		return p.parseAssignOrCallStmt()
 	}
 	tok := p.token
 	p.next()
-	p.error(tok, fmt.Sprintf("got '%s', expected statement", tok.ID))
-	return &sem.BadStmt{From: tok, To: tok}
-}
-
-func (p *parser) parseBlockStmt(newScope bool) *sem.BlockStmt {
-	if newScope {
-		p.openScope()
-	}
-	block := &sem.BlockStmt{}
-	block.Lbrace = p.token
-	p.expect(token.Lbrace)
-	for p.token.ID != token.Rbrace && p.token.ID != token.EOF {
-		block.Stmts = append(block.Stmts, p.parseStmt())
-	}
-	block.Rbrace = p.token
-	p.expect(token.Rbrace)
-	block.Scope = p.scope
-	if newScope {
-		p.closeScope()
-	}
-	return block
+	p.error(tok, fmt.Sprintf("got '%s', expected declaration", tok.ID))
+	return &sem.BadDecl{From: tok, To: tok}
 }
 
 func (p *parser) parseVarDecl() *sem.VarDecl {
@@ -277,6 +229,68 @@ func (p *parser) parseFuncDecl() *sem.FuncDecl {
 	}
 
 	return decl
+}
+
+func (p *parser) parseStmt() sem.Stmt {
+	if p.token.ID == token.Lbrace {
+		return p.parseBlockStmt(true)
+	}
+	if p.token.ID == token.Var {
+		return p.parseDeclStmt()
+	}
+	if p.token.ID == token.Print {
+		return p.parsePrintStmt()
+	}
+	if p.token.ID == token.If {
+		return p.parseIfStmt()
+	}
+	if p.token.ID == token.While {
+		return p.parseWhileStmt()
+	}
+	if p.token.ID == token.Return {
+		return p.parseReturnStmt()
+	}
+	if p.token.ID == token.Break || p.token.ID == token.Continue {
+		if !p.inLoop {
+			p.error(p.token, fmt.Sprintf("%s can only be used in a loop", p.token.ID))
+		}
+
+		tok := p.token
+		p.next()
+		p.expectSemi()
+		return &sem.BranchStmt{Tok: tok}
+	}
+	if p.token.ID == token.Ident {
+		return p.parseAssignOrCallStmt()
+	}
+	tok := p.token
+	p.next()
+	p.error(tok, fmt.Sprintf("got '%s', expected statement", tok.ID))
+	return &sem.BadStmt{From: tok, To: tok}
+}
+
+func (p *parser) parseBlockStmt(newScope bool) *sem.BlockStmt {
+	if newScope {
+		p.openScope()
+	}
+	block := &sem.BlockStmt{}
+	block.Lbrace = p.token
+	p.expect(token.Lbrace)
+	for p.token.ID != token.Rbrace && p.token.ID != token.EOF {
+		block.Stmts = append(block.Stmts, p.parseStmt())
+	}
+	block.Rbrace = p.token
+	p.expect(token.Rbrace)
+	block.Scope = p.scope
+	if newScope {
+		p.closeScope()
+	}
+	return block
+}
+
+func (p *parser) parseDeclStmt() *sem.DeclStmt {
+	d := p.parseVarDecl()
+	return &sem.DeclStmt{D: d}
 }
 
 func (p *parser) parsePrintStmt() *sem.PrintStmt {

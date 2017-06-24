@@ -60,6 +60,8 @@ func (p *printer) walk(n Node) {
 		p.printModule(t)
 	case *BlockStmt:
 		p.printBlockStmt(t)
+	case *DeclStmt:
+		p.printDeclStmt(t)
 	case *VarDecl:
 		p.printVarDecl(t)
 	case *FuncDecl:
@@ -95,8 +97,8 @@ func (p *printer) printModule(mod *Module) {
 	if mod.Name != nil {
 		p.printf("[module %v]", mod.Name.Name)
 	}
-	for _, s := range mod.Stmts {
-		p.walk(s)
+	for _, d := range mod.Decls {
+		p.walk(d)
 	}
 }
 
@@ -108,24 +110,28 @@ func (p *printer) printBlockStmt(stmt *BlockStmt) {
 	}
 }
 
-func (p *printer) printVarDecl(stmt *VarDecl) {
-	defer dec(inc(p))
-	p.printToken(stmt.Decl)
-	p.walk(stmt.Name)
-	p.walk(stmt.X)
+func (p *printer) printDeclStmt(stmt *DeclStmt) {
+	p.walk(stmt.D)
 }
 
-func (p *printer) printFuncDecl(stmt *FuncDecl) {
+func (p *printer) printVarDecl(decl *VarDecl) {
 	defer dec(inc(p))
-	p.printToken(stmt.Decl)
-	p.walk(stmt.Name)
+	p.printToken(decl.Decl)
+	p.walk(decl.Name)
+	p.walk(decl.X)
+}
+
+func (p *printer) printFuncDecl(decl *FuncDecl) {
+	defer dec(inc(p))
+	p.printToken(decl.Decl)
+	p.walk(decl.Name)
 	p.level++
 	p.print("FIELDS")
-	for _, field := range stmt.Fields {
+	for _, field := range decl.Fields {
 		p.walk(field)
 	}
 	p.level--
-	p.walk(stmt.Body)
+	p.walk(decl.Body)
 }
 
 func (p *printer) printPrintStmt(stmt *PrintStmt) {

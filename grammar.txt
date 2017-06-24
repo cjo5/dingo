@@ -4,10 +4,12 @@
 
 module = ['module' IDENT ';'] decl*
 
-stmt = blockStmt | varDecl | funcDecl | printStmt | ifStmt | whileStmt | returnStmt | 'break' ';' | 'continue' ';'
-blockStmt = '{' stmt* '}'
+decl = varDecl | funcDecl
 varDecl = 'var' IDENT '=' expr ';'
 funcDecl = 'fun' IDENT '(' [IDENT {',' IDENT} ] ')' blockStmt
+stmt = blockStmt | declStmt | printStmt | ifStmt | whileStmt | returnStmt | 'break' ';' | 'continue' ';'
+declStmt = varDecl 
+blockStmt = '{' stmt* '}'
 printStmt = 'print' expr ';'
 assignStmt = IDENT ('=' | '+=' | '-=' | '*=' | '/=' | '%=' ) expr ';'
 callStmt = call ';'

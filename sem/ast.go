@@ -7,10 +7,10 @@ type Node interface {
 	node()
 }
 
-// Expr is the main interface for expression nodes.
-type Expr interface {
+// Decl is the main interface for declaration nodes.
+type Decl interface {
 	Node
-	exprNode()
+	declNode()
 }
 
 // Stmt is the main interface for statement nodes.
@@ -19,28 +19,27 @@ type Stmt interface {
 	stmtNode()
 }
 
+// Expr is the main interface for expression nodes.
+type Expr interface {
+	Node
+	exprNode()
+}
+
 // A Module is the main unit of compilation.
 type Module struct {
 	Mod   token.Token
 	Name  *Ident
 	Scope *Scope
-	Stmts []Stmt
+	Decls []Decl
 }
 
 func (m *Module) node() {}
 
-// Stmt nodes
+// Decl nodes.
 
-type BadStmt struct {
+type BadDecl struct {
 	From token.Token
 	To   token.Token
-}
-
-type BlockStmt struct {
-	Lbrace token.Token
-	Scope  *Scope
-	Stmts  []Stmt
-	Rbrace token.Token
 }
 
 type VarDecl struct {
@@ -56,6 +55,34 @@ type FuncDecl struct {
 	Scope  *Scope
 	Fields []*Ident
 	Body   *BlockStmt
+}
+
+// Implementation for decl nodes.
+
+func (d *BadDecl) node()  {}
+func (d *VarDecl) node()  {}
+func (d *FuncDecl) node() {}
+
+func (d *BadDecl) declNode()  {}
+func (d *VarDecl) declNode()  {}
+func (d *FuncDecl) declNode() {}
+
+// Stmt nodes.
+
+type BadStmt struct {
+	From token.Token
+	To   token.Token
+}
+
+type BlockStmt struct {
+	Lbrace token.Token
+	Scope  *Scope
+	Stmts  []Stmt
+	Rbrace token.Token
+}
+
+type DeclStmt struct {
+	D Decl
 }
 
 type PrintStmt struct {
@@ -99,8 +126,7 @@ type ExprStmt struct {
 
 func (s *BadStmt) node()    {}
 func (s *BlockStmt) node()  {}
-func (s *VarDecl) node()    {}
-func (s *FuncDecl) node()   {}
+func (s *DeclStmt) node()   {}
 func (s *PrintStmt) node()  {}
 func (s *IfStmt) node()     {}
 func (s *WhileStmt) node()  {}
@@ -111,8 +137,7 @@ func (s *ExprStmt) node()   {}
 
 func (s *BadStmt) stmtNode()    {}
 func (s *BlockStmt) stmtNode()  {}
-func (s *VarDecl) stmtNode()    {}
-func (s *FuncDecl) stmtNode()   {}
+func (s *DeclStmt) stmtNode()   {}
 func (s *PrintStmt) stmtNode()  {}
 func (s *IfStmt) stmtNode()     {}
 func (s *WhileStmt) stmtNode()  {}

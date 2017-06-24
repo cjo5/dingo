@@ -5,10 +5,6 @@ module main;
 // Test comment
 // Test comment
 
-fun println(a) {
-    print a;
-    print "\n";
-}
 
 fun factorial(a) {
     if a == 0 {
@@ -17,23 +13,12 @@ fun factorial(a) {
     return a * factorial(a-1);
 }
 
-fun main() {
-    var i = 0;
-    var sum = 0;
-
-    while i < 5 {
-        sum += i;
-
-        if i == 2 {
-            i += 2;
-            continue;
-        }
-
-        i += 1;
-    }
-
-    println(sum);
+fun println(a) {
+    print a;
+    print "\n";
 }
 
-//main();
-println(factorial(5));
+fun main() {
+    var res = factorial(5);
+    println(res);
+}

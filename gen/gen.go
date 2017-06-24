@@ -47,7 +47,7 @@ type compiler struct {
 	localAddress int
 }
 
-// Compile sem.to bytecode.
+// Compile mod to bytecode.
 // 1. Convert AST to CFG, where a node in the CFG is a basic block with bytecode instructions.
 // 2. Flatten CFG to linear bytecode and patch jump addresses.
 func Compile(mod *sem.Module) (int, vm.CodeMemory, vm.DataMemory) {
@@ -120,24 +120,25 @@ func (b *block) addInstr1(op vm.Opcode, arg1 int) {
 }
 
 func (c *compiler) compileModule(mod *sem.Module) {
-	// 1. Define all globals
-	// 2. Compile functions
-	// 3. Compile statements
-
-	var stmts []sem.Stmt
+	var vars []*sem.VarDecl
 	var funcs []*sem.FuncDecl
 
 	c.scope = mod.Scope
 
-	for _, stmt := range mod.Stmts {
-		switch t := stmt.(type) {
+	// Define addresses
+	for _, decl := range mod.Decls {
+		switch t := decl.(type) {
 		case *sem.VarDecl:
 			c.defineVar(t.Name.Literal())
-			stmts = append(stmts, stmt)
+			vars = append(vars, t)
 		case *sem.FuncDecl:
+			fun := &function{}
+			fun.constantAddress = c.constantAddress
+			c.constantAddress++
+			c.functions[t.Name.Literal()] = fun
 			funcs = append(funcs, t)
 		default:
-			stmts = append(stmts, stmt)
+			panic(fmt.Sprintf("Unknown decl %T", t))
 		}
 	}
 
@@ -146,20 +147,28 @@ func (c *compiler) compileModule(mod *sem.Module) {
 	// When the statements are compiled, the globals are defined once again so the globalAddress needs to be reset so they get the same address.
 	c.globalAddress = 0
 
+	// Compile functions
 	for _, decl := range funcs {
 		entry := &block{}
 		c.currBlock = entry
-		fun := &function{}
-		c.functions[decl.Name.Literal()] = fun
-		c.compileFuncDecl(fun, decl)
+		c.compileFuncDecl(decl)
 	}
 
 	c.startBlock = &block{}
 	c.currBlock = c.startBlock
 
-	for _, stmt := range stmts {
-		c.compileStmt(stmt)
+	// Compile globals
+	for _, decl := range vars {
+		c.compileVarDecl(decl)
 	}
+
+	// Invoke main function
+	if addr, found := c.lookupFunc("main"); found {
+		c.currBlock.addInstr1(vm.Call, addr)
+		c.currBlock.addInstr0(vm.Pop)
+	}
+
+	// Halt program
 	c.currBlock.addInstr0(vm.Halt)
 }
 
@@ -173,8 +182,8 @@ func (c *compiler) compileStmt(stmt sem.Stmt) {
 	switch t := stmt.(type) {
 	case *sem.BlockStmt:
 		c.compileBlockStmt(t)
-	case *sem.VarDecl:
-		c.compileVarDecl(t)
+	case *sem.DeclStmt:
+		c.compileDeclStmt(t)
 	case *sem.PrintStmt:
 		c.compilePrintStmt(t)
 	case *sem.IfStmt:
@@ -203,6 +212,15 @@ func (c *compiler) compileBlockStmt(stmt *sem.BlockStmt) {
 	c.scope = outer
 }
 
+func (c *compiler) compileDeclStmt(stmt *sem.DeclStmt) {
+	switch t := stmt.D.(type) {
+	case *sem.VarDecl:
+		c.compileVarDecl(t)
+	default:
+		panic(fmt.Sprintf("Unable to compile decl stmt %T", t))
+	}
+}
+
 func (c *compiler) compileVarDecl(stmt *sem.VarDecl) {
 	c.compileExpr(stmt.X)
 	addr, global := c.defineVar(stmt.Name.Literal())
@@ -213,11 +231,14 @@ func (c *compiler) compileVarDecl(stmt *sem.VarDecl) {
 	}
 }
 
-func (c *compiler) compileFuncDecl(fun *function, stmt *sem.FuncDecl) {
+func (c *compiler) compileFuncDecl(stmt *sem.FuncDecl) {
+	fun, ok := c.functions[stmt.Name.Literal()]
+	if !ok {
+		panic(fmt.Sprintf("Function %s not defined", stmt.Name.Literal()))
+	}
+
 	fun.entry = c.currBlock
 	fun.argCount = len(stmt.Fields)
-	fun.constantAddress = c.constantAddress
-	c.constantAddress++
 
 	outer := c.scope
 	c.scope = stmt.Scope
