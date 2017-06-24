@@ -1,11 +1,11 @@
-package gen
+package codegen
 
 import (
 	"strconv"
 
 	"fmt"
 
-	"github.com/jhnl/interpreter/sem"
+	"github.com/jhnl/interpreter/semantics"
 	"github.com/jhnl/interpreter/token"
 	"github.com/jhnl/interpreter/vm"
 )
@@ -43,14 +43,14 @@ type compiler struct {
 	currBlock    *block
 	target0      *block
 	target1      *block
-	scope        *sem.Scope
+	scope        *semantics.Scope
 	localAddress int
 }
 
 // Compile mod to bytecode.
 // 1. Convert AST to CFG, where a node in the CFG is a basic block with bytecode instructions.
 // 2. Flatten CFG to linear bytecode and patch jump addresses.
-func Compile(mod *sem.Module) (int, vm.CodeMemory, vm.DataMemory) {
+func Compile(mod *semantics.Module) (int, vm.CodeMemory, vm.DataMemory) {
 	c := &compiler{}
 	c.stringLiterals = make(map[string]int)
 	c.functions = make(map[string]*function)
@@ -119,19 +119,19 @@ func (b *block) addInstr1(op vm.Opcode, arg1 int) {
 	b.addJumpInstr(vm.NewInstr1(op, arg1), nil)
 }
 
-func (c *compiler) compileModule(mod *sem.Module) {
-	var vars []*sem.VarDecl
-	var funcs []*sem.FuncDecl
+func (c *compiler) compileModule(mod *semantics.Module) {
+	var vars []*semantics.VarDecl
+	var funcs []*semantics.FuncDecl
 
 	c.scope = mod.Scope
 
 	// Define addresses
 	for _, decl := range mod.Decls {
 		switch t := decl.(type) {
-		case *sem.VarDecl:
+		case *semantics.VarDecl:
 			c.defineVar(t.Name.Literal())
 			vars = append(vars, t)
-		case *sem.FuncDecl:
+		case *semantics.FuncDecl:
 			fun := &function{}
 			fun.constantAddress = c.constantAddress
 			c.constantAddress++
@@ -172,38 +172,38 @@ func (c *compiler) compileModule(mod *sem.Module) {
 	c.currBlock.addInstr0(vm.Halt)
 }
 
-func (c *compiler) compileStmtList(stmts []sem.Stmt) {
+func (c *compiler) compileStmtList(stmts []semantics.Stmt) {
 	for _, stmt := range stmts {
 		c.compileStmt(stmt)
 	}
 }
 
-func (c *compiler) compileStmt(stmt sem.Stmt) {
+func (c *compiler) compileStmt(stmt semantics.Stmt) {
 	switch t := stmt.(type) {
-	case *sem.BlockStmt:
+	case *semantics.BlockStmt:
 		c.compileBlockStmt(t)
-	case *sem.DeclStmt:
+	case *semantics.DeclStmt:
 		c.compileDeclStmt(t)
-	case *sem.PrintStmt:
+	case *semantics.PrintStmt:
 		c.compilePrintStmt(t)
-	case *sem.IfStmt:
+	case *semantics.IfStmt:
 		c.compileIfStmt(t)
-	case *sem.WhileStmt:
+	case *semantics.WhileStmt:
 		c.compileWhileStmt(t)
-	case *sem.ReturnStmt:
+	case *semantics.ReturnStmt:
 		c.compileReturnStmt(t)
-	case *sem.BranchStmt:
+	case *semantics.BranchStmt:
 		c.compileBranchStmt(t)
-	case *sem.AssignStmt:
+	case *semantics.AssignStmt:
 		c.compileAssignStmt(t)
-	case *sem.ExprStmt:
+	case *semantics.ExprStmt:
 		c.compileExprStmt(t)
 	default:
 		panic(fmt.Sprintf("Unable to compile stmt %T", t))
 	}
 }
 
-func (c *compiler) compileBlockStmt(stmt *sem.BlockStmt) {
+func (c *compiler) compileBlockStmt(stmt *semantics.BlockStmt) {
 	outer := c.scope
 	if stmt.Scope != nil {
 		c.scope = stmt.Scope
@@ -212,16 +212,16 @@ func (c *compiler) compileBlockStmt(stmt *sem.BlockStmt) {
 	c.scope = outer
 }
 
-func (c *compiler) compileDeclStmt(stmt *sem.DeclStmt) {
+func (c *compiler) compileDeclStmt(stmt *semantics.DeclStmt) {
 	switch t := stmt.D.(type) {
-	case *sem.VarDecl:
+	case *semantics.VarDecl:
 		c.compileVarDecl(t)
 	default:
 		panic(fmt.Sprintf("Unable to compile decl stmt %T", t))
 	}
 }
 
-func (c *compiler) compileVarDecl(stmt *sem.VarDecl) {
+func (c *compiler) compileVarDecl(stmt *semantics.VarDecl) {
 	c.compileExpr(stmt.X)
 	addr, global := c.defineVar(stmt.Name.Literal())
 	if global {
@@ -231,7 +231,7 @@ func (c *compiler) compileVarDecl(stmt *sem.VarDecl) {
 	}
 }
 
-func (c *compiler) compileFuncDecl(stmt *sem.FuncDecl) {
+func (c *compiler) compileFuncDecl(stmt *semantics.FuncDecl) {
 	fun, ok := c.functions[stmt.Name.Literal()]
 	if !ok {
 		panic(fmt.Sprintf("Function %s not defined", stmt.Name.Literal()))
@@ -249,12 +249,12 @@ func (c *compiler) compileFuncDecl(stmt *sem.FuncDecl) {
 	c.scope = outer
 }
 
-func (c *compiler) compilePrintStmt(stmt *sem.PrintStmt) {
+func (c *compiler) compilePrintStmt(stmt *semantics.PrintStmt) {
 	c.compileExpr(stmt.X)
 	c.currBlock.addInstr0(vm.Print)
 }
 
-func (c *compiler) compileIfStmt(stmt *sem.IfStmt) {
+func (c *compiler) compileIfStmt(stmt *semantics.IfStmt) {
 	jump := &block{}
 	seq := &block{}
 
@@ -277,7 +277,7 @@ func (c *compiler) compileIfStmt(stmt *sem.IfStmt) {
 		c.setNextBlock(jump)
 		c.compileStmt(stmt.Else)
 
-		if _, ok := stmt.Else.(*sem.BlockStmt); ok {
+		if _, ok := stmt.Else.(*semantics.BlockStmt); ok {
 			c.setNextBlock(&block{})
 		}
 
@@ -285,7 +285,7 @@ func (c *compiler) compileIfStmt(stmt *sem.IfStmt) {
 	}
 }
 
-func (c *compiler) compileWhileStmt(stmt *sem.WhileStmt) {
+func (c *compiler) compileWhileStmt(stmt *semantics.WhileStmt) {
 	loop := &block{}
 	cond := &block{}
 	join := &block{}
@@ -302,13 +302,13 @@ func (c *compiler) compileWhileStmt(stmt *sem.WhileStmt) {
 	c.target1 = nil
 }
 
-func (c *compiler) compileReturnStmt(stmt *sem.ReturnStmt) {
+func (c *compiler) compileReturnStmt(stmt *semantics.ReturnStmt) {
 	c.compileExpr(stmt.X)
 	c.currBlock.addInstr0(vm.Ret)
 	c.setNextBlock(&block{})
 }
 
-func (c *compiler) compileBranchStmt(stmt *sem.BranchStmt) {
+func (c *compiler) compileBranchStmt(stmt *semantics.BranchStmt) {
 	if stmt.Tok.ID == token.Continue {
 		c.currBlock.addJumpInstr(vm.NewInstr0(vm.Goto), c.target0)
 	} else { // break
@@ -316,7 +316,7 @@ func (c *compiler) compileBranchStmt(stmt *sem.BranchStmt) {
 	}
 }
 
-func (c *compiler) compileAssignStmt(stmt *sem.AssignStmt) {
+func (c *compiler) compileAssignStmt(stmt *semantics.AssignStmt) {
 	assign := stmt.Assign.ID
 	if assign == token.AddAssign || assign == token.SubAssign ||
 		assign == token.MulAssign || assign == token.DivAssign ||
@@ -343,33 +343,33 @@ func (c *compiler) compileAssignStmt(stmt *sem.AssignStmt) {
 	}
 }
 
-func (c *compiler) compileExprStmt(stmt *sem.ExprStmt) {
+func (c *compiler) compileExprStmt(stmt *semantics.ExprStmt) {
 	c.compileExpr(stmt.X)
 
-	if _, ok := stmt.X.(*sem.CallExpr); ok {
+	if _, ok := stmt.X.(*semantics.CallExpr); ok {
 		// Pop unused return value
 		c.currBlock.addInstr0(vm.Pop)
 	}
 }
 
-func (c *compiler) compileExpr(expr sem.Expr) {
+func (c *compiler) compileExpr(expr semantics.Expr) {
 	switch t := expr.(type) {
-	case *sem.BinaryExpr:
+	case *semantics.BinaryExpr:
 		c.compileBinaryExpr(t)
-	case *sem.UnaryExpr:
+	case *semantics.UnaryExpr:
 		c.compileUnaryExpr(t)
-	case *sem.Literal:
+	case *semantics.Literal:
 		c.compileLiteral(t)
-	case *sem.Ident:
+	case *semantics.Ident:
 		c.compileIdent(t)
-	case *sem.CallExpr:
+	case *semantics.CallExpr:
 		c.compileCallExpr(t)
 	default:
 		panic(fmt.Sprintf("Unable to compile expr %T", t))
 	}
 }
 
-func (c *compiler) compileBinaryExpr(expr *sem.BinaryExpr) {
+func (c *compiler) compileBinaryExpr(expr *semantics.BinaryExpr) {
 	if expr.Op.ID == token.Lor || expr.Op.ID == token.Land {
 		// TODO: Make it more efficient if expression is part of control flow (if, while etc)
 
@@ -428,7 +428,7 @@ func (c *compiler) compileBinaryExpr(expr *sem.BinaryExpr) {
 	}
 }
 
-func (c *compiler) compileUnaryExpr(expr *sem.UnaryExpr) {
+func (c *compiler) compileUnaryExpr(expr *semantics.UnaryExpr) {
 	c.compileExpr(expr.X)
 	if expr.Op.ID == token.Sub {
 		c.currBlock.addInstr0(vm.Neg)
@@ -437,7 +437,7 @@ func (c *compiler) compileUnaryExpr(expr *sem.UnaryExpr) {
 	}
 }
 
-func (c *compiler) compileLiteral(lit *sem.Literal) {
+func (c *compiler) compileLiteral(lit *semantics.Literal) {
 	if lit.Value.ID == token.String {
 		s := c.unescapeString(lit.Value.Literal)
 		addr := c.defineString(s)
@@ -502,7 +502,7 @@ func (c *compiler) unescapeString(literal string) string {
 	return string(unescaped)
 }
 
-func (c *compiler) compileIdent(id *sem.Ident) {
+func (c *compiler) compileIdent(id *semantics.Ident) {
 	addr, global := c.lookupVar(id.Literal())
 	if global {
 		c.currBlock.addInstr1(vm.Gload, addr)
@@ -511,7 +511,7 @@ func (c *compiler) compileIdent(id *sem.Ident) {
 	}
 }
 
-func (c *compiler) compileCallExpr(expr *sem.CallExpr) {
+func (c *compiler) compileCallExpr(expr *semantics.CallExpr) {
 	for _, arg := range expr.Args {
 		c.compileExpr(arg)
 	}

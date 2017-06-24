@@ -2,6 +2,7 @@ TODO (in no particular order):
 - Semantic analysis
     - Type checking
     - Move semantic checking from parser
+    - Support use-before-declaration of functions and globals
 - Add floats
 - Add characters
 - Add arrays
@@ -18,7 +19,6 @@ TODO (in no particular order):
 - Improve expression statements
 - Improve bytecode disassembly
 - Print vm state
-- Support use-before-declaration of functions
 - Nested comments?
 - Isolate bytecode instructions for functions?
 - Scoped variables should expand and shrink locals array

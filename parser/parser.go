@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"io/ioutil"
 
-	"github.com/jhnl/interpreter/report"
-	"github.com/jhnl/interpreter/sem"
+	"github.com/jhnl/interpreter/common"
+	"github.com/jhnl/interpreter/semantics"
 	"github.com/jhnl/interpreter/token"
 )
 
-func ParseFile(filename string) (*sem.Module, error) {
+func ParseFile(filename string) (*semantics.Module, error) {
 	buf, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return nil, err
@@ -17,11 +17,11 @@ func ParseFile(filename string) (*sem.Module, error) {
 	return parse(buf, filename)
 }
 
-func Parse(src []byte) (*sem.Module, error) {
+func Parse(src []byte) (*semantics.Module, error) {
 	return parse(src, "")
 }
 
-func parse(src []byte, filename string) (*sem.Module, error) {
+func parse(src []byte, filename string) (*semantics.Module, error) {
 	var p parser
 	p.init(src, filename)
 	p.next()
@@ -37,11 +37,11 @@ func parse(src []byte, filename string) (*sem.Module, error) {
 
 type parser struct {
 	scanner scanner
-	errors  report.ErrorList
+	errors  common.ErrorList
 	trace   bool
 
 	token      token.Token
-	scope      *sem.Scope
+	scope      *semantics.Scope
 	inLoop     bool
 	inFunction bool
 }
@@ -52,15 +52,15 @@ func (p *parser) init(src []byte, filename string) {
 }
 
 func (p *parser) openScope() {
-	p.scope = sem.NewScope(p.scope)
+	p.scope = semantics.NewScope(p.scope)
 }
 
 func (p *parser) closeScope() {
 	p.scope = p.scope.Outer
 }
 
-func (p *parser) declare(id sem.SymbolID, name token.Token, decl sem.Node) {
-	sym := sem.NewSymbol(id, name, decl)
+func (p *parser) declare(id semantics.SymbolID, name token.Token, decl semantics.Node) {
+	sym := semantics.NewSymbol(id, name, decl)
 	if existing := p.scope.Insert(sym); existing != nil {
 		msg := fmt.Sprintf("redeclaration of '%s', previously declared at %s", name.Literal, existing.Pos())
 		p.error(name, msg)
@@ -137,8 +137,8 @@ func (p *parser) expectSemi() bool {
 	return res
 }
 
-func (p *parser) parseModule() *sem.Module {
-	mod := &sem.Module{}
+func (p *parser) parseModule() *semantics.Module {
+	mod := &semantics.Module{}
 	if p.token.ID == token.Module {
 		mod.Mod = p.token
 		p.expect(token.Module)
@@ -154,7 +154,7 @@ func (p *parser) parseModule() *sem.Module {
 	return mod
 }
 
-func (p *parser) parseDecl() sem.Decl {
+func (p *parser) parseDecl() semantics.Decl {
 	if p.token.ID == token.Var {
 		return p.parseVarDecl()
 	} else if p.token.ID == token.Func {
@@ -163,38 +163,38 @@ func (p *parser) parseDecl() sem.Decl {
 	tok := p.token
 	p.next()
 	p.error(tok, "got '%s', expected declaration", tok.ID)
-	return &sem.BadDecl{From: tok, To: tok}
+	return &semantics.BadDecl{From: tok, To: tok}
 }
 
-func (p *parser) parseVarDecl() *sem.VarDecl {
-	decl := &sem.VarDecl{}
+func (p *parser) parseVarDecl() *semantics.VarDecl {
+	decl := &semantics.VarDecl{}
 	decl.Decl = p.token
 	p.next()
 	decl.Name = p.parseIdent()
 	p.expect(token.Assign)
 	decl.X = p.parseExpr()
 	p.expect(token.Semicolon)
-	p.declare(sem.VarSymbol, decl.Name.Name, decl)
+	p.declare(semantics.VarSymbol, decl.Name.Name, decl)
 	return decl
 }
 
-func (p *parser) parseFuncDecl() *sem.FuncDecl {
-	decl := &sem.FuncDecl{}
+func (p *parser) parseFuncDecl() *semantics.FuncDecl {
+	decl := &semantics.FuncDecl{}
 	decl.Decl = p.token
 	p.next()
 	decl.Name = p.parseIdent()
-	p.declare(sem.FuncSymbol, decl.Name.Name, decl)
+	p.declare(semantics.FuncSymbol, decl.Name.Name, decl)
 	p.openScope()
 
 	p.expect(token.Lparen)
 	if p.token.ID == token.Ident {
 		field := p.parseIdent()
-		p.declare(sem.VarSymbol, field.Name, field)
+		p.declare(semantics.VarSymbol, field.Name, field)
 		decl.Fields = append(decl.Fields, field)
 		for p.token.ID != token.EOF && p.token.ID != token.Rparen {
 			p.expect(token.Comma)
 			field = p.parseIdent()
-			p.declare(sem.VarSymbol, field.Name, field)
+			p.declare(semantics.VarSymbol, field.Name, field)
 			decl.Fields = append(decl.Fields, field)
 		}
 	}
@@ -206,14 +206,14 @@ func (p *parser) parseFuncDecl() *sem.FuncDecl {
 	decl.Scope = p.scope
 	p.closeScope()
 
-	// Ensure there is atlesem 1 return statement and that every return has an expression
+	// Ensure there is atlesemantics.1 return statement and that every return has an expression
 
 	lit0 := token.Synthetic(token.Int, "0")
 	endsWithReturn := false
 	for i, stmt := range decl.Body.Stmts {
-		if t, ok := stmt.(*sem.ReturnStmt); ok {
+		if t, ok := stmt.(*semantics.ReturnStmt); ok {
 			if t.X == nil {
-				t.X = &sem.Literal{Value: lit0}
+				t.X = &semantics.Literal{Value: lit0}
 			}
 			if (i + 1) == len(decl.Body.Stmts) {
 				endsWithReturn = true
@@ -223,14 +223,14 @@ func (p *parser) parseFuncDecl() *sem.FuncDecl {
 
 	if !endsWithReturn {
 		tok := token.Synthetic(token.Return, "return")
-		returnStmt := &sem.ReturnStmt{Return: tok, X: &sem.Literal{Value: lit0}}
+		returnStmt := &semantics.ReturnStmt{Return: tok, X: &semantics.Literal{Value: lit0}}
 		decl.Body.Stmts = append(decl.Body.Stmts, returnStmt)
 	}
 
 	return decl
 }
 
-func (p *parser) parseStmt() sem.Stmt {
+func (p *parser) parseStmt() semantics.Stmt {
 	if p.token.ID == token.Lbrace {
 		return p.parseBlockStmt(true)
 	}
@@ -257,7 +257,7 @@ func (p *parser) parseStmt() sem.Stmt {
 		tok := p.token
 		p.next()
 		p.expectSemi()
-		return &sem.BranchStmt{Tok: tok}
+		return &semantics.BranchStmt{Tok: tok}
 	}
 	if p.token.ID == token.Ident {
 		return p.parseAssignOrCallStmt()
@@ -265,14 +265,14 @@ func (p *parser) parseStmt() sem.Stmt {
 	tok := p.token
 	p.next()
 	p.error(tok, "got '%s', expected statement", tok.ID)
-	return &sem.BadStmt{From: tok, To: tok}
+	return &semantics.BadStmt{From: tok, To: tok}
 }
 
-func (p *parser) parseBlockStmt(newScope bool) *sem.BlockStmt {
+func (p *parser) parseBlockStmt(newScope bool) *semantics.BlockStmt {
 	if newScope {
 		p.openScope()
 	}
-	block := &sem.BlockStmt{}
+	block := &semantics.BlockStmt{}
 	block.Lbrace = p.token
 	p.expect(token.Lbrace)
 	for p.token.ID != token.Rbrace && p.token.ID != token.EOF {
@@ -287,13 +287,13 @@ func (p *parser) parseBlockStmt(newScope bool) *sem.BlockStmt {
 	return block
 }
 
-func (p *parser) parseDeclStmt() *sem.DeclStmt {
+func (p *parser) parseDeclStmt() *semantics.DeclStmt {
 	d := p.parseVarDecl()
-	return &sem.DeclStmt{D: d}
+	return &semantics.DeclStmt{D: d}
 }
 
-func (p *parser) parsePrintStmt() *sem.PrintStmt {
-	s := &sem.PrintStmt{}
+func (p *parser) parsePrintStmt() *semantics.PrintStmt {
+	s := &semantics.PrintStmt{}
 	s.Print = p.token
 	p.expect(token.Print)
 	s.X = p.parseExpr()
@@ -301,8 +301,8 @@ func (p *parser) parsePrintStmt() *sem.PrintStmt {
 	return s
 }
 
-func (p *parser) parseIfStmt() *sem.IfStmt {
-	s := &sem.IfStmt{}
+func (p *parser) parseIfStmt() *semantics.IfStmt {
+	s := &semantics.IfStmt{}
 	s.If = p.token
 	p.next()
 	s.Cond = p.parseExpr()
@@ -317,8 +317,8 @@ func (p *parser) parseIfStmt() *sem.IfStmt {
 	return s
 }
 
-func (p *parser) parseWhileStmt() *sem.WhileStmt {
-	s := &sem.WhileStmt{}
+func (p *parser) parseWhileStmt() *semantics.WhileStmt {
+	s := &semantics.WhileStmt{}
 	p.inLoop = true
 	s.While = p.token
 	p.next()
@@ -328,11 +328,11 @@ func (p *parser) parseWhileStmt() *sem.WhileStmt {
 	return s
 }
 
-func (p *parser) parseReturnStmt() *sem.ReturnStmt {
+func (p *parser) parseReturnStmt() *semantics.ReturnStmt {
 	if !p.inFunction {
 		p.error(p.token, "%s can only be used in a function", p.token.ID)
 	}
-	s := &sem.ReturnStmt{}
+	s := &semantics.ReturnStmt{}
 	s.Return = p.token
 	p.next()
 	if p.token.ID != token.Semicolon {
@@ -342,7 +342,7 @@ func (p *parser) parseReturnStmt() *sem.ReturnStmt {
 	return s
 }
 
-func (p *parser) parseAssignOrCallStmt() sem.Stmt {
+func (p *parser) parseAssignOrCallStmt() semantics.Stmt {
 	id := p.parseIdent()
 	if p.token.IsAssignOperator() {
 		return p.parseAssignStmt(id)
@@ -352,110 +352,110 @@ func (p *parser) parseAssignOrCallStmt() sem.Stmt {
 	tok := p.token
 	p.next()
 	p.error(tok, "got %s, expected assign or call statement", tok.ID)
-	return &sem.BadStmt{From: id.Name, To: tok}
+	return &semantics.BadStmt{From: id.Name, To: tok}
 }
 
-func (p *parser) parseAssignStmt(id *sem.Ident) *sem.AssignStmt {
+func (p *parser) parseAssignStmt(id *semantics.Ident) *semantics.AssignStmt {
 	assign := p.token
 	p.next()
 	rhs := p.parseExpr()
 	p.expectSemi()
-	return &sem.AssignStmt{Name: id, Assign: assign, Right: rhs}
+	return &semantics.AssignStmt{Name: id, Assign: assign, Right: rhs}
 }
 
-func (p *parser) parseCallStmt(id *sem.Ident) *sem.ExprStmt {
+func (p *parser) parseCallStmt(id *semantics.Ident) *semantics.ExprStmt {
 	x := p.parseCallExpr(id)
 	p.expect(token.Semicolon)
-	return &sem.ExprStmt{X: x}
+	return &semantics.ExprStmt{X: x}
 }
 
-func (p *parser) parseExpr() sem.Expr {
+func (p *parser) parseExpr() semantics.Expr {
 	return p.parseLogicalOr()
 }
 
-func (p *parser) parseLogicalOr() sem.Expr {
+func (p *parser) parseLogicalOr() semantics.Expr {
 	expr := p.parseLogicalAnd()
 	for p.token.ID == token.Lor {
 		op := p.token
 		p.next()
 		right := p.parseLogicalAnd()
-		expr = &sem.BinaryExpr{Left: expr, Op: op, Right: right}
+		expr = &semantics.BinaryExpr{Left: expr, Op: op, Right: right}
 	}
 	return expr
 }
 
-func (p *parser) parseLogicalAnd() sem.Expr {
+func (p *parser) parseLogicalAnd() semantics.Expr {
 	expr := p.parseEquality()
 	for p.token.ID == token.Land {
 		op := p.token
 		p.next()
 		right := p.parseEquality()
-		expr = &sem.BinaryExpr{Left: expr, Op: op, Right: right}
+		expr = &semantics.BinaryExpr{Left: expr, Op: op, Right: right}
 	}
 	return expr
 }
 
-func (p *parser) parseEquality() sem.Expr {
+func (p *parser) parseEquality() semantics.Expr {
 	expr := p.parseComparison()
 	for p.token.ID == token.Eq || p.token.ID == token.Neq {
 		op := p.token
 		p.next()
 		right := p.parseComparison()
-		expr = &sem.BinaryExpr{Left: expr, Op: op, Right: right}
+		expr = &semantics.BinaryExpr{Left: expr, Op: op, Right: right}
 	}
 	return expr
 }
 
-func (p *parser) parseComparison() sem.Expr {
+func (p *parser) parseComparison() semantics.Expr {
 	expr := p.parseTerm()
 	for p.token.ID == token.Gt || p.token.ID == token.GtEq ||
 		p.token.ID == token.Lt || p.token.ID == token.LtEq {
 		op := p.token
 		p.next()
 		right := p.parseTerm()
-		expr = &sem.BinaryExpr{Left: expr, Op: op, Right: right}
+		expr = &semantics.BinaryExpr{Left: expr, Op: op, Right: right}
 	}
 	return expr
 }
 
-func (p *parser) parseTerm() sem.Expr {
+func (p *parser) parseTerm() semantics.Expr {
 	expr := p.parseFactor()
 	for p.token.ID == token.Add || p.token.ID == token.Sub {
 		op := p.token
 		p.next()
 		right := p.parseFactor()
-		expr = &sem.BinaryExpr{Left: expr, Op: op, Right: right}
+		expr = &semantics.BinaryExpr{Left: expr, Op: op, Right: right}
 	}
 	return expr
 }
 
-func (p *parser) parseFactor() sem.Expr {
+func (p *parser) parseFactor() semantics.Expr {
 	expr := p.parseUnary()
 	for p.token.ID == token.Mul || p.token.ID == token.Div || p.token.ID == token.Mod {
 		op := p.token
 		p.next()
 		right := p.parseUnary()
-		expr = &sem.BinaryExpr{Left: expr, Op: op, Right: right}
+		expr = &semantics.BinaryExpr{Left: expr, Op: op, Right: right}
 	}
 	return expr
 }
 
-func (p *parser) parseUnary() sem.Expr {
+func (p *parser) parseUnary() semantics.Expr {
 	if p.token.ID == token.Sub || p.token.ID == token.Lnot {
 		op := p.token
 		p.next()
 		x := p.parseUnary()
-		return &sem.UnaryExpr{Op: op, X: x}
+		return &semantics.UnaryExpr{Op: op, X: x}
 	}
 	return p.parsePrimary()
 }
 
-func (p *parser) parsePrimary() sem.Expr {
+func (p *parser) parsePrimary() semantics.Expr {
 	switch p.token.ID {
 	case token.Int, token.String, token.True, token.False:
 		tok := p.token
 		p.next()
-		return &sem.Literal{Value: tok}
+		return &semantics.Literal{Value: tok}
 	case token.Ident:
 		ident := p.parseIdent()
 		p.resolve(ident.Name) // TODO: cleanup?
@@ -473,26 +473,26 @@ func (p *parser) parsePrimary() sem.Expr {
 		tok := p.token
 		p.error(tok, "got '%s', expected expression", tok.ID)
 		p.next()
-		return &sem.BadExpr{From: tok, To: tok}
+		return &semantics.BadExpr{From: tok, To: tok}
 	}
 }
 
-func (p *parser) parseIdent() *sem.Ident {
+func (p *parser) parseIdent() *semantics.Ident {
 	tok := p.token
 	p.expect(token.Ident)
-	return &sem.Ident{Name: tok}
+	return &semantics.Ident{Name: tok}
 }
 
-func (p *parser) parseCallExpr(id *sem.Ident) *sem.CallExpr {
+func (p *parser) parseCallExpr(id *semantics.Ident) *semantics.CallExpr {
 	sym, _ := p.scope.Lookup(id.Name.Literal)
 	if sym == nil {
 		p.error(id.Name, "'%s' undefined", id.Name.Literal)
-	} else if sym.ID != sem.FuncSymbol {
+	} else if sym.ID != semantics.FuncSymbol {
 		p.error(id.Name, "'%s' is not a function", sym.Name.Literal)
 	}
 	lparen := p.token
 	p.expect(token.Lparen)
-	var args []sem.Expr
+	var args []semantics.Expr
 	if p.token.ID != token.Rparen {
 		args = append(args, p.parseExpr())
 		for p.token.ID != token.EOF && p.token.ID != token.Rparen {
@@ -501,12 +501,12 @@ func (p *parser) parseCallExpr(id *sem.Ident) *sem.CallExpr {
 		}
 	}
 	if sym != nil {
-		decl, _ := sym.Decl.(*sem.FuncDecl)
+		decl, _ := sym.Decl.(*semantics.FuncDecl)
 		if len(decl.Fields) != len(args) {
 			p.error(id.Name, "'%s' takes %d argument(s), but called with %d", sym.Name.Literal, len(decl.Fields), len(args))
 		}
 	}
 	rparen := p.token
 	p.expect(token.Rparen)
-	return &sem.CallExpr{Name: id, Lparen: lparen, Args: args, Rparen: rparen}
+	return &semantics.CallExpr{Name: id, Lparen: lparen, Args: args, Rparen: rparen}
 }

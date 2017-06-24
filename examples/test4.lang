@@ -1,0 +1,7 @@
+module main;
+
+var x: str = ""
+
+var y: i32;
+
+y = (i32:x)

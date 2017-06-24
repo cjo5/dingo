@@ -1,7 +1,7 @@
 package parser
 
 import (
-	"github.com/jhnl/interpreter/report"
+	"github.com/jhnl/interpreter/common"
 	"github.com/jhnl/interpreter/token"
 )
 
@@ -9,7 +9,7 @@ import (
 type scanner struct {
 	src        []byte
 	filename   string
-	errors     *report.ErrorList
+	errors     *common.ErrorList
 	ch         rune
 	chOffset   int
 	lineOffset int
@@ -18,7 +18,7 @@ type scanner struct {
 }
 
 // Init a scanner with the source code to scan.
-func (s *scanner) init(src []byte, filename string, errors *report.ErrorList) {
+func (s *scanner) init(src []byte, filename string, errors *common.ErrorList) {
 	s.src = src
 	s.filename = filename
 	s.errors = errors

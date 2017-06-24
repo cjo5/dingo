@@ -4,18 +4,22 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/jhnl/interpreter/gen"
+	"github.com/jhnl/interpreter/codegen"
+	"github.com/jhnl/interpreter/common"
 	"github.com/jhnl/interpreter/parser"
-	"github.com/jhnl/interpreter/report"
-	"github.com/jhnl/interpreter/sem"
+	"github.com/jhnl/interpreter/semantics"
 	"github.com/jhnl/interpreter/vm"
 )
 
 func exec(filename string) {
-	tree, err := parser.ParseFile(filename)
+	mod, err := parser.ParseFile(filename)
+
+	if err == nil {
+		err = semantics.Resolve(mod)
+	}
 
 	if err != nil {
-		if errList, ok := err.(report.ErrorList); ok {
+		if errList, ok := err.(common.ErrorList); ok {
 			for idx, e := range errList {
 				fmt.Println(fmt.Sprintf("[%d] %s", idx, e))
 			}
@@ -23,8 +27,8 @@ func exec(filename string) {
 		return
 	}
 
-	fmt.Println(sem.Print(tree))
-	ip, code, mem := gen.Compile(tree)
+	fmt.Println(semantics.Print(mod))
+	ip, code, mem := codegen.Compile(mod)
 
 	fmt.Printf("Constants (%d):\n", len(mem.Constants))
 	vm.DumpMemory(mem.Constants, os.Stdout)

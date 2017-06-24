@@ -1,4 +1,4 @@
-package sem
+package semantics
 
 import "github.com/jhnl/interpreter/token"
 
