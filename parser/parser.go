@@ -59,20 +59,6 @@ func (p *parser) closeScope() {
 	p.scope = p.scope.Outer
 }
 
-func (p *parser) declare(id semantics.SymbolID, name token.Token, decl semantics.Node) {
-	sym := semantics.NewSymbol(id, name, decl)
-	if existing := p.scope.Insert(sym); existing != nil {
-		msg := fmt.Sprintf("redeclaration of '%s', previously declared at %s", name.Literal, existing.Pos())
-		p.error(name, msg)
-	}
-}
-
-func (p *parser) resolve(name token.Token) {
-	if existing, _ := p.scope.Lookup(name.Literal); existing == nil {
-		p.error(name, "'%s' undefined", name.Literal)
-	}
-}
-
 func (p *parser) next() {
 	if p.trace && p.token.IsValid() {
 		fmt.Println(p.token)
@@ -174,7 +160,6 @@ func (p *parser) parseVarDecl() *semantics.VarDecl {
 	p.expect(token.Assign)
 	decl.X = p.parseExpr()
 	p.expect(token.Semicolon)
-	p.declare(semantics.VarSymbol, decl.Name.Name, decl)
 	return decl
 }
 
@@ -183,18 +168,15 @@ func (p *parser) parseFuncDecl() *semantics.FuncDecl {
 	decl.Decl = p.token
 	p.next()
 	decl.Name = p.parseIdent()
-	p.declare(semantics.FuncSymbol, decl.Name.Name, decl)
 	p.openScope()
 
 	p.expect(token.Lparen)
 	if p.token.ID == token.Ident {
 		field := p.parseIdent()
-		p.declare(semantics.VarSymbol, field.Name, field)
 		decl.Fields = append(decl.Fields, field)
 		for p.token.ID != token.EOF && p.token.ID != token.Rparen {
 			p.expect(token.Comma)
 			field = p.parseIdent()
-			p.declare(semantics.VarSymbol, field.Name, field)
 			decl.Fields = append(decl.Fields, field)
 		}
 	}
@@ -458,7 +440,6 @@ func (p *parser) parsePrimary() semantics.Expr {
 		return &semantics.Literal{Value: tok}
 	case token.Ident:
 		ident := p.parseIdent()
-		p.resolve(ident.Name) // TODO: cleanup?
 		if p.token.ID == token.Lparen {
 			return p.parseCallExpr(ident)
 		}
@@ -484,12 +465,6 @@ func (p *parser) parseIdent() *semantics.Ident {
 }
 
 func (p *parser) parseCallExpr(id *semantics.Ident) *semantics.CallExpr {
-	sym, _ := p.scope.Lookup(id.Name.Literal)
-	if sym == nil {
-		p.error(id.Name, "'%s' undefined", id.Name.Literal)
-	} else if sym.ID != semantics.FuncSymbol {
-		p.error(id.Name, "'%s' is not a function", sym.Name.Literal)
-	}
 	lparen := p.token
 	p.expect(token.Lparen)
 	var args []semantics.Expr
@@ -498,12 +473,6 @@ func (p *parser) parseCallExpr(id *semantics.Ident) *semantics.CallExpr {
 		for p.token.ID != token.EOF && p.token.ID != token.Rparen {
 			p.expect(token.Comma)
 			args = append(args, p.parseExpr())
-		}
-	}
-	if sym != nil {
-		decl, _ := sym.Decl.(*semantics.FuncDecl)
-		if len(decl.Fields) != len(args) {
-			p.error(id.Name, "'%s' takes %d argument(s), but called with %d", sym.Name.Literal, len(decl.Fields), len(args))
 		}
 	}
 	rparen := p.token

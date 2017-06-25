@@ -15,10 +15,12 @@ type Scope struct {
 }
 
 type Symbol struct {
-	ID      SymbolID
-	Name    token.Token
-	Decl    Node
-	Address int // Variable's address in global array or local array
+	ID           SymbolID
+	Name         token.Token
+	Decl         Node
+	Dependencies []*Symbol // Declaration dependencies. Used to determine recursive declarations.
+	Address      int       // Variable's address in global array or local array
+	Global       bool
 }
 
 // NewScope creates a new scope nested in the outer scope.
@@ -28,8 +30,8 @@ func NewScope(outer *Scope) *Scope {
 }
 
 // NewSymbol creates a new symbol of a given ID and name.
-func NewSymbol(id SymbolID, name token.Token, decl Node) *Symbol {
-	return &Symbol{ID: id, Name: name, Decl: decl}
+func NewSymbol(id SymbolID, name token.Token, decl Node, global bool) *Symbol {
+	return &Symbol{ID: id, Name: name, Decl: decl, Global: global}
 }
 
 func (s *Scope) Insert(sym *Symbol) *Symbol {

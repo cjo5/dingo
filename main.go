@@ -15,7 +15,7 @@ func exec(filename string) {
 	mod, err := parser.ParseFile(filename)
 
 	if err == nil {
-		err = semantics.Resolve(mod)
+		err = semantics.Check(mod)
 	}
 
 	if err != nil {
@@ -85,6 +85,6 @@ func testVM() {
 }
 
 func main() {
-	exec("examples/test3.lang")
+	exec("examples/test4.lang")
 	//testVM()
 }

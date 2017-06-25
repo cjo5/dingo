@@ -1,7 +1,14 @@
 module main;
 
-var x: str = ""
+/*var x: str = ""
 
 var y: i32;
 
-y = (i32:x)
+y = (i32:x)*/
+
+var a = b;
+var b = initb();
+
+fun initb() {
+    return a * 5;
+}

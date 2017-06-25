@@ -5,7 +5,6 @@ module main;
 // Test comment
 // Test comment
 
-
 fun factorial(a) {
     if a == 0 {
         return 1;
@@ -13,12 +12,12 @@ fun factorial(a) {
     return a * factorial(a-1);
 }
 
-fun println(a) {
-    print a;
-    print "\n";
-}
-
 fun main() {
     var res = factorial(5);
     println(res);
+}
+
+fun println(a) {
+    print a;
+    print "\n";
 }

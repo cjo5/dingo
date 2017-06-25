@@ -7,7 +7,8 @@ module = ['module' IDENT ';'] decl*
 decl = varDecl | funcDecl
 varDecl = 'var' IDENT '=' expr ';'
 funcDecl = 'fun' IDENT '(' [IDENT {',' IDENT} ] ')' blockStmt
-stmt = blockStmt | declStmt | printStmt | ifStmt | whileStmt | returnStmt | 'break' ';' | 'continue' ';'
+stmt = blockStmt | declStmt | printStmt | assignStmt | callStmt | ifStmt | whileStmt 
+        | returnStmt | 'break' ';' | 'continue' ';'
 declStmt = varDecl 
 blockStmt = '{' stmt* '}'
 printStmt = 'print' expr ';'

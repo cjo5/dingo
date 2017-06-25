@@ -1,14 +1,13 @@
 TODO (in no particular order):
-- Semantic analysis
-    - Type checking
-    - Move semantic checking from parser
-    - Support use-before-declaration of functions and globals
+- Type checking
 - Add floats
 - Add characters
 - Add arrays
 - Add tests
 - Add closures / functions as values
 - Add cmd package for executable
+- Improve error messages
+    - Recursive declaration errors should include all variables
 - Parse escape sequences in string literal
 - Support relative jump addresses
 - Change statement terminator from semicolon to newline
