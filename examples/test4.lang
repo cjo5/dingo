@@ -7,8 +7,12 @@ var y: i32;
 y = (i32:x)*/
 
 var a = b;
-var b = initb();
+var b = initb(a);
 
-fun initb() {
-    return a * 5;
+fun initb(multiplier) {
+    return multiplier * 5;
+}
+
+fun main() {
+    print a;
 }

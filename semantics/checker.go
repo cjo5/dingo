@@ -51,12 +51,12 @@ func (c *checker) isGlobalScope() bool {
 	return c.scope.Outer == nil
 }
 
-func (c *checker) hasDependency(sym *Symbol) bool {
-	if sym == c.currGlobal {
+func hasDependency(sym *Symbol, dep *Symbol) bool {
+	if sym == dep {
 		return true
 	}
 	for _, v := range sym.Dependencies {
-		if c.hasDependency(v) {
+		if hasDependency(v, dep) {
 			return true
 		}
 	}
@@ -254,7 +254,7 @@ func (c *checker) checkLiteral(lit *Literal) {
 func (c *checker) checkIdent(id *Ident) {
 	sym := c.resolve(id.Name)
 	if sym != nil && c.currGlobal != nil {
-		if sym.Global && sym.ID == VarSymbol && c.hasDependency(sym) {
+		if sym.Global && sym.ID == VarSymbol && hasDependency(sym, c.currGlobal) {
 			c.error(id.Name, "recursive declaration: '%s' previously declared at %s has an implicit or explicit dependency on '%s'",
 				sym.Name.Literal, sym.Name.Pos, c.currGlobal.Name.Literal)
 		} else if c.currGlobal.ID == VarSymbol {
