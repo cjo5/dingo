@@ -40,9 +40,8 @@ type parser struct {
 	errors  common.ErrorList
 	trace   bool
 
-	token      token.Token
-	inLoop     bool
-	inFunction bool
+	token  token.Token
+	inLoop bool
 }
 
 func (p *parser) init(src []byte, filename string) {
@@ -169,11 +168,9 @@ func (p *parser) parseFuncDecl() *semantics.FuncDecl {
 	}
 	p.expect(token.Rparen)
 
-	p.inFunction = true
 	decl.Body = p.parseBlockStmt()
-	p.inFunction = false
 
-	// Ensure there is atlesemantics.1 return statement and that every return has an expression
+	// Ensure there is atleast 1 return statement and that every return has an expression
 
 	lit0 := token.Synthetic(token.Int, "0")
 	endsWithReturn := false
@@ -289,9 +286,6 @@ func (p *parser) parseWhileStmt() *semantics.WhileStmt {
 }
 
 func (p *parser) parseReturnStmt() *semantics.ReturnStmt {
-	if !p.inFunction {
-		p.error(p.token, "%s can only be used in a function", p.token.ID)
-	}
 	s := &semantics.ReturnStmt{}
 	s.Return = p.token
 	p.next()
