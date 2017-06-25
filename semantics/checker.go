@@ -29,6 +29,14 @@ func (c *checker) error(tok token.Token, format string, args ...interface{}) {
 	c.errors.Add(tok.Pos, format, args...)
 }
 
+func (c *checker) openScope() {
+	c.scope = NewScope(c.scope)
+}
+
+func (c *checker) closeScope() {
+	c.scope = c.scope.Outer
+}
+
 func (c *checker) declare(id SymbolID, name token.Token, node Node) *Symbol {
 	sym := NewSymbol(id, name, node, c.isGlobalScope())
 	if existing := c.scope.Insert(sym); existing != nil {
@@ -64,7 +72,7 @@ func hasDependency(sym *Symbol, dep *Symbol) bool {
 }
 
 func (c *checker) checkModule(mod *Module) {
-	c.scope = mod.Scope
+	c.openScope()
 
 	for _, decl := range mod.Decls {
 		switch t := decl.(type) {
@@ -111,6 +119,8 @@ func (c *checker) checkModule(mod *Module) {
 	}
 
 	mod.Decls = decls
+	mod.Scope = c.scope
+	c.closeScope()
 }
 
 func contains(sym *Symbol, globals []*Symbol) bool {
@@ -161,22 +171,22 @@ func (c *checker) checkFuncDecl(decl *FuncDecl) {
 		c.declare(FuncSymbol, decl.Name.Name, decl)
 	}
 
-	parent := c.scope
-	c.scope = decl.Scope
+	c.openScope()
 
 	for _, field := range decl.Fields {
 		c.declare(VarSymbol, field.Name, field)
 	}
-	c.checkBlockStmt(decl.Body)
+	c.checkBlockStmt(false, decl.Body)
 
-	c.scope = parent
+	decl.Scope = c.scope
+	c.closeScope()
 	c.currGlobal = nil
 }
 
 func (c *checker) checkStmt(stmt Stmt) {
 	switch t := stmt.(type) {
 	case *BlockStmt:
-		c.checkBlockStmt(t)
+		c.checkBlockStmt(true, t)
 	case *DeclStmt:
 		c.checkDecl(t.D)
 	case *PrintStmt:
@@ -196,13 +206,17 @@ func (c *checker) checkStmt(stmt Stmt) {
 	}
 }
 
-func (c *checker) checkBlockStmt(stmt *BlockStmt) {
-	parent := c.scope
-	c.scope = stmt.Scope
+func (c *checker) checkBlockStmt(newScope bool, stmt *BlockStmt) {
+	if newScope {
+		c.openScope()
+	}
 	for _, stmt := range stmt.Stmts {
 		c.checkStmt(stmt)
 	}
-	c.scope = parent
+	stmt.Scope = c.scope
+	if newScope {
+		c.closeScope()
+	}
 }
 
 func (c *checker) checkAssignStmt(stmt *AssignStmt) {
@@ -212,7 +226,7 @@ func (c *checker) checkAssignStmt(stmt *AssignStmt) {
 
 func (c *checker) checkIfStmt(stmt *IfStmt) {
 	c.checkExpr(stmt.Cond)
-	c.checkBlockStmt(stmt.Body)
+	c.checkBlockStmt(true, stmt.Body)
 	if stmt.Else != nil {
 		c.checkStmt(stmt.Else)
 	}
@@ -220,7 +234,7 @@ func (c *checker) checkIfStmt(stmt *IfStmt) {
 
 func (c *checker) checkWhileStmt(stmt *WhileStmt) {
 	c.checkExpr(stmt.Cond)
-	c.checkBlockStmt(stmt.Body)
+	c.checkBlockStmt(true, stmt.Body)
 }
 
 func (c *checker) checkExpr(expr Expr) {

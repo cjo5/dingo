@@ -7,7 +7,7 @@ var y: i32;
 y = (i32:x)*/
 
 var a = b;
-var b = initb(a);
+var b = initb(5);
 
 fun initb(multiplier) {
     return multiplier * 5;

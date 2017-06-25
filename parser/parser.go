@@ -41,7 +41,6 @@ type parser struct {
 	trace   bool
 
 	token      token.Token
-	scope      *semantics.Scope
 	inLoop     bool
 	inFunction bool
 }
@@ -49,14 +48,6 @@ type parser struct {
 func (p *parser) init(src []byte, filename string) {
 	p.trace = false
 	p.scanner.init(src, filename, &p.errors)
-}
-
-func (p *parser) openScope() {
-	p.scope = semantics.NewScope(p.scope)
-}
-
-func (p *parser) closeScope() {
-	p.scope = p.scope.Outer
 }
 
 func (p *parser) next() {
@@ -131,12 +122,9 @@ func (p *parser) parseModule() *semantics.Module {
 		mod.Name = p.parseIdent()
 		p.expectSemi()
 	}
-	p.openScope()
 	for p.token.ID != token.EOF {
 		mod.Decls = append(mod.Decls, p.parseDecl())
 	}
-	mod.Scope = p.scope
-	p.closeScope()
 	return mod
 }
 
@@ -168,7 +156,6 @@ func (p *parser) parseFuncDecl() *semantics.FuncDecl {
 	decl.Decl = p.token
 	p.next()
 	decl.Name = p.parseIdent()
-	p.openScope()
 
 	p.expect(token.Lparen)
 	if p.token.ID == token.Ident {
@@ -183,10 +170,8 @@ func (p *parser) parseFuncDecl() *semantics.FuncDecl {
 	p.expect(token.Rparen)
 
 	p.inFunction = true
-	decl.Body = p.parseBlockStmt(false)
+	decl.Body = p.parseBlockStmt()
 	p.inFunction = false
-	decl.Scope = p.scope
-	p.closeScope()
 
 	// Ensure there is atlesemantics.1 return statement and that every return has an expression
 
@@ -214,7 +199,7 @@ func (p *parser) parseFuncDecl() *semantics.FuncDecl {
 
 func (p *parser) parseStmt() semantics.Stmt {
 	if p.token.ID == token.Lbrace {
-		return p.parseBlockStmt(true)
+		return p.parseBlockStmt()
 	}
 	if p.token.ID == token.Var {
 		return p.parseDeclStmt()
@@ -250,10 +235,7 @@ func (p *parser) parseStmt() semantics.Stmt {
 	return &semantics.BadStmt{From: tok, To: tok}
 }
 
-func (p *parser) parseBlockStmt(newScope bool) *semantics.BlockStmt {
-	if newScope {
-		p.openScope()
-	}
+func (p *parser) parseBlockStmt() *semantics.BlockStmt {
 	block := &semantics.BlockStmt{}
 	block.Lbrace = p.token
 	p.expect(token.Lbrace)
@@ -262,10 +244,6 @@ func (p *parser) parseBlockStmt(newScope bool) *semantics.BlockStmt {
 	}
 	block.Rbrace = p.token
 	p.expect(token.Rbrace)
-	block.Scope = p.scope
-	if newScope {
-		p.closeScope()
-	}
 	return block
 }
 
@@ -288,12 +266,12 @@ func (p *parser) parseIfStmt() *semantics.IfStmt {
 	s.If = p.token
 	p.next()
 	s.Cond = p.parseExpr()
-	s.Body = p.parseBlockStmt(true)
+	s.Body = p.parseBlockStmt()
 	if p.token.ID == token.Elif {
 		s.Else = p.parseIfStmt()
 	} else if p.token.ID == token.Else {
 		p.next() // We might wanna save this token...
-		s.Else = p.parseBlockStmt(true)
+		s.Else = p.parseBlockStmt()
 	}
 
 	return s
@@ -305,7 +283,7 @@ func (p *parser) parseWhileStmt() *semantics.WhileStmt {
 	s.While = p.token
 	p.next()
 	s.Cond = p.parseExpr()
-	s.Body = p.parseBlockStmt(true)
+	s.Body = p.parseBlockStmt()
 	p.inLoop = false
 	return s
 }
