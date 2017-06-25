@@ -36,11 +36,14 @@ const (
 
 	literalBeg
 	Ident
-	Int
-	Float
-	String
-	Char
+	LitInteger
+	LitString
+	LitFalse
+	LitTrue
 	literalEnd
+
+	typeBeg
+	typeEnd
 
 	operatorBeg
 
@@ -87,6 +90,7 @@ const (
 	operatorEnd
 
 	keywordBeg
+
 	If
 	Else
 	Elif
@@ -99,9 +103,20 @@ const (
 	Module
 	Var
 	Func
-	// TODO: true and false should be builtin types instead of keywords
-	True
-	False
+
+	TBool
+	TString
+	TUInt64
+	TInt64
+	TUInt32
+	TInt32
+	TUInt16
+	TInt16
+	TUInt8
+	TInt8
+	TReal64
+	TReal32
+
 	keywordEnd
 )
 
@@ -110,11 +125,11 @@ var tokens = [...]string{
 	EOF:     "eof",
 	Comment: "comment",
 
-	Ident:  "ident",
-	Int:    "int",
-	Float:  "float",
-	String: "string",
-	Char:   "char",
+	Ident:      "ident",
+	LitInteger: "litInteger",
+	LitString:  "litString",
+	LitTrue:    "litTrue",
+	LitFalse:   "litFalse",
 
 	Lparen:    "(",
 	Rparen:    ")",
@@ -166,8 +181,19 @@ var tokens = [...]string{
 	Module:   "module",
 	Var:      "var",
 	Func:     "fun",
-	True:     "true",
-	False:    "false",
+
+	TBool:   "bool",
+	TString: "str",
+	TUInt64: "u64",
+	TInt64:  "s64",
+	TUInt32: "u32",
+	TInt32:  "s32",
+	TUInt16: "u16",
+	TInt16:  "s16",
+	TUInt8:  "u8",
+	TInt8:   "s8",
+	TReal64: "r64",
+	TReal32: "r32",
 }
 
 var keywords map[string]ID
@@ -201,7 +227,7 @@ func (tok ID) String() string {
 
 func (t Token) String() string {
 	s := fmt.Sprintf("%s: %v", t.Pos, t.ID)
-	if t.ID == Ident || t.ID == String || t.ID == Int {
+	if t.ID == Ident || t.ID == LitString || t.ID == LitInteger {
 		s += ":" + t.Literal
 	}
 	return s

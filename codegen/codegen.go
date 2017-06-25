@@ -438,19 +438,19 @@ func (c *compiler) compileUnaryExpr(expr *semantics.UnaryExpr) {
 }
 
 func (c *compiler) compileLiteral(lit *semantics.Literal) {
-	if lit.Value.ID == token.String {
+	if lit.Value.ID == token.LitString {
 		s := c.unescapeString(lit.Value.Literal)
 		addr := c.defineString(s)
 		c.currBlock.addInstr1(vm.Cload, addr)
-	} else if lit.Value.ID == token.Int {
+	} else if lit.Value.ID == token.LitInteger {
 		val, err := strconv.Atoi(lit.Value.Literal)
 		if err != nil {
 			panic(err)
 		}
 		c.currBlock.addInstr1(vm.Iload, val)
-	} else if lit.Value.ID == token.True {
+	} else if lit.Value.ID == token.LitTrue {
 		c.currBlock.addInstr1(vm.Iload, 1)
-	} else if lit.Value.ID == token.False {
+	} else if lit.Value.ID == token.LitFalse {
 		c.currBlock.addInstr1(vm.Iload, 0)
 	}
 }

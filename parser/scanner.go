@@ -47,7 +47,7 @@ func (s *scanner) scan() token.Token {
 		tok.ID, tok.Literal = s.scanNumber()
 	case ch1 == '"':
 		tok.Literal = s.scanString(pos)
-		tok.ID = token.String
+		tok.ID = token.LitString
 	default:
 		startOffset := s.chOffset
 		s.next()
@@ -202,7 +202,7 @@ func (s *scanner) scanNumber() (token.ID, string) {
 	for isDigit(s.ch) {
 		s.next()
 	}
-	return token.Int, string(s.src[startOffset:s.chOffset])
+	return token.LitInteger, string(s.src[startOffset:s.chOffset])
 }
 
 func (s *scanner) scanString(pos token.Position) string {

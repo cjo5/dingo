@@ -1,0 +1,52 @@
+module main;
+
+/*
+
+Base types:
+- Unsigned / signed 64, 32, 16 and 8 bit integers
+- 64 and 32 bit reals
+- bool
+- function
+- struct
+- enum
+- array
+
+let z: []int = 5;
+
+var x: str = ""
+
+var x: u8
+var x: s8
+
+var y: s32;
+y = s32(x);
+
+var x: struct {
+    v: i32,
+};
+
+var f: fun(a, b) -> i32 {
+
+};
+
+struct x with y, z {
+    v: i32,
+}
+
+var x: str 
+
+define x {
+    fun mult(a) {
+        self.x = a
+    }
+
+    api mult(a: i32, b: i32) -> i32{
+
+    }
+}
+
+define x as y { 
+
+}
+
+*/

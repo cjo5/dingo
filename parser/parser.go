@@ -172,7 +172,7 @@ func (p *parser) parseFuncDecl() *semantics.FuncDecl {
 
 	// Ensure there is atleast 1 return statement and that every return has an expression
 
-	lit0 := token.Synthetic(token.Int, "0")
+	lit0 := token.Synthetic(token.LitInteger, "0")
 	endsWithReturn := false
 	for i, stmt := range decl.Body.Stmts {
 		if t, ok := stmt.(*semantics.ReturnStmt); ok {
@@ -406,7 +406,7 @@ func (p *parser) parseUnary() semantics.Expr {
 
 func (p *parser) parsePrimary() semantics.Expr {
 	switch p.token.ID {
-	case token.Int, token.String, token.True, token.False:
+	case token.LitInteger, token.LitString, token.LitTrue, token.LitFalse:
 		tok := p.token
 		p.next()
 		return &semantics.Literal{Value: tok}
