@@ -38,12 +38,7 @@ const (
 	Ident
 	LitInteger
 	LitString
-	LitFalse
-	LitTrue
 	literalEnd
-
-	typeBeg
-	typeEnd
 
 	operatorBeg
 
@@ -117,6 +112,9 @@ const (
 	TReal64
 	TReal32
 
+	False
+	True
+
 	keywordEnd
 )
 
@@ -128,8 +126,6 @@ var tokens = [...]string{
 	Ident:      "ident",
 	LitInteger: "litInteger",
 	LitString:  "litString",
-	LitTrue:    "litTrue",
-	LitFalse:   "litFalse",
 
 	Lparen:    "(",
 	Rparen:    ")",
@@ -194,6 +190,9 @@ var tokens = [...]string{
 	TInt8:   "s8",
 	TReal64: "r64",
 	TReal32: "r32",
+
+	True:  "true",
+	False: "false",
 }
 
 var keywords map[string]ID

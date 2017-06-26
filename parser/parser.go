@@ -406,7 +406,7 @@ func (p *parser) parseUnary() semantics.Expr {
 
 func (p *parser) parsePrimary() semantics.Expr {
 	switch p.token.ID {
-	case token.LitInteger, token.LitString, token.LitTrue, token.LitFalse:
+	case token.LitInteger, token.LitString, token.True, token.False:
 		tok := p.token
 		p.next()
 		return &semantics.Literal{Value: tok}

@@ -448,9 +448,9 @@ func (c *compiler) compileLiteral(lit *semantics.Literal) {
 			panic(err)
 		}
 		c.currBlock.addInstr1(vm.Iload, val)
-	} else if lit.Value.ID == token.LitTrue {
+	} else if lit.Value.ID == token.True {
 		c.currBlock.addInstr1(vm.Iload, 1)
-	} else if lit.Value.ID == token.LitFalse {
+	} else if lit.Value.ID == token.False {
 		c.currBlock.addInstr1(vm.Iload, 0)
 	}
 }
