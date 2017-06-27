@@ -72,20 +72,20 @@ func (c *compiler) defineString(literal string) int {
 }
 
 func (c *compiler) defineVar(id string) (int, bool) {
-	sym, global := c.scope.Lookup(id)
-	if global {
+	sym := c.scope.Lookup(id)
+	if sym.Global {
 		sym.Address = c.globalAddress
 		c.globalAddress++
 	} else {
 		sym.Address = c.localAddress
 		c.localAddress++
 	}
-	return sym.Address, global
+	return sym.Address, sym.Global
 }
 
 func (c *compiler) lookupVar(id string) (int, bool) {
-	sym, global := c.scope.Lookup(id)
-	return sym.Address, global
+	sym := c.scope.Lookup(id)
+	return sym.Address, sym.Global
 }
 
 func (c *compiler) lookupFunc(id string) (int, bool) {
@@ -238,7 +238,7 @@ func (c *compiler) compileFuncDecl(stmt *semantics.FuncDecl) {
 	}
 
 	fun.entry = c.currBlock
-	fun.argCount = len(stmt.Fields)
+	fun.argCount = len(stmt.Params)
 
 	outer := c.scope
 	c.scope = stmt.Scope
@@ -303,7 +303,9 @@ func (c *compiler) compileWhileStmt(stmt *semantics.WhileStmt) {
 }
 
 func (c *compiler) compileReturnStmt(stmt *semantics.ReturnStmt) {
-	c.compileExpr(stmt.X)
+	if stmt.X != nil {
+		c.compileExpr(stmt.X)
+	}
 	c.currBlock.addInstr0(vm.Ret)
 	c.setNextBlock(&block{})
 }
@@ -346,9 +348,12 @@ func (c *compiler) compileAssignStmt(stmt *semantics.AssignStmt) {
 func (c *compiler) compileExprStmt(stmt *semantics.ExprStmt) {
 	c.compileExpr(stmt.X)
 
-	if _, ok := stmt.X.(*semantics.CallExpr); ok {
-		// Pop unused return value
-		c.currBlock.addInstr0(vm.Pop)
+	if call, ok := stmt.X.(*semantics.CallExpr); ok {
+		decl := c.scope.LookupFuncDecl(call.Name.Literal())
+		if decl.Return.Type().ID == semantics.TVoid {
+			// Pop unused return value
+			c.currBlock.addInstr0(vm.Pop)
+		}
 	}
 }
 

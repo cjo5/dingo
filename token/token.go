@@ -34,13 +34,9 @@ const (
 	Comment
 	MultiComment
 
-	literalBeg
 	Ident
 	LitInteger
 	LitString
-	literalEnd
-
-	operatorBeg
 
 	Lparen
 	Rparen
@@ -52,6 +48,7 @@ const (
 	Comma
 	Semicolon
 	Colon
+	Arrow
 
 	And
 	Or
@@ -82,8 +79,6 @@ const (
 	Lt
 	LtEq
 
-	operatorEnd
-
 	keywordBeg
 
 	If
@@ -98,19 +93,6 @@ const (
 	Module
 	Var
 	Func
-
-	TBool
-	TString
-	TUInt64
-	TInt64
-	TUInt32
-	TInt32
-	TUInt16
-	TInt16
-	TUInt8
-	TInt8
-	TReal64
-	TReal32
 
 	False
 	True
@@ -137,6 +119,7 @@ var tokens = [...]string{
 	Comma:     ",",
 	Semicolon: ";",
 	Colon:     ":",
+	Arrow:     "->",
 
 	Add: "+",
 	Sub: "-",
@@ -177,19 +160,6 @@ var tokens = [...]string{
 	Module:   "module",
 	Var:      "var",
 	Func:     "fun",
-
-	TBool:   "bool",
-	TString: "str",
-	TUInt64: "u64",
-	TInt64:  "s64",
-	TUInt32: "u32",
-	TInt32:  "s32",
-	TUInt16: "u16",
-	TInt16:  "s16",
-	TUInt8:  "u8",
-	TInt8:   "s8",
-	TReal64: "r64",
-	TReal32: "r32",
 
 	True:  "true",
 	False: "false",

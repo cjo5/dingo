@@ -74,7 +74,12 @@ func (s *scanner) scan() token.Token {
 		case '+':
 			tok.ID = s.scanOptionalEqual(token.Add, token.AddAssign)
 		case '-':
-			tok.ID = s.scanOptionalEqual(token.Sub, token.SubAssign)
+			if s.ch == '>' {
+				tok.ID = token.Arrow
+				s.next()
+			} else {
+				tok.ID = s.scanOptionalEqual(token.Sub, token.SubAssign)
+			}
 		case '*':
 			tok.ID = s.scanOptionalEqual(token.Mul, token.MulAssign)
 		case '/':

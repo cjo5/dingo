@@ -144,8 +144,14 @@ func (p *parser) parseVarDecl() *semantics.VarDecl {
 	decl.Decl = p.token
 	p.next()
 	decl.Name = p.parseIdent()
-	p.expect(token.Assign)
-	decl.X = p.parseExpr()
+	p.expect(token.Colon)
+	decl.Type = p.parseIdent()
+
+	if p.token.ID == token.Assign {
+		p.expect(token.Assign)
+		decl.X = p.parseExpr()
+	}
+
 	p.expect(token.Semicolon)
 	return decl
 }
@@ -158,40 +164,33 @@ func (p *parser) parseFuncDecl() *semantics.FuncDecl {
 
 	p.expect(token.Lparen)
 	if p.token.ID == token.Ident {
-		field := p.parseIdent()
-		decl.Fields = append(decl.Fields, field)
+		field := p.parseField()
+		decl.Params = append(decl.Params, field)
 		for p.token.ID != token.EOF && p.token.ID != token.Rparen {
 			p.expect(token.Comma)
-			field = p.parseIdent()
-			decl.Fields = append(decl.Fields, field)
+			field = p.parseField()
+			decl.Params = append(decl.Params, field)
 		}
 	}
 	p.expect(token.Rparen)
 
+	if p.token.ID == token.Arrow {
+		p.next()
+		decl.Return = p.parseIdent()
+	} else {
+		decl.Return = &semantics.Ident{Name: token.Synthetic(token.Ident, semantics.TVoid.String())}
+	}
+
 	decl.Body = p.parseBlockStmt()
-
-	// Ensure there is atleast 1 return statement and that every return has an expression
-
-	lit0 := token.Synthetic(token.LitInteger, "0")
-	endsWithReturn := false
-	for i, stmt := range decl.Body.Stmts {
-		if t, ok := stmt.(*semantics.ReturnStmt); ok {
-			if t.X == nil {
-				t.X = &semantics.Literal{Value: lit0}
-			}
-			if (i + 1) == len(decl.Body.Stmts) {
-				endsWithReturn = true
-			}
-		}
-	}
-
-	if !endsWithReturn {
-		tok := token.Synthetic(token.Return, "return")
-		returnStmt := &semantics.ReturnStmt{Return: tok, X: &semantics.Literal{Value: lit0}}
-		decl.Body.Stmts = append(decl.Body.Stmts, returnStmt)
-	}
-
 	return decl
+}
+
+func (p *parser) parseField() *semantics.Field {
+	field := &semantics.Field{}
+	field.Name = p.parseIdent()
+	p.expect(token.Colon)
+	field.Type = p.parseIdent()
+	return field
 }
 
 func (p *parser) parseStmt() semantics.Stmt {
@@ -270,7 +269,6 @@ func (p *parser) parseIfStmt() *semantics.IfStmt {
 		p.next() // We might wanna save this token...
 		s.Else = p.parseBlockStmt()
 	}
-
 	return s
 }
 

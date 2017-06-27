@@ -25,22 +25,24 @@ var x: struct {
     v: i32,
 };
 
-var f: fun(a, b) -> i32 {
+let f = fun (a, b) -> i32 {
 
 };
 
-struct x with y, z {
+struct x : y, z {
     v: i32,
 }
+
+var z : (a, b) -> i32 = fun ()
 
 var x: str 
 
 define x {
-    fun mult(a) {
+    mult(a) {
         self.x = a
     }
 
-    api mult(a: i32, b: i32) -> i32{
+    mult(a: i32, b: i32) -> i32{
 
     }
 }

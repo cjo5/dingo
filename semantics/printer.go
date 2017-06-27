@@ -58,6 +58,8 @@ func (p *printer) walk(n Node) {
 	switch t := n.(type) {
 	case *Module:
 		p.printModule(t)
+	case *Field:
+		p.printField(t)
 	case *BlockStmt:
 		p.printBlockStmt(t)
 	case *DeclStmt:
@@ -102,6 +104,13 @@ func (p *printer) printModule(mod *Module) {
 	}
 }
 
+func (p *printer) printField(field *Field) {
+	defer dec(inc(p))
+	p.print("FIELD")
+	p.walk(field.Name)
+	p.walk(field.Type)
+}
+
 func (p *printer) printBlockStmt(stmt *BlockStmt) {
 	defer dec(inc(p))
 	p.print("BLOCK")
@@ -126,9 +135,13 @@ func (p *printer) printFuncDecl(decl *FuncDecl) {
 	p.printToken(decl.Decl)
 	p.walk(decl.Name)
 	p.level++
-	p.print("FIELDS")
-	for _, field := range decl.Fields {
-		p.walk(field)
+	p.print("PARAMS")
+	for _, param := range decl.Params {
+		p.walk(param)
+	}
+	p.print("RETURN")
+	if decl.Return != nil {
+		p.walk(decl.Return)
 	}
 	p.level--
 	p.walk(decl.Body)

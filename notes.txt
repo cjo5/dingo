@@ -1,9 +1,15 @@
 TODO (in no particular order):
-- Type checking
 - Add floats
 - Add characters
+- Add constants
+- Add structs
 - Add arrays
 - Add tests
+- Add built-in functions
+- Type inference
+- Memory management
+- Modules
+- Overload functions with different number of arguments (not types)
 - Add closures / functions as values
 - Add cmd package for executable
 - Improve error messages
@@ -12,7 +18,7 @@ TODO (in no particular order):
 - Support relative jump addresses
 - Change statement terminator from semicolon to newline
 - Offset jumps
-- Compile to LLVM?
+- Compile to LLVM
 - Rewrite expression grammar and parser to something simpler
 - Improve parser synchronization
 - Improve expression statements
@@ -21,4 +27,3 @@ TODO (in no particular order):
 - Nested comments?
 - Isolate bytecode instructions for functions?
 - Scoped variables should expand and shrink locals array
-- Modules

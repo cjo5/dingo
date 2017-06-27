@@ -5,8 +5,11 @@
 module = ['module' IDENT ';'] decl*
 
 decl = varDecl | funcDecl
-varDecl = 'var' IDENT '=' expr ';'
-funcDecl = 'fun' IDENT '(' [IDENT {',' IDENT} ] ')' blockStmt
+varDecl = 'var' IDENT ':' typeSpec ['=' expr] ';'
+funcDecl = 'fun' IDENT '(' [field {',' field} ] ')' ['->' typeSpec] blockStmt
+
+field = IDENT ':' IDENT
+
 stmt = blockStmt | declStmt | printStmt | assignStmt | callStmt | ifStmt | whileStmt 
         | returnStmt | 'break' ';' | 'continue' ';'
 declStmt = varDecl 
