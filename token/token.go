@@ -92,6 +92,7 @@ const (
 	Print
 	Module
 	Var
+	Let
 	Func
 
 	False
@@ -159,6 +160,7 @@ var tokens = [...]string{
 	Print:    "print",
 	Module:   "module",
 	Var:      "var",
+	Let:      "let",
 	Func:     "fun",
 
 	True:  "true",

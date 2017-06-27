@@ -13,7 +13,7 @@ fun factorial(a: s32) -> s32 {
 }
 
 fun main() {
-    var res: s32 = factorial(5);
+    let res: s32 = factorial(5);
     println(res);
 }
 

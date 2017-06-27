@@ -11,15 +11,16 @@ const (
 )
 
 type Symbol struct {
-	ID      SymbolID
-	Name    token.Token
-	T       *TType
-	Src     Node // Node in ast where the symbol was defined
-	Address int  // Variable's address in global array or local array
-	Global  bool
+	ID       SymbolID
+	Name     token.Token
+	T        *TType
+	Src      Node // Node in ast where the symbol was defined
+	Address  int  // Variable's address in global array or local array
+	Global   bool
+	Constant bool
 
 	// TODO: Add builtin bool
-	// TODO: Replace bools with flags bitset32
+	// TODO: Replace bools with flags
 }
 
 // NewSymbol creates a new symbol of a given ID and name.

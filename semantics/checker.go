@@ -9,21 +9,21 @@ import (
 
 var builtinScope *Scope
 
-func addBuiltinType(scope *Scope, t TypeID) {
+func addBuiltinType(scope *Scope, t *TType) {
 	sym := &Symbol{}
 	sym.ID = TypeSymbol
-	sym.T = &TType{ID: t}
+	sym.T = t
 	sym.Name = token.Synthetic(token.Ident, t.String())
 	scope.Insert(sym)
 }
 
 func init() {
 	builtinScope = NewScope(nil)
-	addBuiltinType(builtinScope, TVoid)
-	addBuiltinType(builtinScope, TBool)
-	addBuiltinType(builtinScope, TString)
-	addBuiltinType(builtinScope, TUInt32)
-	addBuiltinType(builtinScope, TInt32)
+	addBuiltinType(builtinScope, TBuiltinVoid)
+	addBuiltinType(builtinScope, TBuiltinBool)
+	addBuiltinType(builtinScope, TBuiltinString)
+	addBuiltinType(builtinScope, TBuiltinUInt32)
+	addBuiltinType(builtinScope, TBuiltinInt32)
 }
 
 // Check will resolve identifiers and do type checking.
@@ -130,6 +130,7 @@ func (c *checker) checkDecl(decl Decl) {
 
 func (c *checker) checkVarDecl(decl *VarDecl) {
 	c.checkTypeSpec(decl.Type)
+	t := decl.Type.Type()
 
 	if decl.X != nil {
 		c.checkExpr(decl.X)
@@ -138,10 +139,22 @@ func (c *checker) checkVarDecl(decl *VarDecl) {
 			c.errorPos(decl.X.FirstPos(), "type mismatch: '%s' has type %s and is not compatible with %s",
 				decl.Name.Literal(), decl.Type.Type(), decl.X.Type())
 		}
+	} else {
+		switch t.ID {
+		case TBool:
+			decl.X = &Literal{Value: token.Synthetic(token.False, token.False.String())}
+		case TString:
+			decl.X = &Literal{Value: token.Synthetic(token.LitString, "")}
+		case TUInt32, TInt32:
+			decl.X = &Literal{Value: token.Synthetic(token.LitInteger, "0")}
+		}
 	}
 
 	sym := c.declare(VarSymbol, decl.Name.Name, decl.Name)
-	sym.T = decl.Type.Type()
+	sym.T = t
+	if decl.Decl.ID == token.Let {
+		sym.Constant = true
+	}
 }
 
 func (c *checker) checkFuncDecl(decl *FuncDecl, signature bool, body bool) {
@@ -252,6 +265,11 @@ func (c *checker) checkAssignStmt(stmt *AssignStmt) {
 	c.checkIdent(stmt.Name)
 	c.checkExpr(stmt.Right)
 
+	if stmt.Name.Sym.Constant {
+		c.error(stmt.Name.Name, "'%s' was declared with %s and cannot be modified (constant)",
+			stmt.Name.Literal(), token.Let)
+	}
+
 	if stmt.Name.Type().ID != stmt.Right.Type().ID {
 		c.error(stmt.Name.Name, "type mismatch: '%s' is of type %s and it not compatible with %s",
 			stmt.Name.Literal(), stmt.Name.Type(), stmt.Right.Type())
@@ -319,7 +337,7 @@ func (c *checker) checkBinaryExpr(expr *BinaryExpr) {
 		c.errorPos(expr.Left.FirstPos(), "type mismatch: type %s and %s are not compatible", left, right)
 	}
 
-	binType := TInvalid
+	binType := TUntyped
 	switch expr.Op.ID {
 	case token.And, token.Or:
 		if left.ID != TBool || right.ID != TBool {
@@ -419,6 +437,6 @@ func (c *checker) checkCallExpr(call *CallExpr) {
 		}
 		call.T = decl.Return.Type()
 	} else {
-		call.T = NewType(TInvalid)
+		call.T = TBuiltinUntyped
 	}
 }

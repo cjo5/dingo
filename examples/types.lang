@@ -11,6 +11,10 @@ Base types:
 - enum
 - array
 
+val x: str = ""
+var x: str = ""
+let x: str = ""
+
 let z: []int = 5;
 
 var x: str = ""

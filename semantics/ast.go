@@ -227,14 +227,14 @@ type CallExpr struct {
 
 func (x *BadExpr) FirstPos() token.Position { return x.From.Pos }
 func (x *BadExpr) node()                    {}
-func (x *BadExpr) Type() *TType             { return &TType{ID: TInvalid} }
+func (x *BadExpr) Type() *TType             { return TBuiltinUntyped }
 func (x *BadExpr) exprNode()                {}
 
 func (x *BinaryExpr) FirstPos() token.Position { return x.Left.FirstPos() }
 func (x *BinaryExpr) node()                    {}
 func (x *BinaryExpr) Type() *TType {
 	if x.T == nil {
-		return &TType{ID: TInvalid}
+		return TBuiltinUntyped
 	}
 	return x.T
 }
@@ -244,7 +244,7 @@ func (x *UnaryExpr) FirstPos() token.Position { return x.Op.Pos }
 func (x *UnaryExpr) node()                    {}
 func (x *UnaryExpr) Type() *TType {
 	if x.T == nil {
-		return &TType{ID: TInvalid}
+		return TBuiltinUntyped
 	}
 	return x.T
 }
@@ -255,7 +255,7 @@ func (x *Literal) FirstPos() token.Position { return x.Value.Pos }
 func (x *Literal) node()                    {}
 func (x *Literal) Type() *TType {
 	if x.T == nil {
-		return &TType{ID: TInvalid}
+		return TBuiltinUntyped
 	}
 	return x.T
 }
@@ -265,7 +265,7 @@ func (x *Ident) FirstPos() token.Position { return x.Name.Pos }
 func (x *Ident) node()                    {}
 func (x *Ident) Type() *TType {
 	if x.Sym == nil || x.Sym.T == nil {
-		return &TType{ID: TInvalid}
+		return TBuiltinUntyped
 	}
 	return x.Sym.T
 }

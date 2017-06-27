@@ -128,7 +128,7 @@ func (p *parser) parseModule() *semantics.Module {
 }
 
 func (p *parser) parseDecl() semantics.Decl {
-	if p.token.ID == token.Var {
+	if p.token.ID == token.Var || p.token.ID == token.Let {
 		return p.parseVarDecl()
 	} else if p.token.ID == token.Func {
 		return p.parseFuncDecl()
@@ -197,7 +197,7 @@ func (p *parser) parseStmt() semantics.Stmt {
 	if p.token.ID == token.Lbrace {
 		return p.parseBlockStmt()
 	}
-	if p.token.ID == token.Var {
+	if p.token.ID == token.Var || p.token.ID == token.Let {
 		return p.parseDeclStmt()
 	}
 	if p.token.ID == token.Print {

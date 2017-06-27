@@ -5,7 +5,7 @@
 module = ['module' IDENT ';'] decl*
 
 decl = varDecl | funcDecl
-varDecl = 'var' IDENT ':' typeSpec ['=' expr] ';'
+varDecl = ('var' | 'let') IDENT ':' typeSpec ['=' expr] ';'
 funcDecl = 'fun' IDENT '(' [field {',' field} ] ')' ['->' typeSpec] blockStmt
 
 field = IDENT ':' IDENT
