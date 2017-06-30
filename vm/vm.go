@@ -113,8 +113,14 @@ func (vm *VM) Exec(ip int, code CodeMemory, mem DataMemory) {
 			if arg := vm.pop1Arg(op); arg != nil {
 				str := ""
 				switch t := arg.(type) {
-				case int:
-					str = strconv.Itoa(t)
+				case uint64:
+					str = strconv.FormatUint(uint64(t), 10)
+				case int64:
+					str = strconv.FormatInt(int64(t), 10)
+				case uint32:
+					str = strconv.FormatUint(uint64(t), 10)
+				case int32:
+					str = strconv.FormatInt(int64(t), 10)
 				case bool:
 					str = strconv.FormatBool(t)
 				case string:
@@ -125,33 +131,52 @@ func (vm *VM) Exec(ip int, code CodeMemory, mem DataMemory) {
 				}
 				vm.output.WriteString(str)
 			}
-		case Neg:
-			if arg, ok := vm.pop1IntArg(op); ok {
-				vm.push(-arg)
-			}
 		case Not:
-			if arg, ok := vm.pop1IntArg(op); ok {
+			if arg, ok := vm.pop1I32Arg(op); ok {
 				res := 0
 				if arg == 0 {
 					res = 1
 				}
 				vm.push(res)
 			}
-		case BinaryAdd, BinarySub, BinaryMul, BinaryDiv, BinaryMod,
-			CmpEq, CmpNe, CmpGt, CmpGe, CmpLt, CmpLe:
-			if arg1, arg2, ok := vm.pop2IntArgs(op); ok {
-				res := 0
+		case U32Add, U32Sub, U32Mul, U32Div, U32Mod:
+			if arg1, arg2, ok := vm.pop2U32Args(op); ok {
+				res := uint32(0)
 				switch op {
-				case BinaryAdd:
+				case U32Add:
 					res = arg1 + arg2
-				case BinarySub:
+				case U32Sub:
 					res = arg1 - arg2
-				case BinaryMul:
+				case U32Mul:
 					res = arg1 * arg2
-				case BinaryDiv:
+				case U32Div:
 					res = arg1 / arg2
-				case BinaryMod:
+				case U32Mod:
 					res = arg1 % arg2
+				}
+				vm.push(res)
+			}
+		case I32Add, I32Sub, I32Mul, I32Div, I32Mod:
+			if arg1, arg2, ok := vm.pop2I32Args(op); ok {
+				res := int32(0)
+				switch op {
+				case I32Add:
+					res = arg1 + arg2
+				case I32Sub:
+					res = arg1 - arg2
+				case I32Mul:
+					res = arg1 * arg2
+				case I32Div:
+					res = arg1 / arg2
+				case I32Mod:
+					res = arg1 % arg2
+				}
+				vm.push(res)
+			}
+		case CmpEq, CmpNe, CmpGt, CmpGe, CmpLt, CmpLe:
+			if arg1, arg2, ok := vm.pop2I32Args(op); ok {
+				res := int32(0)
+				switch op {
 				case CmpEq:
 					if arg1 == arg2 {
 						res = 1
@@ -179,21 +204,31 @@ func (vm *VM) Exec(ip int, code CodeMemory, mem DataMemory) {
 				}
 				vm.push(res)
 			}
-		case Iload:
-			vm.push(in.Arg1)
-		case Cload:
+		case U32ToI32:
+			if arg, ok := vm.pop1U32Arg(op); ok {
+				vm.push(int32(arg))
+			}
+		case I32ToU32:
+			if arg, ok := vm.pop1I32Arg(op); ok {
+				vm.push(uint32(arg))
+			}
+		case U32Load:
+			vm.push(uint32(in.Arg1))
+		case I32Load:
+			vm.push(int32(in.Arg1))
+		case CLoad:
 			if in.Arg1 < len(mem.Constants) {
 				vm.push(mem.Constants[in.Arg1])
 			} else {
 				indexOutOfRange(op, in.Arg1)
 			}
-		case Gload:
+		case GLoad:
 			if in.Arg1 < len(mem.Globals) {
 				vm.push(mem.Globals[in.Arg1])
 			} else {
 				indexOutOfRange(op, in.Arg1)
 			}
-		case Gstore:
+		case GStore:
 			if arg := vm.pop1Arg(op); arg != nil {
 				if in.Arg1 < len(mem.Globals) {
 					mem.Globals[in.Arg1] = arg
@@ -218,13 +253,13 @@ func (vm *VM) Exec(ip int, code CodeMemory, mem DataMemory) {
 		case Goto:
 			ip2 = in.Arg1
 		case IfFalse:
-			if arg, ok := vm.pop1IntArg(op); ok {
+			if arg, ok := vm.pop1I32Arg(op); ok {
 				if arg == 0 {
 					ip2 = in.Arg1
 				}
 			}
 		case IfTrue:
-			if arg, ok := vm.pop1IntArg(op); ok {
+			if arg, ok := vm.pop1I32Arg(op); ok {
 				if arg != 0 {
 					ip2 = in.Arg1
 				}
@@ -262,30 +297,59 @@ func (vm *VM) Exec(ip int, code CodeMemory, mem DataMemory) {
 	vm.inited = false
 }
 
-func (vm *VM) pop2IntArgs(op Opcode) (int, int, bool) {
+func (vm *VM) pop2U32Args(op Opcode) (uint32, uint32, bool) {
 	arg2 := vm.pop()
 	arg1 := vm.pop()
 	if arg1 == nil || arg2 == nil {
 		internalPanic(op, "2 arguments required")
 		return 0, 0, false
 	}
-	arg1Int, ok1 := arg1.(int)
-	arg2Int, ok2 := arg2.(int)
+	arg1Int, ok1 := arg1.(uint32)
+	arg2Int, ok2 := arg2.(uint32)
 	if !ok1 || !ok2 {
-		vm.runtimePanic(op, fmt.Sprintf("incompatible types '%T' and '%T'", arg1, arg2))
+		internalPanic(op, "2 u32 arguments expected (got %T and %T)", arg1, arg2)
 		return 0, 0, false
 	}
 	return arg1Int, arg2Int, true
 }
 
-func (vm *VM) pop1IntArg(op Opcode) (int, bool) {
+func (vm *VM) pop2I32Args(op Opcode) (int32, int32, bool) {
+	arg2 := vm.pop()
+	arg1 := vm.pop()
+	if arg1 == nil || arg2 == nil {
+		internalPanic(op, "2 arguments required")
+		return 0, 0, false
+	}
+	arg1Int, ok1 := arg1.(int32)
+	arg2Int, ok2 := arg2.(int32)
+	if !ok1 || !ok2 {
+		internalPanic(op, "2xi32 arguments expected (got %T and %T)", arg1, arg2)
+		return 0, 0, false
+	}
+	return arg1Int, arg2Int, true
+}
+
+func (vm *VM) pop1U32Arg(op Opcode) (uint32, bool) {
 	arg := vm.pop1Arg(op)
 	if arg == nil {
 		return 0, false
 	}
-	argInt, ok := arg.(int)
+	argInt, ok := arg.(uint32)
 	if !ok {
-		vm.runtimePanic(op, fmt.Sprintf("incompatible type '%T'", arg))
+		vm.runtimePanic(op, fmt.Sprintf("1xu32 argument expected got (%T)", arg))
+		return 0, false
+	}
+	return argInt, true
+}
+
+func (vm *VM) pop1I32Arg(op Opcode) (int32, bool) {
+	arg := vm.pop1Arg(op)
+	if arg == nil {
+		return 0, false
+	}
+	argInt, ok := arg.(int32)
+	if !ok {
+		vm.runtimePanic(op, fmt.Sprintf("1xi32 argument expected got (%T)", arg))
 		return 0, false
 	}
 	return argInt, true
@@ -340,15 +404,15 @@ func (vm *VM) reset() {
 	vm.Err = ""
 }
 
-func (vm *VM) runtimePanic(op Opcode, msg string) {
-	vm.Err = fmt.Sprintf("%s: %s", op, msg)
+func (vm *VM) runtimePanic(op Opcode, format string, args ...interface{}) {
+	vm.Err = fmt.Sprintf("%s: %s", op, fmt.Sprintf(format, args...))
 	vm.halt = true
 }
 
-func internalPanic(op Opcode, msg string) {
-	panic(fmt.Sprintf("%s: %s", op, msg))
+func internalPanic(op Opcode, format string, args ...interface{}) {
+	panic(fmt.Sprintf("%s: %s", op, fmt.Sprintf(format, args...)))
 }
 
 func indexOutOfRange(op Opcode, index int) {
-	internalPanic(op, fmt.Sprintf("index '%d' out of range", index))
+	internalPanic(op, "index %d out of range", index)
 }

@@ -202,13 +202,15 @@ type UnaryExpr struct {
 }
 
 type Literal struct {
-	Value token.Token
-	T     *TType
+	Value   token.Token
+	Raw     interface{}
+	T       *TType
+	Rewrite int
 }
 
 type Ident struct {
 	Name token.Token
-	Sym  *Symbol // TODO
+	Sym  *Symbol
 }
 
 func (x *Ident) Literal() string {

@@ -92,7 +92,7 @@ const (
 	Print
 	Module
 	Var
-	Let
+	Val
 	Func
 
 	False
@@ -160,7 +160,7 @@ var tokens = [...]string{
 	Print:    "print",
 	Module:   "module",
 	Var:      "var",
-	Let:      "let",
+	Val:      "val",
 	Func:     "fun",
 
 	True:  "true",
@@ -212,6 +212,15 @@ func (t Token) IsValid() bool {
 // IsAssignOperator returns true if the token represents an assignment operator ('=', '+=', '-=', '*=', '/=', '%=').
 func (t Token) IsAssignOperator() bool {
 	return assignBeg < t.ID && t.ID < assignEnd
+}
+
+func (t Token) OneOf(ids ...ID) bool {
+	for _, id := range ids {
+		if t.ID == id {
+			return true
+		}
+	}
+	return false
 }
 
 // Synthetic creates an artificial token that does not have a representation in the source code.

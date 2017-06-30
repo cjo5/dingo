@@ -1,16 +1,17 @@
 TODO (in no particular order):
 - Add floats
 - Add characters
-- Add constants
 - Add structs
 - Add arrays
 - Add tests
-- Add built-in functions
 - Type inference
+- Separate ast pass to evaluate constant expressions
+- Make it easier to merge tokens
 - Memory management
 - Modules
 - Overload functions with different number of arguments (not types)
-- Add closures / functions as values
+- Multiple return values
+- Add closures / anonymous functions
 - Add cmd package for executable
 - Improve error messages
     - Recursive declaration errors should include all variables

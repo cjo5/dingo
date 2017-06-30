@@ -3,6 +3,8 @@ package vm
 import (
 	"fmt"
 	"strconv"
+
+	"github.com/jhnl/interpreter/semantics"
 )
 
 type Opcode int
@@ -23,13 +25,17 @@ const (
 	Ret
 	Print
 
-	Neg
 	Not
-	BinaryAdd
-	BinarySub
-	BinaryMul
-	BinaryDiv
-	BinaryMod
+	U32Add
+	I32Add
+	U32Sub
+	I32Sub
+	U32Mul
+	I32Mul
+	U32Div
+	I32Div
+	U32Mod
+	I32Mod
 	CmpEq
 	CmpNe
 	CmpGt
@@ -37,15 +43,19 @@ const (
 	CmpLt
 	CmpLe
 
+	I32ToU32
+	U32ToI32
+
 	opArg0End
 
 	opArg1Start
-	Iload  // Push immediate
-	Cload  // Push constant
-	Gload  // Push global variable
-	Gstore // Pop and store global variable
-	Load   // Push local variable
-	Store  // Pop loal variable
+	I32Load // Push immediate i32
+	U32Load // Push immediate u32
+	CLoad   // Push constant
+	GLoad   // Push global variable
+	GStore  // Pop and store global variable
+	Load    // Push local variable
+	Store   // Pop loal variable
 
 	// Branch opcodes
 	Goto
@@ -65,25 +75,33 @@ var mnemonics = [...]string{
 	Ret:   "ret",
 	Print: "print",
 
-	Neg:       "neg",
-	Not:       "not",
-	BinaryAdd: "add",
-	BinarySub: "sub",
-	BinaryMul: "mul",
-	BinaryDiv: "div",
-	BinaryMod: "mod",
-	CmpEq:     "cmpeq",
-	CmpNe:     "cmpne",
-	CmpGt:     "cmpgt",
-	CmpLt:     "cmplt",
-	CmpLe:     "cmple",
+	Not:    "not",
+	U32Add: "u32add",
+	I32Add: "i32add",
+	U32Sub: "u32sub",
+	I32Sub: "i32sub",
+	U32Mul: "u32mul",
+	I32Mul: "i32mul",
+	U32Div: "u32div",
+	I32Div: "i32div",
+	U32Mod: "u32mod",
+	I32Mod: "i32mod",
+	CmpEq:  "cmpeq",
+	CmpNe:  "cmpne",
+	CmpGt:  "cmpgt",
+	CmpLt:  "cmplt",
+	CmpLe:  "cmple",
 
-	Iload:  "iload",
-	Cload:  "cload",
-	Gload:  "gload",
-	Gstore: "gstore",
-	Load:   "load",
-	Store:  "store",
+	U32ToI32: "u32toi32",
+	I32ToU32: "i32tou32",
+
+	U32Load: "u32load",
+	I32Load: "i32load",
+	CLoad:   "cload",
+	GLoad:   "gload",
+	GStore:  "gstore",
+	Load:    "load",
+	Store:   "store",
 
 	Goto:    "goto",
 	IfTrue:  "iftrue",
@@ -126,4 +144,69 @@ func NewInstr0(op Opcode) Instruction {
 // NewInstr1 creates an instruction with 1 argument.
 func NewInstr1(op Opcode, arg1 int) Instruction {
 	return Instruction{Op: op, Arg1: arg1}
+}
+
+func AddOp(t semantics.TypeID) Opcode {
+	op := Nop
+	switch t {
+	case semantics.TUInt32:
+		op = U32Add
+	case semantics.TInt32:
+		op = I32Add
+	default:
+		panic(fmt.Sprintf("Unhandled type %s", t))
+	}
+	return op
+}
+
+func SubOp(t semantics.TypeID) Opcode {
+	op := Nop
+	switch t {
+	case semantics.TUInt32:
+		op = U32Sub
+	case semantics.TInt32:
+		op = I32Sub
+	default:
+		panic(fmt.Sprintf("Unhandled type %s", t))
+	}
+	return op
+}
+
+func MulOp(t semantics.TypeID) Opcode {
+	op := Nop
+	switch t {
+	case semantics.TUInt32:
+		op = U32Mul
+	case semantics.TInt32:
+		op = I32Mul
+	default:
+		panic(fmt.Sprintf("Unhandled type %s", t))
+	}
+	return op
+}
+
+func DivOp(t semantics.TypeID) Opcode {
+	op := Nop
+	switch t {
+	case semantics.TUInt32:
+		op = U32Div
+	case semantics.TInt32:
+		op = I32Div
+	default:
+		panic(fmt.Sprintf("Unhandled type %s", t))
+	}
+	return op
+}
+
+func ModOp(t semantics.TypeID) Opcode {
+	op := Nop
+	switch t {
+	case semantics.TUInt32:
+		op = U32Mod
+	case semantics.TInt32:
+		op = I32Mod
+	default:
+		panic(fmt.Sprintf("Unhandled type %s", t))
+	}
+	return op
 }

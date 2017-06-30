@@ -1,9 +1,8 @@
 package codegen
 
 import (
-	"strconv"
-
 	"fmt"
+	"math/big"
 
 	"github.com/jhnl/interpreter/semantics"
 	"github.com/jhnl/interpreter/token"
@@ -225,7 +224,7 @@ func (c *compiler) compileVarDecl(stmt *semantics.VarDecl) {
 	c.compileExpr(stmt.X)
 	addr, global := c.defineVar(stmt.Name.Literal())
 	if global {
-		c.currBlock.addInstr1(vm.Gstore, addr)
+		c.currBlock.addInstr1(vm.GStore, addr)
 	} else {
 		c.currBlock.addInstr1(vm.Store, addr)
 	}
@@ -326,20 +325,21 @@ func (c *compiler) compileAssignStmt(stmt *semantics.AssignStmt) {
 		c.compileIdent(stmt.Name)
 	}
 	c.compileExpr(stmt.Right)
+	t := stmt.Name.Type().ID
 	if assign == token.AddAssign {
-		c.currBlock.addInstr0(vm.BinaryAdd)
+		c.currBlock.addInstr0(vm.AddOp(t))
 	} else if assign == token.SubAssign {
-		c.currBlock.addInstr0(vm.BinarySub)
+		c.currBlock.addInstr0(vm.SubOp(t))
 	} else if assign == token.MulAssign {
-		c.currBlock.addInstr0(vm.BinaryMul)
+		c.currBlock.addInstr0(vm.MulOp(t))
 	} else if assign == token.DivAssign {
-		c.currBlock.addInstr0(vm.BinaryDiv)
+		c.currBlock.addInstr0(vm.DivOp(t))
 	} else if assign == token.ModAssign {
-		c.currBlock.addInstr0(vm.BinaryMod)
+		c.currBlock.addInstr0(vm.ModOp(t))
 	}
 	addr, global := c.lookupVar(stmt.Name.Literal())
 	if global {
-		c.currBlock.addInstr1(vm.Gstore, addr)
+		c.currBlock.addInstr1(vm.GStore, addr)
 	} else {
 		c.currBlock.addInstr1(vm.Store, addr)
 	}
@@ -349,8 +349,18 @@ func (c *compiler) compileExprStmt(stmt *semantics.ExprStmt) {
 	c.compileExpr(stmt.X)
 
 	if call, ok := stmt.X.(*semantics.CallExpr); ok {
-		decl := c.scope.LookupFuncDecl(call.Name.Literal())
-		if decl.Return.Type().ID == semantics.TVoid {
+		sym := call.Name.Sym
+		pop := false
+		if sym.ID == semantics.TypeSymbol {
+			// Type cast
+			pop = true
+		} else {
+			decl, _ := sym.Src.(*semantics.FuncDecl)
+			if decl.Return.Type().ID == semantics.TVoid {
+				pop = true
+			}
+		}
+		if pop {
 			// Pop unused return value
 			c.currBlock.addInstr0(vm.Pop)
 		}
@@ -383,10 +393,10 @@ func (c *compiler) compileBinaryExpr(expr *semantics.BinaryExpr) {
 		target1 := &block{} // true
 		join := &block{}
 		jump2.next = target0
-		target0.addInstr1(vm.Iload, 0)
+		target0.addInstr1(vm.I32Load, 0)
 		target0.addJumpInstr0(vm.Goto, join)
 		target0.next = target1
-		target1.addInstr1(vm.Iload, 1)
+		target1.addInstr1(vm.I32Load, 1)
 		target1.next = join
 
 		c.compileExpr(expr.Left)
@@ -406,17 +416,19 @@ func (c *compiler) compileBinaryExpr(expr *semantics.BinaryExpr) {
 		c.compileExpr(expr.Left)
 		c.compileExpr(expr.Right)
 
+		t := expr.Type().ID
+
 		switch expr.Op.ID {
 		case token.Add:
-			c.currBlock.addInstr0(vm.BinaryAdd)
+			c.currBlock.addInstr0(vm.AddOp(t))
 		case token.Sub:
-			c.currBlock.addInstr0(vm.BinarySub)
+			c.currBlock.addInstr0(vm.SubOp(t))
 		case token.Mul:
-			c.currBlock.addInstr0(vm.BinaryMul)
+			c.currBlock.addInstr0(vm.MulOp(t))
 		case token.Div:
-			c.currBlock.addInstr0(vm.BinaryDiv)
+			c.currBlock.addInstr0(vm.DivOp(t))
 		case token.Mod:
-			c.currBlock.addInstr0(vm.BinaryMod)
+			c.currBlock.addInstr0(vm.ModOp(t))
 		case token.Eq:
 			c.currBlock.addInstr0(vm.CmpEq)
 		case token.Neq:
@@ -434,9 +446,21 @@ func (c *compiler) compileBinaryExpr(expr *semantics.BinaryExpr) {
 }
 
 func (c *compiler) compileUnaryExpr(expr *semantics.UnaryExpr) {
+	binop := vm.Nop
+	if expr.Op.ID == token.Sub {
+		switch expr.T.ID {
+		case semantics.TUInt32:
+			c.currBlock.addInstr1(vm.U32Load, 0)
+			binop = vm.U32Sub
+		case semantics.TInt32:
+			c.currBlock.addInstr1(vm.I32Load, 0)
+			binop = vm.I32Sub
+		}
+	}
+
 	c.compileExpr(expr.X)
 	if expr.Op.ID == token.Sub {
-		c.currBlock.addInstr0(vm.Neg)
+		c.currBlock.addInstr0(binop)
 	} else {
 		c.currBlock.addInstr0(vm.Not)
 	}
@@ -446,17 +470,24 @@ func (c *compiler) compileLiteral(lit *semantics.Literal) {
 	if lit.Value.ID == token.LitString {
 		s := c.unescapeString(lit.Value.Literal)
 		addr := c.defineString(s)
-		c.currBlock.addInstr1(vm.Cload, addr)
+		c.currBlock.addInstr1(vm.CLoad, addr)
 	} else if lit.Value.ID == token.LitInteger {
-		val, err := strconv.Atoi(lit.Value.Literal)
-		if err != nil {
-			panic(err)
+		if bigInt, ok := lit.Raw.(*big.Int); ok {
+			switch lit.T.ID {
+			case semantics.TUInt32, semantics.TUInt16, semantics.TUInt8:
+				c.currBlock.addInstr1(vm.U32Load, int(bigInt.Uint64()))
+			case semantics.TInt32, semantics.TInt16, semantics.TInt8:
+				c.currBlock.addInstr1(vm.I32Load, int(bigInt.Int64()))
+			default:
+				panic(fmt.Sprintf("Unhandled literal %s with type %s", lit.Value, lit.T.ID))
+			}
+		} else {
+			panic(fmt.Sprintf("Failed to convert raw literal %s with type %T", lit.Value, lit.Raw))
 		}
-		c.currBlock.addInstr1(vm.Iload, val)
 	} else if lit.Value.ID == token.True {
-		c.currBlock.addInstr1(vm.Iload, 1)
+		c.currBlock.addInstr1(vm.I32Load, 1)
 	} else if lit.Value.ID == token.False {
-		c.currBlock.addInstr1(vm.Iload, 0)
+		c.currBlock.addInstr1(vm.I32Load, 0)
 	}
 }
 
@@ -510,7 +541,7 @@ func (c *compiler) unescapeString(literal string) string {
 func (c *compiler) compileIdent(id *semantics.Ident) {
 	addr, global := c.lookupVar(id.Literal())
 	if global {
-		c.currBlock.addInstr1(vm.Gload, addr)
+		c.currBlock.addInstr1(vm.GLoad, addr)
 	} else {
 		c.currBlock.addInstr1(vm.Load, addr)
 	}
@@ -520,11 +551,30 @@ func (c *compiler) compileCallExpr(expr *semantics.CallExpr) {
 	for _, arg := range expr.Args {
 		c.compileExpr(arg)
 	}
-	if addr, ok := c.lookupFunc(expr.Name.Literal()); ok {
-		c.currBlock.addInstr1(vm.Call, addr)
-		c.setNextBlock(&block{})
+
+	sym := expr.Name.Sym
+	if sym.ID == semantics.TypeSymbol {
+		srcType := expr.Args[0].Type()
+		dstType := sym.T
+
+		if srcType.OneOf(semantics.TUInt32, semantics.TUInt16, semantics.TUInt8) {
+			if dstType.OneOf(semantics.TInt32, semantics.TInt16, semantics.TInt8) {
+				c.currBlock.addInstr0(vm.U32ToI32)
+			}
+		} else if srcType.OneOf(semantics.TInt32, semantics.TInt16, semantics.TInt8) {
+			if dstType.OneOf(semantics.TUInt32, semantics.TUInt16, semantics.TUInt8) {
+				c.currBlock.addInstr0(vm.I32ToU32)
+			}
+		} else {
+			panic(fmt.Sprintf("Unhandled source type %T", srcType.ID))
+		}
 	} else {
-		panic(fmt.Sprintf("Failed to find %s", expr.Name.Name))
+		if addr, ok := c.lookupFunc(expr.Name.Literal()); ok {
+			c.currBlock.addInstr1(vm.Call, addr)
+			c.setNextBlock(&block{})
+		} else {
+			panic(fmt.Sprintf("Failed to find %s", expr.Name.Name))
+		}
 	}
 }
 

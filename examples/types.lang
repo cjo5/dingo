@@ -1,5 +1,11 @@
 module main;
 
+import "@std/math"
+import "@mylib"
+import "../math"
+
+use math;
+
 /*
 
 Base types:
@@ -10,6 +16,29 @@ Base types:
 - struct
 - enum
 - array
+
+fun main() {
+
+}
+
+struct x {
+    cmp: (a: s32, b: s32) -> s32,
+
+}
+
+methods x {
+
+}
+
+false.u64()
+
+val x: u64 = 99;
+let y: u32 = 55;
+let z: u32 = x.u32() * y;
+
+u32.max
+i32.min
+u8.max
 
 val x: str = ""
 var x: str = ""
@@ -22,37 +51,78 @@ var x: str = ""
 var x: u8
 var x: s8
 
+
 var y: s32;
 y = s32(x);
 
 var x: struct {
-    v: i32,
+    v: s32
+    w: 99
+}  {v=5, w=99};
+
+static methods x<T> {
+    new()
+}
+
+ struct {
+    v: s32 = 5,
+    w: s32 = 9
+};
+
+struct {
+    v: s32 = 99
+    w: s32
+} a;
+
+struct<a*>(5)
+u32(v)
+
+methods x {
+    fun max() -> i32 {
+
+    }
+}
+
+methods x {
+    export {
+    }
+    fun max(a, b) -> a {
+
+    }
+}
+
+methods x {
+    export static max() {
+
+    }
+}
+
+methods i32 {
+    fun max() -> i32 { return 5000; }
+    fun min() -> i32 { return 5000; }
+}
+
+methods i32 {
+    fun string() -> str { return self}
+}
+
+let f: (a: s32, b: u64) -> i32 = fun (a, b) -> i32 {
+
+};
+
+fun sort(cmp: (a: i32, b: i32) -> bool) {
+
+}
+
+var f2: (a: str, b: str) -> i32;
+
+let f: {a: s32, b: s32} = struct {
+    a = 9,
+    b = 9
 };
 
 let f = fun (a, b) -> i32 {
 
 };
-
-struct x : y, z {
-    v: i32,
-}
-
-var z : (a, b) -> i32 = fun ()
-
-var x: str 
-
-define x {
-    mult(a) {
-        self.x = a
-    }
-
-    mult(a: i32, b: i32) -> i32{
-
-    }
-}
-
-define x as y { 
-
-}
 
 */
