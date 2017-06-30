@@ -484,12 +484,20 @@ func (c *compiler) compileLiteral(lit *semantics.Literal) {
 			switch lit.T.ID {
 			case semantics.TUInt64:
 				c.currBlock.addInstr1(vm.U64Load, int64(bigInt.Uint64()))
+			case semantics.TUInt32:
+				c.currBlock.addInstr1(vm.U32Load, int64(bigInt.Uint64()))
+			case semantics.TUInt16:
+				c.currBlock.addInstr1(vm.U16Load, int64(bigInt.Uint64()))
+			case semantics.TUInt8:
+				c.currBlock.addInstr1(vm.U8Load, int64(bigInt.Uint64()))
 			case semantics.TInt64:
 				c.currBlock.addInstr1(vm.I64Load, int64(bigInt.Int64()))
-			case semantics.TUInt32, semantics.TUInt16, semantics.TUInt8:
-				c.currBlock.addInstr1(vm.U32Load, int64(bigInt.Uint64()))
-			case semantics.TInt32, semantics.TInt16, semantics.TInt8:
+			case semantics.TInt32:
 				c.currBlock.addInstr1(vm.I32Load, int64(bigInt.Int64()))
+			case semantics.TInt16:
+				c.currBlock.addInstr1(vm.I16Load, int64(bigInt.Int64()))
+			case semantics.TInt8:
+				c.currBlock.addInstr1(vm.I8Load, int64(bigInt.Int64()))
 			default:
 				panic(fmt.Sprintf("Unhandled literal %s with type %s", lit.Value, lit.T.ID))
 			}

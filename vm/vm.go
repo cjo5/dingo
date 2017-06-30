@@ -114,18 +114,26 @@ func (vm *VM) Exec(ip int, code CodeMemory, mem DataMemory) {
 			if arg := vm.pop1Arg(op); arg != nil {
 				str := ""
 				switch t := arg.(type) {
-				case uint64:
-					str = strconv.FormatUint(uint64(t), 10)
-				case int64:
-					str = strconv.FormatInt(int64(t), 10)
-				case uint32:
-					str = strconv.FormatUint(uint64(t), 10)
-				case int32:
-					str = strconv.FormatInt(int64(t), 10)
 				case bool:
 					str = strconv.FormatBool(t)
 				case string:
 					str = t
+				case uint64:
+					str = strconv.FormatUint(uint64(t), 10)
+				case uint32:
+					str = strconv.FormatUint(uint64(t), 10)
+				case uint16:
+					str = strconv.FormatUint(uint64(t), 10)
+				case uint8:
+					str = strconv.FormatUint(uint64(t), 10)
+				case int64:
+					str = strconv.FormatInt(int64(t), 10)
+				case int32:
+					str = strconv.FormatInt(int64(t), 10)
+				case int16:
+					str = strconv.FormatInt(int64(t), 10)
+				case int8:
+					str = strconv.FormatInt(int64(t), 10)
 				default:
 					vm.runtimePanic(op, fmt.Sprintf("incompatible type '%T'", t))
 					break
@@ -163,6 +171,75 @@ func (vm *VM) Exec(ip int, code CodeMemory, mem DataMemory) {
 					vm.push(res)
 				}
 			}
+		case U32Add, U32Sub, U32Mul, U32Div, U32Mod, U32Cmp:
+			if arg1, arg2, ok := vm.pop2U32Args(op); ok {
+				switch op {
+				case U32Add:
+					vm.push(arg1 + arg2)
+				case U32Sub:
+					vm.push(arg1 - arg2)
+				case U32Mul:
+					vm.push(arg1 * arg2)
+				case U32Div:
+					vm.push(arg1 / arg2)
+				case U32Mod:
+					vm.push(arg1 % arg2)
+				case U32Cmp:
+					res := int32(0)
+					if arg1 < arg2 {
+						res = -1
+					} else if arg1 > arg2 {
+						res = 1
+					}
+					vm.push(res)
+				}
+			}
+		case U16Add, U16Sub, U16Mul, U16Div, U16Mod, U16Cmp:
+			if arg1, arg2, ok := vm.pop2U16Args(op); ok {
+				switch op {
+				case U16Add:
+					vm.push(arg1 + arg2)
+				case U16Sub:
+					vm.push(arg1 - arg2)
+				case U16Mul:
+					vm.push(arg1 * arg2)
+				case U16Div:
+					vm.push(arg1 / arg2)
+				case U16Mod:
+					vm.push(arg1 % arg2)
+				case U16Cmp:
+					res := int32(0)
+					if arg1 < arg2 {
+						res = -1
+					} else if arg1 > arg2 {
+						res = 1
+					}
+					vm.push(res)
+				}
+			}
+		case U8Add, U8Sub, U8Mul, U8Div, U8Mod, U8Cmp:
+			if arg1, arg2, ok := vm.pop2U8Args(op); ok {
+				switch op {
+				case U8Add:
+					vm.push(arg1 + arg2)
+				case U8Sub:
+					vm.push(arg1 - arg2)
+				case U8Mul:
+					vm.push(arg1 * arg2)
+				case U8Div:
+					vm.push(arg1 / arg2)
+				case U8Mod:
+					vm.push(arg1 % arg2)
+				case U8Cmp:
+					res := int32(0)
+					if arg1 < arg2 {
+						res = -1
+					} else if arg1 > arg2 {
+						res = 1
+					}
+					vm.push(res)
+				}
+			}
 		case I64Add, I64Sub, I64Mul, I64Div, I64Mod, I64Cmp:
 			if arg1, arg2, ok := vm.pop2I64Args(op); ok {
 				switch op {
@@ -187,29 +264,6 @@ func (vm *VM) Exec(ip int, code CodeMemory, mem DataMemory) {
 				}
 
 			}
-		case U32Add, U32Sub, U32Mul, U32Div, U32Mod, U32Cmp:
-			if arg1, arg2, ok := vm.pop2U32Args(op); ok {
-				switch op {
-				case U32Add:
-					vm.push(arg1 + arg2)
-				case U32Sub:
-					vm.push(arg1 - arg2)
-				case U32Mul:
-					vm.push(arg1 * arg2)
-				case U32Div:
-					vm.push(arg1 / arg2)
-				case U32Mod:
-					vm.push(arg1 % arg2)
-				case U32Cmp:
-					res := int32(0)
-					if arg1 < arg2 {
-						res = -1
-					} else if arg1 > arg2 {
-						res = 1
-					}
-					vm.push(res)
-				}
-			}
 		case I32Add, I32Sub, I32Mul, I32Div, I32Mod, I32Cmp:
 			if arg1, arg2, ok := vm.pop2I32Args(op); ok {
 				switch op {
@@ -224,6 +278,52 @@ func (vm *VM) Exec(ip int, code CodeMemory, mem DataMemory) {
 				case I32Mod:
 					vm.push(arg1 % arg2)
 				case I32Cmp:
+					res := int32(0)
+					if arg1 < arg2 {
+						res = -1
+					} else if arg1 > arg2 {
+						res = 1
+					}
+					vm.push(res)
+				}
+			}
+		case I16Add, I16Sub, I16Mul, I16Div, I16Mod, I16Cmp:
+			if arg1, arg2, ok := vm.pop2I16Args(op); ok {
+				switch op {
+				case I16Add:
+					vm.push(arg1 + arg2)
+				case I16Sub:
+					vm.push(arg1 - arg2)
+				case I16Mul:
+					vm.push(arg1 * arg2)
+				case I16Div:
+					vm.push(arg1 / arg2)
+				case I16Mod:
+					vm.push(arg1 % arg2)
+				case I16Cmp:
+					res := int32(0)
+					if arg1 < arg2 {
+						res = -1
+					} else if arg1 > arg2 {
+						res = 1
+					}
+					vm.push(res)
+				}
+			}
+		case I8Add, I8Sub, I8Mul, I8Div, I8Mod, I8Cmp:
+			if arg1, arg2, ok := vm.pop2I8Args(op); ok {
+				switch op {
+				case I8Add:
+					vm.push(arg1 + arg2)
+				case I8Sub:
+					vm.push(arg1 - arg2)
+				case I8Mul:
+					vm.push(arg1 * arg2)
+				case I8Div:
+					vm.push(arg1 / arg2)
+				case I8Mod:
+					vm.push(arg1 % arg2)
+				case I8Cmp:
 					res := int32(0)
 					if arg1 < arg2 {
 						res = -1
@@ -304,12 +404,20 @@ func (vm *VM) Exec(ip int, code CodeMemory, mem DataMemory) {
 			}
 		case U64Load:
 			vm.push(in.U64())
-		case I64Load:
-			vm.push(in.I64())
 		case U32Load:
 			vm.push(in.U32())
+		case U16Load:
+			vm.push(in.U16())
+		case U8Load:
+			vm.push(in.U8())
+		case I64Load:
+			vm.push(in.I64())
 		case I32Load:
 			vm.push(in.I32())
+		case I16Load:
+			vm.push(in.I16())
+		case I8Load:
+			vm.push(in.I8())
 		case CLoad:
 			addr := in.Addr()
 			if addr < len(mem.Constants) {
@@ -397,6 +505,16 @@ func (vm *VM) Exec(ip int, code CodeMemory, mem DataMemory) {
 	vm.inited = false
 }
 
+func (vm *VM) pop2Args(op Opcode) (interface{}, interface{}, bool) {
+	arg2 := vm.pop()
+	arg1 := vm.pop()
+	if arg1 == nil || arg2 == nil {
+		internalPanic(op, "2 arguments required")
+		return nil, nil, false
+	}
+	return arg1, arg2, true
+}
+
 func (vm *VM) pop2U64Args(op Opcode) (uint64, uint64, bool) {
 	arg2 := vm.pop()
 	arg1 := vm.pop()
@@ -408,22 +526,6 @@ func (vm *VM) pop2U64Args(op Opcode) (uint64, uint64, bool) {
 	arg2Int, ok2 := arg2.(uint64)
 	if !ok1 || !ok2 {
 		internalPanic(op, "2 u64 arguments expected (got %T and %T)", arg1, arg2)
-		return 0, 0, false
-	}
-	return arg1Int, arg2Int, true
-}
-
-func (vm *VM) pop2I64Args(op Opcode) (int64, int64, bool) {
-	arg2 := vm.pop()
-	arg1 := vm.pop()
-	if arg1 == nil || arg2 == nil {
-		internalPanic(op, "2 arguments required")
-		return 0, 0, false
-	}
-	arg1Int, ok1 := arg1.(int64)
-	arg2Int, ok2 := arg2.(int64)
-	if !ok1 || !ok2 {
-		internalPanic(op, "2 i64 arguments expected (got %T and %T)", arg1, arg2)
 		return 0, 0, false
 	}
 	return arg1Int, arg2Int, true
@@ -445,6 +547,54 @@ func (vm *VM) pop2U32Args(op Opcode) (uint32, uint32, bool) {
 	return arg1Int, arg2Int, true
 }
 
+func (vm *VM) pop2U16Args(op Opcode) (uint16, uint16, bool) {
+	arg2 := vm.pop()
+	arg1 := vm.pop()
+	if arg1 == nil || arg2 == nil {
+		internalPanic(op, "2 arguments required")
+		return 0, 0, false
+	}
+	arg1Int, ok1 := arg1.(uint16)
+	arg2Int, ok2 := arg2.(uint16)
+	if !ok1 || !ok2 {
+		internalPanic(op, "2 u16 arguments expected (got %T and %T)", arg1, arg2)
+		return 0, 0, false
+	}
+	return arg1Int, arg2Int, true
+}
+
+func (vm *VM) pop2U8Args(op Opcode) (uint8, uint8, bool) {
+	arg2 := vm.pop()
+	arg1 := vm.pop()
+	if arg1 == nil || arg2 == nil {
+		internalPanic(op, "2 arguments required")
+		return 0, 0, false
+	}
+	arg1Int, ok1 := arg1.(uint8)
+	arg2Int, ok2 := arg2.(uint8)
+	if !ok1 || !ok2 {
+		internalPanic(op, "2 u8 arguments expected (got %T and %T)", arg1, arg2)
+		return 0, 0, false
+	}
+	return arg1Int, arg2Int, true
+}
+
+func (vm *VM) pop2I64Args(op Opcode) (int64, int64, bool) {
+	arg2 := vm.pop()
+	arg1 := vm.pop()
+	if arg1 == nil || arg2 == nil {
+		internalPanic(op, "2 arguments required")
+		return 0, 0, false
+	}
+	arg1Int, ok1 := arg1.(int64)
+	arg2Int, ok2 := arg2.(int64)
+	if !ok1 || !ok2 {
+		internalPanic(op, "2 i64 arguments expected (got %T and %T)", arg1, arg2)
+		return 0, 0, false
+	}
+	return arg1Int, arg2Int, true
+}
+
 func (vm *VM) pop2I32Args(op Opcode) (int32, int32, bool) {
 	arg2 := vm.pop()
 	arg1 := vm.pop()
@@ -461,14 +611,36 @@ func (vm *VM) pop2I32Args(op Opcode) (int32, int32, bool) {
 	return arg1Int, arg2Int, true
 }
 
-func (vm *VM) pop2Args(op Opcode) (interface{}, interface{}, bool) {
+func (vm *VM) pop2I16Args(op Opcode) (int16, int16, bool) {
 	arg2 := vm.pop()
 	arg1 := vm.pop()
 	if arg1 == nil || arg2 == nil {
 		internalPanic(op, "2 arguments required")
-		return nil, nil, false
+		return 0, 0, false
 	}
-	return arg1, arg2, true
+	arg1Int, ok1 := arg1.(int16)
+	arg2Int, ok2 := arg2.(int16)
+	if !ok1 || !ok2 {
+		internalPanic(op, "2xi16 arguments expected (got %T and %T)", arg1, arg2)
+		return 0, 0, false
+	}
+	return arg1Int, arg2Int, true
+}
+
+func (vm *VM) pop2I8Args(op Opcode) (int8, int8, bool) {
+	arg2 := vm.pop()
+	arg1 := vm.pop()
+	if arg1 == nil || arg2 == nil {
+		internalPanic(op, "2 arguments required")
+		return 0, 0, false
+	}
+	arg1Int, ok1 := arg1.(int8)
+	arg2Int, ok2 := arg2.(int8)
+	if !ok1 || !ok2 {
+		internalPanic(op, "2xi8 arguments expected (got %T and %T)", arg1, arg2)
+		return 0, 0, false
+	}
+	return arg1Int, arg2Int, true
 }
 
 func (vm *VM) pop1U32Arg(op Opcode) (uint32, bool) {

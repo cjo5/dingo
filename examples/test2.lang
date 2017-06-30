@@ -1,7 +1,8 @@
 module main;
 
 fun main() {
-    var x: i64 = 9223372036854775807 + 1;
+    var x: i8 = 127;
+    x += 1;
     print x;
     print "\n";
 }
