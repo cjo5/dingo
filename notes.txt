@@ -18,7 +18,6 @@ TODO (in no particular order):
 - Parse escape sequences in string literal
 - Support relative jump addresses
 - Change statement terminator from semicolon to newline
-- Offset jumps
 - Compile to LLVM
 - Rewrite expression grammar and parser to something simpler
 - Improve parser synchronization

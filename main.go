@@ -46,6 +46,6 @@ func exec(filename string) {
 }
 
 func main() {
-	exec("examples/test3.lang")
+	exec("examples/test2.lang")
 	//testVM()
 }

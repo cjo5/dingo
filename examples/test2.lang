@@ -1,9 +1,7 @@
 module main;
 
 fun main() {
-    var x: u32 = 5;
-    var y: i32 = 10;
-    var z: u32 = x + u32(y);
-    print z;
+    var x: i64 = 9223372036854775807 + 1;
+    print x;
     print "\n";
 }

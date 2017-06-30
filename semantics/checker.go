@@ -91,7 +91,7 @@ func (c *checker) isGlobalScope() bool {
 
 // Returns false if error
 func (c *checker) tryCastLiteral(expr Expr, target *TType) bool {
-	if IsNumericType(target.ID) && IsNumericType(expr.Type().ID) {
+	if target.IsNumericType() && expr.Type().IsNumericType() {
 		lit, _ := expr.(*Literal)
 		if lit != nil {
 			bigInt := lit.Raw.(*big.Int)
@@ -304,7 +304,7 @@ func (c *checker) checkAssignStmt(stmt *AssignStmt) {
 	}
 
 	if stmt.Assign.ID != token.Assign {
-		if !IsNumericType(stmt.Name.Type().ID) {
+		if !stmt.Name.Type().IsNumericType() {
 			c.error(stmt.Name.Name, "type mismatch: %s is not numeric (has type %s)",
 				stmt.Assign, stmt.Name.Literal(), stmt.Name.Type().ID)
 		}
@@ -383,16 +383,10 @@ func (c *checker) checkBinaryExpr(expr *BinaryExpr) Expr {
 	leftType := expr.Left.Type()
 	rightType := expr.Right.Type()
 
-	if leftType.OneOf(TString) || rightType.OneOf(TString) {
-		c.error(expr.Op, "operation '%s' does not support the given types %s and %s",
-			expr.Op.ID, leftType.ID, rightType.ID)
-		expr.T = NewType(TUntyped)
-		return expr
-	}
-
 	binType := TUntyped
 	boolOp := expr.Op.OneOf(token.Eq, token.Neq, token.Gt, token.GtEq, token.Lt, token.LtEq)
 	arithOp := expr.Op.OneOf(token.Add, token.Sub, token.Mul, token.Div, token.Mod)
+	typeNotSupported := false
 
 	if expr.Op.OneOf(token.And, token.Or) {
 		if leftType.ID != TBool || rightType.ID != TBool {
@@ -405,7 +399,7 @@ func (c *checker) checkBinaryExpr(expr *BinaryExpr) Expr {
 		leftLit, _ := expr.Left.(*Literal)
 		rightLit, _ := expr.Right.(*Literal)
 
-		if IsNumericType(leftType.ID) && IsNumericType(rightType.ID) {
+		if leftType.IsNumericType() && rightType.IsNumericType() {
 			var leftBigInt *big.Int
 			var rightBigInt *big.Int
 			if leftLit != nil {
@@ -476,9 +470,17 @@ func (c *checker) checkBinaryExpr(expr *BinaryExpr) Expr {
 					rightType.ID = leftType.ID
 				}
 			}
+		} else if leftType.OneOf(TBool) && rightType.OneOf(TBool) {
+			if arithOp || expr.Op.OneOf(token.Gt, token.GtEq, token.Lt, token.LtEq) {
+				typeNotSupported = true
+			}
+		} else if leftType.OneOf(TString) && rightType.OneOf(TString) {
+			typeNotSupported = true
 		}
 
-		if leftType.ID != rightType.ID {
+		if typeNotSupported {
+			c.error(expr.Op, "operation '%s' does not support type %s", expr.Op.ID, TString)
+		} else if leftType.ID != rightType.ID {
 			c.error(expr.Op, "type mismatch: arguments to operation '%s' are not compatible (got %s and %s)",
 				expr.Op.ID, leftType.ID, rightType.ID)
 		} else {
@@ -501,7 +503,7 @@ func (c *checker) checkUnaryExpr(expr *UnaryExpr) Expr {
 	expr.T = expr.X.Type()
 	switch expr.Op.ID {
 	case token.Sub:
-		if !IsNumericType(expr.T.ID) {
+		if !expr.T.IsNumericType() {
 			c.error(expr.Op, "type mismatch: operation '%s' expects a numeric type but got %s", token.Sub, expr.T.ID)
 		} else if lit, ok := expr.X.(*Literal); ok {
 			switch n := lit.Raw.(type) {

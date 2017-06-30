@@ -114,8 +114,12 @@ func (b *block) addInstr0(op vm.Opcode) {
 	b.addJumpInstr(vm.NewInstr0(op), nil)
 }
 
-func (b *block) addInstr1(op vm.Opcode, arg1 int) {
+func (b *block) addInstr1(op vm.Opcode, arg1 int64) {
 	b.addJumpInstr(vm.NewInstr1(op, arg1), nil)
+}
+
+func (b *block) addInstrAddr(op vm.Opcode, arg1 int) {
+	b.addJumpInstr(vm.NewInstr1(op, int64(arg1)), nil)
 }
 
 func (c *compiler) compileModule(mod *semantics.Module) {
@@ -163,7 +167,7 @@ func (c *compiler) compileModule(mod *semantics.Module) {
 
 	// Invoke main function
 	if addr, found := c.lookupFunc("main"); found {
-		c.currBlock.addInstr1(vm.Call, addr)
+		c.currBlock.addInstrAddr(vm.Call, addr)
 		c.currBlock.addInstr0(vm.Pop)
 	}
 
@@ -224,9 +228,9 @@ func (c *compiler) compileVarDecl(stmt *semantics.VarDecl) {
 	c.compileExpr(stmt.X)
 	addr, global := c.defineVar(stmt.Name.Literal())
 	if global {
-		c.currBlock.addInstr1(vm.GStore, addr)
+		c.currBlock.addInstrAddr(vm.GStore, addr)
 	} else {
-		c.currBlock.addInstr1(vm.Store, addr)
+		c.currBlock.addInstrAddr(vm.Store, addr)
 	}
 }
 
@@ -339,9 +343,9 @@ func (c *compiler) compileAssignStmt(stmt *semantics.AssignStmt) {
 	}
 	addr, global := c.lookupVar(stmt.Name.Literal())
 	if global {
-		c.currBlock.addInstr1(vm.GStore, addr)
+		c.currBlock.addInstrAddr(vm.GStore, addr)
 	} else {
-		c.currBlock.addInstr1(vm.Store, addr)
+		c.currBlock.addInstrAddr(vm.Store, addr)
 	}
 }
 
@@ -429,18 +433,22 @@ func (c *compiler) compileBinaryExpr(expr *semantics.BinaryExpr) {
 			c.currBlock.addInstr0(vm.DivOp(t))
 		case token.Mod:
 			c.currBlock.addInstr0(vm.ModOp(t))
-		case token.Eq:
-			c.currBlock.addInstr0(vm.CmpEq)
-		case token.Neq:
-			c.currBlock.addInstr0(vm.CmpNe)
-		case token.Gt:
-			c.currBlock.addInstr0(vm.CmpGt)
-		case token.GtEq:
-			c.currBlock.addInstr0(vm.CmpGe)
-		case token.Lt:
-			c.currBlock.addInstr0(vm.CmpLt)
-		case token.LtEq:
-			c.currBlock.addInstr0(vm.CmpLe)
+		case token.Eq, token.Neq, token.Gt, token.GtEq, token.Lt, token.LtEq:
+			c.currBlock.addInstr0(vm.CmpOp(t))
+			switch expr.Op.ID {
+			case token.Eq:
+				c.currBlock.addInstr0(vm.CmpEq)
+			case token.Neq:
+				c.currBlock.addInstr0(vm.CmpNe)
+			case token.Gt:
+				c.currBlock.addInstr0(vm.CmpGt)
+			case token.GtEq:
+				c.currBlock.addInstr0(vm.CmpGe)
+			case token.Lt:
+				c.currBlock.addInstr0(vm.CmpLt)
+			case token.LtEq:
+				c.currBlock.addInstr0(vm.CmpLe)
+			}
 		}
 	}
 }
@@ -470,14 +478,18 @@ func (c *compiler) compileLiteral(lit *semantics.Literal) {
 	if lit.Value.ID == token.LitString {
 		s := c.unescapeString(lit.Value.Literal)
 		addr := c.defineString(s)
-		c.currBlock.addInstr1(vm.CLoad, addr)
+		c.currBlock.addInstrAddr(vm.CLoad, addr)
 	} else if lit.Value.ID == token.LitInteger {
 		if bigInt, ok := lit.Raw.(*big.Int); ok {
 			switch lit.T.ID {
+			case semantics.TUInt64:
+				c.currBlock.addInstr1(vm.U64Load, int64(bigInt.Uint64()))
+			case semantics.TInt64:
+				c.currBlock.addInstr1(vm.I64Load, int64(bigInt.Int64()))
 			case semantics.TUInt32, semantics.TUInt16, semantics.TUInt8:
-				c.currBlock.addInstr1(vm.U32Load, int(bigInt.Uint64()))
+				c.currBlock.addInstr1(vm.U32Load, int64(bigInt.Uint64()))
 			case semantics.TInt32, semantics.TInt16, semantics.TInt8:
-				c.currBlock.addInstr1(vm.I32Load, int(bigInt.Int64()))
+				c.currBlock.addInstr1(vm.I32Load, int64(bigInt.Int64()))
 			default:
 				panic(fmt.Sprintf("Unhandled literal %s with type %s", lit.Value, lit.T.ID))
 			}
@@ -541,9 +553,9 @@ func (c *compiler) unescapeString(literal string) string {
 func (c *compiler) compileIdent(id *semantics.Ident) {
 	addr, global := c.lookupVar(id.Literal())
 	if global {
-		c.currBlock.addInstr1(vm.GLoad, addr)
+		c.currBlock.addInstrAddr(vm.GLoad, addr)
 	} else {
-		c.currBlock.addInstr1(vm.Load, addr)
+		c.currBlock.addInstrAddr(vm.Load, addr)
 	}
 }
 
@@ -554,23 +566,29 @@ func (c *compiler) compileCallExpr(expr *semantics.CallExpr) {
 
 	sym := expr.Name.Sym
 	if sym.ID == semantics.TypeSymbol {
-		srcType := expr.Args[0].Type()
 		dstType := sym.T
+		err := false
 
-		if srcType.OneOf(semantics.TUInt32, semantics.TUInt16, semantics.TUInt8) {
-			if dstType.OneOf(semantics.TInt32, semantics.TInt16, semantics.TInt8) {
-				c.currBlock.addInstr0(vm.U32ToI32)
-			}
-		} else if srcType.OneOf(semantics.TInt32, semantics.TInt16, semantics.TInt8) {
-			if dstType.OneOf(semantics.TUInt32, semantics.TUInt16, semantics.TUInt8) {
-				c.currBlock.addInstr0(vm.I32ToU32)
-			}
+		if dstType.OneOf(semantics.TUInt64) {
+			c.currBlock.addInstr1(vm.U64Load, 0)
+		} else if dstType.OneOf(semantics.TInt64) {
+			c.currBlock.addInstr1(vm.I64Load, 0)
+		} else if dstType.OneOf(semantics.TUInt32, semantics.TUInt16, semantics.TUInt8) {
+			c.currBlock.addInstr1(vm.U32Load, 0)
+		} else if dstType.OneOf(semantics.TInt32, semantics.TInt16, semantics.TInt8) {
+			c.currBlock.addInstr1(vm.I32Load, 0)
 		} else {
-			panic(fmt.Sprintf("Unhandled source type %T", srcType.ID))
+			err = true
+		}
+
+		if !err {
+			c.currBlock.addInstr0(vm.NumCast)
+		} else {
+			panic(fmt.Sprintf("Unhandled dest type %T", dstType.ID))
 		}
 	} else {
 		if addr, ok := c.lookupFunc(expr.Name.Literal()); ok {
-			c.currBlock.addInstr1(vm.Call, addr)
+			c.currBlock.addInstrAddr(vm.Call, addr)
 			c.setNextBlock(&block{})
 		} else {
 			panic(fmt.Sprintf("Failed to find %s", expr.Name.Name))
@@ -627,7 +645,7 @@ func (c *compiler) getCodeMemory() vm.CodeMemory {
 		for _, in := range b.instructions {
 			// Patch jump address
 			if in.target != nil {
-				in.in.Arg1 = in.target.address
+				in.in.Arg1 = int64(in.target.address)
 			}
 			code = append(code, in.in)
 		}

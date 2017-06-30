@@ -92,8 +92,8 @@ func (t *TType) OneOf(ids ...TypeID) bool {
 	return false
 }
 
-func IsNumericType(t TypeID) bool {
-	switch t {
+func (t *TType) IsNumericType() bool {
+	switch t.ID {
 	case TBigInt, TUInt64, TInt64, TUInt32, TInt32, TUInt16, TInt16, TUInt8, TInt8:
 		return true
 	default:
@@ -103,9 +103,9 @@ func IsNumericType(t TypeID) bool {
 
 func CompatibleTypes(a *TType, b *TType) bool {
 	switch {
-	case IsNumericType(a.ID):
+	case a.IsNumericType():
 		switch {
-		case IsNumericType(b.ID):
+		case b.IsNumericType():
 			return true
 		default:
 			return false
