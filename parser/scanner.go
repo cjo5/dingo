@@ -209,17 +209,15 @@ func (s *scanner) scanIdent() (token.ID, string) {
 }
 
 func (s *scanner) scanDigits() {
-	for isDigit(s.ch) {
+	for isDigit(s.ch) || s.ch == '_' {
 		s.next()
 	}
 }
 
 // TODO:
 // - Support hex and octals
-// - Support underscores to make large numbers easier to read
 func (s *scanner) scanNumber(leadingDecimalPoint bool, pos token.Position) token.ID {
 	id := token.Integer
-
 	s.scanDigits()
 
 	if leadingDecimalPoint {
@@ -227,6 +225,10 @@ func (s *scanner) scanNumber(leadingDecimalPoint bool, pos token.Position) token
 	} else if s.ch == '.' {
 		id = token.Float
 		s.next()
+		if s.ch == '_' {
+			s.error(pos, "decimal point '.' in float literal can not be followed by '_'")
+			return id
+		}
 		s.scanDigits()
 	}
 

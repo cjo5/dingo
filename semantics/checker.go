@@ -5,6 +5,8 @@ import (
 
 	"math/big"
 
+	"strings"
+
 	"github.com/jhnl/interpreter/common"
 	"github.com/jhnl/interpreter/token"
 )
@@ -607,12 +609,12 @@ func (c *checker) checkUnaryExpr(expr *UnaryExpr) Expr {
 	return expr
 }
 
-func unescapeString(literal string) string {
+func unescapeStringLiteral(lit string) string {
 	// TODO:
 	// - Handle more escape sequences
 	// - Improve rune handling
 
-	escaped := []rune(literal)
+	escaped := []rune(lit)
 	var unescaped []rune
 
 	start := 0
@@ -654,20 +656,25 @@ func unescapeString(literal string) string {
 	return string(unescaped)
 }
 
+func normalizeNumericLiteral(lit string) string {
+	return strings.Replace(lit, "_", "", -1)
+}
+
 func (c *checker) checkLiteral(lit *Literal) Expr {
 	if lit.Value.ID == token.False || lit.Value.ID == token.True {
 		lit.T = NewType(TBool)
 	} else if lit.Value.ID == token.String {
 		if lit.Raw == nil {
 			lit.T = NewType(TString)
-			lit.Raw = unescapeString(lit.Value.Literal)
+			lit.Raw = unescapeStringLiteral(lit.Value.Literal)
 		}
 	} else if lit.Value.ID == token.Integer {
 		if lit.Raw == nil {
 			val := big.NewInt(0)
-			_, ok := val.SetString(lit.Value.Literal, 10)
+			normalized := normalizeNumericLiteral(lit.Value.Literal)
+			_, ok := val.SetString(normalized, 10)
 			if !ok {
-				c.error(lit.Value, "unable to interpret integer literal %s", lit.Value.Literal)
+				c.error(lit.Value, "unable to interpret integer literal %s", normalized)
 			}
 			lit.T = NewType(TBigInt)
 			lit.Raw = val
@@ -675,9 +682,10 @@ func (c *checker) checkLiteral(lit *Literal) Expr {
 	} else if lit.Value.ID == token.Float {
 		if lit.Raw == nil {
 			val := big.NewFloat(0)
-			_, ok := val.SetString(lit.Value.Literal)
+			normalized := normalizeNumericLiteral(lit.Value.Literal)
+			_, ok := val.SetString(normalized)
 			if !ok {
-				c.error(lit.Value, "unable to interpret float literal %s", lit.Value.Literal)
+				c.error(lit.Value, "unable to interpret float literal %s", normalized)
 			}
 			lit.T = NewType(TBigFloat)
 			lit.Raw = val

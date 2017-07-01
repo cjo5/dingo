@@ -1,9 +1,7 @@
 module main;
 
 fun main() {
-    var y: f32 = 5.5;
-    var z: u32 = u32(y);
-
-    print z;
-    print "\nhello world\n";
+    val x: u32 = 10.__
+    print x;
+    print "\n";
 }
