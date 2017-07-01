@@ -5,4 +5,5 @@ fun main() {
     var z: u32 = u32(y);
 
     print z;
+    print "\nhello world\n";
 }

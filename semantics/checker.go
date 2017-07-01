@@ -607,11 +607,61 @@ func (c *checker) checkUnaryExpr(expr *UnaryExpr) Expr {
 	return expr
 }
 
+func unescapeString(literal string) string {
+	// TODO:
+	// - Handle more escape sequences
+	// - Improve rune handling
+
+	escaped := []rune(literal)
+	var unescaped []rune
+
+	start := 0
+	n := len(escaped)
+
+	// Remove quotes
+	if n >= 2 {
+		start++
+		n--
+	}
+
+	for i := start; i < n; i++ {
+		ch1 := escaped[i]
+		if ch1 == '\\' && (i+1) < len(escaped) {
+			i++
+			ch2 := escaped[i]
+
+			if ch2 == 'a' {
+				ch1 = 0x07
+			} else if ch2 == 'b' {
+				ch1 = 0x08
+			} else if ch2 == 'f' {
+				ch1 = 0x0c
+			} else if ch2 == 'n' {
+				ch1 = 0x0a
+			} else if ch2 == 'r' {
+				ch1 = 0x0d
+			} else if ch2 == 't' {
+				ch1 = 0x09
+			} else if ch2 == 'v' {
+				ch1 = 0x0b
+			} else {
+				ch1 = ch2
+			}
+		}
+		unescaped = append(unescaped, ch1)
+	}
+
+	return string(unescaped)
+}
+
 func (c *checker) checkLiteral(lit *Literal) Expr {
 	if lit.Value.ID == token.False || lit.Value.ID == token.True {
 		lit.T = NewType(TBool)
 	} else if lit.Value.ID == token.String {
-		lit.T = NewType(TString)
+		if lit.Raw == nil {
+			lit.T = NewType(TString)
+			lit.Raw = unescapeString(lit.Value.Literal)
+		}
 	} else if lit.Value.ID == token.Integer {
 		if lit.Raw == nil {
 			val := big.NewInt(0)

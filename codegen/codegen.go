@@ -501,9 +501,12 @@ func (c *compiler) compileUnaryExpr(expr *semantics.UnaryExpr) {
 
 func (c *compiler) compileLiteral(lit *semantics.Literal) {
 	if lit.Value.ID == token.String {
-		s := c.unescapeString(lit.Value.Literal)
-		addr := c.defineString(s)
-		c.currBlock.addInstrAddr(vm.CLoad, addr)
+		if str, ok := lit.Raw.(string); ok {
+			addr := c.defineString(str)
+			c.currBlock.addInstrAddr(vm.CLoad, addr)
+		} else {
+			panic(fmt.Sprintf("Failed to convert raw literal %s with type %T", lit.Value, lit.Raw))
+		}
 	} else if lit.Value.ID == token.Integer || lit.Value.ID == token.Float {
 		if bigInt, ok := lit.Raw.(*big.Int); ok {
 			switch lit.T.ID {
@@ -549,53 +552,6 @@ func (c *compiler) compileLiteral(lit *semantics.Literal) {
 	} else {
 		panic(fmt.Sprintf("Unhandled literal %s", lit.Value))
 	}
-}
-
-func (c *compiler) unescapeString(literal string) string {
-	// TODO:
-	// - Should this be done some place else?
-	// - Improve rune handling
-
-	escaped := []rune(literal)
-	var unescaped []rune
-
-	start := 0
-	n := len(escaped)
-
-	// Remove quotes
-	if n >= 2 {
-		start++
-		n--
-	}
-
-	for i := start; i < n; i++ {
-		ch1 := escaped[i]
-		if ch1 == '\\' && (i+1) < len(escaped) {
-			i++
-			ch2 := escaped[i]
-
-			if ch2 == 'a' {
-				ch1 = 0x07
-			} else if ch2 == 'b' {
-				ch1 = 0x08
-			} else if ch2 == 'f' {
-				ch1 = 0x0c
-			} else if ch2 == 'n' {
-				ch1 = 0x0a
-			} else if ch2 == 'r' {
-				ch1 = 0x0d
-			} else if ch2 == 't' {
-				ch1 = 0x09
-			} else if ch2 == 'v' {
-				ch1 = 0x0b
-			} else {
-				ch1 = ch2
-			}
-		}
-		unescaped = append(unescaped, ch1)
-	}
-
-	return string(unescaped)
 }
 
 func (c *compiler) compileIdent(id *semantics.Ident) {
