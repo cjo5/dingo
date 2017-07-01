@@ -31,7 +31,10 @@ type block struct {
 type compiler struct {
 	globalAddress   int
 	constantAddress int
+	// TODO: Improve handling of constant literals
 	stringLiterals  map[string]int
+	float64Literals map[float64]int
+	float32Literals map[float32]int
 	functions       map[string]*function
 	startBlock      *block
 	flattenedBlocks []*block
@@ -52,6 +55,8 @@ type compiler struct {
 func Compile(mod *semantics.Module) (int, vm.CodeMemory, vm.DataMemory) {
 	c := &compiler{}
 	c.stringLiterals = make(map[string]int)
+	c.float64Literals = make(map[float64]int)
+	c.float32Literals = make(map[float32]int)
 	c.functions = make(map[string]*function)
 	c.compileModule(mod)
 	return c.createProgram()
@@ -67,6 +72,26 @@ func (c *compiler) defineString(literal string) int {
 	addr := c.constantAddress
 	c.constantAddress++
 	c.stringLiterals[literal] = addr
+	return addr
+}
+
+func (c *compiler) defineFloat64(literal float64) int {
+	if addr, ok := c.float64Literals[literal]; ok {
+		return addr
+	}
+	addr := c.constantAddress
+	c.constantAddress++
+	c.float64Literals[literal] = addr
+	return addr
+}
+
+func (c *compiler) defineFloat32(literal float32) int {
+	if addr, ok := c.float32Literals[literal]; ok {
+		return addr
+	}
+	addr := c.constantAddress
+	c.constantAddress++
+	c.float32Literals[literal] = addr
 	return addr
 }
 
@@ -434,7 +459,7 @@ func (c *compiler) compileBinaryExpr(expr *semantics.BinaryExpr) {
 		case token.Mod:
 			c.currBlock.addInstr0(vm.ModOp(t))
 		case token.Eq, token.Neq, token.Gt, token.GtEq, token.Lt, token.LtEq:
-			c.currBlock.addInstr0(vm.CmpOp(t))
+			c.currBlock.addInstr0(vm.CmpOp(expr.Left.Type().ID))
 			switch expr.Op.ID {
 			case token.Eq:
 				c.currBlock.addInstr0(vm.CmpEq)
@@ -475,11 +500,11 @@ func (c *compiler) compileUnaryExpr(expr *semantics.UnaryExpr) {
 }
 
 func (c *compiler) compileLiteral(lit *semantics.Literal) {
-	if lit.Value.ID == token.LitString {
+	if lit.Value.ID == token.String {
 		s := c.unescapeString(lit.Value.Literal)
 		addr := c.defineString(s)
 		c.currBlock.addInstrAddr(vm.CLoad, addr)
-	} else if lit.Value.ID == token.LitInteger {
+	} else if lit.Value.ID == token.Integer || lit.Value.ID == token.Float {
 		if bigInt, ok := lit.Raw.(*big.Int); ok {
 			switch lit.T.ID {
 			case semantics.TUInt64:
@@ -501,6 +526,19 @@ func (c *compiler) compileLiteral(lit *semantics.Literal) {
 			default:
 				panic(fmt.Sprintf("Unhandled literal %s with type %s", lit.Value, lit.T.ID))
 			}
+		} else if bigFloat, ok := lit.Raw.(*big.Float); ok {
+			addr := 0
+			switch lit.T.ID {
+			case semantics.TFloat64:
+				val, _ := bigFloat.Float64()
+				addr = c.defineFloat64(val)
+			case semantics.TFloat32:
+				val, _ := bigFloat.Float32()
+				addr = c.defineFloat32(val)
+			default:
+				panic(fmt.Sprintf("Unhandled literal %s with type %s", lit.Value, lit.T.ID))
+			}
+			c.currBlock.addInstrAddr(vm.CLoad, addr)
 		} else {
 			panic(fmt.Sprintf("Failed to convert raw literal %s with type %T", lit.Value, lit.Raw))
 		}
@@ -508,6 +546,8 @@ func (c *compiler) compileLiteral(lit *semantics.Literal) {
 		c.currBlock.addInstr1(vm.I32Load, 1)
 	} else if lit.Value.ID == token.False {
 		c.currBlock.addInstr1(vm.I32Load, 0)
+	} else {
+		panic(fmt.Sprintf("Unhandled literal %s", lit.Value))
 	}
 }
 
@@ -575,25 +615,35 @@ func (c *compiler) compileCallExpr(expr *semantics.CallExpr) {
 	sym := expr.Name.Sym
 	if sym.ID == semantics.TypeSymbol {
 		dstType := sym.T
-		err := false
 
-		if dstType.OneOf(semantics.TUInt64) {
+		switch dstType.ID {
+		case semantics.TUInt64:
 			c.currBlock.addInstr1(vm.U64Load, 0)
-		} else if dstType.OneOf(semantics.TInt64) {
-			c.currBlock.addInstr1(vm.I64Load, 0)
-		} else if dstType.OneOf(semantics.TUInt32, semantics.TUInt16, semantics.TUInt8) {
+		case semantics.TUInt32:
 			c.currBlock.addInstr1(vm.U32Load, 0)
-		} else if dstType.OneOf(semantics.TInt32, semantics.TInt16, semantics.TInt8) {
+		case semantics.TUInt16:
+			c.currBlock.addInstr1(vm.U16Load, 0)
+		case semantics.TUInt8:
+			c.currBlock.addInstr1(vm.U8Load, 0)
+		case semantics.TInt64:
+			c.currBlock.addInstr1(vm.I64Load, 0)
+		case semantics.TInt32:
 			c.currBlock.addInstr1(vm.I32Load, 0)
-		} else {
-			err = true
-		}
-
-		if !err {
-			c.currBlock.addInstr0(vm.NumCast)
-		} else {
+		case semantics.TInt16:
+			c.currBlock.addInstr1(vm.I16Load, 0)
+		case semantics.TInt8:
+			c.currBlock.addInstr1(vm.I8Load, 0)
+		case semantics.TFloat64:
+			addr := c.defineFloat64(0)
+			c.currBlock.addInstrAddr(vm.CLoad, addr)
+		case semantics.TFloat32:
+			addr := c.defineFloat32(0)
+			c.currBlock.addInstrAddr(vm.CLoad, addr)
+		default:
 			panic(fmt.Sprintf("Unhandled dest type %T", dstType.ID))
 		}
+
+		c.currBlock.addInstr0(vm.NumCast)
 	} else {
 		if addr, ok := c.lookupFunc(expr.Name.Literal()); ok {
 			c.currBlock.addInstrAddr(vm.Call, addr)
@@ -667,6 +717,14 @@ func (c *compiler) getDataMemory() vm.DataMemory {
 
 	data.Constants = make([]interface{}, c.constantAddress)
 	for k, v := range c.stringLiterals {
+		data.Constants[v] = k
+	}
+
+	for k, v := range c.float64Literals {
+		data.Constants[v] = k
+	}
+
+	for k, v := range c.float32Literals {
 		data.Constants[v] = k
 	}
 

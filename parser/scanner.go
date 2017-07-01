@@ -40,16 +40,24 @@ func (s *scanner) scan() token.Token {
 		Literal: "",
 	}
 
+	startOffset := s.chOffset
+
 	switch ch1 := s.ch; {
 	case isLetter(ch1):
 		tok.ID, tok.Literal = s.scanIdent()
 	case isDigit(ch1):
-		tok.ID, tok.Literal = s.scanNumber()
+		tok.ID = s.scanNumber(false, pos)
 	case ch1 == '"':
-		tok.Literal = s.scanString(pos)
-		tok.ID = token.LitString
+		s.scanString(pos)
+		tok.ID = token.String
+	case ch1 == '.':
+		s.next()
+		if isDigit(s.ch) {
+			tok.ID = s.scanNumber(true, pos)
+		} else {
+			tok.ID = token.Dot
+		}
 	default:
-		startOffset := s.chOffset
 		s.next()
 
 		switch ch1 {
@@ -63,8 +71,6 @@ func (s *scanner) scan() token.Token {
 			tok.ID = token.Lbrace
 		case '}':
 			tok.ID = token.Rbrace
-		case '.':
-			tok.ID = token.Dot
 		case ',':
 			tok.ID = token.Comma
 		case ';':
@@ -130,7 +136,9 @@ func (s *scanner) scan() token.Token {
 		default:
 			tok.ID = token.Invalid
 		}
+	}
 
+	if len(tok.Literal) == 0 {
 		tok.Literal = string(s.src[startOffset:s.chOffset])
 	}
 
@@ -191,9 +199,8 @@ func (s *scanner) scanIdent() (token.ID, string) {
 		s.next()
 	}
 
-	lit := string(s.src[startOffset:s.chOffset])
 	tok := token.Ident
-
+	lit := string(s.src[startOffset:s.chOffset])
 	if len(lit) > 1 {
 		tok = token.Lookup(lit)
 	}
@@ -201,17 +208,47 @@ func (s *scanner) scanIdent() (token.ID, string) {
 	return tok, lit
 }
 
-// Only supports integers for now.
-func (s *scanner) scanNumber() (token.ID, string) {
-	startOffset := s.chOffset
+func (s *scanner) scanDigits() {
 	for isDigit(s.ch) {
 		s.next()
 	}
-	return token.LitInteger, string(s.src[startOffset:s.chOffset])
 }
 
-func (s *scanner) scanString(pos token.Position) string {
-	startOffset := s.chOffset
+// TODO:
+// - Support hex and octals
+// - Support underscores to make large numbers easier to read
+func (s *scanner) scanNumber(leadingDecimalPoint bool, pos token.Position) token.ID {
+	id := token.Integer
+
+	s.scanDigits()
+
+	if leadingDecimalPoint {
+		id = token.Float
+	} else if s.ch == '.' {
+		id = token.Float
+		s.next()
+		s.scanDigits()
+	}
+
+	if s.ch == 'e' || s.ch == 'E' {
+		id = token.Float
+
+		s.next()
+		if s.ch == '+' || s.ch == '-' {
+			s.next()
+		}
+
+		if isDigit(s.ch) {
+			s.scanDigits()
+		} else {
+			s.error(pos, "invalid exponent in float literal")
+		}
+	}
+
+	return id
+}
+
+func (s *scanner) scanString(pos token.Position) {
 	s.next()
 
 	for {
@@ -230,6 +267,4 @@ func (s *scanner) scanString(pos token.Position) string {
 			s.next() // TODO: handle multi-char escape
 		}
 	}
-
-	return string(s.src[startOffset:s.chOffset])
 }

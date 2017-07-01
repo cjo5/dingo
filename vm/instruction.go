@@ -83,6 +83,18 @@ const (
 	I8Mod
 	I8Cmp
 
+	F64Add
+	F64Sub
+	F64Mul
+	F64Div
+	F64Cmp
+
+	F32Add
+	F32Sub
+	F32Mul
+	F32Div
+	F32Cmp
+
 	CmpEq
 	CmpNe
 	CmpGt
@@ -184,6 +196,18 @@ var mnemonics = [...]string{
 	I8Div: "i8div",
 	I8Mod: "i8mod",
 	I8Cmp: "i8cmp",
+
+	F64Add: "f64add",
+	F64Sub: "f64sub",
+	F64Mul: "f64mul",
+	F64Div: "f64div",
+	F64Cmp: "f64cmp",
+
+	F32Add: "f32add",
+	F32Sub: "f32sub",
+	F32Mul: "f32mul",
+	F32Div: "f32div",
+	F32Cmp: "f32cmp",
 
 	CmpEq: "cmpeq",
 	CmpNe: "cmpne",
@@ -315,6 +339,10 @@ func AddOp(t semantics.TypeID) Opcode {
 		op = I16Add
 	case semantics.TInt8:
 		op = I8Add
+	case semantics.TFloat64:
+		op = F64Add
+	case semantics.TFloat32:
+		op = F32Add
 	default:
 		panic(fmt.Sprintf("Unhandled type %s", t))
 	}
@@ -340,6 +368,10 @@ func SubOp(t semantics.TypeID) Opcode {
 		op = I16Sub
 	case semantics.TInt8:
 		op = I8Sub
+	case semantics.TFloat64:
+		op = F64Sub
+	case semantics.TFloat32:
+		op = F32Sub
 	default:
 		panic(fmt.Sprintf("Unhandled type %s", t))
 	}
@@ -365,6 +397,10 @@ func MulOp(t semantics.TypeID) Opcode {
 		op = I16Mul
 	case semantics.TInt8:
 		op = I8Mul
+	case semantics.TFloat64:
+		op = F64Mul
+	case semantics.TFloat32:
+		op = F32Mul
 	default:
 		panic(fmt.Sprintf("Unhandled type %s", t))
 	}
@@ -390,6 +426,10 @@ func DivOp(t semantics.TypeID) Opcode {
 		op = I16Div
 	case semantics.TInt8:
 		op = I8Div
+	case semantics.TFloat64:
+		op = F64Div
+	case semantics.TFloat32:
+		op = F32Div
 	default:
 		panic(fmt.Sprintf("Unhandled type %s", t))
 	}
@@ -442,6 +482,10 @@ func CmpOp(t semantics.TypeID) Opcode {
 		op = I16Cmp
 	case semantics.TInt8:
 		op = I8Cmp
+	case semantics.TFloat64:
+		op = F64Cmp
+	case semantics.TFloat32:
+		op = F32Cmp
 	default:
 		panic(fmt.Sprintf("Unhandled type %s", t))
 	}

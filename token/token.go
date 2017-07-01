@@ -35,8 +35,9 @@ const (
 	MultiComment
 
 	Ident
-	LitInteger
-	LitString
+	Integer
+	Float
+	String
 
 	Lparen
 	Rparen
@@ -106,9 +107,10 @@ var tokens = [...]string{
 	EOF:     "eof",
 	Comment: "comment",
 
-	Ident:      "ident",
-	LitInteger: "litInteger",
-	LitString:  "litString",
+	Ident:   "ident",
+	Integer: "integer",
+	Float:   "float",
+	String:  "string",
 
 	Lparen:    "(",
 	Rparen:    ")",
@@ -198,7 +200,7 @@ func (tok ID) String() string {
 
 func (t Token) String() string {
 	s := fmt.Sprintf("%s: %v", t.Pos, t.ID)
-	if t.ID == Ident || t.ID == LitString || t.ID == LitInteger {
+	if t.ID == Ident || t.ID == String || t.ID == Integer || t.ID == Float {
 		s += ":" + t.Literal
 	}
 	return s

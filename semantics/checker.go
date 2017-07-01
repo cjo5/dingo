@@ -31,6 +31,8 @@ func init() {
 	addBuiltinType(TBuiltinInt16)
 	addBuiltinType(TBuiltinUInt8)
 	addBuiltinType(TBuiltinInt8)
+	addBuiltinType(TBuiltinFloat64)
+	addBuiltinType(TBuiltinFloat32)
 }
 
 // Check will resolve identifiers and do type checking.
@@ -94,17 +96,21 @@ func (c *checker) tryCastLiteral(expr Expr, target *TType) bool {
 	if target.IsNumericType() && expr.Type().IsNumericType() {
 		lit, _ := expr.(*Literal)
 		if lit != nil {
-			bigInt := lit.Raw.(*big.Int)
-			if bigInt != nil {
-				if CompatibleNumericType(bigInt, target) {
-					lit.T = NewType(target.ID)
-				} else {
-					c.error(lit.Value, "constant expression %s overflows %s", lit.Value.Literal, target.ID)
-					return false
-				}
-			} else {
-				panic(fmt.Sprintf("Literal %s doesn't have big int", lit.Value.Literal))
+			castResult := typeCastNumericLiteral(lit, target)
+
+			if castResult == numericCastOK {
+				return true
 			}
+
+			if castResult == numericCastOverflows {
+				c.error(lit.Value, "constant expression %s overflows %s", lit.Value.Literal, target.ID)
+			} else if castResult == numericCastTruncated {
+				c.error(lit.Value, "type mismatch: constant float expression %s not compatible with %s", lit.Value.Literal, target.ID)
+			} else {
+				panic(fmt.Sprintf("Unhandled numeric cast result %d", castResult))
+			}
+
+			return false
 		}
 	}
 	return true
@@ -185,10 +191,13 @@ func (c *checker) checkVarDecl(decl *VarDecl) {
 			lit = &Literal{Value: token.Synthetic(token.False, token.False.String())}
 			lit.T = NewType(TBool)
 		} else if t.OneOf(TString) {
-			lit = &Literal{Value: token.Synthetic(token.LitString, "")}
+			lit = &Literal{Value: token.Synthetic(token.String, "")}
 			lit.T = NewType(TString)
 		} else if t.OneOf(TUInt64, TInt64, TUInt32, TInt32, TUInt16, TInt16, TUInt8, TInt8) {
-			lit = &Literal{Value: token.Synthetic(token.LitInteger, "0")}
+			lit = &Literal{Value: token.Synthetic(token.Integer, "0")}
+			lit.T = NewType(t.ID)
+		} else if t.OneOf(TFloat64, TFloat32) {
+			lit = &Literal{Value: token.Synthetic(token.Float, "0")}
 			lit.T = NewType(t.ID)
 		} else {
 			panic(fmt.Sprintf("Unhandled init value for type %s", t.ID))
@@ -386,7 +395,7 @@ func (c *checker) checkBinaryExpr(expr *BinaryExpr) Expr {
 	binType := TUntyped
 	boolOp := expr.Op.OneOf(token.Eq, token.Neq, token.Gt, token.GtEq, token.Lt, token.LtEq)
 	arithOp := expr.Op.OneOf(token.Add, token.Sub, token.Mul, token.Div, token.Mod)
-	typeNotSupported := false
+	typeNotSupported := TUntyped
 
 	if expr.Op.OneOf(token.And, token.Or) {
 		if leftType.ID != TBool || rightType.ID != TBool {
@@ -401,25 +410,61 @@ func (c *checker) checkBinaryExpr(expr *BinaryExpr) Expr {
 
 		if leftType.IsNumericType() && rightType.IsNumericType() {
 			var leftBigInt *big.Int
+			var leftBigFloat *big.Float
 			var rightBigInt *big.Int
+			var rightBigFloat *big.Float
+
 			if leftLit != nil {
 				leftBigInt, _ = leftLit.Raw.(*big.Int)
+				leftBigFloat, _ = leftLit.Raw.(*big.Float)
 			}
 			if rightLit != nil {
 				rightBigInt, _ = rightLit.Raw.(*big.Int)
+				rightBigFloat, _ = rightLit.Raw.(*big.Float)
 			}
 
 			// Check division by zero
-			if rightBigInt != nil && expr.Op.ID == token.Div || expr.Op.ID == token.Mod {
-				if rightBigInt.Cmp(BigZero) == 0 {
+
+			if expr.Op.ID == token.Div || expr.Op.ID == token.Mod {
+				if (rightBigInt != nil && rightBigInt.Cmp(BigIntZero) == 0) ||
+					(rightBigFloat != nil && rightBigFloat.Cmp(BigFloatZero) == 0) {
 					c.error(rightLit.Value, "Division by zero")
 					expr.T = NewType(TUntyped)
 					return expr
 				}
 			}
 
-			if leftBigInt != nil && rightBigInt != nil {
-				cmpRes := leftBigInt.Cmp(rightBigInt)
+			// Convert integer literals to floats
+
+			if leftBigInt != nil && rightBigFloat != nil {
+				leftBigFloat = big.NewFloat(0)
+				leftBigFloat.SetInt(leftBigInt)
+				leftLit.Raw = leftBigFloat
+				leftLit.T = NewType(TBigFloat)
+				leftType = leftLit.T
+				leftBigInt = nil
+			}
+
+			if rightBigInt != nil && leftBigFloat != nil {
+				rightBigFloat = big.NewFloat(0)
+				rightBigFloat.SetInt(rightBigInt)
+				rightLit.Raw = rightBigFloat
+				rightLit.T = NewType(TBigFloat)
+				rightType = rightLit.T
+				rightBigInt = nil
+			}
+
+			bigIntOperands := (leftBigInt != nil && rightBigInt != nil)
+			bigFloatOperands := (leftBigFloat != nil && rightBigFloat != nil)
+
+			if bigIntOperands || bigFloatOperands {
+				cmpRes := 0
+				if bigIntOperands {
+					cmpRes = leftBigInt.Cmp(rightBigInt)
+				} else {
+					cmpRes = leftBigFloat.Cmp(rightBigFloat)
+				}
+
 				boolRes := false
 				switch expr.Op.ID {
 				case token.Eq:
@@ -434,52 +479,78 @@ func (c *checker) checkBinaryExpr(expr *BinaryExpr) Expr {
 					boolRes = (cmpRes < 0)
 				case token.LtEq:
 					boolRes = (cmpRes <= 0)
-				case token.Add:
-					leftBigInt.Add(leftBigInt, rightBigInt)
-				case token.Sub:
-					leftBigInt.Sub(leftBigInt, rightBigInt)
-				case token.Mul:
-					leftBigInt.Mul(leftBigInt, rightBigInt)
-				case token.Div:
-					leftBigInt.Div(leftBigInt, rightBigInt)
-				case token.Mod:
-					leftBigInt.Mod(leftBigInt, rightBigInt)
 				default:
-					panic(fmt.Sprintf("Unhandled binop %s", expr.Op.ID))
-				}
-
-				if boolOp {
-					if boolRes {
-						leftLit.Value.ID = token.True
+					if bigIntOperands {
+						switch expr.Op.ID {
+						case token.Add:
+							leftBigInt.Add(leftBigInt, rightBigInt)
+						case token.Sub:
+							leftBigInt.Sub(leftBigInt, rightBigInt)
+						case token.Mul:
+							leftBigInt.Mul(leftBigInt, rightBigInt)
+						case token.Div:
+							leftBigInt.Div(leftBigInt, rightBigInt)
+						case token.Mod:
+							leftBigInt.Mod(leftBigInt, rightBigInt)
+						default:
+							panic(fmt.Sprintf("Unhandled binop %s", expr.Op.ID))
+						}
 					} else {
-						leftLit.Value.ID = token.False
+						switch expr.Op.ID {
+						case token.Add:
+							leftBigFloat.Add(leftBigFloat, rightBigFloat)
+						case token.Sub:
+							leftBigFloat.Sub(leftBigFloat, rightBigFloat)
+						case token.Mul:
+							leftBigFloat.Mul(leftBigFloat, rightBigFloat)
+						case token.Div:
+							leftBigFloat.Quo(leftBigFloat, rightBigFloat)
+						case token.Mod:
+							typeNotSupported = leftType.ID
+						default:
+							panic(fmt.Sprintf("Unhandled binop %s", expr.Op.ID))
+						}
 					}
-					leftLit.T = NewType(TBool)
-					leftLit.Raw = nil
 				}
 
-				leftLit.Value.Literal = "(" + leftLit.Value.Literal + " " + expr.Op.Literal + " " + rightLit.Value.Literal + ")"
-				leftLit.Rewrite++
-				return leftLit
+				if typeNotSupported == TUntyped {
+					if boolOp {
+						if boolRes {
+							leftLit.Value.ID = token.True
+						} else {
+							leftLit.Value.ID = token.False
+						}
+						leftLit.T = NewType(TBool)
+						leftLit.Raw = nil
+					}
+
+					leftLit.Value.Literal = "(" + leftLit.Value.Literal + " " + expr.Op.Literal + " " + rightLit.Value.Literal + ")"
+					leftLit.Rewrite++
+					return leftLit
+				}
 			} else if leftBigInt != nil && rightBigInt == nil {
-				if CompatibleNumericType(leftBigInt, rightType) {
-					leftType.ID = rightType.ID
-				}
+				typeCastNumericLiteral(leftLit, rightType)
+				leftType = leftLit.T
 			} else if leftBigInt == nil && rightBigInt != nil {
-				if CompatibleNumericType(rightBigInt, leftType) {
-					rightType.ID = leftType.ID
-				}
+				typeCastNumericLiteral(rightLit, leftType)
+				rightType = rightLit.T
+			} else if leftBigFloat != nil && rightBigFloat == nil {
+				typeCastNumericLiteral(leftLit, rightType)
+				leftType = leftLit.T
+			} else if leftBigFloat == nil && rightBigFloat != nil {
+				typeCastNumericLiteral(rightLit, leftType)
+				rightType = rightLit.T
 			}
 		} else if leftType.OneOf(TBool) && rightType.OneOf(TBool) {
 			if arithOp || expr.Op.OneOf(token.Gt, token.GtEq, token.Lt, token.LtEq) {
-				typeNotSupported = true
+				typeNotSupported = TBool
 			}
 		} else if leftType.OneOf(TString) && rightType.OneOf(TString) {
-			typeNotSupported = true
+			typeNotSupported = TString
 		}
 
-		if typeNotSupported {
-			c.error(expr.Op, "operation '%s' does not support type %s", expr.Op.ID, TString)
+		if typeNotSupported != TUntyped {
+			c.error(expr.Op, "operation '%s' does not support type %s", expr.Op.ID, typeNotSupported)
 		} else if leftType.ID != rightType.ID {
 			c.error(expr.Op, "type mismatch: arguments to operation '%s' are not compatible (got %s and %s)",
 				expr.Op.ID, leftType.ID, rightType.ID)
@@ -506,17 +577,25 @@ func (c *checker) checkUnaryExpr(expr *UnaryExpr) Expr {
 		if !expr.T.IsNumericType() {
 			c.error(expr.Op, "type mismatch: operation '%s' expects a numeric type but got %s", token.Sub, expr.T.ID)
 		} else if lit, ok := expr.X.(*Literal); ok {
+			var raw interface{}
+
 			switch n := lit.Raw.(type) {
 			case *big.Int:
-				lit.Value.Pos = expr.Op.Pos
-				if lit.Rewrite > 0 {
-					lit.Value.Literal = "(" + lit.Value.Literal + ")"
-				}
-				lit.Value.Literal = expr.Op.Literal + lit.Value.Literal
-				lit.Rewrite++
-				lit.Raw = n.Neg(n)
-				return lit
+				raw = n.Neg(n)
+			case *big.Float:
+				raw = n.Neg(n)
+			default:
+				panic(fmt.Sprintf("Unhandled raw type %T", n))
 			}
+
+			lit.Value.Pos = expr.Op.Pos
+			if lit.Rewrite > 0 {
+				lit.Value.Literal = "(" + lit.Value.Literal + ")"
+			}
+			lit.Value.Literal = expr.Op.Literal + lit.Value.Literal
+			lit.Rewrite++
+			lit.Raw = raw
+			return lit
 		}
 	case token.Lnot:
 		if expr.T.ID != TBool {
@@ -531,16 +610,26 @@ func (c *checker) checkUnaryExpr(expr *UnaryExpr) Expr {
 func (c *checker) checkLiteral(lit *Literal) Expr {
 	if lit.Value.ID == token.False || lit.Value.ID == token.True {
 		lit.T = NewType(TBool)
-	} else if lit.Value.ID == token.LitString {
+	} else if lit.Value.ID == token.String {
 		lit.T = NewType(TString)
-	} else if lit.Value.ID == token.LitInteger {
+	} else if lit.Value.ID == token.Integer {
 		if lit.Raw == nil {
 			val := big.NewInt(0)
 			_, ok := val.SetString(lit.Value.Literal, 10)
 			if !ok {
-				c.error(lit.Value, "unable to interpret integer %s", lit.Value.Literal)
+				c.error(lit.Value, "unable to interpret integer literal %s", lit.Value.Literal)
 			}
 			lit.T = NewType(TBigInt)
+			lit.Raw = val
+		}
+	} else if lit.Value.ID == token.Float {
+		if lit.Raw == nil {
+			val := big.NewFloat(0)
+			_, ok := val.SetString(lit.Value.Literal)
+			if !ok {
+				c.error(lit.Value, "unable to interpret float literal %s", lit.Value.Literal)
+			}
+			lit.T = NewType(TBigFloat)
 			lit.Raw = val
 		}
 	} else {
@@ -575,7 +664,7 @@ func (c *checker) checkCallExpr(call *CallExpr) Expr {
 		if sym.ID == TypeSymbol {
 			if len(call.Args) != 1 {
 				c.error(call.Name.Name, "type conversion %s takes exactly 1 argument", sym.T.ID)
-			} else if !CompatibleTypes(call.Args[0].Type(), sym.T) {
+			} else if !castableType(call.Args[0].Type(), sym.T) {
 				c.error(call.Name.Name, "type mismatch: %s cannot be converted to %s", call.Args[0].Type(), sym.T)
 			} else if c.tryCastLiteral(call.Args[0], sym.T) {
 				call.T = sym.T

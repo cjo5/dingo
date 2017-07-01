@@ -1,8 +1,8 @@
 module main;
 
 fun main() {
-    var x: i8 = 127;
-    x += 1;
-    print x;
-    print "\n";
+    var y: f32 = 5.5;
+    var z: u32 = u32(y);
+
+    print z;
 }

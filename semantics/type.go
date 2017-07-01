@@ -13,7 +13,12 @@ const (
 	TVoid
 	TBool
 	TString
-	TBigInt // Only used as an intermediary type when evaluating constant expressions.
+
+	// Only used as intermediary types when evaluating constant expressions.
+	TBigInt
+	TBigFloat
+	//
+
 	TUInt64
 	TInt64
 	TUInt32
@@ -22,22 +27,27 @@ const (
 	TInt16
 	TUInt8
 	TInt8
+	TFloat64
+	TFloat32
 )
 
 var types = [...]string{
-	TUntyped: "untyped",
-	TVoid:    "void",
-	TBool:    "bool",
-	TString:  "str",
-	TBigInt:  "integer",
-	TUInt64:  "u64",
-	TInt64:   "i64",
-	TUInt32:  "u32",
-	TInt32:   "i32",
-	TUInt16:  "u16",
-	TInt16:   "i16",
-	TUInt8:   "u8",
-	TInt8:    "i8",
+	TUntyped:  "untyped",
+	TVoid:     "void",
+	TBool:     "bool",
+	TString:   "str",
+	TBigInt:   "integer",
+	TBigFloat: "float",
+	TUInt64:   "u64",
+	TInt64:    "i64",
+	TUInt32:   "u32",
+	TInt32:    "i32",
+	TUInt16:   "u16",
+	TInt16:    "i16",
+	TUInt8:    "u8",
+	TInt8:     "i8",
+	TFloat64:  "f64",
+	TFloat32:  "f32",
 }
 
 // Built-in types
@@ -54,6 +64,8 @@ var (
 	TBuiltinInt16   = NewType(TInt16)
 	TBuiltinUInt8   = NewType(TUInt8)
 	TBuiltinInt8    = NewType(TInt8)
+	TBuiltinFloat64 = NewType(TFloat64)
+	TBuiltinFloat32 = NewType(TFloat32)
 )
 
 // Big ints used when evaluating constant expressions and checking for overflow.
@@ -72,7 +84,13 @@ var (
 	MaxI8  = big.NewInt(math.MaxInt8)
 	MinI8  = big.NewInt(math.MinInt8)
 
-	BigZero = big.NewInt(0)
+	MaxF64 = big.NewFloat(math.MaxFloat64)
+	MinF64 = big.NewFloat(-math.MaxFloat64)
+	MaxF32 = big.NewFloat(math.MaxFloat32)
+	MinF32 = big.NewFloat(-math.MaxFloat32)
+
+	BigIntZero   = big.NewInt(0)
+	BigFloatZero = big.NewFloat(0)
 )
 
 type TType struct {
@@ -94,47 +112,8 @@ func (t *TType) OneOf(ids ...TypeID) bool {
 
 func (t *TType) IsNumericType() bool {
 	switch t.ID {
-	case TBigInt, TUInt64, TInt64, TUInt32, TInt32, TUInt16, TInt16, TUInt8, TInt8:
+	case TBigInt, TBigFloat, TUInt64, TInt64, TUInt32, TInt32, TUInt16, TInt16, TUInt8, TInt8, TFloat64, TFloat32:
 		return true
-	default:
-		return false
-	}
-}
-
-func CompatibleTypes(a *TType, b *TType) bool {
-	switch {
-	case a.IsNumericType():
-		switch {
-		case b.IsNumericType():
-			return true
-		default:
-			return false
-		}
-	default:
-		return false
-	}
-}
-
-func CompatibleNumericType(val *big.Int, dst *TType) bool {
-	switch dst.ID {
-	case TBigInt:
-		return true
-	case TUInt64:
-		return 0 <= val.Cmp(BigZero) && val.Cmp(MaxU64) <= 0
-	case TUInt32:
-		return 0 <= val.Cmp(BigZero) && val.Cmp(MaxU32) <= 0
-	case TUInt16:
-		return 0 <= val.Cmp(BigZero) && val.Cmp(MaxU16) <= 0
-	case TUInt8:
-		return 0 <= val.Cmp(BigZero) && val.Cmp(MaxU8) <= 0
-	case TInt64:
-		return 0 <= val.Cmp(MinI64) && val.Cmp(MaxI64) <= 0
-	case TInt32:
-		return 0 <= val.Cmp(MinI32) && val.Cmp(MaxI32) <= 0
-	case TInt16:
-		return 0 <= val.Cmp(MinI16) && val.Cmp(MaxI16) <= 0
-	case TInt8:
-		return 0 <= val.Cmp(MinI8) && val.Cmp(MaxI8) <= 0
 	default:
 		return false
 	}
@@ -152,4 +131,134 @@ func (id TypeID) String() string {
 		s = "unknown"
 	}
 	return s
+}
+
+func castableType(from *TType, to *TType) bool {
+	switch {
+	case from.IsNumericType():
+		switch {
+		case to.IsNumericType():
+			return true
+		default:
+			return false
+		}
+	default:
+		return false
+	}
+}
+
+type numericCastResult int
+
+const (
+	numericCastOK numericCastResult = iota
+	numericCastFails
+	numericCastOverflows
+	numericCastTruncated
+)
+
+func toBigFloat(val *big.Int) *big.Float {
+	res := big.NewFloat(0)
+	res.SetInt(val)
+	return res
+}
+
+func toBigInt(val *big.Float) *big.Int {
+	if !val.IsInt() {
+		return nil
+	}
+	res := big.NewInt(0)
+	val.Int(res)
+	return res
+}
+
+func integerOverflows(val *big.Int, t TypeID) bool {
+	fits := true
+
+	switch t {
+	case TBigInt:
+		// OK
+	case TUInt64:
+		fits = 0 <= val.Cmp(BigIntZero) && val.Cmp(MaxU64) <= 0
+	case TUInt32:
+		fits = 0 <= val.Cmp(BigIntZero) && val.Cmp(MaxU32) <= 0
+	case TUInt16:
+		fits = 0 <= val.Cmp(BigIntZero) && val.Cmp(MaxU16) <= 0
+	case TUInt8:
+		fits = 0 <= val.Cmp(BigIntZero) && val.Cmp(MaxU8) <= 0
+	case TInt64:
+		fits = 0 <= val.Cmp(MinI64) && val.Cmp(MaxI64) <= 0
+	case TInt32:
+		fits = 0 <= val.Cmp(MinI32) && val.Cmp(MaxI32) <= 0
+	case TInt16:
+		fits = 0 <= val.Cmp(MinI16) && val.Cmp(MaxI16) <= 0
+	case TInt8:
+		fits = 0 <= val.Cmp(MinI8) && val.Cmp(MaxI8) <= 0
+	}
+
+	return !fits
+}
+
+func floatOverflows(val *big.Float, t TypeID) bool {
+	fits := true
+
+	switch t {
+	case TBigFloat:
+		// OK
+	case TFloat64:
+		fits = 0 <= val.Cmp(MinF64) && val.Cmp(MaxF64) <= 0
+	case TFloat32:
+		fits = 0 <= val.Cmp(MinF32) && val.Cmp(MaxF32) <= 0
+	}
+
+	return !fits
+}
+
+func typeCastNumericLiteral(lit *Literal, target *TType) numericCastResult {
+	res := numericCastOK
+
+	switch t := lit.Raw.(type) {
+	case *big.Int:
+		switch target.ID {
+		case TBigInt, TUInt64, TUInt32, TUInt16, TUInt8, TInt64, TInt32, TInt16, TInt8:
+			if integerOverflows(t, target.ID) {
+				res = numericCastOverflows
+			}
+		case TBigFloat, TFloat64, TFloat32:
+			fval := toBigFloat(t)
+			if floatOverflows(fval, target.ID) {
+				res = numericCastOverflows
+			} else {
+				lit.Raw = fval
+			}
+		default:
+			return numericCastFails
+		}
+	case *big.Float:
+		switch target.ID {
+		case TBigInt, TUInt64, TUInt32, TUInt16, TUInt8, TInt64, TInt32, TInt16, TInt8:
+			if ival := toBigInt(t); ival != nil {
+				if integerOverflows(ival, target.ID) {
+					res = numericCastOverflows
+				} else {
+					lit.Raw = ival
+				}
+			} else {
+				res = numericCastTruncated
+			}
+		case TBigFloat, TFloat64, TFloat32:
+			if floatOverflows(t, target.ID) {
+				res = numericCastOverflows
+			}
+		default:
+			return numericCastFails
+		}
+	default:
+		return numericCastFails
+	}
+
+	if res == numericCastOK {
+		lit.T = NewType(target.ID)
+	}
+
+	return res
 }

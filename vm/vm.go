@@ -2,6 +2,7 @@ package vm
 
 import (
 	"fmt"
+	"math/big"
 	"os"
 	"reflect"
 	"strconv"
@@ -134,6 +135,10 @@ func (vm *VM) Exec(ip int, code CodeMemory, mem DataMemory) {
 					str = strconv.FormatInt(int64(t), 10)
 				case int8:
 					str = strconv.FormatInt(int64(t), 10)
+				case float64:
+					str = floatToString(t)
+				case float32:
+					str = floatToString(float64(t))
 				default:
 					vm.runtimePanic(op, fmt.Sprintf("incompatible type '%T'", t))
 					break
@@ -333,6 +338,48 @@ func (vm *VM) Exec(ip int, code CodeMemory, mem DataMemory) {
 					vm.push(res)
 				}
 			}
+		case F64Add, F64Sub, F64Mul, F64Div, F64Cmp:
+			if arg1, arg2, ok := vm.pop2F64Args(op); ok {
+				switch op {
+				case F64Add:
+					vm.push(arg1 + arg2)
+				case F64Sub:
+					vm.push(arg1 - arg2)
+				case F64Mul:
+					vm.push(arg1 * arg2)
+				case F64Div:
+					vm.push(arg1 / arg2)
+				case F64Cmp:
+					res := int32(0)
+					if arg1 < arg2 {
+						res = -1
+					} else if arg1 > arg2 {
+						res = 1
+					}
+					vm.push(res)
+				}
+			}
+		case F32Add, F32Sub, F32Mul, F32Div, F32Cmp:
+			if arg1, arg2, ok := vm.pop2F32Args(op); ok {
+				switch op {
+				case F32Add:
+					vm.push(arg1 + arg2)
+				case F32Sub:
+					vm.push(arg1 - arg2)
+				case F32Mul:
+					vm.push(arg1 * arg2)
+				case F32Div:
+					vm.push(arg1 / arg2)
+				case F32Cmp:
+					res := int32(0)
+					if arg1 < arg2 {
+						res = -1
+					} else if arg1 > arg2 {
+						res = 1
+					}
+					vm.push(res)
+				}
+			}
 		case CmpEq, CmpNe, CmpGt, CmpGe, CmpLt, CmpLe:
 			if arg, ok := vm.pop1I32Arg(op); ok {
 				res := int32(0)
@@ -366,18 +413,34 @@ func (vm *VM) Exec(ip int, code CodeMemory, mem DataMemory) {
 			}
 		case NumCast:
 			if arg1, arg2, ok := vm.pop2Args(op); ok {
-				tmp := int64(0)
+				intVal := int64(0)
+				floatVal := float64(0)
+				floatNumber := false
 				err := false
 
 				switch t1 := arg1.(type) {
 				case uint64:
-					tmp = int64(t1)
-				case int64:
-					tmp = int64(t1)
+					intVal = int64(t1)
 				case uint32:
-					tmp = int64(t1)
+					intVal = int64(t1)
+				case uint16:
+					intVal = int64(t1)
+				case uint8:
+					intVal = int64(t1)
+				case int64:
+					intVal = int64(t1)
 				case int32:
-					tmp = int64(t1)
+					intVal = int64(t1)
+				case int16:
+					intVal = int64(t1)
+				case int8:
+					intVal = int64(t1)
+				case float64:
+					floatVal = float64(t1)
+					floatNumber = true
+				case float32:
+					floatVal = float64(t1)
+					floatNumber = true
 				default:
 					err = true
 				}
@@ -386,13 +449,65 @@ func (vm *VM) Exec(ip int, code CodeMemory, mem DataMemory) {
 					t2 := reflect.TypeOf(arg2).Kind()
 					switch t2 {
 					case reflect.Uint64:
-						vm.push(uint64(tmp))
-					case reflect.Int64:
-						vm.push(int64(tmp))
+						if floatNumber {
+							vm.push(uint64(floatVal))
+						} else {
+							vm.push(uint64(intVal))
+						}
 					case reflect.Uint32:
-						vm.push(uint32(tmp))
+						if floatNumber {
+							vm.push(uint32(floatVal))
+						} else {
+							vm.push(uint32(intVal))
+						}
+					case reflect.Uint16:
+						if floatNumber {
+							vm.push(uint16(floatVal))
+						} else {
+							vm.push(uint16(intVal))
+						}
+					case reflect.Uint8:
+						if floatNumber {
+							vm.push(uint8(floatVal))
+						} else {
+							vm.push(uint8(intVal))
+						}
+					case reflect.Int64:
+						if floatNumber {
+							vm.push(int64(floatVal))
+						} else {
+							vm.push(int64(intVal))
+						}
 					case reflect.Int32:
-						vm.push(int32(tmp))
+						if floatNumber {
+							vm.push(int32(floatVal))
+						} else {
+							vm.push(int32(intVal))
+						}
+					case reflect.Int16:
+						if floatNumber {
+							vm.push(int16(floatVal))
+						} else {
+							vm.push(int16(intVal))
+						}
+					case reflect.Int8:
+						if floatNumber {
+							vm.push(int8(floatVal))
+						} else {
+							vm.push(int8(intVal))
+						}
+					case reflect.Float64:
+						if floatNumber {
+							vm.push(float64(floatVal))
+						} else {
+							vm.push(float64(intVal))
+						}
+					case reflect.Float32:
+						if floatNumber {
+							vm.push(float32(floatVal))
+						} else {
+							vm.push(float32(intVal))
+						}
 					default:
 						err = true
 					}
@@ -503,6 +618,17 @@ func (vm *VM) Exec(ip int, code CodeMemory, mem DataMemory) {
 	}
 
 	vm.inited = false
+}
+
+func floatToString(value float64) string {
+	exp := big.NewFloat(value).MantExp(nil)
+
+	fmt := byte('f')
+	if exp >= 20 {
+		fmt = 'e' // Print big floats using scientific notation
+	}
+
+	return strconv.FormatFloat(value, fmt, -1, 64)
 }
 
 func (vm *VM) pop2Args(op Opcode) (interface{}, interface{}, bool) {
@@ -641,6 +767,38 @@ func (vm *VM) pop2I8Args(op Opcode) (int8, int8, bool) {
 		return 0, 0, false
 	}
 	return arg1Int, arg2Int, true
+}
+
+func (vm *VM) pop2F64Args(op Opcode) (float64, float64, bool) {
+	arg2 := vm.pop()
+	arg1 := vm.pop()
+	if arg1 == nil || arg2 == nil {
+		internalPanic(op, "2 arguments required")
+		return 0, 0, false
+	}
+	arg1Float, ok1 := arg1.(float64)
+	arg2Float, ok2 := arg2.(float64)
+	if !ok1 || !ok2 {
+		internalPanic(op, "2xf64 arguments expected (got %T and %T)", arg1, arg2)
+		return 0, 0, false
+	}
+	return arg1Float, arg2Float, true
+}
+
+func (vm *VM) pop2F32Args(op Opcode) (float32, float32, bool) {
+	arg2 := vm.pop()
+	arg1 := vm.pop()
+	if arg1 == nil || arg2 == nil {
+		internalPanic(op, "2 arguments required")
+		return 0, 0, false
+	}
+	arg1Float, ok1 := arg1.(float32)
+	arg2Float, ok2 := arg2.(float32)
+	if !ok1 || !ok2 {
+		internalPanic(op, "2xf32 arguments expected (got %T and %T)", arg1, arg2)
+		return 0, 0, false
+	}
+	return arg1Float, arg2Float, true
 }
 
 func (vm *VM) pop1U32Arg(op Opcode) (uint32, bool) {

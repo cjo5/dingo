@@ -22,11 +22,16 @@ fun main() {
 }
 
 struct x {
-    cmp: (a: s32, b: s32) -> s32,
-
+    x: u32,
 }
 
 methods x {
+    exp abs() -> bool {
+
+    }
+}
+
+exp fun asd() {
 
 }
 
@@ -54,6 +59,13 @@ var x: s8
 
 var y: s32;
 y = s32(x);
+
+var z: s32 = null;
+z = y;
+
+
+
+var y: s32 = as
 
 var x: struct {
     v: s32
@@ -84,9 +96,7 @@ methods x {
 }
 
 methods x {
-    export {
-    }
-    fun max(a, b) -> a {
+    max(a, b) -> a {
 
     }
 }
@@ -103,16 +113,12 @@ methods i32 {
 }
 
 methods i32 {
-    fun string() -> str { return self}
+    exp string() -> str { return self}
 }
 
-let f: (a: s32, b: u64) -> i32 = fun (a, b) -> i32 {
+val f: (s32, u64) -> i32 = fun (a: s32, b: s32) -> i32 {
 
 };
-
-fun sort(cmp: (a: i32, b: i32) -> bool) {
-
-}
 
 var f2: (a: str, b: str) -> i32;
 
