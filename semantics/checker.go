@@ -656,8 +656,9 @@ func unescapeStringLiteral(lit string) string {
 	return string(unescaped)
 }
 
-func normalizeNumericLiteral(lit string) string {
-	return strings.Replace(lit, "_", "", -1)
+func removeUnderscores(lit string) string {
+	res := strings.Replace(lit, "_", "", -1)
+	return res
 }
 
 func (c *checker) checkLiteral(lit *Literal) Expr {
@@ -671,8 +672,8 @@ func (c *checker) checkLiteral(lit *Literal) Expr {
 	} else if lit.Value.ID == token.Integer {
 		if lit.Raw == nil {
 			val := big.NewInt(0)
-			normalized := normalizeNumericLiteral(lit.Value.Literal)
-			_, ok := val.SetString(normalized, 10)
+			normalized := removeUnderscores(lit.Value.Literal)
+			_, ok := val.SetString(normalized, 0)
 			if !ok {
 				c.error(lit.Value, "unable to interpret integer literal %s", normalized)
 			}
@@ -682,7 +683,7 @@ func (c *checker) checkLiteral(lit *Literal) Expr {
 	} else if lit.Value.ID == token.Float {
 		if lit.Raw == nil {
 			val := big.NewFloat(0)
-			normalized := normalizeNumericLiteral(lit.Value.Literal)
+			normalized := removeUnderscores(lit.Value.Literal)
 			_, ok := val.SetString(normalized)
 			if !ok {
 				c.error(lit.Value, "unable to interpret float literal %s", normalized)

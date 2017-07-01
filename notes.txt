@@ -3,7 +3,7 @@ TODO (in no particular order):
 - Add structs
 - Add arrays
 - Add tests
-- Add octals and hex
+- Add octals
 - Type inference
 - Separate ast pass to evaluate constant expressions
 - Make it easier to merge tokens

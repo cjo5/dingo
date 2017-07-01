@@ -1,7 +1,7 @@
 module main;
 
 fun main() {
-    val x: u32 = 10.__
+    val x: i32 = 0;
     print x;
     print "\n";
 }

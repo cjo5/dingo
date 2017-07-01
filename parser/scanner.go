@@ -45,14 +45,14 @@ func (s *scanner) scan() token.Token {
 	switch ch1 := s.ch; {
 	case isLetter(ch1):
 		tok.ID, tok.Literal = s.scanIdent()
-	case isDigit(ch1):
+	case isDigit(ch1, 10):
 		tok.ID = s.scanNumber(false, pos)
 	case ch1 == '"':
 		s.scanString(pos)
 		tok.ID = token.String
 	case ch1 == '.':
 		s.next()
-		if isDigit(s.ch) {
+		if isDigit(s.ch, 10) {
 			tok.ID = s.scanNumber(true, pos)
 		} else {
 			tok.ID = token.Dot
@@ -149,8 +149,23 @@ func isLetter(ch rune) bool {
 	return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || ch == '_'
 }
 
-func isDigit(ch rune) bool {
-	return ch >= '0' && ch <= '9'
+func isDigit(ch rune, base int) bool {
+	base10 := '0' <= ch && ch <= '9'
+	switch base {
+	case 10:
+		return base10
+	case 16:
+		switch {
+		case base10:
+			return true
+		case 'a' <= ch && ch <= 'f':
+			return true
+		case 'A' <= ch && ch <= 'F':
+			return true
+		}
+	}
+
+	return false
 }
 
 // Only supports ASCII characters for now
@@ -195,7 +210,7 @@ func (s *scanner) scanOptionalEqual(tok0 token.ID, tok1 token.ID) token.ID {
 func (s *scanner) scanIdent() (token.ID, string) {
 	startOffset := s.chOffset
 
-	for isLetter(s.ch) || isDigit(s.ch) {
+	for isLetter(s.ch) || isDigit(s.ch, 10) {
 		s.next()
 	}
 
@@ -208,28 +223,55 @@ func (s *scanner) scanIdent() (token.ID, string) {
 	return tok, lit
 }
 
-func (s *scanner) scanDigits() {
-	for isDigit(s.ch) || s.ch == '_' {
+func (s *scanner) scanDigits(base int) int {
+	count := 0
+	for {
+		if isDigit(s.ch, base) {
+			count++
+		} else if s.ch != '_' {
+			break
+		}
 		s.next()
 	}
+	return count
 }
 
-// TODO:
-// - Support hex and octals
 func (s *scanner) scanNumber(leadingDecimalPoint bool, pos token.Position) token.ID {
 	id := token.Integer
-	s.scanDigits()
 
 	if leadingDecimalPoint {
 		id = token.Float
-	} else if s.ch == '.' {
-		id = token.Float
-		s.next()
-		if s.ch == '_' {
-			s.error(pos, "decimal point '.' in float literal can not be followed by '_'")
+		s.scanDigits(10)
+	} else {
+		if s.ch == '0' {
+			s.next()
+
+			if s.ch == 'x' || s.ch == 'X' {
+				s.next()
+				if s.scanDigits(16) == 0 {
+					s.error(pos, "invalid hex literal")
+				}
+			} else if isDigit(s.ch, 10) {
+				// TODO: octals
+				s.error(pos, "invalid numeric literal")
+			}
+
 			return id
 		}
-		s.scanDigits()
+
+		s.scanDigits(10)
+
+		if s.ch == '.' {
+			id = token.Float
+			s.next()
+
+			if s.ch == '_' {
+				s.error(pos, "decimal point '.' in float literal can not be followed by '_'")
+				return id
+			}
+
+			s.scanDigits(10)
+		}
 	}
 
 	if s.ch == 'e' || s.ch == 'E' {
@@ -240,8 +282,8 @@ func (s *scanner) scanNumber(leadingDecimalPoint bool, pos token.Position) token
 			s.next()
 		}
 
-		if isDigit(s.ch) {
-			s.scanDigits()
+		if isDigit(s.ch, 10) {
+			s.scanDigits(10)
 		} else {
 			s.error(pos, "invalid exponent in float literal")
 		}
