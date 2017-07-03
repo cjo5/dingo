@@ -36,9 +36,9 @@ func parse(src []byte, filename string) (*semantics.Module, error) {
 }
 
 type parser struct {
-	scanner scanner
-	errors  common.ErrorList
-	trace   bool
+	lexer  lexer
+	errors common.ErrorList
+	trace  bool
 
 	token  token.Token
 	inLoop bool
@@ -46,7 +46,7 @@ type parser struct {
 
 func (p *parser) init(src []byte, filename string) {
 	p.trace = false
-	p.scanner.init(src, filename, &p.errors)
+	p.lexer.init(src, filename, &p.errors)
 }
 
 func (p *parser) next() {
@@ -55,7 +55,7 @@ func (p *parser) next() {
 	}
 
 	for {
-		p.token = p.scanner.scan()
+		p.token = p.lexer.lex()
 		if p.token.ID != token.Comment && p.token.ID != token.MultiComment {
 			break
 		}

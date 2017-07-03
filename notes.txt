@@ -1,29 +1,34 @@
 TODO (in no particular order):
-- Add characters
-- Add structs
+- Add named and anonymous structs
+- Add closures / anonymous functions
 - Add arrays
+- Add characters
 - Add tests
-- Add octals
 - Type inference
+- Type alias
+- Nested types
+- Macros / preprocessor
+- Memory management
+    - Non nullable pointers
+    - Explicit pointer semantics. move, share etc.
+- Modules
+- VM improvements
+    - Isolate bytecode instructions for functions
+    - Make it possible to call native (go) functions
+    - Print vm state
+- Change op + assign to assign + binary expr
 - Separate ast pass to evaluate constant expressions
 - Make it easier to merge tokens
-- Memory management
-- Modules
 - Overload functions with different number of arguments (not types)
-- Multiple return values
-- Add closures / anonymous functions
 - Add cmd package for executable
 - Improve error messages
     - Recursive declaration errors should include all variables
 - Parse escape sequences in string literal
 - Support relative jump addresses
-- Change statement terminator from semicolon to newline
 - Compile to LLVM
 - Rewrite expression grammar and parser to something simpler
 - Improve parser synchronization
 - Improve expression statements
 - Improve bytecode disassembly
-- Print vm state
 - Nested comments?
-- Isolate bytecode instructions for functions?
 - Scoped variables should expand and shrink locals array
