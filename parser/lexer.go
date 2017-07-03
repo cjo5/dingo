@@ -254,7 +254,7 @@ func (l *lexer) lexNumber(float bool, pos token.Position) token.ID {
 				// Hex
 				l.next()
 				if l.lexDigits(16) == 0 {
-					l.error(pos, "invalid hex literal")
+					l.error(pos, "invalid hexadecimal literal")
 				} else if isFractionOrExponent(l.ch) {
 					l.error(pos, "hexadecimal float literal is not supported")
 				}
