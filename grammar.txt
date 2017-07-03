@@ -2,32 +2,50 @@
 # (..)*  : 0 or more
 # [..] : optional
 
-module = ['module' IDENT ';'] decl*
+Module = ['module' IDENT ';'] TopLevelDecl*
 
-decl = varDecl | funcDecl
-varDecl = ('var' | 'val') IDENT ':' typeSpec ['=' expr] ';'
-funcDecl = 'fun' IDENT '(' [field {',' field} ] ')' ['->' typeSpec] blockStmt
+TopLevelDecl = Import | ([Visibility] Decl)
+Import = 'import' STRING 
+Decl = VarDecl | FuncDecl | StructDecl
+VarDecl = ('val' | 'var') IDENT ':' Type ['=' Initializer] ';'
+FuncDecl = 'fun' IDENT Function
+StructDecl = 'struct' IDENT Struct
 
-field = IDENT ':' IDENT
+Visibility= 'ex' | 'in'
+Type = IDENT  | AnonStructType | FunctionType
+Field =  ['val' | 'var'] [IDENT ':'] Type
+FieldList = Field {',' Field} [',]
+StructField = [Visibility] ['static' | 'val' | 'var'] IDENT ':' Type ['=' Initializer]
+Struct= '{' [StructField {',' StructField} [',']]'}'
+AnonStructType = '{' [FieldList] '}'
+FunctionField = ['val' | 'var'] IDENT ':' Type
+FunctionSignature = '(' [FunctionField {',' FunctionField} [',']] ')' ['->' Type]
+Function = FuncSignature Block
+FunctionType = '(' [FieldList] ')' ['->' Type]
 
-stmt = blockStmt | declStmt | printStmt | assignStmt | callStmt | ifStmt | whileStmt 
-        | returnStmt | 'break' ';' | 'continue' ';'
-declStmt = varDecl 
-blockStmt = '{' stmt* '}'
-printStmt = 'print' expr ';'
-assignStmt = IDENT ('=' | '+=' | '-=' | '*=' | '/=' | '%=' ) expr ';'
-callStmt = call ';'
-ifStmt = 'if' expr blockStmt {'elif' expr blockStmt} ['else' blockStmt]
-whileStmt = 'while' '{' stmt* '}'
-returnStmt = 'return' [expr] ';'
+KeyValue = IDENT '=' Initializer
+StructLiteral = IDENT '{' [KeyValue {',' KeyValue} [',]] '}'
+FunctionLiteral = 'fun' Function
+Initializer = StructLiteral | FuncLiteral | Expr
 
-expr = logicalOr
-logicalOr = logicalAnd {'||' logicalAnd}
-logicalAnd = equality {'&&' equality}
-equality = comparison {( '!=' | '==' ) comparison}
-comparison = term {( '>' | '>=' | '<' | '<=' ) term}
-term = factor {( '-' | '+' ) factor}
-factor = unary {( '/' | '%' | '*' ) unary}
-unary = ( '!' | '-' ) unary | primary
-primary = INTEGER | FLOAT | STRING | IDENT | call | 'false' | 'true' | '(' expr ')'
-call = IDENT '(' [IDENT {',' IDENT} ] ')'
+Block = '{' Stmt* '}'
+Stmt = Block | VarDecl | PrintStmt | AssignStmt | CallStmt | 'if' IfStmt | WhileStmt 
+        | ReturnStmt | 'break' ';' | 'continue' ';'
+PrintStmt = 'print' Expr ';'
+AssignStmt = IDENT ('=' | '+=' | '-=' | '*=' | '/=' | '%=' ) Initializer ';'
+ExprStmt = Expr ';'
+IfStmt = Expr BlockStmt [('elif' IfStmt) | ('else' Block)]
+WhileStmt = 'while' '{' Stmt* '}'
+ReturnStmt = 'return' [Expr] ';'
+
+Expr = LogicalOr
+LogicalOr = LogicalAnd {'||' LogicalAnd}
+LogicalAnd = Equality {'&&' Equality}
+Equality = Comparison {( '!=' | '==' ) Comparison}
+Comparison = Term {( '>' | '>=' | '<' | '<=' ) Term}
+Term = Factor {( '-' | '+' ) Factor}
+Factor = Unary {( '/' | '%' | '*' ) Unary}
+Unary = ( '!' | '-' ) Unary | Primary
+Primary = INTEGER | FLOAT | STRING | IDENT | FuncCall | DotExpr | 'false' | 'true' | '(' Expr ')'
+FuncCall = IDENT '(' [IDENT {',' IDENT} ] ')'
+DotExpr = IDENT '.' (FuncCall | IDENT);

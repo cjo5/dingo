@@ -1,16 +1,41 @@
 module main;
 
-import "@std/math"
-import "@mylib"
-import "../math"
+import @std/math;
+import @builtin;
+import @mylib;
+import handler;
 
-use math;
+ex fun abc() {
+
+}
+
+in fun() {
+    
+}
+
+/*
+    @std: standard library
+    @file: relative to file's parent directory
+
+    module IDENT; defines a module. 
+    A module can be a single file: file name is same as module.
+    A module can be a directory: entry point for module is module.lang file.
+    A module defines build options.
+
+    3 levels of visibility:
+    - external (extr): accessible outside module.
+    - internal (intr): acccessible by other files in same module.
+    - default: only accessible inside file.
+
+
+*/
 
 /*
 
 Base types:
 - Unsigned / signed 64, 32, 16 and 8 bit integers
-- 64 and 32 bit reals
+- 64 and 32 bit floats
+- char
 - bool
 - function
 - struct
@@ -18,21 +43,64 @@ Base types:
 - array
 
 fun main() {
+    // type annotations
+    var x1: geometry = geometry{}; // named struct
+    var x2: {a: i32, b: i32} = struct{a = 5, b = 6}; // anonymous struct
+    var y: geometry = geometry::shape; // enum
+    var z: [5]geometry = []; // array
+    val v: *geometry = new geometry{} // pointer
+    var w: (i32, i32) -> bool = fun(a: i32, b: i32) -> bool { // function
+        return a < 5;
+    };
 
+    var w: (i32, i32) -> bool = || -> bool {
+
+    };
+
+    // inference
+    var x1 = geometry{} // named struct
+    var x2 = struct{a=5, b=6}; // anonymous struct
+    var y = geometry.shape; // enum
+    var z = [1, 2, 3] // array
+    var v = new geometry{} // pointer
+    var w = fun(a: i32, b: i32) -> bool {
+        return < 5;
+    };
+
+    val ptr x: geometry = &x;
+    var ptr z
 }
+
+val x {x: {z: f32}, y: f32} = {x={z=2}, y=9};
 
 struct x {
-    x: u32,
+    ex var a: {
+        a: i32,
+        b: i32
+    } = {a=5, b=6}, 
+    ex var a: {a: i32, b: i32} = {a=5, b=6},
+    ex val a: f32 = 5,
+    in val b: f32: 5,
+    ex static b: f32 = 5.0,
 }
 
-methods x {
-    exp abs() -> bool {
+enum x {
 
-    }
 }
 
-exp fun asd() {
+fun x {
+}
 
+interface x [Parent] {
+
+}
+
+alias circle2: circle;
+
+fun normalize(x: str) -> {a: i64, b: str} {
+    var x : returntype;
+    x.a = 99;
+    return x;
 }
 
 false.u64()
@@ -45,10 +113,6 @@ u32.max
 i32.min
 u8.max
 
-val x: str = ""
-var x: str = ""
-let x: str = ""
-
 let z: []int = 5;
 
 var x: str = ""
@@ -56,65 +120,11 @@ var x: str = ""
 var x: u8
 var x: s8
 
-
-var y: s32;
-y = s32(x);
-
-var z: s32 = null;
-z = y;
-
-
-
-var y: s32 = as
-
-var x: struct {
-    v: s32
-    w: 99
-}  {v=5, w=99};
-
-static methods x<T> {
-    new()
-}
-
- struct {
-    v: s32 = 5,
-    w: s32 = 9
-};
-
 struct {
     v: s32 = 99
     w: s32
 } a;
 
-struct<a*>(5)
-u32(v)
-
-methods x {
-    fun max() -> i32 {
-
-    }
-}
-
-methods x {
-    max(a, b) -> a {
-
-    }
-}
-
-methods x {
-    export static max() {
-
-    }
-}
-
-methods i32 {
-    fun max() -> i32 { return 5000; }
-    fun min() -> i32 { return 5000; }
-}
-
-methods i32 {
-    exp string() -> str { return self}
-}
 
 val f: (s32, u64) -> i32 = fun (a: s32, b: s32) -> i32 {
 

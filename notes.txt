@@ -1,17 +1,23 @@
 TODO (in no particular order):
-- Add named and anonymous structs
-- Add closures / anonymous functions
+- Add structs
+- Add anonymous functions
+- Add methods
+- Modules
 - Add arrays
 - Add characters
+- Add anonymous structs
+- Add enums
 - Add tests
 - Type inference
+- Only allow subset of features when writing C/C++ module
+- Generics
+- Idiomatic error handling
+- Ad hoc polymorphism
 - Type alias
-- Nested types
 - Macros / preprocessor
 - Memory management
     - Non nullable pointers
     - Explicit pointer semantics. move, share etc.
-- Modules
 - VM improvements
     - Isolate bytecode instructions for functions
     - Make it possible to call native (go) functions
