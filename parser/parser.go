@@ -115,16 +115,32 @@ func (p *parser) expectSemi() bool {
 
 func (p *parser) parseModule() *semantics.Module {
 	mod := &semantics.Module{}
-	if p.token.ID == token.Module {
+	if p.token.Is(token.Module) {
 		mod.Mod = p.token
 		p.expect(token.Module)
 		mod.Name = p.parseIdent()
-		p.expectSemi()
 	}
-	for p.token.ID != token.EOF {
+	for p.token.Is(token.Import) {
+		imp := p.parseImport()
+		if imp != nil {
+			mod.Imports = append(mod.Imports, imp)
+
+		}
+	}
+	for !p.token.Is(token.EOF) {
 		mod.Decls = append(mod.Decls, p.parseDecl())
 	}
 	return mod
+}
+
+func (p *parser) parseImport() *semantics.Import {
+	tok := p.token
+	p.next()
+	path := p.token
+	if !p.expect(token.String) {
+		return nil
+	}
+	return &semantics.Import{Import: tok, Path: path}
 }
 
 func (p *parser) parseDecl() semantics.Decl {
@@ -132,6 +148,8 @@ func (p *parser) parseDecl() semantics.Decl {
 		return p.parseVarDecl()
 	} else if p.token.ID == token.Func {
 		return p.parseFuncDecl()
+	} else if p.token.ID == token.Struct {
+		return p.parseStructDecl()
 	}
 	tok := p.token
 	p.next()
@@ -162,8 +180,9 @@ func (p *parser) parseFuncDecl() *semantics.FuncDecl {
 	p.next()
 	decl.Name = p.parseIdent()
 
+	decl.Lparen = p.token
 	p.expect(token.Lparen)
-	if p.token.ID == token.Ident {
+	if p.token.ID != token.Rparen {
 		field := p.parseField()
 		decl.Params = append(decl.Params, field)
 		for p.token.ID != token.EOF && p.token.ID != token.Rparen {
@@ -172,6 +191,7 @@ func (p *parser) parseFuncDecl() *semantics.FuncDecl {
 			decl.Params = append(decl.Params, field)
 		}
 	}
+	decl.Rparen = p.token
 	p.expect(token.Rparen)
 
 	if p.token.ID == token.Arrow {
@@ -190,6 +210,42 @@ func (p *parser) parseField() *semantics.Field {
 	field.Name = p.parseIdent()
 	p.expect(token.Colon)
 	field.Type = p.parseIdent()
+	return field
+}
+
+func (p *parser) parseStructDecl() *semantics.StructDecl {
+	decl := &semantics.StructDecl{}
+	decl.Decl = p.token
+	p.next()
+	decl.Name = p.parseIdent()
+
+	decl.Lbrace = p.token
+	p.expect(token.Lbrace)
+
+	if !p.token.Is(token.Rbrace) {
+		decl.Fields = append(decl.Fields, p.parseStructField())
+		for !p.token.OneOf(token.EOF, token.Rbrace) {
+			p.expect(token.Comma)
+			decl.Fields = append(decl.Fields, p.parseStructField())
+		}
+	}
+
+	decl.Rbrace = p.token
+	p.expect(token.Rbrace)
+
+	return decl
+}
+
+func (p *parser) parseStructField() *semantics.StructField {
+	field := &semantics.StructField{}
+	if p.token.OneOf(token.Static, token.Val, token.Var) {
+		field.Qualifier = p.token
+	} else {
+		field.Qualifier = token.Synthetic(token.Var, token.Var.String())
+	}
+	field.Name = p.parseIdent()
+	p.expect(token.Colon)
+	field.Type = p.parseExpr()
 	return field
 }
 
@@ -316,7 +372,7 @@ func (p *parser) parseAssignStmt(id *semantics.Ident) *semantics.AssignStmt {
 }
 
 func (p *parser) parseCallStmt(id *semantics.Ident) *semantics.ExprStmt {
-	x := p.parseCallExpr(id)
+	x := p.parseFuncCall(id)
 	p.expect(token.Semicolon)
 	return &semantics.ExprStmt{X: x}
 }
@@ -410,8 +466,12 @@ func (p *parser) parsePrimary() semantics.Expr {
 		return &semantics.Literal{Value: tok}
 	case token.Ident:
 		ident := p.parseIdent()
-		if p.token.ID == token.Lparen {
-			return p.parseCallExpr(ident)
+		if p.token.Is(token.Lparen) {
+			return p.parseFuncCall(ident)
+		} else if p.token.Is(token.Dot) {
+			return p.parseDotExpr(ident)
+		} else if p.token.Is(token.Lbrace) {
+			return p.parseStructLiteral(ident)
 		}
 		return ident
 	case token.Lparen:
@@ -434,7 +494,7 @@ func (p *parser) parseIdent() *semantics.Ident {
 	return &semantics.Ident{Name: tok}
 }
 
-func (p *parser) parseCallExpr(id *semantics.Ident) *semantics.CallExpr {
+func (p *parser) parseFuncCall(id *semantics.Ident) semantics.Expr {
 	lparen := p.token
 	p.expect(token.Lparen)
 	var args []semantics.Expr
@@ -442,10 +502,49 @@ func (p *parser) parseCallExpr(id *semantics.Ident) *semantics.CallExpr {
 		args = append(args, p.parseExpr())
 		for p.token.ID != token.EOF && p.token.ID != token.Rparen {
 			p.expect(token.Comma)
-			args = append(args, p.parseExpr())
+			if p.token.Is(token.Rparen) {
+				args = append(args, p.parseExpr())
+			}
 		}
 	}
 	rparen := p.token
-	p.expect(token.Rparen)
-	return &semantics.CallExpr{Name: id, Lparen: lparen, Args: args, Rparen: rparen}
+	if !p.expect(token.Rparen) {
+		return &semantics.BadExpr{From: lparen, To: rparen}
+	}
+	return &semantics.FuncCall{Name: id, Lparen: lparen, Args: args, Rparen: rparen}
+}
+
+func (p *parser) parseDotExpr(id *semantics.Ident) semantics.Expr {
+	dot := p.token
+	p.expect(token.Dot)
+	id2 := p.parseIdent()
+	expr := semantics.Expr(id2)
+	if p.token.Is(token.Lparen) {
+		expr = p.parseFuncCall(id2)
+	}
+	return &semantics.DotExpr{Name: id, Dot: dot, X: expr}
+}
+
+func (p *parser) parseStructLiteral(id *semantics.Ident) semantics.Expr {
+	lbrace := p.token
+	p.expect(token.Lbrace)
+	var inits []*semantics.KeyValue
+	if p.token.Is(token.Ident) {
+		inits = append(inits, p.parseKeyValue())
+		for p.token.ID != token.EOF && p.token.ID != token.Rbrace {
+			p.expect(token.Comma)
+			inits = append(inits, p.parseKeyValue())
+		}
+	}
+	rbrace := p.token
+	p.expect(token.Rbrace)
+	return &semantics.StructLiteral{Name: id, Lbrace: lbrace, Initializers: inits, Rbrace: rbrace}
+}
+
+func (p *parser) parseKeyValue() *semantics.KeyValue {
+	key := p.parseIdent()
+	equal := p.token
+	p.expect(token.Assign)
+	value := p.parseExpr()
+	return &semantics.KeyValue{Key: key, Equal: equal, Value: value}
 }

@@ -27,33 +27,48 @@ type Expr interface {
 	exprNode()
 }
 
-// A Module is the main unit of compilation.
-type Module struct {
-	Mod   token.Token
-	Name  *Ident
-	Scope *Scope
-	Decls []Decl
-}
+type baseNode struct{}
 
-// Field represents a function parameter.
-type Field struct {
-	Name *Ident
-	Type *Ident
-}
-
-func (m *Module) FirstPos() token.Position { return m.Mod.Pos }
-func (m *Module) node()                    {}
-func (f *Field) FirstPos() token.Position  { return f.Name.FirstPos() }
-func (f *Field) node()                     {}
+func (n *baseNode) node() {}
 
 // Decl nodes.
 
+type baseDecl struct {
+	baseNode
+}
+
+func (d *baseDecl) declNode() {}
+
 type BadDecl struct {
+	baseDecl
 	From token.Token
 	To   token.Token
 }
 
+func (d *BadDecl) FirstPos() token.Position { return d.From.Pos }
+
+// A Module is the main unit of compilation.
+type Module struct {
+	baseDecl
+	Mod     token.Token
+	Name    *Ident
+	Scope   *Scope
+	Imports []*Import
+	Decls   []Decl
+}
+
+func (m *Module) FirstPos() token.Position { return m.Mod.Pos }
+
+type Import struct {
+	baseDecl
+	Import token.Token
+	Path   token.Token
+}
+
+func (i *Import) FirstPos() token.Position { return i.Import.Pos }
+
 type VarDecl struct {
+	baseDecl
 	Decl   token.Token
 	Name   *Ident
 	Type   *Ident
@@ -61,219 +76,249 @@ type VarDecl struct {
 	X      Expr
 }
 
-type FuncDecl struct {
-	Decl   token.Token
-	Name   *Ident
-	Scope  *Scope
-	Params []*Field
-	Return *Ident // Nil if no return value
-	Body   *BlockStmt
+func (d *VarDecl) FirstPos() token.Position { return d.Decl.Pos }
+
+// Field represents a function parameter.
+type Field struct {
+	baseNode
+	Name *Ident
+	Type *Ident
 }
 
-// Implementation for decl nodes.
+func (f *Field) FirstPos() token.Position { return f.Name.FirstPos() }
 
-func (d *BadDecl) FirstPos() token.Position { return d.From.Pos }
-func (d *BadDecl) node()                    {}
-func (d *BadDecl) declNode()                {}
-
-func (d *VarDecl) FirstPos() token.Position { return d.Decl.Pos }
-func (d *VarDecl) node()                    {}
-func (d *VarDecl) declNode()                {}
+type FuncDecl struct {
+	baseDecl
+	Decl   token.Token
+	Name   *Ident
+	Lparen token.Token
+	Params []*Field
+	Rparen token.Token
+	Return *Ident // Nil if no return value
+	Body   *BlockStmt
+	Scope  *Scope
+}
 
 func (d *FuncDecl) FirstPos() token.Position { return d.Decl.Pos }
-func (d *FuncDecl) node()                    {}
-func (d *FuncDecl) declNode()                {}
+
+// TODO: Move some fields to Field
+
+type StructField struct {
+	baseNode
+	Qualifier   token.Token // ID == token.Invalid if missing
+	Name        *Ident
+	Type        Expr
+	Initializer Expr // Nil if missing
+}
+
+func (f *StructField) FirstPos() token.Position { return f.Name.FirstPos() }
+
+type StructDecl struct {
+	baseDecl
+	Decl   token.Token
+	Name   *Ident
+	Lbrace token.Token
+	Fields []*StructField
+	Rbrace token.Token
+	Scope  *Scope
+}
+
+func (d *StructDecl) FirstPos() token.Position { return d.Decl.Pos }
 
 // Stmt nodes.
 
+type baseStmt struct {
+	baseNode
+}
+
+func (s *baseStmt) stmtNode() {}
+
 type BadStmt struct {
+	baseStmt
 	From token.Token
 	To   token.Token
 }
 
+func (s *BadStmt) FirstPos() token.Position { return s.From.Pos }
+
 type BlockStmt struct {
+	baseStmt
 	Lbrace token.Token
 	Scope  *Scope
 	Stmts  []Stmt
 	Rbrace token.Token
 }
 
+func (s *BlockStmt) FirstPos() token.Position { return s.Lbrace.Pos }
+
 type DeclStmt struct {
+	baseStmt
 	D Decl
 }
 
+func (s *DeclStmt) FirstPos() token.Position { return s.D.FirstPos() }
+
 type PrintStmt struct {
+	baseStmt
 	Print token.Token
 	X     Expr
 }
 
+func (s *PrintStmt) FirstPos() token.Position { return s.Print.Pos }
+
 type IfStmt struct {
+	baseStmt
 	If   token.Token
 	Cond Expr
 	Body *BlockStmt
 	Else Stmt // Optional
 }
 
+func (s *IfStmt) FirstPos() token.Position { return s.If.Pos }
+
 type WhileStmt struct {
+	baseStmt
 	While token.Token
 	Cond  Expr
 	Body  *BlockStmt
 }
 
+func (s *WhileStmt) FirstPos() token.Position { return s.While.Pos }
+
 type ReturnStmt struct {
+	baseStmt
 	Return token.Token
 	X      Expr
 }
 
+func (s *ReturnStmt) FirstPos() token.Position { return s.Return.Pos }
+
 type BranchStmt struct {
+	baseStmt
 	Tok token.Token
 }
 
+func (s *BranchStmt) FirstPos() token.Position { return s.Tok.Pos }
+
 type AssignStmt struct {
+	baseStmt
 	Name   *Ident
 	Assign token.Token
 	Right  Expr
 }
 
+func (s *AssignStmt) FirstPos() token.Position { return s.Name.FirstPos() }
+
 type ExprStmt struct {
+	baseStmt
 	X Expr
 }
 
-// Implementation for stmt nodes.
-
-func (s *BadStmt) FirstPos() token.Position { return s.From.Pos }
-func (s *BadStmt) node()                    {}
-func (s *BadStmt) stmtNode()                {}
-
-func (s *BlockStmt) FirstPos() token.Position { return s.Lbrace.Pos }
-func (s *BlockStmt) node()                    {}
-func (s *BlockStmt) stmtNode()                {}
-
-func (s *DeclStmt) FirstPos() token.Position { return s.D.FirstPos() }
-func (s *DeclStmt) node()                    {}
-func (s *DeclStmt) stmtNode()                {}
-
-func (s *PrintStmt) FirstPos() token.Position { return s.Print.Pos }
-func (s *PrintStmt) node()                    {}
-func (s *PrintStmt) stmtNode()                {}
-
-func (s *IfStmt) FirstPos() token.Position { return s.If.Pos }
-func (s *IfStmt) node()                    {}
-func (s *IfStmt) stmtNode()                {}
-
-func (s *WhileStmt) FirstPos() token.Position { return s.While.Pos }
-func (s *WhileStmt) node()                    {}
-func (s *WhileStmt) stmtNode()                {}
-
-func (s *ReturnStmt) FirstPos() token.Position { return s.Return.Pos }
-func (s *ReturnStmt) node()                    {}
-func (s *ReturnStmt) stmtNode()                {}
-
-func (s *BranchStmt) FirstPos() token.Position { return s.Tok.Pos }
-func (s *BranchStmt) node()                    {}
-func (s *BranchStmt) stmtNode()                {}
-
-func (s *AssignStmt) FirstPos() token.Position { return s.Name.FirstPos() }
-func (s *AssignStmt) node()                    {}
-func (s *AssignStmt) stmtNode()                {}
-
 func (s *ExprStmt) FirstPos() token.Position { return s.X.FirstPos() }
-func (s *ExprStmt) node()                    {}
-func (s *ExprStmt) stmtNode()                {}
 
 // Expr nodes
 
+type baseExpr struct {
+	baseNode
+	T *TType
+}
+
+func (x *baseExpr) exprNode() {}
+
+func (x *baseExpr) Type() *TType {
+	if x.T == nil {
+		return TBuiltinUntyped
+	}
+	return x.T
+}
+
 type BadExpr struct {
+	baseExpr
 	From token.Token
 	To   token.Token
 }
 
+func (x *BadExpr) FirstPos() token.Position { return x.From.Pos }
+
 type BinaryExpr struct {
+	baseExpr
 	Left  Expr
 	Op    token.Token
 	Right Expr
-	T     *TType
 }
+
+func (x *BinaryExpr) FirstPos() token.Position { return x.Left.FirstPos() }
 
 type UnaryExpr struct {
+	baseExpr
 	Op token.Token
 	X  Expr
-	T  *TType
 }
 
+func (x *UnaryExpr) FirstPos() token.Position { return x.Op.Pos }
+
 type Literal struct {
+	baseExpr
 	Value   token.Token
 	Raw     interface{}
-	T       *TType
 	Rewrite int
 }
 
-type Ident struct {
-	Name token.Token
-	Sym  *Symbol
-}
+func (x *Literal) FirstPos() token.Position { return x.Value.Pos }
 
 func (x *Ident) Literal() string {
 	return x.Name.Literal
 }
 
-type CallExpr struct {
-	Name   *Ident
-	Lparen token.Token
-	Args   []Expr
-	Rparen token.Token
-	T      *TType
+type KeyValue struct {
+	baseNode
+	Key   *Ident
+	Equal token.Token
+	Value Expr
 }
 
-// Implementations for expr nodes.
+func (k *KeyValue) FirstPos() token.Position { return k.Key.FirstPos() }
 
-func (x *BadExpr) FirstPos() token.Position { return x.From.Pos }
-func (x *BadExpr) node()                    {}
-func (x *BadExpr) Type() *TType             { return TBuiltinUntyped }
-func (x *BadExpr) exprNode()                {}
-
-func (x *BinaryExpr) FirstPos() token.Position { return x.Left.FirstPos() }
-func (x *BinaryExpr) node()                    {}
-func (x *BinaryExpr) Type() *TType {
-	if x.T == nil {
-		return TBuiltinUntyped
-	}
-	return x.T
-}
-func (x *BinaryExpr) exprNode() {}
-
-func (x *UnaryExpr) FirstPos() token.Position { return x.Op.Pos }
-func (x *UnaryExpr) node()                    {}
-func (x *UnaryExpr) Type() *TType {
-	if x.T == nil {
-		return TBuiltinUntyped
-	}
-	return x.T
+type StructLiteral struct {
+	baseExpr
+	Name         *Ident // Nil if anonymous
+	Lbrace       token.Token
+	Initializers []*KeyValue
+	Rbrace       token.Token
 }
 
-func (x *UnaryExpr) exprNode() {}
+func (x *StructLiteral) FirstPos() token.Position { return x.Name.FirstPos() }
 
-func (x *Literal) FirstPos() token.Position { return x.Value.Pos }
-func (x *Literal) node()                    {}
-func (x *Literal) Type() *TType {
-	if x.T == nil {
-		return TBuiltinUntyped
-	}
-	return x.T
+type Ident struct {
+	baseExpr
+	Name token.Token
+	Sym  *Symbol
 }
-func (x *Literal) exprNode() {}
 
 func (x *Ident) FirstPos() token.Position { return x.Name.Pos }
-func (x *Ident) node()                    {}
+
 func (x *Ident) Type() *TType {
 	if x.Sym == nil || x.Sym.T == nil {
 		return TBuiltinUntyped
 	}
 	return x.Sym.T
 }
-func (x *Ident) exprNode() {}
 
-func (x *CallExpr) FirstPos() token.Position { return x.Name.FirstPos() }
-func (x *CallExpr) node()                    {}
-func (x *CallExpr) Type() *TType             { return x.T }
-func (x *CallExpr) exprNode()                {}
+type FuncCall struct {
+	baseExpr
+	Name   *Ident
+	Lparen token.Token
+	Args   []Expr
+	Rparen token.Token
+}
+
+func (x *FuncCall) FirstPos() token.Position { return x.Name.FirstPos() }
+
+type DotExpr struct {
+	baseExpr
+	Name *Ident
+	Dot  token.Token
+	X    Expr
+}
+
+func (x *DotExpr) FirstPos() token.Position { return x.Name.FirstPos() }

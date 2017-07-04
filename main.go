@@ -14,6 +14,7 @@ import (
 func exec(filename string) {
 	mod, err := parser.ParseFile(filename)
 
+	fmt.Println(semantics.Print(mod))
 	if err == nil {
 		err = semantics.Check(mod)
 	}

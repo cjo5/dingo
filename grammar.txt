@@ -2,31 +2,26 @@
 # (..)*  : 0 or more
 # [..] : optional
 
-Module = ['module' IDENT ';'] TopLevelDecl*
+Module = ['module' IDENT] Import* TopLevelDecl*
 
-TopLevelDecl = Import | ([Visibility] Decl)
-Import = 'import' STRING 
+Import = 'import' STRING
+TopLevelDecl = [Visibility] Decl
 Decl = VarDecl | FuncDecl | StructDecl
-VarDecl = ('val' | 'var') IDENT ':' Type ['=' Initializer] ';'
-FuncDecl = 'fun' IDENT Function
+VarDecl = ('val' | 'var') IDENT ':' Type ['=' Expr] ';'
+FuncDecl = 'func' IDENT Function
 StructDecl = 'struct' IDENT Struct
 
-Visibility= 'ex' | 'in'
+Visibility = 'ext' | 'int' | 'rst'
 Type = IDENT  | AnonStructType | FunctionType
 Field =  ['val' | 'var'] [IDENT ':'] Type
 FieldList = Field {',' Field} [',]
-StructField = [Visibility] ['static' | 'val' | 'var'] IDENT ':' Type ['=' Initializer]
+StructField = [Visibility] ['static' | 'val' | 'var'] IDENT ':' Type ['=' Expr]
 Struct= '{' [StructField {',' StructField} [',']]'}'
 AnonStructType = '{' [FieldList] '}'
 FunctionField = ['val' | 'var'] IDENT ':' Type
 FunctionSignature = '(' [FunctionField {',' FunctionField} [',']] ')' ['->' Type]
 Function = FuncSignature Block
 FunctionType = '(' [FieldList] ')' ['->' Type]
-
-KeyValue = IDENT '=' Initializer
-StructLiteral = IDENT '{' [KeyValue {',' KeyValue} [',]] '}'
-FunctionLiteral = 'fun' Function
-Initializer = StructLiteral | FuncLiteral | Expr
 
 Block = '{' Stmt* '}'
 Stmt = Block | VarDecl | PrintStmt | AssignStmt | CallStmt | 'if' IfStmt | WhileStmt 
@@ -38,7 +33,7 @@ IfStmt = Expr BlockStmt [('elif' IfStmt) | ('else' Block)]
 WhileStmt = 'while' '{' Stmt* '}'
 ReturnStmt = 'return' [Expr] ';'
 
-Expr = LogicalOr
+Expr = LogicalOr | StructLiteral | FunctionLiteral
 LogicalOr = LogicalAnd {'||' LogicalAnd}
 LogicalAnd = Equality {'&&' Equality}
 Equality = Comparison {( '!=' | '==' ) Comparison}
@@ -49,3 +44,7 @@ Unary = ( '!' | '-' ) Unary | Primary
 Primary = INTEGER | FLOAT | STRING | IDENT | FuncCall | DotExpr | 'false' | 'true' | '(' Expr ')'
 FuncCall = IDENT '(' [IDENT {',' IDENT} ] ')'
 DotExpr = IDENT '.' (FuncCall | IDENT);
+
+KeyValue = IDENT '=' Initializer
+StructLiteral = IDENT '{' [KeyValue {',' KeyValue} [',]] '}'
+FunctionLiteral = 'func' Function

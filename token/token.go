@@ -92,9 +92,15 @@ const (
 	Break
 	Print
 	Module
+	Import
 	Var
 	Val
+	Static
 	Func
+	Struct
+	External
+	Internal
+	Restricted
 
 	False
 	True
@@ -151,19 +157,25 @@ var tokens = [...]string{
 	Lt:   "<",
 	LtEq: "<=",
 
-	If:       "if",
-	Else:     "else",
-	Elif:     "elif",
-	For:      "for",
-	While:    "while",
-	Return:   "return",
-	Continue: "continue",
-	Break:    "break",
-	Print:    "print",
-	Module:   "module",
-	Var:      "var",
-	Val:      "val",
-	Func:     "fun",
+	If:         "if",
+	Else:       "else",
+	Elif:       "elif",
+	For:        "for",
+	While:      "while",
+	Return:     "return",
+	Continue:   "continue",
+	Break:      "break",
+	Print:      "print",
+	Module:     "module",
+	Import:     "import",
+	Var:        "var",
+	Val:        "val",
+	Static:     "static",
+	Func:       "func",
+	Struct:     "struct",
+	External:   "ext",
+	Internal:   "int",
+	Restricted: "rst",
 
 	True:  "true",
 	False: "false",
@@ -216,6 +228,7 @@ func (t Token) IsAssignOperator() bool {
 	return assignBeg < t.ID && t.ID < assignEnd
 }
 
+// OneOf returns true if token one of the IDs matches.
 func (t Token) OneOf(ids ...ID) bool {
 	for _, id := range ids {
 		if t.ID == id {
@@ -223,6 +236,11 @@ func (t Token) OneOf(ids ...ID) bool {
 		}
 	}
 	return false
+}
+
+// Is returns true if ID matches.
+func (t Token) Is(id ID) bool {
+	return t.ID == id
 }
 
 // Synthetic creates an artificial token that does not have a representation in the source code.

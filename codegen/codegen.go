@@ -377,7 +377,7 @@ func (c *compiler) compileAssignStmt(stmt *semantics.AssignStmt) {
 func (c *compiler) compileExprStmt(stmt *semantics.ExprStmt) {
 	c.compileExpr(stmt.X)
 
-	if call, ok := stmt.X.(*semantics.CallExpr); ok {
+	if call, ok := stmt.X.(*semantics.FuncCall); ok {
 		sym := call.Name.Sym
 		pop := false
 		if sym.ID == semantics.TypeSymbol {
@@ -406,8 +406,8 @@ func (c *compiler) compileExpr(expr semantics.Expr) {
 		c.compileLiteral(t)
 	case *semantics.Ident:
 		c.compileIdent(t)
-	case *semantics.CallExpr:
-		c.compileCallExpr(t)
+	case *semantics.FuncCall:
+		c.compileFuncCall(t)
 	default:
 		panic(fmt.Sprintf("Unable to compile expr %T", t))
 	}
@@ -563,7 +563,7 @@ func (c *compiler) compileIdent(id *semantics.Ident) {
 	}
 }
 
-func (c *compiler) compileCallExpr(expr *semantics.CallExpr) {
+func (c *compiler) compileFuncCall(expr *semantics.FuncCall) {
 	for _, arg := range expr.Args {
 		c.compileExpr(arg)
 	}

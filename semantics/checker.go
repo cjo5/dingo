@@ -378,8 +378,8 @@ func (c *checker) checkExpr(expr Expr) Expr {
 		return c.checkLiteral(t)
 	case *Ident:
 		return c.checkIdent(t)
-	case *CallExpr:
-		return c.checkCallExpr(t)
+	case *FuncCall:
+		return c.checkFuncCall(t)
 	default:
 		panic(fmt.Sprintf("Unhandled expr %T", t))
 	}
@@ -706,7 +706,7 @@ func (c *checker) checkIdent(id *Ident) Expr {
 	return id
 }
 
-func (c *checker) checkCallExpr(call *CallExpr) Expr {
+func (c *checker) checkFuncCall(call *FuncCall) Expr {
 	sym := c.scope.Lookup(call.Name.Literal())
 	if sym == nil {
 		c.error(call.Name.Name, "'%s' undefined", call.Name.Literal())

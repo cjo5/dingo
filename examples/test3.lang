@@ -5,21 +5,21 @@ module main;
 // Test comment
 // Test comment
 
-fun factorial(a: i32) -> i32 {
+func factorial(a: i32) -> i32 {
     if a == 0 {
         return 1;
     }
     return a * factorial(a-1);
 }
 
-fun main() {
+func main() {
     val tmp: i32 = -5;
     println(tmp);
     val res: i32 = factorial(5);
     println(res);
 }
 
-fun println(a: i32) {
+func println(a: i32) {
     print a;
     print "\n";
 }

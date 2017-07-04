@@ -9,6 +9,7 @@ import (
 )
 
 type printer struct {
+	BaseVisitor
 	buffer bytes.Buffer
 	level  int
 }
@@ -17,7 +18,7 @@ type printer struct {
 func Print(n Node) string {
 	p := &printer{}
 
-	p.walk(n)
+	VisitNode(p, n)
 	return p.buffer.String()
 }
 
@@ -54,182 +55,181 @@ func (p *printer) printToken(tok token.Token) {
 	p.printf("[%s]", tok)
 }
 
-func (p *printer) walk(n Node) {
-	switch t := n.(type) {
-	case *Module:
-		p.printModule(t)
-	case *Field:
-		p.printField(t)
-	case *BlockStmt:
-		p.printBlockStmt(t)
-	case *DeclStmt:
-		p.printDeclStmt(t)
-	case *VarDecl:
-		p.printVarDecl(t)
-	case *FuncDecl:
-		p.printFuncDecl(t)
-	case *PrintStmt:
-		p.printPrintStmt(t)
-	case *IfStmt:
-		p.printIfStmt(t)
-	case *WhileStmt:
-		p.printWhileStmt(t)
-	case *ReturnStmt:
-		p.printReturnStmt(t)
-	case *BranchStmt:
-		p.printBranchStmt(t)
-	case *AssignStmt:
-		p.printAssignStmt(t)
-	case *ExprStmt:
-		p.printExprStmt(t)
-	case *BinaryExpr:
-		p.printBinary(t)
-	case *UnaryExpr:
-		p.printUnary(t)
-	case *Literal:
-		p.printLiteral(t)
-	case *Ident:
-		p.printIdent(t)
-	case *CallExpr:
-		p.printCallExpr(t)
-	}
-}
-
-func (p *printer) printModule(mod *Module) {
+func (p *printer) visitModule(mod *Module) {
 	if mod.Name != nil {
 		p.printf("[module %v]", mod.Name.Name)
 	}
 	for _, d := range mod.Decls {
-		p.walk(d)
+		VisitDecl(p, d)
 	}
+}
+
+func (p *printer) visitImport(decl *Import) {
+	defer dec(inc(p))
+	p.printToken(decl.Import)
+	p.printToken(decl.Path)
+}
+
+func (p *printer) visitBlockStmt(stmt *BlockStmt) {
+	defer dec(inc(p))
+	p.print("BLOCK")
+	VisitStmtList(p, stmt.Stmts)
+}
+
+func (p *printer) visitDeclStmt(stmt *DeclStmt) {
+	VisitDecl(p, stmt.D)
+}
+
+func (p *printer) visitVarDecl(decl *VarDecl) {
+	defer dec(inc(p))
+	p.printToken(decl.Decl)
+	p.visitIdent(decl.Name)
+	VisitExpr(p, decl.X)
 }
 
 func (p *printer) printField(field *Field) {
 	defer dec(inc(p))
 	p.print("FIELD")
-	p.walk(field.Name)
-	p.walk(field.Type)
+	p.visitIdent(field.Name)
+	p.visitIdent(field.Type)
 }
 
-func (p *printer) printBlockStmt(stmt *BlockStmt) {
-	defer dec(inc(p))
-	p.print("BLOCK")
-	for _, s := range stmt.Stmts {
-		p.walk(s)
-	}
-}
-
-func (p *printer) printDeclStmt(stmt *DeclStmt) {
-	p.walk(stmt.D)
-}
-
-func (p *printer) printVarDecl(decl *VarDecl) {
+func (p *printer) visitFuncDecl(decl *FuncDecl) {
 	defer dec(inc(p))
 	p.printToken(decl.Decl)
-	p.walk(decl.Name)
-	p.walk(decl.X)
-}
-
-func (p *printer) printFuncDecl(decl *FuncDecl) {
-	defer dec(inc(p))
-	p.printToken(decl.Decl)
-	p.walk(decl.Name)
+	p.visitIdent(decl.Name)
 	p.level++
 	p.print("PARAMS")
 	for _, param := range decl.Params {
-		p.walk(param)
+		p.printField(param)
 	}
 	p.print("RETURN")
 	if decl.Return != nil {
-		p.walk(decl.Return)
+		p.visitIdent(decl.Return)
 	}
 	p.level--
-	p.walk(decl.Body)
+	p.visitBlockStmt(decl.Body)
 }
 
-func (p *printer) printPrintStmt(stmt *PrintStmt) {
+func (p *printer) printStructField(field *StructField) {
+	defer dec(inc(p))
+	p.printToken(field.Qualifier)
+	p.visitIdent(field.Name)
+	VisitExpr(p, field.Type)
+}
+
+func (p *printer) visitStructDecl(decl *StructDecl) {
+	defer dec(inc(p))
+	p.printToken(decl.Decl)
+	p.visitIdent(decl.Name)
+	p.level++
+	p.print("FIELDS")
+	for _, field := range decl.Fields {
+		p.printStructField(field)
+	}
+	p.level--
+}
+
+func (p *printer) visitPrintStmt(stmt *PrintStmt) {
 	defer dec(inc(p))
 	p.printToken(stmt.Print)
-	p.walk(stmt.X)
+	VisitExpr(p, stmt.X)
 }
 
-func (p *printer) printIfStmt(stmt *IfStmt) {
+func (p *printer) visitIfStmt(stmt *IfStmt) {
 	defer dec(inc(p))
 	p.printToken(stmt.If)
 	p.level++
 	p.print("COND")
-	p.walk(stmt.Cond)
+	VisitExpr(p, stmt.Cond)
 	p.level--
-	p.walk(stmt.Body)
+	p.visitBlockStmt(stmt.Body)
 	if stmt.Else != nil {
 		p.print("ELIF/ELSE")
-		p.walk(stmt.Else)
+		VisitStmt(p, stmt.Else)
 	}
 }
 
-func (p *printer) printWhileStmt(stmt *WhileStmt) {
+func (p *printer) visitWhileStmt(stmt *WhileStmt) {
 	defer dec(inc(p))
 	p.printToken(stmt.While)
 	p.level++
 	p.print("COND")
-	p.walk(stmt.Cond)
+	VisitExpr(p, stmt.Cond)
 	p.level--
-	p.walk(stmt.Body)
+	p.visitBlockStmt(stmt.Body)
 }
 
-func (p *printer) printReturnStmt(stmt *ReturnStmt) {
+func (p *printer) visitReturnStmt(stmt *ReturnStmt) {
 	defer dec(inc(p))
 	p.printToken(stmt.Return)
 	if stmt.X != nil {
-		p.walk(stmt.X)
+		VisitExpr(p, stmt.X)
 	}
 }
 
-func (p *printer) printBranchStmt(stmt *BranchStmt) {
+func (p *printer) visitBranchStmt(stmt *BranchStmt) {
 	defer dec(inc(p))
 	p.printToken(stmt.Tok)
 }
 
-func (p *printer) printAssignStmt(stmt *AssignStmt) {
+func (p *printer) visitAssignStmt(stmt *AssignStmt) {
 	defer dec(inc(p))
 	p.printToken(stmt.Assign)
-	p.walk(stmt.Name)
-	p.walk(stmt.Right)
+	p.visitIdent(stmt.Name)
+	VisitExpr(p, stmt.Right)
 }
 
-func (p *printer) printExprStmt(stmt *ExprStmt) {
+func (p *printer) visitExprStmt(stmt *ExprStmt) {
 	defer dec(inc(p))
-	p.walk(stmt.X)
+	VisitExpr(p, stmt.X)
 }
 
-func (p *printer) printBinary(expr *BinaryExpr) {
-	defer dec(inc(p))
-	p.printToken(expr.Op)
-	p.walk(expr.Left)
-	p.walk(expr.Right)
-}
-
-func (p *printer) printUnary(expr *UnaryExpr) {
+func (p *printer) visitBinaryExpr(expr *BinaryExpr) Expr {
 	defer dec(inc(p))
 	p.printToken(expr.Op)
-	p.walk(expr.X)
+	VisitExpr(p, expr.Left)
+	VisitExpr(p, expr.Right)
+	return expr
 }
 
-func (p *printer) printLiteral(expr *Literal) {
+func (p *printer) visitUnaryExpr(expr *UnaryExpr) Expr {
+	defer dec(inc(p))
+	p.printToken(expr.Op)
+	VisitExpr(p, expr.X)
+	return expr
+}
+
+func (p *printer) visitLiteral(expr *Literal) Expr {
 	defer dec(inc(p))
 	p.printToken(expr.Value)
+	return expr
 }
 
-func (p *printer) printIdent(expr *Ident) {
+func (p *printer) visitStructLiteral(expr *StructLiteral) Expr {
+	panic("visitStructLiteral not implemented")
+}
+
+func (p *printer) visitIdent(expr *Ident) Expr {
 	defer dec(inc(p))
 	p.printToken(expr.Name)
+	return expr
 }
 
-func (p *printer) printCallExpr(expr *CallExpr) {
+func (p *printer) visitFuncCall(expr *FuncCall) Expr {
 	defer dec(inc(p))
-	p.print("CALL")
-	p.walk(expr.Name)
+	p.print("FUNCCALL")
+	p.visitIdent(expr.Name)
 	for _, arg := range expr.Args {
-		p.walk(arg)
+		VisitExpr(p, arg)
 	}
+	return expr
+}
+
+func (p *printer) visitDotExpr(expr *DotExpr) Expr {
+	defer dec(inc(p))
+	p.print("DOT")
+	p.visitIdent(expr.Name)
+	VisitExpr(p, expr.X)
+	return expr
 }
