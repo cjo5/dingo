@@ -3,7 +3,6 @@ package module
 import (
 	"io/ioutil"
 	"os"
-	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -154,10 +153,10 @@ func (l *loader) loadModule(filename string) *loadedModule {
 	var packageFiles []string
 
 	for _, f := range files {
-		if path.Ext(f.Name()) != langExtension || f.Name() == packageFile {
+		if filepath.Ext(f.Name()) != langExtension || f.Name() == packageFile {
 			continue
 		}
-		packageFiles = append(packageFiles, path.Join(moduleDir, f.Name()))
+		packageFiles = append(packageFiles, filepath.Join(moduleDir, f.Name()))
 	}
 
 	for _, f := range packageFiles {
