@@ -57,7 +57,7 @@ func (t Trace) write(buf *bytes.Buffer) {
 		for i := 0; i <= indent; i++ {
 			buf.WriteString("    ")
 		}
-		buf.WriteString(fmt.Sprintf("%s", l))
+		buf.WriteString(fmt.Sprintf("=> %s", l))
 	}
 }
 

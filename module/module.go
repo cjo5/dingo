@@ -209,8 +209,8 @@ func (l *loader) createModuleImports(file *semantics.File, dir string) []*module
 		if foundMod != nil {
 			var traceLines []string
 			if checkImportCycle(foundMod, file.Path, &traceLines) {
-				trace := common.NewTrace(fmt.Sprintf("import %s trace:", imp.Path.Literal), nil)
-				for i := len(traceLines) - 1; i >= 0; i-- {
+				trace := common.NewTrace(fmt.Sprintf("%s imports:", imp.Path.Literal), nil)
+				for i := len(traceLines) - 2; i >= 0; i-- {
 					trace.Lines = append(trace.Lines, traceLines[i])
 				}
 				l.errors.AddTrace(file.Path, imp.Path.Pos, trace, "import cycle detected")
@@ -248,7 +248,7 @@ func (l *loader) getImportedByTrace() common.Trace {
 		trace = append(trace, file.file.Path)
 		file = file.importedBy
 	}
-	return common.NewTrace("imported by trace:", trace)
+	return common.NewTrace("imported by:", trace)
 }
 
 func (l *loader) getModules(modules *[]*semantics.Module) bool {
