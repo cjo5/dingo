@@ -8,7 +8,7 @@ import (
 type Visitor interface {
 	// Decls
 	visitBadDecl(decl *BadDecl)
-	visitModule(decl *Module)
+	visitModule(decl *File)
 	visitImport(decl *Import)
 	visitVarDecl(decl *VarDecl)
 	visitFuncDecl(decl *FuncDecl)
@@ -74,7 +74,7 @@ func VisitDecl(v Visitor, decl Decl) {
 	switch d := decl.(type) {
 	case *BadDecl:
 		v.visitBadDecl(d)
-	case *Module:
+	case *File:
 		v.visitModule(d)
 	case *Import:
 		v.visitImport(d)

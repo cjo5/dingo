@@ -55,10 +55,8 @@ func (p *printer) printToken(tok token.Token) {
 	p.printf("[%s]", tok)
 }
 
-func (p *printer) visitModule(mod *Module) {
-	if mod.Name != nil {
-		p.printf("[module %v]", mod.Name.Name)
-	}
+func (p *printer) visitModule(mod *File) {
+	p.printf("[module]")
 	for _, d := range mod.Decls {
 		VisitDecl(p, d)
 	}

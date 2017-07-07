@@ -1,9 +1,11 @@
-module main
+module
 
 import "std/math"
 import "builtin"
 import "mylib" (
-    val Shape, var PI, struct Code, func man, enum x
+    module as x,
+    Shape as x, 
+    PI, Code, man, x
 )
 
 main() {

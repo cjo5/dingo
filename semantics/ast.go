@@ -47,17 +47,34 @@ type BadDecl struct {
 
 func (d *BadDecl) FirstPos() token.Position { return d.From.Pos }
 
-// A Module is the main unit of compilation.
-type Module struct {
-	baseDecl
-	Mod     token.Token
-	Name    *Ident
+type Program struct {
+	baseNode
+	Modules []*Module
 	Scope   *Scope
-	Imports []*Import
-	Decls   []Decl
 }
 
-func (m *Module) FirstPos() token.Position { return m.Mod.Pos }
+func (d *Program) FirstPos() token.Position { return token.NoPosition }
+
+type Module struct {
+	baseNode
+	Path  string
+	Name  *Ident
+	Files []*File
+	Scope *Scope
+}
+
+func (m *Module) FirstPos() token.Position { return token.NoPosition }
+
+type File struct {
+	baseDecl
+	Path    string
+	Decl    token.Token
+	Imports []*Import
+	Decls   []Decl
+	Scope   *Scope
+}
+
+func (m *File) FirstPos() token.Position { return token.NoPosition }
 
 type Import struct {
 	baseDecl

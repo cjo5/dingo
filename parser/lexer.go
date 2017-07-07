@@ -185,11 +185,11 @@ func (l *lexer) next() {
 }
 
 func (l *lexer) newPos() token.Position {
-	return token.Position{Filename: l.filename, Line: l.lineCount, Column: (l.chOffset - l.lineOffset) + 1}
+	return token.Position{Line: l.lineCount, Column: (l.chOffset - l.lineOffset) + 1}
 }
 
 func (l *lexer) error(pos token.Position, msg string) {
-	l.errors.Add(pos, msg)
+	l.errors.Add(l.filename, pos, msg)
 }
 
 func (l *lexer) skipWhitespace() {

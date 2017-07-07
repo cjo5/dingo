@@ -1,0 +1,9 @@
+- Declare module with keyword "module"
+- Import module with keyword "import"
+- Not possible to import a file if it was not declared as a module
+- A module is either a single file or a package
+- A package is a directory with the same name as the module + a file inside the directory named "package.lang"
+- Packages can contain multiple files that are part of the same module. 
+    - "package.lang" is declared as a module
+    - Other files in the package are not declared as modules
+    - If a file is found in a package, other than "package.lang", and declared as module, it's ignored and a warning is displayed.

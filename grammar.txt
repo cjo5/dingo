@@ -2,7 +2,7 @@
 # (..)*  : 0 or more
 # [..] : optional
 
-Module = ['module' IDENT] Import* TopLevelDecl*
+Module = ['module'] Import* TopLevelDecl*
 
 Import = 'import' STRING
 TopLevelDecl = [Visibility] Decl

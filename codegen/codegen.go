@@ -52,7 +52,7 @@ type compiler struct {
 // Compile mod to bytecode.
 // 1. Convert AST to CFG, where a node in the CFG is a basic block with bytecode instructions.
 // 2. Flatten CFG to linear bytecode and patch jump addresses.
-func Compile(mod *semantics.Module) (int, vm.CodeMemory, vm.DataMemory) {
+func Compile(mod *semantics.File) (int, vm.CodeMemory, vm.DataMemory) {
 	c := &compiler{}
 	c.stringLiterals = make(map[string]int)
 	c.float64Literals = make(map[float64]int)
@@ -147,7 +147,7 @@ func (b *block) addInstrAddr(op vm.Opcode, arg1 int) {
 	b.addJumpInstr(vm.NewInstr1(op, int64(arg1)), nil)
 }
 
-func (c *compiler) compileModule(mod *semantics.Module) {
+func (c *compiler) compileModule(mod *semantics.File) {
 	var vars []*semantics.VarDecl
 	var funcs []*semantics.FuncDecl
 

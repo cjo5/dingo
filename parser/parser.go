@@ -9,35 +9,35 @@ import (
 	"github.com/jhnl/interpreter/token"
 )
 
-func ParseFile(filename string) (*semantics.Module, error) {
-	buf, err := ioutil.ReadFile(filename)
+func ParseFile(filepath string) (*semantics.File, error) {
+	buf, err := ioutil.ReadFile(filepath)
 	if err != nil {
 		return nil, err
 	}
-	return parse(buf, filename)
+	return parse(buf, filepath)
 }
 
-func Parse(src []byte) (*semantics.Module, error) {
+func Parse(src []byte) (*semantics.File, error) {
 	return parse(src, "")
 }
 
-func parse(src []byte, filename string) (*semantics.Module, error) {
+func parse(src []byte, filepath string) (*semantics.File, error) {
 	var p parser
-	p.init(src, filename)
+	p.init(src, filepath)
 	p.next()
 
-	mod := p.parseModule()
+	file := p.parseFile()
 
-	if len(p.errors) > 0 {
-		return nil, p.errors
+	if p.errors.Count() > 0 {
+		return file, p.errors
 	}
 
-	return mod, nil
+	return file, nil
 }
 
 type parser struct {
 	lexer  lexer
-	errors common.ErrorList
+	errors *common.ErrorList
 	trace  bool
 
 	token  token.Token
@@ -46,7 +46,8 @@ type parser struct {
 
 func (p *parser) init(src []byte, filename string) {
 	p.trace = false
-	p.lexer.init(src, filename, &p.errors)
+	p.errors = &common.ErrorList{}
+	p.lexer.init(src, filename, p.errors)
 }
 
 func (p *parser) next() {
@@ -63,7 +64,7 @@ func (p *parser) next() {
 }
 
 func (p *parser) error(tok token.Token, format string, args ...interface{}) {
-	p.errors.Add(tok.Pos, format, args...)
+	p.errors.Add(p.lexer.filename, tok.Pos, format, args...)
 }
 
 func (p *parser) sync() {
@@ -113,24 +114,24 @@ func (p *parser) expectSemi() bool {
 	return res
 }
 
-func (p *parser) parseModule() *semantics.Module {
-	mod := &semantics.Module{}
+func (p *parser) parseFile() *semantics.File {
+	file := &semantics.File{}
 	if p.token.Is(token.Module) {
-		mod.Mod = p.token
+		file.Decl = p.token
 		p.expect(token.Module)
-		mod.Name = p.parseIdent()
+	} else {
+		file.Decl = token.Synthetic(token.Module, token.Module.String())
 	}
 	for p.token.Is(token.Import) {
 		imp := p.parseImport()
 		if imp != nil {
-			mod.Imports = append(mod.Imports, imp)
-
+			file.Imports = append(file.Imports, imp)
 		}
 	}
 	for !p.token.Is(token.EOF) {
-		mod.Decls = append(mod.Decls, p.parseDecl())
+		file.Decls = append(file.Decls, p.parseDecl())
 	}
-	return mod
+	return file
 }
 
 func (p *parser) parseImport() *semantics.Import {

@@ -38,42 +38,50 @@ func init() {
 }
 
 // Check will resolve identifiers and do type checking.
-func Check(mod *Module) error {
+func Check(mod *File) error {
 	var c checker
 
-	c.checkModule(mod)
-	if len(c.errors) > 0 {
+	c.visitModule(mod)
+	if c.errors.Count() > 0 {
 		return c.errors
 	}
 
 	return nil
 }
 
-type checker struct {
+// checkerContext contains state that changes upon entry and exit of nodes.
+type checkerContext struct {
+	function *FuncDecl
 	scope    *Scope
-	errors   common.ErrorList
-	currFunc *FuncDecl
+}
+
+type checker struct {
+	BaseVisitor
+	ctx    checkerContext
+	errors common.ErrorList
 }
 
 func (c *checker) error(tok token.Token, format string, args ...interface{}) {
-	c.errors.Add(tok.Pos, format, args...)
+	// TODO: Set correct filename
+	c.errors.Add("", tok.Pos, format, args...)
 }
 
 func (c *checker) errorPos(pos token.Position, format string, args ...interface{}) {
-	c.errors.Add(pos, format, args...)
+	// TODO: Set correct filename
+	c.errors.Add("", pos, format, args...)
 }
 
 func (c *checker) openScope() {
-	c.scope = NewScope(c.scope)
+	c.ctx.scope = NewScope(c.ctx.scope)
 }
 
 func (c *checker) closeScope() {
-	c.scope = c.scope.Outer
+	c.ctx.scope = c.ctx.scope.Outer
 }
 
 func (c *checker) declare(id SymbolID, name token.Token, node Node) *Symbol {
 	sym := NewSymbol(id, name, node, c.isGlobalScope())
-	if existing := c.scope.Insert(sym); existing != nil {
+	if existing := c.ctx.scope.Insert(sym); existing != nil {
 		msg := fmt.Sprintf("redeclaration of '%s', previously declared at %s", name.Literal, existing.Pos())
 		c.error(name, msg)
 	}
@@ -81,7 +89,7 @@ func (c *checker) declare(id SymbolID, name token.Token, node Node) *Symbol {
 }
 
 func (c *checker) resolve(name token.Token) *Symbol {
-	if existing := c.scope.Lookup(name.Literal); existing == nil {
+	if existing := c.ctx.scope.Lookup(name.Literal); existing == nil {
 		c.error(name, "'%s' undefined", name.Literal)
 	} else {
 		return existing
@@ -90,7 +98,7 @@ func (c *checker) resolve(name token.Token) *Symbol {
 }
 
 func (c *checker) isGlobalScope() bool {
-	return c.scope.Outer == builtinScope
+	return c.ctx.scope.Outer == builtinScope
 }
 
 // Returns false if error
@@ -118,8 +126,8 @@ func (c *checker) tryCastLiteral(expr Expr, target *TType) bool {
 	return true
 }
 
-func (c *checker) checkModule(mod *Module) {
-	c.scope = builtinScope
+func (c *checker) visitModule(mod *File) {
+	c.ctx.scope = builtinScope
 	c.openScope()
 
 	var funcs []*FuncDecl
@@ -138,7 +146,7 @@ func (c *checker) checkModule(mod *Module) {
 	var decls []Decl
 
 	for _, decl := range vars {
-		c.checkVarDecl(decl)
+		c.visitVarDecl(decl)
 		decls = append(decls, decl)
 	}
 
@@ -147,25 +155,25 @@ func (c *checker) checkModule(mod *Module) {
 		decls = append(decls, decl)
 	}
 
-	if len(c.errors) > 0 {
+	if c.errors.Count() > 0 {
 		return
 	}
 
 	mod.Decls = decls
-	mod.Scope = c.scope
+	mod.Scope = c.ctx.scope
 	c.closeScope()
 }
 
 func (c *checker) checkDecl(decl Decl) {
 	switch t := decl.(type) {
 	case *VarDecl:
-		c.checkVarDecl(t)
+		c.visitVarDecl(t)
 	default:
 		panic(fmt.Sprintf("Unhandled decl %T", t))
 	}
 }
 
-func (c *checker) checkVarDecl(decl *VarDecl) {
+func (c *checker) visitVarDecl(decl *VarDecl) {
 	c.checkTypeSpec(decl.Type)
 	t := decl.Type.Type()
 
@@ -218,15 +226,15 @@ func (c *checker) checkFuncDecl(decl *FuncDecl, signature bool, body bool) {
 
 		c.checkTypeSpec(decl.Return)
 
-		decl.Scope = c.scope
+		decl.Scope = c.ctx.scope
 		c.closeScope()
 	}
 	if body {
-		c.scope = decl.Scope
+		c.ctx.scope = decl.Scope
 
-		c.currFunc = decl
+		c.ctx.function = decl
 		c.checkBlockStmt(false, decl.Body)
-		c.currFunc = nil
+		c.ctx.function = nil
 
 		endsWithReturn := false
 		for i, stmt := range decl.Body.Stmts {
@@ -255,7 +263,7 @@ func (c *checker) checkField(field *Field) {
 }
 
 func (c *checker) checkTypeSpec(spec *Ident) {
-	sym := c.scope.Lookup(spec.Literal())
+	sym := c.ctx.scope.Lookup(spec.Literal())
 	if sym == nil || sym.ID != TypeSymbol {
 		c.error(spec.Name, "%s is not a type", spec.Literal())
 	}
@@ -290,7 +298,7 @@ func (c *checker) checkBlockStmt(newScope bool, stmt *BlockStmt) {
 	for _, stmt := range stmt.Stmts {
 		c.checkStmt(stmt)
 	}
-	stmt.Scope = c.scope
+	stmt.Scope = c.ctx.scope
 	if newScope {
 		c.closeScope()
 	}
@@ -346,7 +354,7 @@ func (c *checker) checkReturnStmt(stmt *ReturnStmt) {
 	mismatch := false
 
 	exprType := TVoid
-	retType := c.currFunc.Return.Type()
+	retType := c.ctx.function.Return.Type()
 	if stmt.X == nil {
 		if retType.ID != TVoid {
 			mismatch = true
@@ -364,7 +372,7 @@ func (c *checker) checkReturnStmt(stmt *ReturnStmt) {
 
 	if mismatch {
 		c.error(stmt.Return, "type mismatch: return type %s does not match function '%s' return type %s",
-			exprType, c.currFunc.Name.Literal(), retType.ID)
+			exprType, c.ctx.function.Name.Literal(), retType.ID)
 	}
 }
 
@@ -707,7 +715,7 @@ func (c *checker) checkIdent(id *Ident) Expr {
 }
 
 func (c *checker) checkFuncCall(call *FuncCall) Expr {
-	sym := c.scope.Lookup(call.Name.Literal())
+	sym := c.ctx.scope.Lookup(call.Name.Literal())
 	if sym == nil {
 		c.error(call.Name.Name, "'%s' undefined", call.Name.Literal())
 	} else if sym.ID != FuncSymbol && sym.ID != TypeSymbol {

@@ -8,24 +8,6 @@ import (
 // ID of token.
 type ID int
 
-// Position of token in a file.
-type Position struct {
-	Filename string
-	Line     int
-	Column   int
-}
-
-func (p Position) String() string {
-	return fmt.Sprintf("%d:%d", p.Line, p.Column)
-}
-
-// Token struct.
-type Token struct {
-	ID      ID
-	Literal string
-	Pos     Position
-}
-
 // List of tokens.
 //
 const (
@@ -210,6 +192,40 @@ func (tok ID) String() string {
 	return s
 }
 
+// Position of token in a file.
+type Position struct {
+	Line   int
+	Column int
+}
+
+func NewPosition(line, column int) Position {
+	return Position{Line: line, Column: column}
+}
+
+// NoPosition means it wasn't part of a file.
+var NoPosition = Position{-1, -1}
+
+func (p Position) String() string {
+	return fmt.Sprintf("%d:%d", p.Line, p.Column)
+}
+
+// IsValid returns true if it's a valid file position.
+func (p Position) IsValid() bool {
+	return p.Line > -1
+}
+
+// Token struct.
+type Token struct {
+	ID      ID
+	Literal string
+	Pos     Position
+}
+
+// Synthetic creates an artificial token that does not have a representation in the source code.
+func Synthetic(id ID, literal string) Token {
+	return Token{ID: id, Literal: literal, Pos: Position{Line: -1, Column: -1}}
+}
+
 func (t Token) String() string {
 	s := fmt.Sprintf("%s: %v", t.Pos, t.ID)
 	if t.ID == Ident || t.ID == String || t.ID == Integer || t.ID == Float {
@@ -218,9 +234,8 @@ func (t Token) String() string {
 	return s
 }
 
-// IsValid returns true if it's a valid token.
 func (t Token) IsValid() bool {
-	return t.Pos.Line > 0
+	return t.Pos.IsValid()
 }
 
 // IsAssignOperator returns true if the token represents an assignment operator ('=', '+=', '-=', '*=', '/=', '%=').
@@ -241,9 +256,4 @@ func (t Token) OneOf(ids ...ID) bool {
 // Is returns true if ID matches.
 func (t Token) Is(id ID) bool {
 	return t.ID == id
-}
-
-// Synthetic creates an artificial token that does not have a representation in the source code.
-func Synthetic(id ID, literal string) Token {
-	return Token{ID: id, Literal: literal, Pos: Position{Filename: "", Line: -1, Column: -1}}
 }
