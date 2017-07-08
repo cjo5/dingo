@@ -8,6 +8,7 @@ const (
 	VarSymbol SymbolID = iota
 	FuncSymbol
 	TypeSymbol
+	ModuleSymbol
 )
 
 type Symbol struct {
@@ -16,7 +17,7 @@ type Symbol struct {
 	T        *TType
 	Src      Node // Node in ast where the symbol was defined
 	Address  int  // Variable's address in global array or local array
-	Global   bool
+	Global   bool // TODO: Need to redefine what global means since there are three different levels of visibility.
 	Constant bool
 
 	// TODO: Add builtin bool

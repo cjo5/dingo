@@ -24,8 +24,9 @@ Function = FuncSignature Block
 FunctionType = '(' [FieldList] ')' ['->' Type]
 
 Block = '{' Stmt* '}'
-Stmt = Block | VarDecl | PrintStmt | AssignStmt | CallStmt | 'if' IfStmt | WhileStmt 
+Stmt = Block | VarDeclStmt | PrintStmt | AssignStmt | CallStmt | 'if' IfStmt | WhileStmt 
         | ReturnStmt | 'break' ';' | 'continue' ';'
+VarDeclStmt = VarDecl ';'
 PrintStmt = 'print' Expr ';'
 AssignStmt = IDENT ('=' | '+=' | '-=' | '*=' | '/=' | '%=' ) Initializer ';'
 ExprStmt = Expr ';'

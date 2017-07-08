@@ -129,7 +129,7 @@ func (p *parser) parseFile() *semantics.File {
 		}
 	}
 	for !p.token.Is(token.EOF) {
-		file.Decls = append(file.Decls, p.parseDecl())
+		file.Decls = append(file.Decls, p.parseTopLevelDecl())
 	}
 	return file
 }
@@ -141,14 +141,27 @@ func (p *parser) parseImport() *semantics.Import {
 	if !p.expect(token.String) {
 		return nil
 	}
-	return &semantics.Import{Import: tok, Path: path}
+	return &semantics.Import{Import: tok, Literal: path}
 }
 
-func (p *parser) parseDecl() semantics.Decl {
+func (p *parser) parseTopLevelDecl() semantics.Decl {
+	visibility := token.Synthetic(token.Internal, token.Internal.String())
+	if p.token.OneOf(token.External, token.Internal, token.Restricted) {
+		visibility = p.token
+		p.next()
+	}
+	return p.parseDecl(visibility)
+}
+
+func (p *parser) parseDecl(visibility token.Token) semantics.Decl {
 	if p.token.ID == token.Var || p.token.ID == token.Val {
-		return p.parseVarDecl()
+		decl := p.parseVarDecl()
+		decl.Visibility = visibility
+		return decl
 	} else if p.token.ID == token.Func {
-		return p.parseFuncDecl()
+		decl := p.parseFuncDecl()
+		decl.Visibility = visibility
+		return decl
 	} else if p.token.ID == token.Struct {
 		return p.parseStructDecl()
 	}
@@ -255,7 +268,7 @@ func (p *parser) parseStmt() semantics.Stmt {
 		return p.parseBlockStmt()
 	}
 	if p.token.ID == token.Var || p.token.ID == token.Val {
-		return p.parseDeclStmt()
+		return p.parseVarDeclStmt()
 	}
 	if p.token.ID == token.Print {
 		return p.parsePrintStmt()
@@ -300,7 +313,7 @@ func (p *parser) parseBlockStmt() *semantics.BlockStmt {
 	return block
 }
 
-func (p *parser) parseDeclStmt() *semantics.DeclStmt {
+func (p *parser) parseVarDeclStmt() *semantics.DeclStmt {
 	d := p.parseVarDecl()
 	return &semantics.DeclStmt{D: d}
 }

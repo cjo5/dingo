@@ -1,9 +1,8 @@
 module
 
-import "std/math"
+import "@std/math"
 import "builtin"
-import "mylib" (
-    module as x,
+import "mylib" as lib2 (
     Shape as x, 
     PI, Code, man, x
 )

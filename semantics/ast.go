@@ -2,6 +2,9 @@ package semantics
 
 import "github.com/jhnl/interpreter/token"
 
+// TODO: Add TypeSpec as a Node interface to represent type annotations.
+// Right now types can only be represented as idents.
+
 // Node interface.
 type Node interface {
 	FirstPos() token.Position
@@ -12,6 +15,7 @@ type Node interface {
 type Decl interface {
 	Node
 	declNode()
+	addDependency(symbol *Symbol)
 }
 
 // Stmt is the main interface for statement nodes.
@@ -35,9 +39,14 @@ func (n *baseNode) node() {}
 
 type baseDecl struct {
 	baseNode
+	dependencies []*Symbol
 }
 
 func (d *baseDecl) declNode() {}
+
+func (d *baseDecl) addDependency(symbol *Symbol) {
+	d.dependencies = append(d.dependencies, symbol)
+}
 
 type BadDecl struct {
 	baseDecl
@@ -50,23 +59,24 @@ func (d *BadDecl) FirstPos() token.Position { return d.From.Pos }
 type Program struct {
 	baseNode
 	Modules []*Module
-	Scope   *Scope
+	Main    *Module // Main is also included in the Modules list
 }
 
 func (d *Program) FirstPos() token.Position { return token.NoPosition }
 
 type Module struct {
 	baseNode
-	Path  string
-	Name  *Ident
-	Files []*File
-	Scope *Scope
+	Path     string
+	Name     token.Token
+	Files    []*File
+	External *Scope
+	Internal *Scope
 }
 
 func (m *Module) FirstPos() token.Position { return token.NoPosition }
 
 type File struct {
-	baseDecl
+	baseNode
 	Path    string
 	Decl    token.Token
 	Imports []*Import
@@ -78,19 +88,21 @@ func (m *File) FirstPos() token.Position { return token.NoPosition }
 
 type Import struct {
 	baseDecl
-	Import token.Token
-	Path   token.Token
+	Import  token.Token
+	Literal token.Token
+	Mod     *Module
 }
 
 func (i *Import) FirstPos() token.Position { return i.Import.Pos }
 
 type VarDecl struct {
 	baseDecl
-	Decl   token.Token
-	Name   *Ident
-	Type   *Ident
-	Assign token.Token
-	X      Expr
+	Visibility token.Token
+	Decl       token.Token
+	Name       *Ident
+	Type       *Ident // Use as token.Token instead of Ident
+	Assign     token.Token
+	X          Expr
 }
 
 func (d *VarDecl) FirstPos() token.Position { return d.Decl.Pos }
@@ -106,14 +118,15 @@ func (f *Field) FirstPos() token.Position { return f.Name.FirstPos() }
 
 type FuncDecl struct {
 	baseDecl
-	Decl   token.Token
-	Name   *Ident
-	Lparen token.Token
-	Params []*Field
-	Rparen token.Token
-	Return *Ident // Nil if no return value
-	Body   *BlockStmt
-	Scope  *Scope
+	Visibility token.Token
+	Decl       token.Token
+	Name       *Ident
+	Lparen     token.Token
+	Params     []*Field
+	Rparen     token.Token
+	Return     *Ident // Nil if no return value
+	Body       *BlockStmt
+	Scope      *Scope
 }
 
 func (d *FuncDecl) FirstPos() token.Position { return d.Decl.Pos }

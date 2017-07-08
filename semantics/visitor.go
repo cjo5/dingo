@@ -4,146 +4,224 @@ import (
 	"fmt"
 )
 
-// Visitor interface is used when traversing the AST.
+// Visitor interface is used when walking the AST.
 type Visitor interface {
+	// Generic nodes
+	VisitNode(node Node)
+	VisitProgram(prog *Program)
+	VisitModule(mod *Module)
+	VisitFile(decl *File)
+
 	// Decls
-	visitBadDecl(decl *BadDecl)
-	visitModule(decl *File)
-	visitImport(decl *Import)
-	visitVarDecl(decl *VarDecl)
-	visitFuncDecl(decl *FuncDecl)
-	visitStructDecl(decl *StructDecl)
+	VisitDecl(decl Decl)
+	VisitBadDecl(decl *BadDecl)
+	VisitImport(decl *Import)
+	VisitVarDecl(decl *VarDecl)
+	VisitFuncDecl(decl *FuncDecl)
+	VisitStructDecl(decl *StructDecl)
 
 	// Stmts
-	visitBadStmt(stmt *BadStmt)
-	visitBlockStmt(stmt *BlockStmt)
-	visitDeclStmt(stmt *DeclStmt)
-	visitPrintStmt(stmt *PrintStmt)
-	visitIfStmt(stmt *IfStmt)
-	visitWhileStmt(stmt *WhileStmt)
-	visitReturnStmt(stmt *ReturnStmt)
-	visitBranchStmt(stmt *BranchStmt)
-	visitAssignStmt(stmt *AssignStmt)
-	visitExprStmt(stmt *ExprStmt)
+	VisitStmt(stmt Stmt)
+	VisitBadStmt(stmt *BadStmt)
+	VisitBlockStmt(stmt *BlockStmt)
+	VisitDeclStmt(stmt *DeclStmt)
+	VisitPrintStmt(stmt *PrintStmt)
+	VisitIfStmt(stmt *IfStmt)
+	VisitWhileStmt(stmt *WhileStmt)
+	VisitReturnStmt(stmt *ReturnStmt)
+	VisitBranchStmt(stmt *BranchStmt)
+	VisitAssignStmt(stmt *AssignStmt)
+	VisitExprStmt(stmt *ExprStmt)
 
 	// Exprs
-	visitBadExpr(expr *BadExpr) Expr
-	visitBinaryExpr(expr *BinaryExpr) Expr
-	visitUnaryExpr(expr *UnaryExpr) Expr
-	visitLiteral(expr *Literal) Expr
-	visitStructLiteral(expr *StructLiteral) Expr
-	visitIdent(expr *Ident) Expr
-	visitFuncCall(expr *FuncCall) Expr
-	visitDotExpr(expr *DotExpr) Expr
+	VisitExpr(expr Expr) Expr
+	VisitBadExpr(expr *BadExpr) Expr
+	VisitBinaryExpr(expr *BinaryExpr) Expr
+	VisitUnaryExpr(expr *UnaryExpr) Expr
+	VisitLiteral(expr *Literal) Expr
+	VisitStructLiteral(expr *StructLiteral) Expr
+	VisitIdent(expr *Ident) Expr
+	VisitFuncCall(expr *FuncCall) Expr
+	VisitDotExpr(expr *DotExpr) Expr
 }
 
-// BaseVisitor provides default implementations for a subset of visitor functions.
+// BaseVisitor provides default implementations for Visitor functions.
 type BaseVisitor struct{}
 
-// VisitBadDecl default implementation.
-func (v *BaseVisitor) visitBadDecl(decl *BadDecl) {
-	panic(fmt.Sprintf("Bad decl"))
-}
-
-// VisitBadStmt default implementation.
-func (v *BaseVisitor) visitBadStmt(stmt *BadStmt) {
-	panic(fmt.Sprintf("Bad stmt"))
-}
-
-// VisitBadExpr default implementation.
-func (v *BaseVisitor) visitBadExpr(decl *BadExpr) Expr {
-	panic(fmt.Sprintf("Bad expr"))
-}
-
-// VisitNode switches on node type and invokes corresponding visit function.
-func VisitNode(v Visitor, node Node) {
+// VisitNode switches on node type and invokes corresponding Visit function.
+func (v *BaseVisitor) VisitNode(node Node) {
 	switch n := node.(type) {
+	case *Program:
+		v.VisitProgram(n)
+	case *Module:
+		v.VisitModule(n)
+	case *File:
+		v.VisitFile(n)
 	case Decl:
-		VisitDecl(v, n)
+		v.VisitDecl(n)
 	case Stmt:
-		VisitStmt(v, n)
+		v.VisitStmt(n)
 	case Expr:
-		VisitExpr(v, n)
+		v.VisitExpr(n)
 	default:
 		panic(fmt.Sprintf("Unhandled node %T", n))
 	}
 }
 
-// VisitDecl switches on decl type and invokes corresponding visit function.
-func VisitDecl(v Visitor, decl Decl) {
+func (v *BaseVisitor) VisitProgram(prog *Program) {
+	VisitModuleList(v, prog.Modules)
+}
+
+func (v *BaseVisitor) VisitModule(mod *Module) {}
+
+func (v *BaseVisitor) VisitFile(file *File) {}
+
+// VisitDecl switches on decl type and invokes corresponding Visit function.
+func (v *BaseVisitor) VisitDecl(decl Decl) {
 	switch d := decl.(type) {
 	case *BadDecl:
-		v.visitBadDecl(d)
-	case *File:
-		v.visitModule(d)
+		v.VisitBadDecl(d)
 	case *Import:
-		v.visitImport(d)
+		v.VisitImport(d)
 	case *VarDecl:
-		v.visitVarDecl(d)
+		v.VisitVarDecl(d)
 	case *FuncDecl:
-		v.visitFuncDecl(d)
+		v.VisitFuncDecl(d)
 	case *StructDecl:
-		v.visitStructDecl(d)
+		v.VisitStructDecl(d)
 	default:
 		panic(fmt.Sprintf("Unhandled decl %T", d))
 	}
 }
 
-// VisitStmtList visits each stmt.
-func VisitStmtList(v Visitor, stmts []Stmt) {
-	for _, stmt := range stmts {
-		VisitStmt(v, stmt)
-	}
+func (v *BaseVisitor) VisitBadDecl(decl *BadDecl) {
+	panic("VisitBadDecl")
 }
 
-// VisitStmt switches on stmt type and invokes corresponding visit function.
-func VisitStmt(v Visitor, stmt Stmt) {
+func (v *BaseVisitor) VisitImport(decl *Import) {
+	panic("VisitImport")
+}
+
+func (v *BaseVisitor) VisitVarDecl(decl *VarDecl)   {}
+func (v *BaseVisitor) VisitFuncDecl(decl *FuncDecl) {}
+
+func (v *BaseVisitor) VisitStructDecl(decl *StructDecl) {
+	panic("VisitStructDecl")
+}
+
+// VisitStmt switches on stmt type and invokes corresponding Visit function.
+func (v *BaseVisitor) VisitStmt(stmt Stmt) {
 	switch s := stmt.(type) {
 	case *BadStmt:
-		v.visitBadStmt(s)
+		v.VisitBadStmt(s)
 	case *BlockStmt:
-		v.visitBlockStmt(s)
+		v.VisitBlockStmt(s)
 	case *DeclStmt:
-		v.visitDeclStmt(s)
+		v.VisitDeclStmt(s)
 	case *PrintStmt:
-		v.visitPrintStmt(s)
+		v.VisitPrintStmt(s)
 	case *IfStmt:
-		v.visitIfStmt(s)
+		v.VisitIfStmt(s)
 	case *WhileStmt:
-		v.visitWhileStmt(s)
+		v.VisitWhileStmt(s)
 	case *ReturnStmt:
-		v.visitReturnStmt(s)
+		v.VisitReturnStmt(s)
 	case *BranchStmt:
-		v.visitBranchStmt(s)
+		v.VisitBranchStmt(s)
 	case *AssignStmt:
-		v.visitAssignStmt(s)
+		v.VisitAssignStmt(s)
 	case *ExprStmt:
-		v.visitExprStmt(s)
+		v.VisitExprStmt(s)
 	default:
 		panic(fmt.Sprintf("Unhandled stmt %T", s))
 	}
 }
 
-// VisitExpr switches on expr type and invokes corresponding visit function.
-func VisitExpr(v Visitor, expr Expr) Expr {
+func (v *BaseVisitor) VisitBadStmt(stmt *BadStmt) {
+	panic("VisitBadStmt")
+}
+
+func (v *BaseVisitor) VisitBlockStmt(stmt *BlockStmt) {}
+
+func (v *BaseVisitor) VisitDeclStmt(stmt *DeclStmt) {
+	v.VisitDecl(stmt.D)
+}
+
+func (v *BaseVisitor) VisitPrintStmt(stmt *PrintStmt)   {}
+func (v *BaseVisitor) VisitIfStmt(stmt *IfStmt)         {}
+func (v *BaseVisitor) VisitWhileStmt(stmt *WhileStmt)   {}
+func (v *BaseVisitor) VisitReturnStmt(stmt *ReturnStmt) {}
+func (v *BaseVisitor) VisitBranchStmt(stmt *BranchStmt) {}
+func (v *BaseVisitor) VisitAssignStmt(stmt *AssignStmt) {}
+func (v *BaseVisitor) VisitExprStmt(stmt *ExprStmt)     {}
+
+// VisitExpr switches on expr type and invokes corresponding Visit function.
+func (v *BaseVisitor) VisitExpr(expr Expr) Expr {
 	switch e := expr.(type) {
 	case *BadExpr:
-		return v.visitBadExpr(e)
+		return v.VisitBadExpr(e)
 	case *BinaryExpr:
-		return v.visitBinaryExpr(e)
+		return v.VisitBinaryExpr(e)
 	case *UnaryExpr:
-		return v.visitUnaryExpr(e)
+		return v.VisitUnaryExpr(e)
 	case *Literal:
-		return v.visitLiteral(e)
+		return v.VisitLiteral(e)
 	case *StructLiteral:
-		return v.visitStructLiteral(e)
+		return v.VisitStructLiteral(e)
 	case *Ident:
-		return v.visitIdent(e)
+		return v.VisitIdent(e)
 	case *FuncCall:
-		return v.visitFuncCall(e)
+		return v.VisitFuncCall(e)
 	case *DotExpr:
-		return v.visitDotExpr(e)
+		return v.VisitDotExpr(e)
 	default:
 		panic(fmt.Sprintf("Unhandled expr %T", e))
+	}
+}
+
+func (v *BaseVisitor) VisitBadExpr(decl *BadExpr) Expr {
+	panic("VisitBadExpr")
+}
+
+func (v *BaseVisitor) VisitBinaryExpr(expr *BinaryExpr) Expr       { return nil }
+func (v *BaseVisitor) VisitUnaryExpr(expr *UnaryExpr) Expr         { return nil }
+func (v *BaseVisitor) VisitLiteral(expr *Literal) Expr             { return nil }
+func (v *BaseVisitor) VisitStructLiteral(expr *StructLiteral) Expr { return nil }
+func (v *BaseVisitor) VisitIdent(expr *Ident) Expr                 { return nil }
+func (v *BaseVisitor) VisitFuncCall(expr *FuncCall) Expr           { return nil }
+func (v *BaseVisitor) VisitDotExpr(expr *DotExpr) Expr             { return nil }
+
+// VisitModuleList vists each module.
+func VisitModuleList(v Visitor, modules []*Module) {
+	for _, module := range modules {
+		v.VisitModule(module)
+	}
+}
+
+// VisitFileList vists each file.
+func VisitFileList(v Visitor, files []*File) {
+	for _, file := range files {
+		v.VisitFile(file)
+	}
+}
+
+// VisitDeclList Visits each decl
+func VisitDeclList(v Visitor, decls []Decl) {
+	for _, decl := range decls {
+		v.VisitDecl(decl)
+	}
+}
+
+// VisitImportList Visits each import.
+func VisitImportList(v Visitor, decls []*Import) {
+	for _, decl := range decls {
+		v.VisitImport(decl)
+	}
+}
+
+// VisitStmtList Visits each stmt.
+func VisitStmtList(v Visitor, stmts []Stmt) {
+	for _, stmt := range stmts {
+		v.VisitStmt(stmt)
 	}
 }

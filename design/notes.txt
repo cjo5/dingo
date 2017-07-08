@@ -2,7 +2,6 @@ TODO (in no particular order):
 - Add structs
 - Add anonymous functions
 - Add methods
-- Modules
 - Add arrays
 - Add characters
 - Add anonymous structs
@@ -23,7 +22,6 @@ TODO (in no particular order):
     - Make it possible to call native (go) functions
     - Print vm state
 - Change op + assign to assign + binary expr
-- Separate ast pass to evaluate constant expressions
 - Make it easier to merge tokens
 - Overload functions with different number of arguments (not types)
 - Add cmd package for executable

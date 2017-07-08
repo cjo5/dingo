@@ -7,3 +7,19 @@
     - "package.lang" is declared as a module
     - Other files in the package are not declared as modules
     - If a file is found in a package, other than "package.lang", and declared as module, it's ignored and a warning is displayed.
+
+TODO:
+
+- Libraries
+    - A library contains 1 or more modules
+    - Dynamic or static
+
+- More than 1 namespace for imports
+    - normal: relative to file
+    - @std: standard library
+    - @lib-<name>: library dependency
+    - Default values for @ imports
+    - A module can override base paths for @ imports
+    - Inherits base paths from importing module
+
+- A library can contain multiple modules
