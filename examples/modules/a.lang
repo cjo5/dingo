@@ -2,7 +2,7 @@ module
 
 import "b"
 
-rst val res: f32 = b.PI;
+rst val res: i32 = b.mult(5, 4);
 
 
 rst val a: i32 = 9;

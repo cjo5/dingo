@@ -1,5 +1,6 @@
 module
 
 
-ext val PI: f32 = 5.0;
-
+ext func mult(a: i32, b: i32) -> i32 {
+    return a*b;
+}

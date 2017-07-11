@@ -158,8 +158,7 @@ func (p *parser) parseDecl(visibility token.Token) semantics.Decl {
 		decl := p.parseVarDecl(visibility)
 		return decl
 	} else if p.token.ID == token.Func {
-		decl := p.parseFuncDecl()
-		decl.Visibility = visibility
+		decl := p.parseFuncDecl(visibility)
 		return decl
 	} else if p.token.ID == token.Struct {
 		return p.parseStructDecl()
@@ -188,8 +187,9 @@ func (p *parser) parseVarDecl(visibility token.Token) *semantics.VarDecl {
 	return decl
 }
 
-func (p *parser) parseFuncDecl() *semantics.FuncDecl {
+func (p *parser) parseFuncDecl(visibility token.Token) *semantics.FuncDecl {
 	decl := &semantics.FuncDecl{}
+	decl.Visibility = visibility
 	decl.Decl = p.token
 	p.next()
 	decl.Name = p.parseIdent()
@@ -517,9 +517,7 @@ func (p *parser) parseFuncCall(id *semantics.Ident) semantics.Expr {
 		args = append(args, p.parseExpr())
 		for p.token.ID != token.EOF && p.token.ID != token.Rparen {
 			p.expect(token.Comma)
-			if p.token.Is(token.Rparen) {
-				args = append(args, p.parseExpr())
-			}
+			args = append(args, p.parseExpr())
 		}
 	}
 	rparen := p.token

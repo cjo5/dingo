@@ -44,7 +44,6 @@ func (v *symbolVisitor) VisitFile(file *File) {
 
 func (v *symbolVisitor) VisitImport(decl *Import) {
 	sym := v.c.insert(v.c.file.Scope, ModuleSymbol, decl.Mod.Name.Literal, decl.Literal.Pos, decl.Mod)
-	// TODO: This should probably be moved to typewalk
 	if sym != nil {
 		sym.T = TBuiltinModule
 	}
