@@ -25,7 +25,7 @@ type moduleImport struct {
 }
 
 type loadedFile struct {
-	file       *semantics.File
+	file       *semantics.FileDecls
 	importedBy *loadedFile
 	imports    []*moduleImport
 }
@@ -68,7 +68,7 @@ func Load(path string) (*semantics.Program, error) {
 		for _, loadedFile := range loadedMod.files {
 			loader.currentFile = loadedFile
 
-			parentDir := filepath.Dir(loadedFile.file.Path)
+			parentDir := filepath.Dir(loadedFile.file.Info.Path)
 			loadedFile.imports = loader.createModuleImports(loadedFile.file, parentDir)
 
 			for _, currentImport := range loadedFile.imports {
@@ -111,12 +111,12 @@ func (l *loader) loadModule(filename string) *loadedModule {
 		return nil
 	}
 
-	if !mainFile.Decl.IsValid() {
+	if !mainFile.Info.Decl.IsValid() {
 		l.errors.AddTrace(filename, token.NoPosition, l.getImportedByTrace(), "not declared as a module")
 		return nil
 	}
 
-	mainFile.Path = filename
+	mainFile.Info.Path = filename
 	mod := &semantics.Module{}
 	mod.Files = append(mod.Files, mainFile)
 	loadedMod := &loadedModule{mod: mod}
@@ -154,13 +154,13 @@ func (l *loader) loadModule(filename string) *loadedModule {
 	for _, f := range packageFiles {
 		file, err := parser.ParseFile(f)
 
-		if file.Decl.IsValid() {
+		if file.Info.Decl.IsValid() {
 			l.errors.AddNonFatal(f, token.NoPosition, "ignoring file as it's not part of module package %s (declared as a separate module)", moduleName)
 		} else {
 			if err != nil {
 				l.errors.AddGeneric(f, token.NoPosition, err)
 			}
-			file.Path = f
+			file.Info.Path = f
 			mod.Files = append(mod.Files, file)
 			loadedMod.files = append(loadedMod.files, &loadedFile{file: file})
 		}
@@ -169,43 +169,43 @@ func (l *loader) loadModule(filename string) *loadedModule {
 	return loadedMod
 }
 
-func (l *loader) createModuleImports(file *semantics.File, dir string) []*moduleImport {
+func (l *loader) createModuleImports(file *semantics.FileDecls, dir string) []*moduleImport {
 	var imports []*moduleImport
 
-	for _, imp := range file.Imports {
+	for _, imp := range file.Info.Imports {
 		unquoted, err := strconv.Unquote(imp.Literal.Literal)
 		if err != nil {
-			l.errors.AddGeneric(file.Path, imp.Literal.Pos, err)
+			l.errors.AddGeneric(file.Info.Path, imp.Literal.Pos, err)
 			break
 		}
 
 		if len(unquoted) == 0 {
-			l.errors.AddTrace(file.Path, imp.Literal.Pos, l.getImportedByTrace(), "invalid path")
+			l.errors.AddTrace(file.Info.Path, imp.Literal.Pos, l.getImportedByTrace(), "invalid path")
 			continue
 		} else if unquoted[0] == '/' {
-			l.errors.AddTrace(file.Path, imp.Literal.Pos, l.getImportedByTrace(), "import path cannot be absolute")
+			l.errors.AddTrace(file.Info.Path, imp.Literal.Pos, l.getImportedByTrace(), "import path cannot be absolute")
 			continue
 		}
 
 		norm, err := normalizePath(dir, unquoted, true)
 		if err != nil {
-			l.errors.AddGeneric(file.Path, imp.Literal.Pos, err)
+			l.errors.AddGeneric(file.Info.Path, imp.Literal.Pos, err)
 		}
 
 		foundMod, foundFile := l.findLoadedModule(norm)
-		if foundFile != nil && !foundFile.file.Decl.IsValid() {
-			l.errors.AddTrace(file.Path, imp.Literal.Pos, l.getImportedByTrace(), "import %s does not designate a valid module", imp.Literal.Literal)
+		if foundFile != nil && !foundFile.file.Info.Decl.IsValid() {
+			l.errors.AddTrace(file.Info.Path, imp.Literal.Pos, l.getImportedByTrace(), "import %s does not designate a valid module", imp.Literal.Literal)
 			continue
 		}
 
 		if foundMod != nil {
 			var traceLines []string
-			if checkImportCycle(foundMod, file.Path, &traceLines) {
-				trace := common.NewTrace(fmt.Sprintf("%s imports:", file.Path), nil)
+			if checkImportCycle(foundMod, file.Info.Path, &traceLines) {
+				trace := common.NewTrace(fmt.Sprintf("%s imports:", file.Info.Path), nil)
 				for i := len(traceLines) - 1; i >= 0; i-- {
 					trace.Lines = append(trace.Lines, traceLines[i])
 				}
-				l.errors.AddTrace(file.Path, imp.Literal.Pos, trace, "import cycle detected")
+				l.errors.AddTrace(file.Info.Path, imp.Literal.Pos, trace, "import cycle detected")
 				continue
 			}
 			imp.Mod = foundMod.mod
@@ -224,7 +224,7 @@ func (l *loader) createModuleImports(file *semantics.File, dir string) []*module
 func (l *loader) findLoadedModule(importPath string) (*loadedModule, *loadedFile) {
 	for _, loadedMod := range l.loadedModules {
 		for _, loadedFile := range loadedMod.files {
-			if loadedFile.file.Path == importPath {
+			if loadedFile.file.Info.Path == importPath {
 				return loadedMod, loadedFile
 			}
 		}
@@ -238,7 +238,7 @@ func (l *loader) findLoadedModule(importPath string) (*loadedModule, *loadedFile
 func (l *loader) getImportedByTrace() common.Trace {
 	var trace []string
 	for file := l.currentFile; file != nil; {
-		trace = append(trace, file.file.Path)
+		trace = append(trace, file.file.Info.Path)
 		file = file.importedBy
 	}
 	return common.NewTrace("imported by:", trace)
@@ -290,8 +290,8 @@ func checkImportCycle(loadedMod *loadedModule, importPath string, trace *[]strin
 		return true
 	}
 	for _, loadedFile := range loadedMod.files {
-		if loadedFile.file.Path == importPath {
-			*trace = append(*trace, loadedFile.file.Path)
+		if loadedFile.file.Info.Path == importPath {
+			*trace = append(*trace, loadedFile.file.Info.Path)
 			return true
 		}
 		for _, imp := range loadedFile.imports {
@@ -299,7 +299,7 @@ func checkImportCycle(loadedMod *loadedModule, importPath string, trace *[]strin
 				continue
 			}
 			if checkImportCycle(imp.mod, importPath, trace) {
-				*trace = append(*trace, loadedFile.file.Path)
+				*trace = append(*trace, loadedFile.file.Info.Path)
 				return true
 			}
 		}

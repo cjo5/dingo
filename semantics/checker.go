@@ -67,7 +67,7 @@ type checker struct {
 	// State that changes when visiting nodes
 	scope *Scope
 	mod   *Module
-	file  *File
+	file  *FileInfo
 	fun   *FuncDecl
 
 	declSym *Symbol
@@ -77,6 +77,13 @@ func newChecker(prog *Program) *checker {
 	c := &checker{prog: prog, scope: builtinScope}
 	c.errors = &common.ErrorList{}
 	return c
+}
+
+func (c *checker) resetWalkState() {
+	c.mod = nil
+	c.file = nil
+	c.fun = nil
+	c.declSym = nil
 }
 
 func (c *checker) openScope() {
@@ -172,7 +179,7 @@ func sortModuleDependencies(mod *Module, sortedModules *[]*Module) bool {
 
 	mod.Color = GraphColorGray
 	for _, file := range mod.Files {
-		for _, imp := range file.Imports {
+		for _, imp := range file.Info.Imports {
 			if !sortModuleDependencies(imp.Mod, sortedModules) {
 				return false
 			}
@@ -239,15 +246,17 @@ func (c *checker) sortDecls() {
 			continue
 		}
 
-		currDecls := ToplevelDecls{File: sortedSymbols[0].File}
+		var files []*FileDecls
+		currFile := &FileDecls{Info: sortedSymbols[0].File}
 		for _, sym := range sortedSymbols {
-			if sym.File != currDecls.File {
-				mod.Decls = append(mod.Decls, currDecls)
-				currDecls = ToplevelDecls{File: sym.File}
+			if sym.File != currFile.Info {
+				files = append(files, currFile)
+				currFile = &FileDecls{Info: sym.File}
 			}
-			currDecls.Decls = append(currDecls.Decls, sym.Src)
+			currFile.Decls = append(currFile.Decls, sym.Src)
 		}
-		mod.Decls = append(mod.Decls, currDecls)
+		files = append(files, currFile)
+		mod.Files = files
 	}
 }
 

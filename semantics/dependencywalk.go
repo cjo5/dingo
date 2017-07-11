@@ -9,25 +9,17 @@ type dependencyVisitor struct {
 
 func dependencyWalk(c *checker) {
 	v := &dependencyVisitor{c: c}
-	v.VisitProgram(c.prog)
+	c.resetWalkState()
+	StartProgramWalk(v, c.prog)
 }
 
-func (v *dependencyVisitor) VisitProgram(prog *Program) {
-	VisitModuleList(v, prog.Modules)
-}
-
-func (v *dependencyVisitor) VisitModule(mod *Module) {
-	defer setScope(setScope(v.c, mod.Internal))
+func (v *dependencyVisitor) Module(mod *Module) {
 	v.c.mod = mod
-	VisitFileList(v, mod.Files)
-	v.c.mod = nil
-}
-
-func (v *dependencyVisitor) VisitFile(file *File) {
-	defer setScope(setScope(v.c, file.Scope))
-	v.c.file = file
-	VisitDeclList(v, file.Decls)
-	v.c.file = nil
+	for _, file := range mod.Files {
+		v.c.file = file.Info
+		v.c.scope = file.Info.Scope
+		VisitDeclList(v, file.Decls)
+	}
 }
 
 func (v *dependencyVisitor) VisitVarDecl(decl *VarDecl) {

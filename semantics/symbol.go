@@ -20,10 +20,10 @@ const (
 )
 
 type Symbol struct {
-	ID      SymbolID
-	Name    string
-	Pos     token.Position
-	File    *File // File where symbol was defined
+	ID   SymbolID
+	Name string
+	Pos  token.Position
+	//File    *FileInfo // File where symbol was defined
 	T       *TType
 	Src     Decl // Node in ast where the symbol was defined
 	Flags   int
@@ -34,7 +34,7 @@ type Symbol struct {
 }
 
 // NewSymbol creates a new symbol of a given ID and name.
-func NewSymbol(id SymbolID, name string, pos token.Position, file *File, src Decl, toplevel bool) *Symbol {
+func NewSymbol(id SymbolID, name string, pos token.Position, file *FileInfo, src Decl, toplevel bool) *Symbol {
 	flags := 0
 	if toplevel {
 		flags = SymFlagToplevel
@@ -58,7 +58,11 @@ func (s SymbolID) String() string {
 }
 
 func (s *Symbol) String() string {
-	return fmt.Sprintf("%s:%s:%s", s.ID, s.File.Path, s.Name)
+	path := ""
+	if s.File != nil {
+		path = s.File.Path
+	}
+	return fmt.Sprintf("%s:%s:%s", path, s.ID, s.Name)
 }
 
 func (s *Symbol) Func() (*FuncDecl, bool) {

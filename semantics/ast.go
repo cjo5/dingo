@@ -80,36 +80,29 @@ type Program struct {
 
 func (d *Program) FirstPos() token.Position { return token.NoPosition }
 
-type ToplevelDecls struct {
-	File  *File
-	Decls []Decl
-}
-
 type Module struct {
 	baseDecl
-	Path string
-	Name token.Token
-	// Files contain decls in the same order as the source code.
-	Files []*File
-	// Decls are sorted so all identifiers are declared and type checked before used.
-	Decls    []ToplevelDecls
-	Color    GraphColor
+	Path     string
+	Name     token.Token
 	External *Scope
 	Internal *Scope
+	Files    []*FileDecls
+	Color    GraphColor
 }
 
 func (m *Module) FirstPos() token.Position { return token.NoPosition }
 
-type File struct {
-	baseNode
-	Path    string
-	Decl    token.Token
-	Imports []*Import
-	Decls   []Decl
-	Scope   *Scope
+type FileDecls struct {
+	Info  *FileInfo
+	Decls []Decl
 }
 
-func (m *File) FirstPos() token.Position { return token.NoPosition }
+type FileInfo struct {
+	Path    string
+	Decl    token.Token
+	Scope   *Scope
+	Imports []*Import
+}
 
 type Import struct {
 	baseDecl

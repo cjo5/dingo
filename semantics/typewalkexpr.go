@@ -341,7 +341,6 @@ func (v *typeVisitor) VisitFuncCall(expr *FuncCall) Expr {
 		v.c.error(expr.Name.Pos(), "'%s' is not a function", sym.Name)
 	}
 
-	v.VisitIdent(expr.Name)
 	for i, arg := range expr.Args {
 		expr.Args[i] = VisitExpr(v, arg)
 	}

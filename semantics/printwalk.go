@@ -17,8 +17,7 @@ type printVisitor struct {
 // Print walks the ast in pre-order and generates a text representation of it.
 func Print(n Node) string {
 	p := &printVisitor{}
-
-	VisitNode(p, n)
+	StartWalk(p, n)
 	return p.buffer.String()
 }
 
@@ -54,21 +53,15 @@ func (p *printVisitor) print(msg string) {
 func (p *printVisitor) printToken(tok token.Token) {
 	p.printf("[%s]", tok)
 }
-func (p *printVisitor) VisitProgram(prog *Program) {
-	VisitModuleList(p, prog.Modules)
-}
 
-func (p *printVisitor) VisitModule(mod *Module) {
+func (p *printVisitor) Module(mod *Module) {
 	defer dec(inc(p))
 	p.printf("[module %s]", mod.Name.Literal)
-	VisitFileList(p, mod.Files)
-}
-
-func (p *printVisitor) VisitFile(file *File) {
-	defer dec(inc(p))
-	p.printf("[file]")
-	for _, d := range file.Decls {
-		VisitDecl(p, d)
+	for _, file := range mod.Files {
+		defer dec(inc(p))
+		p.printf("[file]")
+		VisitImportList(p, file.Info.Imports)
+		VisitDeclList(p, file.Decls)
 	}
 }
 

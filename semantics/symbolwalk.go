@@ -13,33 +13,28 @@ type symbolVisitor struct {
 
 func symbolWalk(c *checker) {
 	v := &symbolVisitor{c: c}
-	v.VisitProgram(c.prog)
+	StartProgramWalk(v, c.prog)
+	c.resetWalkState()
 }
 
-func (v *symbolVisitor) VisitProgram(prog *Program) {
-	VisitModuleList(v, prog.Modules)
-}
-
-func (v *symbolVisitor) VisitModule(mod *Module) {
-	v.c.mod = mod
+func (v *symbolVisitor) Module(mod *Module) {
 	v.c.openScope()
 	mod.External = v.c.scope
 	v.c.openScope()
 	mod.Internal = v.c.scope
-	VisitFileList(v, mod.Files)
-	v.c.closeScope()
-	v.c.closeScope()
-	v.c.mod = nil
-}
+	v.c.mod = mod
+	for _, file := range mod.Files {
+		v.c.openScope()
+		file.Info.Scope = v.c.scope
+		v.c.file = file.Info
 
-func (v *symbolVisitor) VisitFile(file *File) {
-	v.c.file = file
-	v.c.openScope()
-	file.Scope = v.c.scope
-	VisitImportList(v, file.Imports)
-	VisitDeclList(v, file.Decls)
-	v.c.closeScope()
-	v.c.file = nil
+		VisitImportList(v, file.Info.Imports)
+		VisitDeclList(v, file.Decls)
+
+		v.c.closeScope() // File
+	}
+	v.c.closeScope() // Internal
+	v.c.closeScope() // External
 }
 
 func (v *symbolVisitor) VisitImport(decl *Import) {

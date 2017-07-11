@@ -13,24 +13,16 @@ type typeVisitor struct {
 
 func typeWalk(c *checker) {
 	v := &typeVisitor{c: c}
-	v.VisitProgram(c.prog)
+	c.resetWalkState()
+	StartProgramWalk(v, c.prog)
 }
 
-func (v *typeVisitor) VisitProgram(prog *Program) {
-	for _, mod := range prog.Modules {
-		v.c.mod = mod
-		for _, toplevelDecl := range mod.Decls {
-			v.c.file = toplevelDecl.File
-			v.c.scope = toplevelDecl.File.Scope
-
-			for _, decl := range toplevelDecl.Decls {
-				VisitDecl(v, decl)
-			}
-
-			v.c.scope = nil
-			v.c.file = nil
-		}
-		v.c.mod = nil
+func (v *typeVisitor) Module(mod *Module) {
+	v.c.mod = mod
+	for _, file := range mod.Files {
+		v.c.scope = file.Info.Scope
+		v.c.file = file.Info
+		VisitDeclList(v, file.Decls)
 	}
 }
 

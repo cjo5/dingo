@@ -6,13 +6,10 @@ import (
 
 // Visitor interface is used when walking the AST.
 type Visitor interface {
-	// Generic nodes
-	VisitProgram(prog *Program)
-	VisitFile(decl *File)
+	Module(mod *Module)
 
 	// Decls
 	VisitBadDecl(decl *BadDecl)
-	VisitModule(mod *Module)
 	VisitImport(decl *Import)
 	VisitVarDecl(decl *VarDecl)
 	VisitFuncDecl(decl *FuncDecl)
@@ -44,16 +41,12 @@ type Visitor interface {
 // BaseVisitor provides default implementations for Visitor functions.
 type BaseVisitor struct{}
 
-func (v *BaseVisitor) VisitFile(file *File) {
-	panic("VisitFile")
+func (v *BaseVisitor) Program(prog *Program) {
+	panic("Program")
 }
 
 func (v *BaseVisitor) VisitBadDecl(decl *BadDecl) {
 	panic("VisitBadDecl")
-}
-
-func (v *BaseVisitor) VisitModule(mod *Module) {
-	panic("VisitModule")
 }
 
 func (v *BaseVisitor) VisitImport(decl *Import) {
@@ -98,10 +91,6 @@ func (v *BaseVisitor) VisitDotExpr(expr *DotExpr) Expr             { return nil 
 // VisitNode switches on node type and invokes corresponding Visit function.
 func VisitNode(v Visitor, node Node) {
 	switch n := node.(type) {
-	case *Program:
-		v.VisitProgram(n)
-	case *File:
-		v.VisitFile(n)
 	case Decl:
 		VisitDecl(v, n)
 	case Stmt:
@@ -118,8 +107,6 @@ func VisitDecl(v Visitor, decl Decl) {
 	switch d := decl.(type) {
 	case *BadDecl:
 		v.VisitBadDecl(d)
-	case *Module:
-		v.VisitModule(d)
 	case *Import:
 		v.VisitImport(d)
 	case *VarDecl:
@@ -185,17 +172,20 @@ func VisitExpr(v Visitor, expr Expr) Expr {
 	}
 }
 
-// VisitModuleList vists each module.
-func VisitModuleList(v Visitor, modules []*Module) {
-	for _, module := range modules {
-		v.VisitModule(module)
+func StartWalk(v Visitor, node Node) {
+	switch t := node.(type) {
+	case *Program:
+		StartProgramWalk(v, t)
+	case *Module:
+		v.Module(t)
+	default:
+		VisitNode(v, node)
 	}
 }
 
-// VisitFileList vists each file.
-func VisitFileList(v Visitor, files []*File) {
-	for _, file := range files {
-		v.VisitFile(file)
+func StartProgramWalk(v Visitor, prog *Program) {
+	for _, mod := range prog.Modules {
+		v.Module(mod)
 	}
 }
 

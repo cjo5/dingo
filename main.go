@@ -41,8 +41,8 @@ func exec(path string) {
 	for _, mod := range prog.Modules {
 		fmt.Println("Module", mod.Name.Literal)
 		for _, file := range mod.Files {
-			fmt.Println("  File", file.Path)
-			for _, imp := range file.Imports {
+			fmt.Println("  File", file.Info.Path)
+			for _, imp := range file.Info.Imports {
 				fmt.Println("    Import", imp.Literal.Literal)
 			}
 		}
@@ -55,12 +55,7 @@ func exec(path string) {
 		return
 	}
 
-	/*	if err == nil {
-			err = semantics.Check(mod)
-		}
-
-
-		fmt.Println(semantics.Print(mod))
+	/*
 		ip, code, mem := codegen.Compile(mod)
 
 		fmt.Printf("Constants (%d):\n", len(mem.Constants))
@@ -75,7 +70,8 @@ func exec(path string) {
 		machine.Exec(ip, code, mem)
 		if machine.RuntimeError() {
 			fmt.Println("Runtime error:", machine.Err)
-		}*/
+		}
+	*/
 }
 
 func main() {

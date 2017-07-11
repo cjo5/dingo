@@ -9,7 +9,7 @@ import (
 	"github.com/jhnl/interpreter/token"
 )
 
-func ParseFile(filepath string) (*semantics.File, error) {
+func ParseFile(filepath string) (*semantics.FileDecls, error) {
 	buf, err := ioutil.ReadFile(filepath)
 	if err != nil {
 		return nil, err
@@ -17,16 +17,16 @@ func ParseFile(filepath string) (*semantics.File, error) {
 	return parse(buf, filepath)
 }
 
-func Parse(src []byte) (*semantics.File, error) {
+func Parse(src []byte) (*semantics.FileDecls, error) {
 	return parse(src, "")
 }
 
-func parse(src []byte, filepath string) (*semantics.File, error) {
+func parse(src []byte, filepath string) (*semantics.FileDecls, error) {
 	var p parser
 	p.init(src, filepath)
 	p.next()
 
-	file := p.parseFile()
+	file := p.parseFileDecls()
 
 	if p.errors.Count() > 0 {
 		return file, p.errors
@@ -114,18 +114,18 @@ func (p *parser) expectSemi() bool {
 	return res
 }
 
-func (p *parser) parseFile() *semantics.File {
-	file := &semantics.File{}
+func (p *parser) parseFileDecls() *semantics.FileDecls {
+	file := &semantics.FileDecls{Info: &semantics.FileInfo{}}
 	if p.token.Is(token.Module) {
-		file.Decl = p.token
+		file.Info.Decl = p.token
 		p.expect(token.Module)
 	} else {
-		file.Decl = token.Synthetic(token.Module, token.Module.String())
+		file.Info.Decl = token.Synthetic(token.Module, token.Module.String())
 	}
 	for p.token.Is(token.Import) {
 		imp := p.parseImport()
 		if imp != nil {
-			file.Imports = append(file.Imports, imp)
+			file.Info.Imports = append(file.Info.Imports, imp)
 		}
 	}
 	for !p.token.Is(token.EOF) {
