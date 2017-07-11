@@ -20,10 +20,10 @@ const (
 )
 
 type Symbol struct {
-	ID   SymbolID
-	Name string
-	Pos  token.Position
-	//File    *FileInfo // File where symbol was defined
+	ID      SymbolID
+	Name    string
+	Pos     token.Position
+	File    *FileInfo // File where symbol was defined
 	T       *TType
 	Src     Decl // Node in ast where the symbol was defined
 	Flags   int
