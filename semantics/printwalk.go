@@ -18,7 +18,7 @@ type printVisitor struct {
 func Print(n Node) string {
 	p := &printVisitor{}
 
-	p.VisitNode(n)
+	VisitNode(p, n)
 	return p.buffer.String()
 }
 
@@ -54,11 +54,21 @@ func (p *printVisitor) print(msg string) {
 func (p *printVisitor) printToken(tok token.Token) {
 	p.printf("[%s]", tok)
 }
+func (p *printVisitor) VisitProgram(prog *Program) {
+	VisitModuleList(p, prog.Modules)
+}
+
+func (p *printVisitor) VisitModule(mod *Module) {
+	defer dec(inc(p))
+	p.printf("[module %s]", mod.Name.Literal)
+	VisitFileList(p, mod.Files)
+}
 
 func (p *printVisitor) VisitFile(file *File) {
+	defer dec(inc(p))
 	p.printf("[file]")
 	for _, d := range file.Decls {
-		p.VisitDecl(d)
+		VisitDecl(p, d)
 	}
 }
 
@@ -75,14 +85,15 @@ func (p *printVisitor) VisitBlockStmt(stmt *BlockStmt) {
 }
 
 func (p *printVisitor) VisitDeclStmt(stmt *DeclStmt) {
-	p.VisitDecl(stmt.D)
+	VisitDecl(p, stmt.D)
 }
 
 func (p *printVisitor) VisitVarDecl(decl *VarDecl) {
 	defer dec(inc(p))
 	p.printToken(decl.Decl)
 	p.VisitIdent(decl.Name)
-	p.VisitExpr(decl.X)
+	p.VisitIdent(decl.Type)
+	VisitExpr(p, decl.X)
 }
 
 func (p *printVisitor) printField(field *Field) {
@@ -113,7 +124,7 @@ func (p *printVisitor) printStructField(field *StructField) {
 	defer dec(inc(p))
 	p.printToken(field.Qualifier)
 	p.VisitIdent(field.Name)
-	p.VisitExpr(field.Type)
+	VisitExpr(p, field.Type)
 }
 
 func (p *printVisitor) VisitStructDecl(decl *StructDecl) {
@@ -131,7 +142,7 @@ func (p *printVisitor) VisitStructDecl(decl *StructDecl) {
 func (p *printVisitor) VisitPrintStmt(stmt *PrintStmt) {
 	defer dec(inc(p))
 	p.printToken(stmt.Print)
-	p.VisitExpr(stmt.X)
+	VisitExpr(p, stmt.X)
 }
 
 func (p *printVisitor) VisitIfStmt(stmt *IfStmt) {
@@ -139,12 +150,12 @@ func (p *printVisitor) VisitIfStmt(stmt *IfStmt) {
 	p.printToken(stmt.If)
 	p.level++
 	p.print("COND")
-	p.VisitExpr(stmt.Cond)
+	VisitExpr(p, stmt.Cond)
 	p.level--
 	p.VisitBlockStmt(stmt.Body)
 	if stmt.Else != nil {
 		p.print("ELIF/ELSE")
-		p.VisitStmt(stmt.Else)
+		VisitStmt(p, stmt.Else)
 	}
 }
 
@@ -153,7 +164,7 @@ func (p *printVisitor) VisitWhileStmt(stmt *WhileStmt) {
 	p.printToken(stmt.While)
 	p.level++
 	p.print("COND")
-	p.VisitExpr(stmt.Cond)
+	VisitExpr(p, stmt.Cond)
 	p.level--
 	p.VisitBlockStmt(stmt.Body)
 }
@@ -162,7 +173,7 @@ func (p *printVisitor) VisitReturnStmt(stmt *ReturnStmt) {
 	defer dec(inc(p))
 	p.printToken(stmt.Return)
 	if stmt.X != nil {
-		p.VisitExpr(stmt.X)
+		VisitExpr(p, stmt.X)
 	}
 }
 
@@ -175,26 +186,26 @@ func (p *printVisitor) VisitAssignStmt(stmt *AssignStmt) {
 	defer dec(inc(p))
 	p.printToken(stmt.Assign)
 	p.VisitIdent(stmt.Name)
-	p.VisitExpr(stmt.Right)
+	VisitExpr(p, stmt.Right)
 }
 
 func (p *printVisitor) VisitExprStmt(stmt *ExprStmt) {
 	defer dec(inc(p))
-	p.VisitExpr(stmt.X)
+	VisitExpr(p, stmt.X)
 }
 
 func (p *printVisitor) VisitBinaryExpr(expr *BinaryExpr) Expr {
 	defer dec(inc(p))
 	p.printToken(expr.Op)
-	p.VisitExpr(expr.Left)
-	p.VisitExpr(expr.Right)
+	VisitExpr(p, expr.Left)
+	VisitExpr(p, expr.Right)
 	return expr
 }
 
 func (p *printVisitor) VisitUnaryExpr(expr *UnaryExpr) Expr {
 	defer dec(inc(p))
 	p.printToken(expr.Op)
-	p.VisitExpr(expr.X)
+	VisitExpr(p, expr.X)
 	return expr
 }
 
@@ -219,7 +230,7 @@ func (p *printVisitor) VisitFuncCall(expr *FuncCall) Expr {
 	p.print("FUNCCALL")
 	p.VisitIdent(expr.Name)
 	for _, arg := range expr.Args {
-		p.VisitExpr(arg)
+		VisitExpr(p, arg)
 	}
 	return expr
 }
@@ -228,6 +239,6 @@ func (p *printVisitor) VisitDotExpr(expr *DotExpr) Expr {
 	defer dec(inc(p))
 	p.print("DOT")
 	p.VisitIdent(expr.Name)
-	p.VisitExpr(expr.X)
+	VisitExpr(p, expr.X)
 	return expr
 }

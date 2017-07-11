@@ -2,8 +2,25 @@ package semantics
 
 import "github.com/jhnl/interpreter/token"
 
-// TODO: Add TypeSpec as a Node interface to represent type annotations.
-// Right now types can only be represented as idents.
+// TODO:
+// - Add TypeSpec as a Node interface to represent type annotations.
+//   Right now types can only be represented as idents.
+// - Replace Name Idents for Decls with simple tokens.
+//
+
+// GraphColor is used to color nodes during dfs to sort dependencies.
+type GraphColor int
+
+// The graph colors.
+//
+// White: node not visited
+// Gray: node visit in progress
+// Black: node visit finished
+const (
+	GraphColorWhite GraphColor = iota
+	GraphColorGray
+	GraphColorBlack
+)
 
 // Node interface.
 type Node interface {
@@ -14,8 +31,8 @@ type Node interface {
 // Decl is the main interface for declaration nodes.
 type Decl interface {
 	Node
+	Symbol() *Symbol
 	declNode()
-	addDependency(symbol *Symbol)
 }
 
 // Stmt is the main interface for statement nodes.
@@ -39,13 +56,12 @@ func (n *baseNode) node() {}
 
 type baseDecl struct {
 	baseNode
-	dependencies []*Symbol
+	Sym *Symbol
 }
 
 func (d *baseDecl) declNode() {}
-
-func (d *baseDecl) addDependency(symbol *Symbol) {
-	d.dependencies = append(d.dependencies, symbol)
+func (d *baseDecl) Symbol() *Symbol {
+	return d.Sym
 }
 
 type BadDecl struct {
@@ -64,11 +80,20 @@ type Program struct {
 
 func (d *Program) FirstPos() token.Position { return token.NoPosition }
 
+type ToplevelDecls struct {
+	File  *File
+	Decls []Decl
+}
+
 type Module struct {
-	baseNode
-	Path     string
-	Name     token.Token
-	Files    []*File
+	baseDecl
+	Path string
+	Name token.Token
+	// Files contain decls in the same order as the source code.
+	Files []*File
+	// Decls are sorted so all identifiers are declared and type checked before used.
+	Decls    []ToplevelDecls
+	Color    GraphColor
 	External *Scope
 	Internal *Scope
 }
@@ -100,7 +125,7 @@ type VarDecl struct {
 	Visibility token.Token
 	Decl       token.Token
 	Name       *Ident
-	Type       *Ident // Use as token.Token instead of Ident
+	Type       *Ident
 	Assign     token.Token
 	X          Expr
 }
@@ -109,7 +134,7 @@ func (d *VarDecl) FirstPos() token.Position { return d.Decl.Pos }
 
 // Field represents a function parameter.
 type Field struct {
-	baseNode
+	baseDecl
 	Name *Ident
 	Type *Ident
 }
@@ -124,7 +149,7 @@ type FuncDecl struct {
 	Lparen     token.Token
 	Params     []*Field
 	Rparen     token.Token
-	Return     *Ident // Nil if no return value
+	Return     *Ident // Return type
 	Body       *BlockStmt
 	Scope      *Scope
 }
@@ -296,10 +321,6 @@ type Literal struct {
 
 func (x *Literal) FirstPos() token.Position { return x.Value.Pos }
 
-func (x *Ident) Literal() string {
-	return x.Name.Literal
-}
-
 type KeyValue struct {
 	baseNode
 	Key   *Ident
@@ -322,16 +343,14 @@ func (x *StructLiteral) FirstPos() token.Position { return x.Name.FirstPos() }
 type Ident struct {
 	baseExpr
 	Name token.Token
-	Sym  *Symbol
 }
 
 func (x *Ident) FirstPos() token.Position { return x.Name.Pos }
-
-func (x *Ident) Type() *TType {
-	if x.Sym == nil || x.Sym.T == nil {
-		return TBuiltinUntyped
-	}
-	return x.Sym.T
+func (x *Ident) Literal() string {
+	return x.Name.Literal
+}
+func (x *Ident) Pos() token.Position {
+	return x.Name.Pos
 }
 
 type FuncCall struct {

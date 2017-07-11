@@ -7,6 +7,7 @@ import (
 
 	"github.com/jhnl/interpreter/common"
 	"github.com/jhnl/interpreter/module"
+	"github.com/jhnl/interpreter/semantics"
 )
 
 func showErrors(oldErrors common.ErrorList, newError error, onlyFatal bool) bool {
@@ -15,7 +16,7 @@ func showErrors(oldErrors common.ErrorList, newError error, onlyFatal bool) bool
 	}
 	if errList, ok := newError.(*common.ErrorList); ok {
 		oldErrors.Merge(errList)
-		if onlyFatal && !oldErrors.IsFatal() {
+		if len(errList.Errors) == 0 || (onlyFatal && !oldErrors.IsFatal()) {
 			return false
 		}
 		errList.Sort()
@@ -24,7 +25,6 @@ func showErrors(oldErrors common.ErrorList, newError error, onlyFatal bool) bool
 			fmt.Printf("%s\n", e)
 		}
 	} else {
-		fmt.Printf("%T\n", newError)
 		fmt.Printf("[error] %s\n", newError)
 	}
 	return true
@@ -46,6 +46,13 @@ func exec(path string) {
 				fmt.Println("    Import", imp.Literal.Literal)
 			}
 		}
+	}
+
+	fmt.Println(semantics.Print(prog))
+
+	err = semantics.Check(prog)
+	if showErrors(errors, err, false) {
+		return
 	}
 
 	/*	if err == nil {

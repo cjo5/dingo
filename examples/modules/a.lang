@@ -1,3 +1,10 @@
 module
 
 import "b"
+
+rst val res: f32 = b.PI;
+
+
+rst val a: i32 = 9;
+rst val f: i32 = c;
+rst val c: i32 = a;

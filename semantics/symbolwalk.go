@@ -8,12 +8,16 @@ import (
 
 type symbolVisitor struct {
 	BaseVisitor
-	c *typeChecker
+	c *checker
 }
 
-func buildSymbolTableTree(c *typeChecker) {
+func symbolWalk(c *checker) {
 	v := &symbolVisitor{c: c}
 	v.VisitProgram(c.prog)
+}
+
+func (v *symbolVisitor) VisitProgram(prog *Program) {
+	VisitModuleList(v, prog.Modules)
 }
 
 func (v *symbolVisitor) VisitModule(mod *Module) {
@@ -39,7 +43,11 @@ func (v *symbolVisitor) VisitFile(file *File) {
 }
 
 func (v *symbolVisitor) VisitImport(decl *Import) {
-	v.c.insert(v.c.file.Scope, ModuleSymbol, decl.Mod.Name, decl.Mod)
+	sym := v.c.insert(v.c.file.Scope, ModuleSymbol, decl.Mod.Name.Literal, decl.Literal.Pos, decl.Mod)
+	// TODO: This should probably be moved to typewalk
+	if sym != nil {
+		sym.T = TBuiltinModule
+	}
 }
 
 func (v *symbolVisitor) VisitVarDecl(decl *VarDecl) {
@@ -53,7 +61,7 @@ func (v *symbolVisitor) VisitVarDecl(decl *VarDecl) {
 	} else {
 		scope = v.c.scope
 	}
-	decl.Name.Sym = v.c.insert(scope, VarSymbol, decl.Name.Name, decl)
+	decl.Sym = v.c.insert(scope, VarSymbol, decl.Name.Literal(), decl.Name.Name.Pos, decl)
 }
 
 func (v *symbolVisitor) VisitFuncDecl(decl *FuncDecl) {
@@ -70,12 +78,12 @@ func (v *symbolVisitor) VisitFuncDecl(decl *FuncDecl) {
 		panic(fmt.Sprintf("Unhandled visibility %s", decl.Visibility))
 	}
 
-	decl.Name.Sym = v.c.insert(scope, FuncSymbol, decl.Name.Name, decl)
+	decl.Sym = v.c.insert(scope, FuncSymbol, decl.Name.Literal(), decl.Name.Pos(), decl)
 	v.c.openScope()
 	decl.Scope = v.c.scope
 
 	for _, param := range decl.Params {
-		v.c.insert(v.c.scope, VarSymbol, param.Name.Name, param.Name)
+		param.Sym = v.c.insert(v.c.scope, VarSymbol, param.Name.Literal(), param.Name.Pos(), param)
 	}
 
 	decl.Body.Scope = decl.Scope
@@ -92,10 +100,14 @@ func (v *symbolVisitor) VisitBlockStmt(stmt *BlockStmt) {
 	v.c.closeScope()
 }
 
+func (v *symbolVisitor) VisitDeclStmt(stmt *DeclStmt) {
+	VisitDecl(v, stmt.D)
+}
+
 func (v *symbolVisitor) VisitIfStmt(stmt *IfStmt) {
 	v.VisitBlockStmt(stmt.Body)
 	if stmt.Else != nil {
-		v.VisitStmt(stmt.Else)
+		VisitStmt(v, stmt.Else)
 	}
 }
 

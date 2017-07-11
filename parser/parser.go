@@ -155,8 +155,7 @@ func (p *parser) parseTopLevelDecl() semantics.Decl {
 
 func (p *parser) parseDecl(visibility token.Token) semantics.Decl {
 	if p.token.ID == token.Var || p.token.ID == token.Val {
-		decl := p.parseVarDecl()
-		decl.Visibility = visibility
+		decl := p.parseVarDecl(visibility)
 		return decl
 	} else if p.token.ID == token.Func {
 		decl := p.parseFuncDecl()
@@ -171,8 +170,9 @@ func (p *parser) parseDecl(visibility token.Token) semantics.Decl {
 	return &semantics.BadDecl{From: tok, To: tok}
 }
 
-func (p *parser) parseVarDecl() *semantics.VarDecl {
+func (p *parser) parseVarDecl(visibility token.Token) *semantics.VarDecl {
 	decl := &semantics.VarDecl{}
+	decl.Visibility = visibility
 	decl.Decl = p.token
 	p.next()
 	decl.Name = p.parseIdent()
@@ -314,7 +314,8 @@ func (p *parser) parseBlockStmt() *semantics.BlockStmt {
 }
 
 func (p *parser) parseVarDeclStmt() *semantics.DeclStmt {
-	d := p.parseVarDecl()
+	visibility := token.Synthetic(token.Invalid, token.Invalid.String())
+	d := p.parseVarDecl(visibility)
 	return &semantics.DeclStmt{D: d}
 }
 

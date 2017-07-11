@@ -8,50 +8,63 @@ import (
 
 type typeVisitor struct {
 	BaseVisitor
-	c    *typeChecker
-	decl Decl
+	c *checker
 }
 
-func typeCheck(c *typeChecker) {
+func typeWalk(c *checker) {
 	v := &typeVisitor{c: c}
 	v.VisitProgram(c.prog)
 }
 
-func setScope(c *typeChecker, scope *Scope) *Scope {
-	curr := c.scope
-	c.scope = curr
-	return curr
-}
+func (v *typeVisitor) VisitProgram(prog *Program) {
+	for _, mod := range prog.Modules {
+		v.c.mod = mod
+		for _, toplevelDecl := range mod.Decls {
+			v.c.file = toplevelDecl.File
+			v.c.scope = toplevelDecl.File.Scope
 
-func (v *typeVisitor) VisitModule(mod *Module) {
-	defer setScope(v.c, setScope(v.c, mod.Internal))
-	v.c.scope = mod.Internal
-	VisitFileList(v, mod.Files)
-	v.c.mod = nil
-}
+			for _, decl := range toplevelDecl.Decls {
+				VisitDecl(v, decl)
+			}
 
-func (v *typeVisitor) VisitFile(file *File) {
-	defer setScope(v.c, setScope(v.c, file.Scope))
-	v.c.file = file
-	VisitDeclList(v, file.Decls)
-	v.c.file = nil
+			v.c.scope = nil
+			v.c.file = nil
+		}
+		v.c.mod = nil
+	}
 }
 
 func (v *typeVisitor) VisitVarDecl(decl *VarDecl) {
+	if decl.Sym == nil {
+		return
+	}
+
 	t := v.c.typeOf(decl.Type.Name)
-	decl.Name.Sym.T = t
+	decl.Sym.T = t
+	decl.Name.T = t
 	if t == TBuiltinUntyped {
 		return
 	}
 
 	if decl.Decl.Is(token.Val) {
-		decl.Name.Sym.Constant = true
+		decl.Sym.Flags |= SymFlagConstant
+	}
+
+	if (decl.Sym.Flags & SymFlagDepCycle) != 0 {
+		return
 	}
 
 	if decl.X != nil {
-		v.decl = decl
-		decl.X = v.VisitExpr(decl.X)
-		v.decl = nil
+		decl.X = VisitExpr(v, decl.X)
+
+		if !v.c.tryCastLiteral(decl.X, t) {
+			return
+		}
+
+		if t.ID != decl.X.Type().ID {
+			v.c.error(decl.X.FirstPos(), "type mismatch: '%s' has type %s and is not compatible with %s",
+				decl.Name.Literal(), decl.Name.Type(), decl.X.Type())
+		}
 	} else {
 		// Default values
 		var lit *Literal
@@ -75,18 +88,19 @@ func (v *typeVisitor) VisitVarDecl(decl *VarDecl) {
 }
 
 func (v *typeVisitor) VisitFuncDecl(decl *FuncDecl) {
-	defer setScope(v.c, setScope(v.c, decl.Scope))
+	defer setScope(setScope(v.c, decl.Scope))
 	v.c.fun = decl
 
 	for _, param := range decl.Params {
-		param.Name.Sym.T = v.c.typeOf(param.Type.Name)
+		if param.Sym != nil {
+			param.Sym.T = v.c.typeOf(param.Type.Name)
+			param.Name.T = param.Sym.T
+		}
 	}
 
-	decl.Return.Sym.T = v.c.typeOf(decl.Return.Name)
+	decl.Return.T = v.c.typeOf(decl.Return.Name)
 
-	v.decl = decl
 	v.VisitBlockStmt(decl.Body)
-	v.decl = nil
 
 	// TODO: See if this can be improved
 
@@ -107,26 +121,34 @@ func (v *typeVisitor) VisitFuncDecl(decl *FuncDecl) {
 
 	v.c.fun = nil
 }
+func (v *typeVisitor) VisitBlockStmt(stmt *BlockStmt) {
+	defer setScope(setScope(v.c, stmt.Scope))
+	VisitStmtList(v, stmt.Stmts)
+}
+
+func (v *typeVisitor) VisitDeclStmt(stmt *DeclStmt) {
+	VisitDecl(v, stmt.D)
+}
 
 func (v *typeVisitor) VisitPrintStmt(stmt *PrintStmt) {
-	stmt.X = v.VisitExpr(stmt.X)
+	stmt.X = VisitExpr(v, stmt.X)
 }
 
 func (v *typeVisitor) VisitIfStmt(stmt *IfStmt) {
-	stmt.Cond = v.VisitExpr(stmt.Cond)
+	stmt.Cond = VisitExpr(v, stmt.Cond)
 	if stmt.Cond.Type().ID != TBool {
-		v.c.errorPos(stmt.Cond.FirstPos(), "if condition is not of type %s (has type %s)", TBool, stmt.Cond.Type())
+		v.c.error(stmt.Cond.FirstPos(), "if condition is not of type %s (has type %s)", TBool, stmt.Cond.Type())
 	}
 
 	v.VisitBlockStmt(stmt.Body)
 	if stmt.Else != nil {
-		v.VisitStmt(stmt.Else)
+		VisitStmt(v, stmt.Else)
 	}
 }
 func (v *typeVisitor) VisitWhileStmt(stmt *WhileStmt) {
-	stmt.Cond = v.VisitExpr(stmt.Cond)
+	stmt.Cond = VisitExpr(v, stmt.Cond)
 	if stmt.Cond.Type().ID != TBool {
-		v.c.errorPos(stmt.Cond.FirstPos(), "while condition is not of type %s (has type %s)", TBool, stmt.Cond.Type())
+		v.c.error(stmt.Cond.FirstPos(), "while condition is not of type %s (has type %s)", TBool, stmt.Cond.Type())
 	}
 	v.VisitBlockStmt(stmt.Body)
 }
@@ -141,7 +163,7 @@ func (v *typeVisitor) VisitReturnStmt(stmt *ReturnStmt) {
 			mismatch = true
 		}
 	} else {
-		stmt.X = v.VisitExpr(stmt.X)
+		stmt.X = VisitExpr(v, stmt.X)
 		if !v.c.tryCastLiteral(stmt.X, retType) {
 			exprType = stmt.X.Type().ID
 			mismatch = true
@@ -152,18 +174,22 @@ func (v *typeVisitor) VisitReturnStmt(stmt *ReturnStmt) {
 	}
 
 	if mismatch {
-		v.c.error(stmt.Return, "type mismatch: return type %s does not match function '%s' return type %s",
+		v.c.error(stmt.Return.Pos, "type mismatch: return type %s does not match function '%s' return type %s",
 			exprType, v.c.fun.Name.Literal(), retType.ID)
 	}
-
 }
 
 func (v *typeVisitor) VisitAssignStmt(stmt *AssignStmt) {
 	v.VisitIdent(stmt.Name)
-	stmt.Right = v.VisitExpr(stmt.Right)
+	sym := v.c.lookup(stmt.Name.Name)
+	if sym == nil {
+		return
+	}
 
-	if stmt.Name.Sym.Constant {
-		v.c.error(stmt.Name.Name, "'%s' was declared with %s and cannot be modified (constant)",
+	stmt.Right = VisitExpr(v, stmt.Right)
+
+	if sym.Constant() {
+		v.c.error(stmt.Name.Pos(), "'%s' was declared with %s and cannot be modified (constant)",
 			stmt.Name.Literal(), token.Val)
 	}
 
@@ -172,18 +198,18 @@ func (v *typeVisitor) VisitAssignStmt(stmt *AssignStmt) {
 	}
 
 	if stmt.Name.Type().ID != stmt.Right.Type().ID {
-		v.c.error(stmt.Name.Name, "type mismatch: '%s' is of type %s and it not compatible with %s",
+		v.c.error(stmt.Name.Pos(), "type mismatch: '%s' is of type %s and it not compatible with %s",
 			stmt.Name.Literal(), stmt.Name.Type(), stmt.Right.Type())
 	}
 
 	if stmt.Assign.ID != token.Assign {
 		if !stmt.Name.Type().IsNumericType() {
-			v.c.error(stmt.Name.Name, "type mismatch: %s is not numeric (has type %s)",
+			v.c.error(stmt.Name.Pos(), "type mismatch: %s is not numeric (has type %s)",
 				stmt.Assign, stmt.Name.Literal(), stmt.Name.Type().ID)
 		}
 	}
 }
 
 func (v *typeVisitor) VisitExprStmt(stmt *ExprStmt) {
-	stmt.X = v.VisitExpr(stmt.X)
+	stmt.X = VisitExpr(v, stmt.X)
 }

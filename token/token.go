@@ -221,17 +221,16 @@ type Token struct {
 	Pos     Position
 }
 
-// Synthetic creates an artificial token that does not have a representation in the source code.
+// Synthetic creates a token that does not have a representation in the source code.
 func Synthetic(id ID, literal string) Token {
 	return Token{ID: id, Literal: literal, Pos: Position{Line: -1, Column: -1}}
 }
 
 func (t Token) String() string {
-	s := fmt.Sprintf("%s: %v", t.Pos, t.ID)
 	if t.ID == Ident || t.ID == String || t.ID == Integer || t.ID == Float {
-		s += ":" + t.Literal
+		return fmt.Sprintf("%s: %s", t.Pos, t.Literal)
 	}
-	return s
+	return fmt.Sprintf("%s: %v", t.Pos, t.ID)
 }
 
 func (t Token) IsValid() bool {

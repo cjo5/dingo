@@ -127,9 +127,9 @@ func (e *ErrorList) Count() int {
 	return len(e.Errors)
 }
 
-// Sort errors by filename.
+// Sort errors by filename and line numbers.
 func (e *ErrorList) Sort() {
-	sort.Stable(byFilename(e.Errors))
+	sort.Stable(byFileAndLineNumber(e.Errors))
 }
 
 // Filter remove errors that are in the same file and line.
@@ -148,11 +148,18 @@ func (e *ErrorList) Filter() {
 	}
 }
 
-type byFilename []*Error
+type byFileAndLineNumber []*Error
 
-func (e byFilename) Len() int           { return len(e) }
-func (e byFilename) Swap(i, j int)      { e[i], e[j] = e[j], e[i] }
-func (e byFilename) Less(i, j int) bool { return e[i].Filename < e[j].Filename }
+func (e byFileAndLineNumber) Len() int      { return len(e) }
+func (e byFileAndLineNumber) Swap(i, j int) { e[i], e[j] = e[j], e[i] }
+func (e byFileAndLineNumber) Less(i, j int) bool {
+	if e[i].Filename < e[j].Filename {
+		return true
+	} else if e[i].Filename == e[j].Filename {
+		return e[i].Pos.Line < e[j].Pos.Line
+	}
+	return false
+}
 
 func (e ErrorList) Error() string {
 	switch len(e.Errors) {

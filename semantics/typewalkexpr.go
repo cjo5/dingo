@@ -11,8 +11,8 @@ import (
 // TODO: Evaluate constant boolean expressions
 
 func (v *typeVisitor) VisitBinaryExpr(expr *BinaryExpr) Expr {
-	expr.Left = v.VisitExpr(expr.Left)
-	expr.Right = v.VisitExpr(expr.Right)
+	expr.Left = VisitExpr(v, expr.Left)
+	expr.Right = VisitExpr(v, expr.Right)
 
 	leftType := expr.Left.Type()
 	rightType := expr.Right.Type()
@@ -24,7 +24,7 @@ func (v *typeVisitor) VisitBinaryExpr(expr *BinaryExpr) Expr {
 
 	if expr.Op.OneOf(token.And, token.Or) {
 		if leftType.ID != TBool || rightType.ID != TBool {
-			v.c.error(expr.Op, "type mismatch: arguments to operation '%s' are not of type %s (got %s and %s)",
+			v.c.error(expr.Op.Pos, "type mismatch: arguments to operation '%s' are not of type %s (got %s and %s)",
 				expr.Op.ID, TBool, leftType.ID, rightType.ID)
 		} else {
 			binType = TBool
@@ -53,7 +53,7 @@ func (v *typeVisitor) VisitBinaryExpr(expr *BinaryExpr) Expr {
 			if expr.Op.ID == token.Div || expr.Op.ID == token.Mod {
 				if (rightBigInt != nil && rightBigInt.Cmp(BigIntZero) == 0) ||
 					(rightBigFloat != nil && rightBigFloat.Cmp(BigFloatZero) == 0) {
-					v.c.error(rightLit.Value, "Division by zero")
+					v.c.error(rightLit.Value.Pos, "Division by zero")
 					expr.T = NewType(TUntyped)
 					return expr
 				}
@@ -175,9 +175,9 @@ func (v *typeVisitor) VisitBinaryExpr(expr *BinaryExpr) Expr {
 		}
 
 		if typeNotSupported != TUntyped {
-			v.c.error(expr.Op, "operation '%s' does not support type %s", expr.Op.ID, typeNotSupported)
+			v.c.error(expr.Op.Pos, "operation '%s' does not support type %s", expr.Op.ID, typeNotSupported)
 		} else if leftType.ID != rightType.ID {
-			v.c.error(expr.Op, "type mismatch: arguments to operation '%s' are not compatible (got %s and %s)",
+			v.c.error(expr.Op.Pos, "type mismatch: arguments to operation '%s' are not compatible (got %s and %s)",
 				expr.Op.ID, leftType.ID, rightType.ID)
 		} else {
 			if boolOp {
@@ -195,12 +195,12 @@ func (v *typeVisitor) VisitBinaryExpr(expr *BinaryExpr) Expr {
 }
 
 func (v *typeVisitor) VisitUnaryExpr(expr *UnaryExpr) Expr {
-	expr.X = v.VisitExpr(expr.X)
+	expr.X = VisitExpr(v, expr.X)
 	expr.T = expr.X.Type()
 	switch expr.Op.ID {
 	case token.Sub:
 		if !expr.T.IsNumericType() {
-			v.c.error(expr.Op, "type mismatch: operation '%s' expects a numeric type but got %s", token.Sub, expr.T.ID)
+			v.c.error(expr.Op.Pos, "type mismatch: operation '%s' expects a numeric type but got %s", token.Sub, expr.T.ID)
 		} else if lit, ok := expr.X.(*Literal); ok {
 			var raw interface{}
 
@@ -224,7 +224,7 @@ func (v *typeVisitor) VisitUnaryExpr(expr *UnaryExpr) Expr {
 		}
 	case token.Lnot:
 		if expr.T.ID != TBool {
-			v.c.error(expr.Op, "type mismatch: operation '%s' expects type %s but got %s", token.Lnot, TBool, expr.T.ID)
+			v.c.error(expr.Op.Pos, "type mismatch: operation '%s' expects type %s but got %s", token.Lnot, TBool, expr.T.ID)
 		}
 	default:
 		panic(fmt.Sprintf("Unhandled unary op %s", expr.Op.ID))
@@ -298,7 +298,7 @@ func (v *typeVisitor) VisitLiteral(expr *Literal) Expr {
 			normalized := removeUnderscores(expr.Value.Literal)
 			_, ok := val.SetString(normalized, 0)
 			if !ok {
-				v.c.error(expr.Value, "unable to interpret integer literal %s", normalized)
+				v.c.error(expr.Value.Pos, "unable to interpret integer literal %s", normalized)
 			}
 			expr.T = NewType(TBigInt)
 			expr.Raw = val
@@ -309,7 +309,7 @@ func (v *typeVisitor) VisitLiteral(expr *Literal) Expr {
 			normalized := removeUnderscores(expr.Value.Literal)
 			_, ok := val.SetString(normalized)
 			if !ok {
-				v.c.error(expr.Value, "unable to interpret float literal %s", normalized)
+				v.c.error(expr.Value.Pos, "unable to interpret float literal %s", normalized)
 			}
 			expr.T = NewType(TBigFloat)
 			expr.Raw = val
@@ -327,44 +327,41 @@ func (v *typeVisitor) VisitStructLiteral(expr *StructLiteral) Expr {
 func (v *typeVisitor) VisitIdent(expr *Ident) Expr {
 	sym := v.c.lookup(expr.Name)
 	if sym == nil {
-		v.c.error(expr.Name, "'%s' undefined", expr.Name.Literal)
+		v.c.error(expr.Name.Pos, "'%s' undefined", expr.Name.Literal)
+		expr.T = TBuiltinUntyped
 	} else {
-		v.decl.addDependency(sym)
+		expr.T = sym.T
 	}
-	expr.Sym = sym
-
 	return expr
 }
 
 func (v *typeVisitor) VisitFuncCall(expr *FuncCall) Expr {
-	sym := v.c.scope.Lookup(expr.Name.Literal())
-	if sym == nil {
-		v.c.error(expr.Name.Name, "'%s' undefined", expr.Name.Literal())
-	} else if sym.ID != FuncSymbol && sym.ID != TypeSymbol {
-		v.c.error(expr.Name.Name, "'%s' is not a function", sym.Name.Literal)
+	sym := v.c.lookup(expr.Name.Name)
+	if sym != nil && sym.ID != FuncSymbol && sym.ID != TypeSymbol {
+		v.c.error(expr.Name.Pos(), "'%s' is not a function", sym.Name)
 	}
 
 	v.VisitIdent(expr.Name)
 	for i, arg := range expr.Args {
-		expr.Args[i] = v.VisitExpr(arg)
+		expr.Args[i] = VisitExpr(v, arg)
 	}
 
 	if sym != nil {
 		if sym.ID == TypeSymbol {
 			if len(expr.Args) != 1 {
-				v.c.error(expr.Name.Name, "type conversion %s takes exactly 1 argument", sym.T.ID)
+				v.c.error(expr.Name.Pos(), "type conversion %s takes exactly 1 argument", sym.T.ID)
 			} else if !castableType(expr.Args[0].Type(), sym.T) {
-				v.c.error(expr.Name.Name, "type mismatch: %s cannot be converted to %s", expr.Args[0].Type(), sym.T)
+				v.c.error(expr.Name.Pos(), "type mismatch: %s cannot be converted to %s", expr.Args[0].Type(), sym.T)
 			} else if v.c.tryCastLiteral(expr.Args[0], sym.T) {
 				expr.T = sym.T
 			}
 		} else if sym.ID == FuncSymbol {
 			decl, _ := sym.Src.(*FuncDecl)
 			if len(decl.Params) != len(expr.Args) {
-				v.c.error(expr.Name.Name, "'%s' takes %d argument(s) but called with %d", sym.Name.Literal, len(decl.Params), len(expr.Args))
+				v.c.error(expr.Name.Pos(), "'%s' takes %d argument(s) but called with %d", sym.Name, len(decl.Params), len(expr.Args))
 			} else {
 				for i, arg := range expr.Args {
-					paramType := decl.Params[i].Name.Type()
+					paramType := decl.Params[i].Sym.T
 
 					if !v.c.tryCastLiteral(arg, paramType) {
 						continue
@@ -372,7 +369,7 @@ func (v *typeVisitor) VisitFuncCall(expr *FuncCall) Expr {
 
 					argType := arg.Type()
 					if argType.ID != paramType.ID {
-						v.c.errorPos(arg.FirstPos(), "type mismatch: argument %d of function '%s' expects type %s but got %s",
+						v.c.error(arg.FirstPos(), "type mismatch: argument %d of function '%s' expects type %s but got %s",
 							i, expr.Name.Literal(), paramType.ID, argType.ID)
 					}
 				}
@@ -389,5 +386,23 @@ func (v *typeVisitor) VisitFuncCall(expr *FuncCall) Expr {
 }
 
 func (v *typeVisitor) VisitDotExpr(expr *DotExpr) Expr {
-	panic("VisitDotExpr")
+	sym := v.c.lookup(expr.Name.Name)
+
+	if sym == nil {
+		return expr
+	}
+
+	if sym.ID != ModuleSymbol {
+		v.c.error(expr.Name.Pos(), "'%s' is not a module", expr.Name.Literal())
+		expr.T = TBuiltinUntyped
+		return expr
+	}
+
+	mod, _ := sym.Src.(*Module)
+	defer setScope(setScope(v.c, mod.External))
+
+	expr.X = VisitExpr(v, expr.X)
+	expr.T = expr.X.Type()
+
+	return expr
 }

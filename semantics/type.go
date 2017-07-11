@@ -13,6 +13,7 @@ const (
 	TVoid
 	TBool
 	TString
+	TModule
 
 	// Only used as intermediary types when evaluating constant expressions.
 	TBigInt
@@ -36,6 +37,7 @@ var types = [...]string{
 	TVoid:     "void",
 	TBool:     "bool",
 	TString:   "str",
+	TModule:   "module",
 	TBigInt:   "integer",
 	TBigFloat: "float",
 	TUInt64:   "u64",
@@ -56,6 +58,7 @@ var (
 	TBuiltinVoid    = NewType(TVoid)
 	TBuiltinBool    = NewType(TBool)
 	TBuiltinString  = NewType(TString)
+	TBuiltinModule  = NewType(TModule)
 	TBuiltinUInt64  = NewType(TUInt64)
 	TBuiltinInt64   = NewType(TInt64)
 	TBuiltinUInt32  = NewType(TUInt32)

@@ -1,5 +1,8 @@
 package semantics
 
+import "bytes"
+import "fmt"
+
 type Scope struct {
 	Outer   *Scope
 	Symbols map[string]*Symbol
@@ -7,14 +10,27 @@ type Scope struct {
 
 // NewScope creates a new scope nested in the outer scope.
 func NewScope(outer *Scope) *Scope {
-	const n = 4 // initial scope capacity
+	const n = 4 // Initial scope capacity
 	return &Scope{outer, make(map[string]*Symbol, n)}
+}
+
+func (s *Scope) String() string {
+	var buf bytes.Buffer
+	idx := 0
+	for k, v := range s.Symbols {
+		buf.WriteString(fmt.Sprintf("%s = %s", k, v))
+		idx++
+		if idx < len(s.Symbols) {
+			buf.WriteString("\n")
+		}
+	}
+	return buf.String()
 }
 
 func (s *Scope) Insert(sym *Symbol) *Symbol {
 	var existing *Symbol
-	if existing = s.Symbols[sym.Name.Literal]; existing == nil {
-		s.Symbols[sym.Name.Literal] = sym
+	if existing = s.Symbols[sym.Name]; existing == nil {
+		s.Symbols[sym.Name] = sym
 	}
 	return existing
 }

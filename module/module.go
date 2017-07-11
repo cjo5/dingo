@@ -18,18 +18,10 @@ import (
 const langExtension = ".lang"
 const packageFile = "package" + langExtension
 
-type color int
-
-const (
-	white color = iota
-	gray
-	black
-)
-
 type moduleImport struct {
 	imp  *semantics.Import
 	path string
-	mod  *loadedModule // Remove since imp.mod can be used instead
+	mod  *loadedModule
 }
 
 type loadedFile struct {
@@ -41,7 +33,6 @@ type loadedFile struct {
 type loadedModule struct {
 	mod   *semantics.Module
 	files []*loadedFile
-	color color
 }
 
 type loader struct {
@@ -105,13 +96,12 @@ func Load(path string) (*semantics.Program, error) {
 		return nil, loader.errors
 	}
 
-	var modules []*semantics.Module
-	if !loader.getModules(&modules) {
-		// This shouldn't actually happen since cycles are checked when loading imports
-		panic("cycle detected")
+	prog := &semantics.Program{Main: mainModule.mod}
+	for _, loadedMod := range loader.loadedModules {
+		prog.Modules = append(prog.Modules, loadedMod.mod)
 	}
 
-	return &semantics.Program{Main: mainModule.mod, Modules: modules}, loader.errors
+	return prog, loader.errors
 }
 
 func (l *loader) loadModule(filename string) *loadedModule {
@@ -211,8 +201,8 @@ func (l *loader) createModuleImports(file *semantics.File, dir string) []*module
 		if foundMod != nil {
 			var traceLines []string
 			if checkImportCycle(foundMod, file.Path, &traceLines) {
-				trace := common.NewTrace(fmt.Sprintf("%s imports:", imp.Literal.Literal), nil)
-				for i := len(traceLines) - 2; i >= 0; i-- {
+				trace := common.NewTrace(fmt.Sprintf("%s imports:", file.Path), nil)
+				for i := len(traceLines) - 1; i >= 0; i-- {
 					trace.Lines = append(trace.Lines, traceLines[i])
 				}
 				l.errors.AddTrace(file.Path, imp.Literal.Pos, trace, "import cycle detected")
@@ -254,44 +244,14 @@ func (l *loader) getImportedByTrace() common.Trace {
 	return common.NewTrace("imported by:", trace)
 }
 
-func (l *loader) getModules(modules *[]*semantics.Module) bool {
-	for _, mod := range l.loadedModules {
-		mod.color = white
-	}
-	for _, mod := range l.loadedModules {
-		if mod.color == white {
-			if !dfs(mod, modules) {
-				return false
-			}
-		}
-	}
-	return true
-}
-
-// Returns false if a cycle is detected.
-func dfs(loadedModule *loadedModule, modules *[]*semantics.Module) bool {
-	loadedModule.color = gray
-	for _, loadedFile := range loadedModule.files {
-		for _, imp := range loadedFile.imports {
-			if imp.mod.color == gray {
-				return false
-			}
-			if imp.mod.color == white {
-				if !dfs(imp.mod, modules) {
-					return false
-				}
-			}
-		}
-	}
-	loadedModule.color = black
-	*modules = append(*modules, loadedModule.mod)
-	return true
-}
-
 func normalizePath(rel string, path string, appendExtension bool) (string, error) {
-	absPath, err := filepath.Abs(filepath.Join(rel, path))
+	/*absPath, err := filepath.Abs(filepath.Join(rel, path))
 	if err != nil {
 		return "", err
+	}*/
+	absPath := filepath.Join(rel, path)
+	if !strings.HasPrefix(absPath, "/") {
+		absPath = "./" + absPath
 	}
 
 	absFilePath := absPath

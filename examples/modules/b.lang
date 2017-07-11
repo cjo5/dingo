@@ -1,3 +1,5 @@
 module
 
-import "pkg"
+
+ext val PI: f32 = 5.0;
+
