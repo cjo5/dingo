@@ -77,10 +77,6 @@ type baseTopDecl struct {
 	Sym *Symbol
 	Ctx *FileContext
 
-	Visibility token.Token
-	Decl       token.Token
-	Name       token.Token
-
 	deps  []TopDecl
 	color NodeColor
 }
@@ -162,11 +158,18 @@ type Import struct {
 
 func (i *Import) FirstPos() token.Position { return i.Import.Pos }
 
-type ValTopDecl struct {
-	baseTopDecl
+type ValDeclSpec struct {
+	Decl        token.Token
+	Name        token.Token
 	Type        token.Token
 	Assign      token.Token
 	Initializer Expr
+}
+
+type ValTopDecl struct {
+	baseTopDecl
+	ValDeclSpec
+	Visibility token.Token
 }
 
 func (d *ValTopDecl) FirstPos() token.Position {
@@ -178,12 +181,8 @@ func (d *ValTopDecl) FirstPos() token.Position {
 
 type ValDecl struct {
 	baseDecl
-	Sym         *Symbol
-	Decl        token.Token
-	Name        token.Token
-	Type        token.Token
-	Assign      token.Token
-	Initializer Expr
+	ValDeclSpec
+	Sym *Symbol
 }
 
 func (d *ValDecl) FirstPos() token.Position {
@@ -192,22 +191,28 @@ func (d *ValDecl) FirstPos() token.Position {
 
 type FuncDecl struct {
 	baseTopDecl
-	Lparen  token.Token
-	Params  []*ValDecl
-	Rparen  token.Token
-	TReturn *Ident
-	Body    *BlockStmt
-	Scope   *Scope
+	Visibility token.Token
+	Decl       token.Token
+	Name       token.Token
+	Lparen     token.Token
+	Params     []*ValDecl
+	Rparen     token.Token
+	TReturn    *Ident
+	Body       *BlockStmt
+	Scope      *Scope
 }
 
 func (d *FuncDecl) FirstPos() token.Position { return d.Decl.Pos }
 
 type StructDecl struct {
 	baseTopDecl
-	Lbrace token.Token
-	Fields []*ValDecl
-	Rbrace token.Token
-	Scope  *Scope
+	Visibility token.Token
+	Decl       token.Token
+	Name       token.Token
+	Lbrace     token.Token
+	Fields     []*ValDecl
+	Rbrace     token.Token
+	Scope      *Scope
 }
 
 func (d *StructDecl) FirstPos() token.Position { return d.Decl.Pos }

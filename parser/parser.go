@@ -176,25 +176,19 @@ func (p *parser) parseTopDecl() semantics.TopDecl {
 func (p *parser) parseValTopDecl(visibility token.Token) *semantics.ValTopDecl {
 	decl := &semantics.ValTopDecl{}
 	decl.Visibility = visibility
-	decl.Decl = p.token
-	p.next()
-	decl.Name = p.token
-	p.expect(token.Ident)
-	p.expect(token.Colon)
-	decl.Type = p.token
-	p.expect(token.Ident)
-
-	if p.token.ID == token.Assign {
-		p.expect(token.Assign)
-		decl.Initializer = p.parseExpr()
-	}
-
+	decl.ValDeclSpec = p.parseValDeclSpec()
 	p.expect(token.Semicolon)
 	return decl
 }
 
 func (p *parser) parseValDecl() *semantics.ValDecl {
 	decl := &semantics.ValDecl{}
+	decl.ValDeclSpec = p.parseValDeclSpec()
+	return decl
+}
+
+func (p *parser) parseValDeclSpec() semantics.ValDeclSpec {
+	decl := semantics.ValDeclSpec{}
 
 	if p.token.OneOf(token.Val, token.Var) {
 		decl.Decl = p.token

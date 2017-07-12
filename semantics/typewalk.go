@@ -26,56 +26,29 @@ func (v *typeVisitor) Module(mod *Module) {
 }
 
 func (v *typeVisitor) VisitValTopDecl(decl *ValTopDecl) {
-	if decl.Sym == nil {
-		return
-	}
-
-	t := v.c.typeOf(decl.Type)
-	decl.Sym.T = t
-	if t == TBuiltinUntyped {
-		return
-	}
-
-	if decl.Decl.Is(token.Val) {
-		decl.Sym.Flags |= SymFlagConstant
-	}
-
-	if (decl.Sym.Flags & SymFlagDepCycle) != 0 {
-		return
-	}
-
-	if decl.Initializer != nil {
-		decl.Initializer = VisitExpr(v, decl.Initializer)
-
-		if !v.c.tryCastLiteral(decl.Initializer, t) {
-			return
-		}
-
-		if t.ID != decl.Initializer.Type().ID {
-			v.c.error(decl.Initializer.FirstPos(), "type mismatch: '%s' has type %s and is not compatible with %s",
-				decl.Name.Literal, t, decl.Initializer.Type())
-		}
-	} else {
-		decl.Initializer = createDefaultValue(t)
-	}
+	v.visitValDeclSpec(decl.Sym, &decl.ValDeclSpec)
 }
 
 func (v *typeVisitor) VisitValDecl(decl *ValDecl) {
-	if decl.Sym == nil {
+	v.visitValDeclSpec(decl.Sym, &decl.ValDeclSpec)
+}
+
+func (v *typeVisitor) visitValDeclSpec(sym *Symbol, decl *ValDeclSpec) {
+	if sym == nil {
 		return
 	}
 
 	t := v.c.typeOf(decl.Type)
-	decl.Sym.T = t
+	sym.T = t
 	if t == TBuiltinUntyped {
 		return
 	}
 
 	if decl.Decl.Is(token.Val) {
-		decl.Sym.Flags |= SymFlagConstant
+		sym.Flags |= SymFlagConstant
 	}
 
-	if (decl.Sym.Flags & SymFlagDepCycle) != 0 {
+	if (sym.Flags & SymFlagDepCycle) != 0 {
 		return
 	}
 

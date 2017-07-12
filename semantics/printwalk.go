@@ -87,16 +87,16 @@ func (p *printVisitor) VisitDeclStmt(stmt *DeclStmt) {
 
 func (p *printVisitor) VisitValTopDecl(decl *ValTopDecl) {
 	defer dec(inc(p))
-	p.printToken(decl.Decl)
-	p.printToken(decl.Name)
-	p.printToken(decl.Type)
-	if decl.Initializer != nil {
-		VisitExpr(p, decl.Initializer)
-	}
+	p.printToken(decl.Visibility)
+	p.visitValDeclSpec(&decl.ValDeclSpec)
 }
 
 func (p *printVisitor) VisitValDecl(decl *ValDecl) {
 	defer dec(inc(p))
+	p.visitValDeclSpec(&decl.ValDeclSpec)
+}
+
+func (p *printVisitor) visitValDeclSpec(decl *ValDeclSpec) {
 	p.printToken(decl.Decl)
 	p.printToken(decl.Name)
 	p.printToken(decl.Type)
