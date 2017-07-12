@@ -25,7 +25,7 @@ type moduleImport struct {
 }
 
 type loadedFile struct {
-	file       *semantics.FileDecls
+	file       *semantics.File
 	importedBy *loadedFile
 	imports    []*moduleImport
 }
@@ -68,7 +68,7 @@ func Load(path string) (*semantics.Program, error) {
 		for _, loadedFile := range loadedMod.files {
 			loader.currentFile = loadedFile
 
-			parentDir := filepath.Dir(loadedFile.file.Info.Path)
+			parentDir := filepath.Dir(loadedFile.file.Ctx.Path)
 			loadedFile.imports = loader.createModuleImports(loadedFile.file, parentDir)
 
 			for _, currentImport := range loadedFile.imports {
@@ -105,20 +105,20 @@ func Load(path string) (*semantics.Program, error) {
 }
 
 func (l *loader) loadModule(filename string) *loadedModule {
-	mainFile, err := parser.ParseFile(filename)
+	mainFile, mainDecls, err := parser.ParseFile(filename)
 	if err != nil {
 		l.errors.AddGeneric(filename, token.NoPosition, err)
 		return nil
 	}
 
-	if !mainFile.Info.Decl.IsValid() {
+	if !mainFile.Ctx.Decl.IsValid() {
 		l.errors.AddTrace(filename, token.NoPosition, l.getImportedByTrace(), "not declared as a module")
 		return nil
 	}
 
-	mainFile.Info.Path = filename
 	mod := &semantics.Module{}
 	mod.Files = append(mod.Files, mainFile)
+	mod.Decls = append(mod.Decls, mainDecls...)
 	loadedMod := &loadedModule{mod: mod}
 	loadedMod.files = append(loadedMod.files, &loadedFile{file: mainFile})
 
@@ -152,16 +152,17 @@ func (l *loader) loadModule(filename string) *loadedModule {
 	}
 
 	for _, f := range packageFiles {
-		file, err := parser.ParseFile(f)
+		file, decls, err := parser.ParseFile(f)
 
-		if file.Info.Decl.IsValid() {
+		if file.Ctx.Decl.IsValid() {
 			l.errors.AddNonFatal(f, token.NoPosition, "ignoring file as it's not part of module package %s (declared as a separate module)", moduleName)
 		} else {
 			if err != nil {
 				l.errors.AddGeneric(f, token.NoPosition, err)
 			}
-			file.Info.Path = f
+			file.Ctx.Path = f
 			mod.Files = append(mod.Files, file)
+			mod.Decls = append(mod.Decls, decls...)
 			loadedMod.files = append(loadedMod.files, &loadedFile{file: file})
 		}
 	}
@@ -169,43 +170,43 @@ func (l *loader) loadModule(filename string) *loadedModule {
 	return loadedMod
 }
 
-func (l *loader) createModuleImports(file *semantics.FileDecls, dir string) []*moduleImport {
+func (l *loader) createModuleImports(file *semantics.File, dir string) []*moduleImport {
 	var imports []*moduleImport
 
-	for _, imp := range file.Info.Imports {
+	for _, imp := range file.Imports {
 		unquoted, err := strconv.Unquote(imp.Literal.Literal)
 		if err != nil {
-			l.errors.AddGeneric(file.Info.Path, imp.Literal.Pos, err)
+			l.errors.AddGeneric(file.Ctx.Path, imp.Literal.Pos, err)
 			break
 		}
 
 		if len(unquoted) == 0 {
-			l.errors.AddTrace(file.Info.Path, imp.Literal.Pos, l.getImportedByTrace(), "invalid path")
+			l.errors.AddTrace(file.Ctx.Path, imp.Literal.Pos, l.getImportedByTrace(), "invalid path")
 			continue
 		} else if unquoted[0] == '/' {
-			l.errors.AddTrace(file.Info.Path, imp.Literal.Pos, l.getImportedByTrace(), "import path cannot be absolute")
+			l.errors.AddTrace(file.Ctx.Path, imp.Literal.Pos, l.getImportedByTrace(), "import path cannot be absolute")
 			continue
 		}
 
 		norm, err := normalizePath(dir, unquoted, true)
 		if err != nil {
-			l.errors.AddGeneric(file.Info.Path, imp.Literal.Pos, err)
+			l.errors.AddGeneric(file.Ctx.Path, imp.Literal.Pos, err)
 		}
 
 		foundMod, foundFile := l.findLoadedModule(norm)
-		if foundFile != nil && !foundFile.file.Info.Decl.IsValid() {
-			l.errors.AddTrace(file.Info.Path, imp.Literal.Pos, l.getImportedByTrace(), "import %s does not designate a valid module", imp.Literal.Literal)
+		if foundFile != nil && !foundFile.file.Ctx.Decl.IsValid() {
+			l.errors.AddTrace(file.Ctx.Path, imp.Literal.Pos, l.getImportedByTrace(), "import %s does not designate a valid module", imp.Literal.Literal)
 			continue
 		}
 
 		if foundMod != nil {
 			var traceLines []string
-			if checkImportCycle(foundMod, file.Info.Path, &traceLines) {
-				trace := common.NewTrace(fmt.Sprintf("%s imports:", file.Info.Path), nil)
+			if checkImportCycle(foundMod, file.Ctx.Path, &traceLines) {
+				trace := common.NewTrace(fmt.Sprintf("%s imports:", file.Ctx.Path), nil)
 				for i := len(traceLines) - 1; i >= 0; i-- {
 					trace.Lines = append(trace.Lines, traceLines[i])
 				}
-				l.errors.AddTrace(file.Info.Path, imp.Literal.Pos, trace, "import cycle detected")
+				l.errors.AddTrace(file.Ctx.Path, imp.Literal.Pos, trace, "import cycle detected")
 				continue
 			}
 			imp.Mod = foundMod.mod
@@ -224,7 +225,7 @@ func (l *loader) createModuleImports(file *semantics.FileDecls, dir string) []*m
 func (l *loader) findLoadedModule(importPath string) (*loadedModule, *loadedFile) {
 	for _, loadedMod := range l.loadedModules {
 		for _, loadedFile := range loadedMod.files {
-			if loadedFile.file.Info.Path == importPath {
+			if loadedFile.file.Ctx.Path == importPath {
 				return loadedMod, loadedFile
 			}
 		}
@@ -238,7 +239,7 @@ func (l *loader) findLoadedModule(importPath string) (*loadedModule, *loadedFile
 func (l *loader) getImportedByTrace() common.Trace {
 	var trace []string
 	for file := l.currentFile; file != nil; {
-		trace = append(trace, file.file.Info.Path)
+		trace = append(trace, file.file.Ctx.Path)
 		file = file.importedBy
 	}
 	return common.NewTrace("imported by:", trace)
@@ -290,8 +291,8 @@ func checkImportCycle(loadedMod *loadedModule, importPath string, trace *[]strin
 		return true
 	}
 	for _, loadedFile := range loadedMod.files {
-		if loadedFile.file.Info.Path == importPath {
-			*trace = append(*trace, loadedFile.file.Info.Path)
+		if loadedFile.file.Ctx.Path == importPath {
+			*trace = append(*trace, loadedFile.file.Ctx.Path)
 			return true
 		}
 		for _, imp := range loadedFile.imports {
@@ -299,7 +300,7 @@ func checkImportCycle(loadedMod *loadedModule, importPath string, trace *[]strin
 				continue
 			}
 			if checkImportCycle(imp.mod, importPath, trace) {
-				*trace = append(*trace, loadedFile.file.Info.Path)
+				*trace = append(*trace, loadedFile.file.Ctx.Path)
 				return true
 			}
 		}

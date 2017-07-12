@@ -57,11 +57,15 @@ func (p *printVisitor) printToken(tok token.Token) {
 func (p *printVisitor) Module(mod *Module) {
 	defer dec(inc(p))
 	p.printf("[module %s]", mod.Name.Literal)
+	defer dec(inc(p))
 	for _, file := range mod.Files {
-		defer dec(inc(p))
-		p.printf("[file]")
-		VisitImportList(p, file.Info.Imports)
-		VisitDeclList(p, file.Decls)
+		p.printf("[file %s]", file.Ctx.Path)
+		VisitImportList(p, file.Imports)
+	}
+	for _, decl := range mod.Decls {
+		p.level++
+		VisitDecl(p, decl)
+		p.level--
 	}
 }
 
@@ -81,55 +85,57 @@ func (p *printVisitor) VisitDeclStmt(stmt *DeclStmt) {
 	VisitDecl(p, stmt.D)
 }
 
-func (p *printVisitor) VisitVarDecl(decl *VarDecl) {
+func (p *printVisitor) VisitValTopDecl(decl *ValTopDecl) {
 	defer dec(inc(p))
 	p.printToken(decl.Decl)
-	p.VisitIdent(decl.Name)
-	p.VisitIdent(decl.Type)
-	VisitExpr(p, decl.X)
+	p.printToken(decl.Name)
+	p.printToken(decl.Type)
+	if decl.Initializer != nil {
+		VisitExpr(p, decl.Initializer)
+	}
 }
 
-func (p *printVisitor) printField(field *Field) {
+func (p *printVisitor) VisitValDecl(decl *ValDecl) {
 	defer dec(inc(p))
-	p.print("FIELD")
-	p.VisitIdent(field.Name)
-	p.VisitIdent(field.Type)
+	p.printToken(decl.Decl)
+	p.printToken(decl.Name)
+	p.printToken(decl.Type)
+	if decl.Initializer != nil {
+		VisitExpr(p, decl.Initializer)
+	}
 }
 
 func (p *printVisitor) VisitFuncDecl(decl *FuncDecl) {
 	defer dec(inc(p))
 	p.printToken(decl.Decl)
-	p.VisitIdent(decl.Name)
+	p.printToken(decl.Name)
 	p.level++
 	p.print("PARAMS")
+	p.level++
 	for _, param := range decl.Params {
-		p.printField(param)
+		p.print("FIELD")
+		p.VisitValDecl(param)
 	}
+	p.level--
 	p.print("RETURN")
-	if decl.Return != nil {
-		p.VisitIdent(decl.Return)
+	if decl.TReturn != nil {
+		p.VisitIdent(decl.TReturn)
 	}
 	p.level--
 	p.VisitBlockStmt(decl.Body)
 }
 
-func (p *printVisitor) printStructField(field *StructField) {
-	defer dec(inc(p))
-	p.printToken(field.Qualifier)
-	p.VisitIdent(field.Name)
-	VisitExpr(p, field.Type)
-}
-
 func (p *printVisitor) VisitStructDecl(decl *StructDecl) {
 	defer dec(inc(p))
 	p.printToken(decl.Decl)
-	p.VisitIdent(decl.Name)
-	p.level++
+	p.printToken(decl.Name)
+	defer dec(inc(p))
 	p.print("FIELDS")
+	defer dec(inc(p))
 	for _, field := range decl.Fields {
-		p.printStructField(field)
+		p.print("FIELD")
+		p.VisitValDecl(field)
 	}
-	p.level--
 }
 
 func (p *printVisitor) VisitPrintStmt(stmt *PrintStmt) {

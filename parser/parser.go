@@ -9,30 +9,30 @@ import (
 	"github.com/jhnl/interpreter/token"
 )
 
-func ParseFile(filepath string) (*semantics.FileDecls, error) {
+func ParseFile(filepath string) (*semantics.File, []semantics.TopDecl, error) {
 	buf, err := ioutil.ReadFile(filepath)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	return parse(buf, filepath)
 }
 
-func Parse(src []byte) (*semantics.FileDecls, error) {
+func Parse(src []byte) (*semantics.File, []semantics.TopDecl, error) {
 	return parse(src, "")
 }
 
-func parse(src []byte, filepath string) (*semantics.FileDecls, error) {
+func parse(src []byte, filepath string) (*semantics.File, []semantics.TopDecl, error) {
 	var p parser
 	p.init(src, filepath)
 	p.next()
 
-	file := p.parseFileDecls()
+	file, decls := p.parseFile()
 
 	if p.errors.Count() > 0 {
-		return file, p.errors
+		return file, decls, p.errors
 	}
 
-	return file, nil
+	return file, decls, nil
 }
 
 type parser struct {
@@ -51,7 +51,7 @@ func (p *parser) init(src []byte, filename string) {
 }
 
 func (p *parser) next() {
-	if p.trace && p.token.IsValid() {
+	if p.trace {
 		fmt.Println(p.token)
 	}
 
@@ -114,24 +114,29 @@ func (p *parser) expectSemi() bool {
 	return res
 }
 
-func (p *parser) parseFileDecls() *semantics.FileDecls {
-	file := &semantics.FileDecls{Info: &semantics.FileInfo{}}
+func (p *parser) parseFile() (*semantics.File, []semantics.TopDecl) {
+	file := &semantics.File{Ctx: &semantics.FileContext{Path: p.lexer.filename}}
 	if p.token.Is(token.Module) {
-		file.Info.Decl = p.token
+		file.Ctx.Decl = p.token
 		p.expect(token.Module)
 	} else {
-		file.Info.Decl = token.Synthetic(token.Module, token.Module.String())
+		file.Ctx.Decl = token.Synthetic(token.Module, token.Module.String())
 	}
 	for p.token.Is(token.Import) {
 		imp := p.parseImport()
 		if imp != nil {
-			file.Info.Imports = append(file.Info.Imports, imp)
+			file.Imports = append(file.Imports, imp)
 		}
 	}
+	var decls []semantics.TopDecl
 	for !p.token.Is(token.EOF) {
-		file.Decls = append(file.Decls, p.parseTopLevelDecl())
+		decl := p.parseTopDecl()
+		if decl != nil {
+			decl.SetContext(file.Ctx)
+			decls = append(decls, decl)
+		}
 	}
-	return file
+	return file, decls
 }
 
 func (p *parser) parseImport() *semantics.Import {
@@ -144,46 +149,71 @@ func (p *parser) parseImport() *semantics.Import {
 	return &semantics.Import{Import: tok, Literal: path}
 }
 
-func (p *parser) parseTopLevelDecl() semantics.Decl {
+func (p *parser) parseTopDecl() semantics.TopDecl {
 	visibility := token.Synthetic(token.Internal, token.Internal.String())
 	if p.token.OneOf(token.External, token.Internal, token.Restricted) {
 		visibility = p.token
 		p.next()
 	}
-	return p.parseDecl(visibility)
-}
 
-func (p *parser) parseDecl(visibility token.Token) semantics.Decl {
+	var decl semantics.TopDecl
+
 	if p.token.ID == token.Var || p.token.ID == token.Val {
-		decl := p.parseVarDecl(visibility)
-		return decl
+		decl = p.parseValTopDecl(visibility)
 	} else if p.token.ID == token.Func {
-		decl := p.parseFuncDecl(visibility)
-		return decl
+		decl = p.parseFuncDecl(visibility)
 	} else if p.token.ID == token.Struct {
-		return p.parseStructDecl()
+		decl = p.parseStructDecl(visibility)
+	} else {
+		tok := p.token
+		p.next()
+		p.error(tok, "got '%s', expected declaration", tok.ID)
 	}
-	tok := p.token
-	p.next()
-	p.error(tok, "got '%s', expected declaration", tok.ID)
-	return &semantics.BadDecl{From: tok, To: tok}
+
+	return decl
 }
 
-func (p *parser) parseVarDecl(visibility token.Token) *semantics.VarDecl {
-	decl := &semantics.VarDecl{}
+func (p *parser) parseValTopDecl(visibility token.Token) *semantics.ValTopDecl {
+	decl := &semantics.ValTopDecl{}
 	decl.Visibility = visibility
 	decl.Decl = p.token
 	p.next()
-	decl.Name = p.parseIdent()
+	decl.Name = p.token
+	p.expect(token.Ident)
 	p.expect(token.Colon)
-	decl.Type = p.parseIdent()
+	decl.Type = p.token
+	p.expect(token.Ident)
 
 	if p.token.ID == token.Assign {
 		p.expect(token.Assign)
-		decl.X = p.parseExpr()
+		decl.Initializer = p.parseExpr()
 	}
 
 	p.expect(token.Semicolon)
+	return decl
+}
+
+func (p *parser) parseValDecl() *semantics.ValDecl {
+	decl := &semantics.ValDecl{}
+
+	if p.token.OneOf(token.Val, token.Var) {
+		decl.Decl = p.token
+		p.next()
+	} else {
+		decl.Decl = token.Synthetic(token.Var, token.Var.String())
+	}
+
+	decl.Name = p.token
+	p.expect(token.Ident)
+	p.expect(token.Colon)
+	decl.Type = p.token
+	p.expect(token.Ident)
+
+	if p.token.ID == token.Assign {
+		p.expect(token.Assign)
+		decl.Initializer = p.parseExpr()
+	}
+
 	return decl
 }
 
@@ -192,17 +222,16 @@ func (p *parser) parseFuncDecl(visibility token.Token) *semantics.FuncDecl {
 	decl.Visibility = visibility
 	decl.Decl = p.token
 	p.next()
-	decl.Name = p.parseIdent()
+	decl.Name = p.token
+	p.expect(token.Ident)
 
 	decl.Lparen = p.token
 	p.expect(token.Lparen)
 	if p.token.ID != token.Rparen {
-		field := p.parseField()
-		decl.Params = append(decl.Params, field)
+		decl.Params = append(decl.Params, p.parseValDecl())
 		for p.token.ID != token.EOF && p.token.ID != token.Rparen {
 			p.expect(token.Comma)
-			field = p.parseField()
-			decl.Params = append(decl.Params, field)
+			decl.Params = append(decl.Params, p.parseValDecl())
 		}
 	}
 	decl.Rparen = p.token
@@ -210,37 +239,31 @@ func (p *parser) parseFuncDecl(visibility token.Token) *semantics.FuncDecl {
 
 	if p.token.ID == token.Arrow {
 		p.next()
-		decl.Return = p.parseIdent()
+		decl.TReturn = p.parseIdent()
 	} else {
-		decl.Return = &semantics.Ident{Name: token.Synthetic(token.Ident, semantics.TVoid.String())}
+		decl.TReturn = &semantics.Ident{Name: token.Synthetic(token.Ident, semantics.TVoid.String())}
 	}
 
 	decl.Body = p.parseBlockStmt()
 	return decl
 }
 
-func (p *parser) parseField() *semantics.Field {
-	field := &semantics.Field{}
-	field.Name = p.parseIdent()
-	p.expect(token.Colon)
-	field.Type = p.parseIdent()
-	return field
-}
-
-func (p *parser) parseStructDecl() *semantics.StructDecl {
+func (p *parser) parseStructDecl(visibility token.Token) *semantics.StructDecl {
 	decl := &semantics.StructDecl{}
+	decl.Visibility = visibility
 	decl.Decl = p.token
 	p.next()
-	decl.Name = p.parseIdent()
+	decl.Name = p.token
+	p.expect(token.Ident)
 
 	decl.Lbrace = p.token
 	p.expect(token.Lbrace)
 
 	if !p.token.Is(token.Rbrace) {
-		decl.Fields = append(decl.Fields, p.parseStructField())
+		decl.Fields = append(decl.Fields, p.parseValDecl())
 		for !p.token.OneOf(token.EOF, token.Rbrace) {
 			p.expect(token.Comma)
-			decl.Fields = append(decl.Fields, p.parseStructField())
+			decl.Fields = append(decl.Fields, p.parseValDecl())
 		}
 	}
 
@@ -250,39 +273,22 @@ func (p *parser) parseStructDecl() *semantics.StructDecl {
 	return decl
 }
 
-func (p *parser) parseStructField() *semantics.StructField {
-	field := &semantics.StructField{}
-	if p.token.OneOf(token.Static, token.Val, token.Var) {
-		field.Qualifier = p.token
-	} else {
-		field.Qualifier = token.Synthetic(token.Var, token.Var.String())
-	}
-	field.Name = p.parseIdent()
-	p.expect(token.Colon)
-	field.Type = p.parseExpr()
-	return field
-}
-
 func (p *parser) parseStmt() semantics.Stmt {
+	var stmt semantics.Stmt
 	if p.token.ID == token.Lbrace {
-		return p.parseBlockStmt()
-	}
-	if p.token.ID == token.Var || p.token.ID == token.Val {
-		return p.parseVarDeclStmt()
-	}
-	if p.token.ID == token.Print {
-		return p.parsePrintStmt()
-	}
-	if p.token.ID == token.If {
-		return p.parseIfStmt()
-	}
-	if p.token.ID == token.While {
-		return p.parseWhileStmt()
-	}
-	if p.token.ID == token.Return {
-		return p.parseReturnStmt()
-	}
-	if p.token.ID == token.Break || p.token.ID == token.Continue {
+		stmt = p.parseBlockStmt()
+	} else if p.token.ID == token.Var || p.token.ID == token.Val {
+		stmt = p.parseValDeclStmt()
+		p.expectSemi()
+	} else if p.token.ID == token.Print {
+		stmt = p.parsePrintStmt()
+	} else if p.token.ID == token.If {
+		stmt = p.parseIfStmt()
+	} else if p.token.ID == token.While {
+		stmt = p.parseWhileStmt()
+	} else if p.token.ID == token.Return {
+		stmt = p.parseReturnStmt()
+	} else if p.token.ID == token.Break || p.token.ID == token.Continue {
 		if !p.inLoop {
 			p.error(p.token, "%s can only be used in a loop", p.token.ID)
 		}
@@ -290,15 +296,16 @@ func (p *parser) parseStmt() semantics.Stmt {
 		tok := p.token
 		p.next()
 		p.expectSemi()
-		return &semantics.BranchStmt{Tok: tok}
+		stmt = &semantics.BranchStmt{Tok: tok}
+	} else if p.token.ID == token.Ident {
+		stmt = p.parseAssignOrCallStmt()
+	} else {
+		tok := p.token
+		p.next()
+		p.error(tok, "got '%s', expected statement", tok.ID)
+		stmt = &semantics.BadStmt{From: tok, To: tok}
 	}
-	if p.token.ID == token.Ident {
-		return p.parseAssignOrCallStmt()
-	}
-	tok := p.token
-	p.next()
-	p.error(tok, "got '%s', expected statement", tok.ID)
-	return &semantics.BadStmt{From: tok, To: tok}
+	return stmt
 }
 
 func (p *parser) parseBlockStmt() *semantics.BlockStmt {
@@ -313,9 +320,9 @@ func (p *parser) parseBlockStmt() *semantics.BlockStmt {
 	return block
 }
 
-func (p *parser) parseVarDeclStmt() *semantics.DeclStmt {
-	visibility := token.Synthetic(token.Invalid, token.Invalid.String())
-	d := p.parseVarDecl(visibility)
+func (p *parser) parseValDeclStmt() *semantics.DeclStmt {
+	d := p.parseValDecl()
+	p.expectSemi()
 	return &semantics.DeclStmt{D: d}
 }
 

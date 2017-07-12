@@ -11,7 +11,8 @@ type Visitor interface {
 	// Decls
 	VisitBadDecl(decl *BadDecl)
 	VisitImport(decl *Import)
-	VisitVarDecl(decl *VarDecl)
+	VisitValTopDecl(decl *ValTopDecl)
+	VisitValDecl(decl *ValDecl)
 	VisitFuncDecl(decl *FuncDecl)
 	VisitStructDecl(decl *StructDecl)
 
@@ -53,8 +54,9 @@ func (v *BaseVisitor) VisitImport(decl *Import) {
 	panic("VisitImport")
 }
 
-func (v *BaseVisitor) VisitVarDecl(decl *VarDecl)   {}
-func (v *BaseVisitor) VisitFuncDecl(decl *FuncDecl) {}
+func (v *BaseVisitor) VisitValTopDecl(decl *ValTopDecl) {}
+func (v *BaseVisitor) VisitValDecl(decl *ValDecl)       {}
+func (v *BaseVisitor) VisitFuncDecl(decl *FuncDecl)     {}
 
 func (v *BaseVisitor) VisitStructDecl(decl *StructDecl) {
 	panic("VisitStructDecl")
@@ -109,8 +111,10 @@ func VisitDecl(v Visitor, decl Decl) {
 		v.VisitBadDecl(d)
 	case *Import:
 		v.VisitImport(d)
-	case *VarDecl:
-		v.VisitVarDecl(d)
+	case *ValTopDecl:
+		v.VisitValTopDecl(d)
+	case *ValDecl:
+		v.VisitValDecl(d)
 	case *FuncDecl:
 		v.VisitFuncDecl(d)
 	case *StructDecl:
@@ -191,6 +195,13 @@ func StartProgramWalk(v Visitor, prog *Program) {
 
 // VisitDeclList visits each decl
 func VisitDeclList(v Visitor, decls []Decl) {
+	for _, decl := range decls {
+		VisitDecl(v, decl)
+	}
+}
+
+// VisitTopDeclList visits each top decl
+func VisitTopDeclList(v Visitor, decls []TopDecl) {
 	for _, decl := range decls {
 		VisitDecl(v, decl)
 	}

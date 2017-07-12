@@ -1,7 +1,5 @@
 package semantics
 
-import "github.com/jhnl/interpreter/token"
-
 type dependencyVisitor struct {
 	BaseVisitor
 	c *checker
@@ -15,29 +13,27 @@ func dependencyWalk(c *checker) {
 
 func (v *dependencyVisitor) Module(mod *Module) {
 	v.c.mod = mod
-	for _, file := range mod.Files {
-		v.c.file = file.Info
-		v.c.scope = file.Info.Scope
-		VisitDeclList(v, file.Decls)
+	for _, decl := range mod.Decls {
+		v.c.setTopDecl(decl)
+		VisitDecl(v, decl)
 	}
 }
 
-func (v *dependencyVisitor) VisitVarDecl(decl *VarDecl) {
-	// Only check top level var decls
-	if decl.X != nil && decl.Visibility.OneOf(token.External, token.Internal, token.Restricted) {
-		v.c.declSym = decl.Symbol()
-		VisitExpr(v, decl.X)
-		v.c.declSym = nil
+func (v *dependencyVisitor) VisitValTopDecl(decl *ValTopDecl) {
+	if decl.Initializer != nil {
+		VisitExpr(v, decl.Initializer)
+	}
+}
+
+func (v *dependencyVisitor) VisitValDecl(decl *ValDecl) {
+	if decl.Initializer != nil {
+		VisitExpr(v, decl.Initializer)
 	}
 }
 
 func (v *dependencyVisitor) VisitFuncDecl(decl *FuncDecl) {
 	defer setScope(setScope(v.c, decl.Scope))
-	v.c.fun = decl
-	v.c.declSym = decl.Symbol()
 	VisitStmtList(v, decl.Body.Stmts)
-	v.c.declSym = nil
-	v.c.fun = nil
 }
 
 func (v *dependencyVisitor) VisitBlockStmt(stmt *BlockStmt) {
@@ -91,13 +87,11 @@ func (v *dependencyVisitor) VisitUnaryExpr(expr *UnaryExpr) Expr {
 }
 
 func (v *dependencyVisitor) VisitIdent(expr *Ident) Expr {
-	if v.c.declSym == nil {
-		return expr
-	}
-
 	sym := v.c.scope.Lookup(expr.Name.Literal)
-	if sym != nil && sym.Toplevel() && sym.ID != ModuleSymbol {
-		v.c.declSym.dependencies = append(v.c.declSym.dependencies, sym)
+	if sym != nil {
+		if decl, ok := sym.Src.(TopDecl); ok {
+			v.c.topDecl.addDependency(decl)
+		}
 	}
 	return expr
 }

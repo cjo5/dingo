@@ -65,12 +65,10 @@ type checker struct {
 	errors *common.ErrorList
 
 	// State that changes when visiting nodes
-	scope *Scope
-	mod   *Module
-	file  *FileInfo
-	fun   *FuncDecl
-
-	declSym *Symbol
+	scope   *Scope
+	mod     *Module
+	fileCtx *FileContext
+	topDecl TopDecl
 }
 
 func newChecker(prog *Program) *checker {
@@ -81,9 +79,7 @@ func newChecker(prog *Program) *checker {
 
 func (c *checker) resetWalkState() {
 	c.mod = nil
-	c.file = nil
-	c.fun = nil
-	c.declSym = nil
+	c.topDecl = nil
 }
 
 func (c *checker) openScope() {
@@ -100,16 +96,29 @@ func setScope(c *checker, scope *Scope) (*checker, *Scope) {
 	return c, curr
 }
 
+func (c *checker) fileScope() *Scope {
+	if c.fileCtx != nil {
+		return c.fileCtx.Scope
+	}
+	return nil
+}
+
+func (c *checker) setTopDecl(decl TopDecl) {
+	c.topDecl = decl
+	c.fileCtx = decl.Context()
+	c.scope = c.fileCtx.Scope
+}
+
 func (c *checker) error(pos token.Position, format string, args ...interface{}) {
 	filename := ""
-	if c.file != nil {
-		filename = c.file.Path
+	if c.fileCtx != nil {
+		filename = c.fileCtx.Path
 	}
 	c.errors.Add(filename, pos, format, args...)
 }
 
 func (c *checker) insert(scope *Scope, id SymbolID, name string, pos token.Position, decl Decl) *Symbol {
-	sym := NewSymbol(id, name, pos, c.file, decl, c.isToplevel())
+	sym := NewSymbol(id, name, pos, decl, c.isToplevel())
 	if existing := scope.Insert(sym); existing != nil {
 		msg := fmt.Sprintf("redeclaration of '%s', previously declared at %s", name, existing.Pos)
 		c.error(pos, msg)
@@ -142,8 +151,9 @@ func (c *checker) isToplevel() bool {
 			return true
 		}
 	}
-	if c.file != nil {
-		if c.scope == c.file.Scope {
+	fileScope := c.fileScope()
+	if fileScope != nil {
+		if c.scope == fileScope {
 			return true
 		}
 	}
@@ -152,13 +162,13 @@ func (c *checker) isToplevel() bool {
 
 func (c *checker) sortModules() {
 	for _, mod := range c.prog.Modules {
-		mod.Color = GraphColorWhite
+		mod.color = NodeColorWhite
 	}
 
 	var sortedModules []*Module
 
 	for _, mod := range c.prog.Modules {
-		if mod.Color == GraphColorWhite {
+		if mod.color == NodeColorWhite {
 			if !sortModuleDependencies(mod, &sortedModules) {
 				// This shouldn't actually happen since cycles are checked when loading imports
 				panic("Cycle detected")
@@ -171,114 +181,90 @@ func (c *checker) sortModules() {
 
 // Returns false if cycle
 func sortModuleDependencies(mod *Module, sortedModules *[]*Module) bool {
-	if mod.Color == GraphColorBlack {
+	if mod.color == NodeColorBlack {
 		return true
-	} else if mod.Color == GraphColorGray {
+	} else if mod.color == NodeColorGray {
 		return false
 	}
-
-	mod.Color = GraphColorGray
+	mod.color = NodeColorGray
 	for _, file := range mod.Files {
-		for _, imp := range file.Info.Imports {
+		for _, imp := range file.Imports {
 			if !sortModuleDependencies(imp.Mod, sortedModules) {
 				return false
 			}
 		}
 	}
-	mod.Color = GraphColorBlack
+	mod.color = NodeColorBlack
 	*sortedModules = append(*sortedModules, mod)
 	return true
 }
 
 func (c *checker) sortDecls() {
 	for _, mod := range c.prog.Modules {
-		for _, file := range mod.Files {
-			for _, decl := range file.Decls {
-				sym := decl.Symbol()
-				if sym != nil {
-					sym.color = GraphColorWhite
-				}
-			}
+		for _, decl := range mod.Decls {
+			decl.setNodeColor(NodeColorWhite)
 		}
 	}
 
 	for _, mod := range c.prog.Modules {
-		var sortedSymbols []*Symbol
-		for _, file := range mod.Files {
-			for _, decl := range file.Decls {
-				sym := decl.Symbol()
-				if sym == nil {
-					continue
+		var sortedDecls []TopDecl
+		for _, decl := range mod.Decls {
+			sym := decl.Symbol()
+			if sym == nil {
+				continue
+			}
+
+			var cycleTrace []TopDecl
+			if !sortDeclDependencies(decl, &cycleTrace, &sortedDecls) {
+				// Report most specific cycle
+				i, j := 0, len(cycleTrace)-1
+				for ; i < len(cycleTrace) && j >= 0; i, j = i+1, j-1 {
+					if cycleTrace[i] == cycleTrace[j] {
+						break
+					}
 				}
 
-				var cycleTrace []*Symbol
-				if !sortSymbolDependencies(sym, &cycleTrace, &sortedSymbols) {
-					// Report most specific cycle
-					i, j := 0, len(cycleTrace)-1
-					for ; i < len(cycleTrace) && j >= 0; i, j = i+1, j-1 {
-						if cycleTrace[i] == cycleTrace[j] {
-							break
-						}
-					}
-
-					if i < j {
-						sym = cycleTrace[j]
-						cycleTrace = cycleTrace[i:j]
-					}
-
-					sym.Flags |= SymFlagDepCycle
-					for _, t := range cycleTrace {
-						t.Flags |= SymFlagDepCycle
-					}
-
-					trace := common.NewTrace(fmt.Sprintf("%s uses:", sym.Name), nil)
-					for i := len(cycleTrace) - 1; i >= 0; i-- {
-						line := cycleTrace[i].File.Path + ":" + cycleTrace[i].Name
-						trace.Lines = append(trace.Lines, line)
-					}
-					c.errors.AddTrace(sym.File.Path, sym.Pos, trace, "initializer cycle detected")
-
+				if i < j {
+					decl = cycleTrace[j]
+					cycleTrace = cycleTrace[i:j]
 				}
+
+				sym.Flags |= SymFlagDepCycle
+
+				trace := common.NewTrace(fmt.Sprintf("%s uses:", sym.Name), nil)
+				for i := len(cycleTrace) - 1; i >= 0; i-- {
+					s := cycleTrace[i].Symbol()
+					s.Flags |= SymFlagDepCycle
+					line := cycleTrace[i].Context().Path + ":" + s.Name
+					trace.Lines = append(trace.Lines, line)
+				}
+				c.errors.AddTrace(decl.Context().Path, sym.Pos, trace, "initializer cycle detected")
 			}
 		}
-
-		if len(sortedSymbols) == 0 {
-			continue
-		}
-
-		var files []*FileDecls
-		currFile := &FileDecls{Info: sortedSymbols[0].File}
-		for _, sym := range sortedSymbols {
-			if sym.File != currFile.Info {
-				files = append(files, currFile)
-				currFile = &FileDecls{Info: sym.File}
-			}
-			currFile.Decls = append(currFile.Decls, sym.Src)
-		}
-		files = append(files, currFile)
-		mod.Files = files
+		mod.Decls = sortedDecls
 	}
 }
 
 // Returns false if cycle
-func sortSymbolDependencies(sym *Symbol, trace *[]*Symbol, sortedSymbols *[]*Symbol) bool {
-	if sym.color == GraphColorBlack {
+func sortDeclDependencies(decl TopDecl, trace *[]TopDecl, sortedDecls *[]TopDecl) bool {
+	color := decl.nodeColor()
+	if color == NodeColorBlack {
 		return true
-	} else if sym.color == GraphColorGray {
+	} else if color == NodeColorGray {
 		return false
 	}
 
 	sortOK := true
-	sym.color = GraphColorGray
-	for _, dep := range sym.dependencies {
-		if !sortSymbolDependencies(dep, trace, sortedSymbols) {
+	decl.setNodeColor(NodeColorGray)
+	for _, dep := range decl.dependencies() {
+		if !sortDeclDependencies(dep, trace, sortedDecls) {
 			*trace = append(*trace, dep)
 			sortOK = false
 			break
 		}
 	}
-	sym.color = GraphColorBlack
-	*sortedSymbols = append(*sortedSymbols, sym)
+	decl.setNodeColor(NodeColorBlack)
+	*sortedDecls = append(*sortedDecls, decl)
 	return sortOK
 }
 

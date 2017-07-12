@@ -8,18 +8,18 @@ import "github.com/jhnl/interpreter/token"
 // - Replace Name Idents for Decls with simple tokens.
 //
 
-// GraphColor is used to color nodes during dfs to sort dependencies.
-type GraphColor int
+// NodeColor is used to color nodes during dfs to sort dependencies.
+type NodeColor int
 
-// The graph colors.
+// The node colors.
 //
 // White: node not visited
 // Gray: node visit in progress
 // Black: node visit finished
 const (
-	GraphColorWhite GraphColor = iota
-	GraphColorGray
-	GraphColorBlack
+	NodeColorWhite NodeColor = iota
+	NodeColorGray
+	NodeColorBlack
 )
 
 // Node interface.
@@ -31,8 +31,20 @@ type Node interface {
 // Decl is the main interface for declaration nodes.
 type Decl interface {
 	Node
-	Symbol() *Symbol
 	declNode()
+}
+
+type TopDecl interface {
+	Decl
+	Symbol() *Symbol
+
+	SetContext(*FileContext)
+	Context() *FileContext
+
+	addDependency(TopDecl)
+	dependencies() []TopDecl
+	setNodeColor(NodeColor)
+	nodeColor() NodeColor
 }
 
 // Stmt is the main interface for statement nodes.
@@ -56,12 +68,49 @@ func (n *baseNode) node() {}
 
 type baseDecl struct {
 	baseNode
-	Sym *Symbol
 }
 
 func (d *baseDecl) declNode() {}
-func (d *baseDecl) Symbol() *Symbol {
+
+type baseTopDecl struct {
+	baseDecl
+	Sym *Symbol
+	Ctx *FileContext
+
+	Visibility token.Token
+	Decl       token.Token
+	Name       token.Token
+
+	deps  []TopDecl
+	color NodeColor
+}
+
+func (d *baseTopDecl) Symbol() *Symbol {
 	return d.Sym
+}
+
+func (d *baseTopDecl) SetContext(ctx *FileContext) {
+	d.Ctx = ctx
+}
+
+func (d *baseTopDecl) Context() *FileContext {
+	return d.Ctx
+}
+
+func (d *baseTopDecl) addDependency(dep TopDecl) {
+	d.deps = append(d.deps, dep)
+}
+
+func (d *baseTopDecl) dependencies() []TopDecl {
+	return d.deps
+}
+
+func (d *baseTopDecl) setNodeColor(color NodeColor) {
+	d.color = color
+}
+
+func (d *baseTopDecl) nodeColor() NodeColor {
+	return d.color
 }
 
 type BadDecl struct {
@@ -86,22 +135,22 @@ type Module struct {
 	Name     token.Token
 	External *Scope
 	Internal *Scope
-	Files    []*FileDecls
-	Color    GraphColor
+	Files    []*File
+	Decls    []TopDecl
+	color    NodeColor
 }
 
 func (m *Module) FirstPos() token.Position { return token.NoPosition }
 
-type FileDecls struct {
-	Info  *FileInfo
-	Decls []Decl
+type File struct {
+	Ctx     *FileContext
+	Imports []*Import
 }
 
-type FileInfo struct {
-	Path    string
-	Decl    token.Token
-	Scope   *Scope
-	Imports []*Import
+type FileContext struct {
+	Path  string
+	Decl  token.Token
+	Scope *Scope
 }
 
 type Import struct {
@@ -113,60 +162,50 @@ type Import struct {
 
 func (i *Import) FirstPos() token.Position { return i.Import.Pos }
 
-type VarDecl struct {
-	baseDecl
-	Visibility token.Token
-	Decl       token.Token
-	Name       *Ident
-	Type       *Ident
-	Assign     token.Token
-	X          Expr
+type ValTopDecl struct {
+	baseTopDecl
+	Type        token.Token
+	Assign      token.Token
+	Initializer Expr
 }
 
-func (d *VarDecl) FirstPos() token.Position { return d.Decl.Pos }
-
-// Field represents a function parameter.
-type Field struct {
-	baseDecl
-	Name *Ident
-	Type *Ident
+func (d *ValTopDecl) FirstPos() token.Position {
+	if d.Visibility.Pos.IsValid() {
+		return d.Visibility.Pos
+	}
+	return d.Decl.Pos
 }
 
-func (f *Field) FirstPos() token.Position { return f.Name.FirstPos() }
+type ValDecl struct {
+	baseDecl
+	Sym         *Symbol
+	Decl        token.Token
+	Name        token.Token
+	Type        token.Token
+	Assign      token.Token
+	Initializer Expr
+}
+
+func (d *ValDecl) FirstPos() token.Position {
+	return d.Decl.Pos
+}
 
 type FuncDecl struct {
-	baseDecl
-	Visibility token.Token
-	Decl       token.Token
-	Name       *Ident
-	Lparen     token.Token
-	Params     []*Field
-	Rparen     token.Token
-	Return     *Ident // Return type
-	Body       *BlockStmt
-	Scope      *Scope
+	baseTopDecl
+	Lparen  token.Token
+	Params  []*ValDecl
+	Rparen  token.Token
+	TReturn *Ident
+	Body    *BlockStmt
+	Scope   *Scope
 }
 
 func (d *FuncDecl) FirstPos() token.Position { return d.Decl.Pos }
 
-// TODO: Move some fields to Field
-
-type StructField struct {
-	baseNode
-	Qualifier   token.Token // ID == token.Invalid if missing
-	Name        *Ident
-	Type        Expr
-	Initializer Expr // Nil if missing
-}
-
-func (f *StructField) FirstPos() token.Position { return f.Name.FirstPos() }
-
 type StructDecl struct {
-	baseDecl
-	Decl   token.Token
-	Name   *Ident
+	baseTopDecl
 	Lbrace token.Token
-	Fields []*StructField
+	Fields []*ValDecl
 	Rbrace token.Token
 	Scope  *Scope
 }

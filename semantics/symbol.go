@@ -6,7 +6,7 @@ import "fmt"
 type SymbolID int
 
 const (
-	VarSymbol SymbolID = iota
+	ValSymbol SymbolID = iota
 	FuncSymbol
 	TypeSymbol
 	ModuleSymbol
@@ -23,29 +23,25 @@ type Symbol struct {
 	ID      SymbolID
 	Name    string
 	Pos     token.Position
-	File    *FileInfo // File where symbol was defined
 	T       *TType
 	Src     Decl // Node in ast where the symbol was defined
 	Flags   int
 	Address int
-
-	dependencies []*Symbol
-	color        GraphColor
 }
 
 // NewSymbol creates a new symbol of a given ID and name.
-func NewSymbol(id SymbolID, name string, pos token.Position, file *FileInfo, src Decl, toplevel bool) *Symbol {
+func NewSymbol(id SymbolID, name string, pos token.Position, src Decl, toplevel bool) *Symbol {
 	flags := 0
 	if toplevel {
 		flags = SymFlagToplevel
 	}
-	return &Symbol{ID: id, Name: name, Pos: pos, File: file, Src: src, Flags: flags, color: GraphColorWhite}
+	return &Symbol{ID: id, Name: name, Pos: pos, Src: src, Flags: flags}
 }
 
 func (s SymbolID) String() string {
 	switch s {
-	case VarSymbol:
-		return "VarSymbol"
+	case ValSymbol:
+		return "ValSymbol"
 	case FuncSymbol:
 		return "FuncSymbol"
 	case TypeSymbol:
@@ -58,20 +54,11 @@ func (s SymbolID) String() string {
 }
 
 func (s *Symbol) String() string {
-	path := ""
-	if s.File != nil {
-		path = s.File.Path
-	}
-	return fmt.Sprintf("%s:%s:%s", path, s.ID, s.Name)
+	return fmt.Sprintf("%s:%s:%s", s.ID, s.Pos, s.Name)
 }
 
 func (s *Symbol) Func() (*FuncDecl, bool) {
 	decl, ok := s.Src.(*FuncDecl)
-	return decl, ok
-}
-
-func (s *Symbol) Var() (*VarDecl, bool) {
-	decl, ok := s.Src.(*VarDecl)
 	return decl, ok
 }
 

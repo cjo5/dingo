@@ -19,21 +19,19 @@ func typeWalk(c *checker) {
 
 func (v *typeVisitor) Module(mod *Module) {
 	v.c.mod = mod
-	for _, file := range mod.Files {
-		v.c.scope = file.Info.Scope
-		v.c.file = file.Info
-		VisitDeclList(v, file.Decls)
+	for _, decl := range mod.Decls {
+		v.c.setTopDecl(decl)
+		VisitDecl(v, decl)
 	}
 }
 
-func (v *typeVisitor) VisitVarDecl(decl *VarDecl) {
+func (v *typeVisitor) VisitValTopDecl(decl *ValTopDecl) {
 	if decl.Sym == nil {
 		return
 	}
 
-	t := v.c.typeOf(decl.Type.Name)
+	t := v.c.typeOf(decl.Type)
 	decl.Sym.T = t
-	decl.Name.T = t
 	if t == TBuiltinUntyped {
 		return
 	}
@@ -46,51 +44,87 @@ func (v *typeVisitor) VisitVarDecl(decl *VarDecl) {
 		return
 	}
 
-	if decl.X != nil {
-		decl.X = VisitExpr(v, decl.X)
+	if decl.Initializer != nil {
+		decl.Initializer = VisitExpr(v, decl.Initializer)
 
-		if !v.c.tryCastLiteral(decl.X, t) {
+		if !v.c.tryCastLiteral(decl.Initializer, t) {
 			return
 		}
 
-		if t.ID != decl.X.Type().ID {
-			v.c.error(decl.X.FirstPos(), "type mismatch: '%s' has type %s and is not compatible with %s",
-				decl.Name.Literal(), decl.Name.Type(), decl.X.Type())
+		if t.ID != decl.Initializer.Type().ID {
+			v.c.error(decl.Initializer.FirstPos(), "type mismatch: '%s' has type %s and is not compatible with %s",
+				decl.Name.Literal, t, decl.Initializer.Type())
 		}
 	} else {
-		// Default values
-		var lit *Literal
-		if t.OneOf(TBool) {
-			lit = &Literal{Value: token.Synthetic(token.False, token.False.String())}
-			lit.T = NewType(TBool)
-		} else if t.OneOf(TString) {
-			lit = &Literal{Value: token.Synthetic(token.String, "")}
-			lit.T = NewType(TString)
-		} else if t.OneOf(TUInt64, TInt64, TUInt32, TInt32, TUInt16, TInt16, TUInt8, TInt8) {
-			lit = &Literal{Value: token.Synthetic(token.Integer, "0")}
-			lit.T = NewType(t.ID)
-		} else if t.OneOf(TFloat64, TFloat32) {
-			lit = &Literal{Value: token.Synthetic(token.Float, "0")}
-			lit.T = NewType(t.ID)
-		} else {
-			panic(fmt.Sprintf("Unhandled init value for type %s", t.ID))
-		}
-		decl.X = lit
+		decl.Initializer = createDefaultValue(t)
 	}
+}
+
+func (v *typeVisitor) VisitValDecl(decl *ValDecl) {
+	if decl.Sym == nil {
+		return
+	}
+
+	t := v.c.typeOf(decl.Type)
+	decl.Sym.T = t
+	if t == TBuiltinUntyped {
+		return
+	}
+
+	if decl.Decl.Is(token.Val) {
+		decl.Sym.Flags |= SymFlagConstant
+	}
+
+	if (decl.Sym.Flags & SymFlagDepCycle) != 0 {
+		return
+	}
+
+	if decl.Initializer != nil {
+		decl.Initializer = VisitExpr(v, decl.Initializer)
+
+		if !v.c.tryCastLiteral(decl.Initializer, t) {
+			return
+		}
+
+		if t.ID != decl.Initializer.Type().ID {
+			v.c.error(decl.Initializer.FirstPos(), "type mismatch: '%s' has type %s and is not compatible with %s",
+				decl.Name.Literal, t, decl.Initializer.Type())
+		}
+	} else {
+		decl.Initializer = createDefaultValue(t)
+	}
+}
+
+func createDefaultValue(t *TType) Expr {
+	var lit *Literal
+	if t.OneOf(TBool) {
+		lit = &Literal{Value: token.Synthetic(token.False, token.False.String())}
+		lit.T = NewType(TBool)
+	} else if t.OneOf(TString) {
+		lit = &Literal{Value: token.Synthetic(token.String, "")}
+		lit.T = NewType(TString)
+	} else if t.OneOf(TUInt64, TInt64, TUInt32, TInt32, TUInt16, TInt16, TUInt8, TInt8) {
+		lit = &Literal{Value: token.Synthetic(token.Integer, "0")}
+		lit.T = NewType(t.ID)
+	} else if t.OneOf(TFloat64, TFloat32) {
+		lit = &Literal{Value: token.Synthetic(token.Float, "0")}
+		lit.T = NewType(t.ID)
+	} else {
+		panic(fmt.Sprintf("Unhandled init value for type %s", t.ID))
+	}
+	return lit
 }
 
 func (v *typeVisitor) VisitFuncDecl(decl *FuncDecl) {
 	defer setScope(setScope(v.c, decl.Scope))
-	v.c.fun = decl
 
 	for _, param := range decl.Params {
 		if param.Sym != nil {
-			param.Sym.T = v.c.typeOf(param.Type.Name)
-			param.Name.T = param.Sym.T
+			param.Sym.T = v.c.typeOf(param.Type)
 		}
 	}
 
-	decl.Return.T = v.c.typeOf(decl.Return.Name)
+	decl.TReturn.T = v.c.typeOf(decl.TReturn.Name)
 
 	v.VisitBlockStmt(decl.Body)
 
@@ -110,8 +144,6 @@ func (v *typeVisitor) VisitFuncDecl(decl *FuncDecl) {
 		returnStmt := &ReturnStmt{Return: tok}
 		decl.Body.Stmts = append(decl.Body.Stmts, returnStmt)
 	}
-
-	v.c.fun = nil
 }
 func (v *typeVisitor) VisitBlockStmt(stmt *BlockStmt) {
 	defer setScope(setScope(v.c, stmt.Scope))
@@ -149,7 +181,8 @@ func (v *typeVisitor) VisitReturnStmt(stmt *ReturnStmt) {
 	mismatch := false
 
 	exprType := TVoid
-	retType := v.c.fun.Return.Type()
+	funDecl, _ := v.c.topDecl.(*FuncDecl)
+	retType := funDecl.TReturn.Type()
 	if stmt.X == nil {
 		if retType.ID != TVoid {
 			mismatch = true
@@ -167,7 +200,7 @@ func (v *typeVisitor) VisitReturnStmt(stmt *ReturnStmt) {
 
 	if mismatch {
 		v.c.error(stmt.Return.Pos, "type mismatch: return type %s does not match function '%s' return type %s",
-			exprType, v.c.fun.Name.Literal(), retType.ID)
+			exprType, funDecl.Name.Literal, retType.ID)
 	}
 }
 

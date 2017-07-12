@@ -372,7 +372,7 @@ func (v *typeVisitor) VisitFuncCall(expr *FuncCall) Expr {
 							i, expr.Name.Literal(), paramType.ID, argType.ID)
 					}
 				}
-				expr.T = decl.Return.Type()
+				expr.T = decl.TReturn.Type()
 			}
 		}
 	}

@@ -5,6 +5,6 @@ import "b"
 rst val res: i32 = b.mult(5, 4);
 
 
-rst val a: i32 = 5;
+rst val a: i32 = "";
 rst val f: i32 = c;
 rst val c: i32 = a;

@@ -41,8 +41,8 @@ func exec(path string) {
 	for _, mod := range prog.Modules {
 		fmt.Println("Module", mod.Name.Literal)
 		for _, file := range mod.Files {
-			fmt.Println("  File", file.Info.Path)
-			for _, imp := range file.Info.Imports {
+			fmt.Println("  File", file.Ctx.Path)
+			for _, imp := range file.Imports {
 				fmt.Println("    Import", imp.Literal.Literal)
 			}
 		}
