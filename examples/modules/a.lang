@@ -5,5 +5,8 @@ ext struct Foo {
     b: i32
 }
 
-val bar: Foo = Foo{a=5, c=2};
-bar.a = 5;
+var bar: i32 = 5;
+
+func main() {
+    val data: Foo = Foo{b=9};
+}

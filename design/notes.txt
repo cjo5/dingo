@@ -10,6 +10,7 @@ TODO (in no particular order):
 - Type inference
 - Only allow subset of features when writing C/C++ module
 - Cleaner separation of concerns between Symbol and Type
+- Fix String() method for Expr nodes
 - Generics
 - Idiomatic error handling
 - Ad hoc polymorphism

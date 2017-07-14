@@ -6,8 +6,8 @@ Module = ['module'] Import* TopLevelDecl*
 
 Import = 'import' STRING
 TopLevelDecl = [Visibility] Decl
-Decl = VarDecl | FuncDecl | StructDecl
-VarDecl = ('val' | 'var') IDENT ':' Type ['=' Expr] ';'
+Decl = ValDecl | FuncDecl | StructDecl
+ValDecl = ('val' | 'var') IDENT ':' Type ['=' Expr] ';'
 FuncDecl = 'func' IDENT Function
 StructDecl = 'struct' IDENT Struct
 
@@ -24,9 +24,9 @@ Function = FuncSignature Block
 FunctionType = '(' [FieldList] ')' ['->' Type]
 
 Block = '{' Stmt* '}'
-Stmt = Block | VarDeclStmt | PrintStmt | AssignStmt | CallStmt | 'if' IfStmt | WhileStmt 
+Stmt = Block | ValDeclStmt | PrintStmt | ExprStmt | AssignStmt | 'if' IfStmt | WhileStmt 
         | ReturnStmt | 'break' ';' | 'continue' ';'
-VarDeclStmt = VarDecl ';'
+ValDeclStmt = ValDecl ';'
 PrintStmt = 'print' Expr ';'
 AssignStmt = Expr ('=' | '+=' | '-=' | '*=' | '/=' | '%=' ) Initializer ';'
 ExprStmt = Expr ';'

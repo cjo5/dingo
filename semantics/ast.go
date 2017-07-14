@@ -304,12 +304,12 @@ func (s *BranchStmt) FirstPos() token.Position { return s.Tok.Pos }
 
 type AssignStmt struct {
 	baseStmt
-	Name   *Ident
+	Left   Expr
 	Assign token.Token
 	Right  Expr
 }
 
-func (s *AssignStmt) FirstPos() token.Position { return s.Name.FirstPos() }
+func (s *AssignStmt) FirstPos() token.Position { return s.Left.FirstPos() }
 
 type ExprStmt struct {
 	baseStmt

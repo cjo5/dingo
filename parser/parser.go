@@ -277,7 +277,6 @@ func (p *parser) parseStmt() semantics.Stmt {
 		stmt = p.parseBlockStmt()
 	} else if p.token.ID == token.Var || p.token.ID == token.Val {
 		stmt = p.parseValDeclStmt()
-		p.expectSemi()
 	} else if p.token.ID == token.Print {
 		stmt = p.parsePrintStmt()
 	} else if p.token.ID == token.If {
@@ -296,7 +295,7 @@ func (p *parser) parseStmt() semantics.Stmt {
 		p.expectSemi()
 		stmt = &semantics.BranchStmt{Tok: tok}
 	} else if p.token.ID == token.Ident {
-		stmt = p.parseAssignOrCallStmt()
+		stmt = p.parseExprOrAssignStmt()
 	} else {
 		tok := p.token
 		p.next()
@@ -370,31 +369,19 @@ func (p *parser) parseReturnStmt() *semantics.ReturnStmt {
 	return s
 }
 
-func (p *parser) parseAssignOrCallStmt() semantics.Stmt {
-	id := p.parseIdent()
+func (p *parser) parseExprOrAssignStmt() semantics.Stmt {
+	var stmt semantics.Stmt
+	expr := p.parseExpr()
 	if p.token.IsAssignOperator() {
-		return p.parseAssignStmt(id)
-	} else if p.token.ID == token.Lparen {
-		return p.parseCallStmt(id)
+		assign := p.token
+		p.next()
+		right := p.parseExpr()
+		stmt = &semantics.AssignStmt{Left: expr, Assign: assign, Right: right}
+	} else {
+		stmt = &semantics.ExprStmt{X: expr}
 	}
-	tok := p.token
-	p.next()
-	p.error(tok, "got %s, expected assign or call statement", tok.ID)
-	return &semantics.BadStmt{From: id.Name, To: tok}
-}
-
-func (p *parser) parseAssignStmt(id *semantics.Ident) *semantics.AssignStmt {
-	assign := p.token
-	p.next()
-	rhs := p.parseExpr()
 	p.expectSemi()
-	return &semantics.AssignStmt{Name: id, Assign: assign, Right: rhs}
-}
-
-func (p *parser) parseCallStmt(id *semantics.Ident) *semantics.ExprStmt {
-	x := p.parseFuncCall(id)
-	p.expect(token.Semicolon)
-	return &semantics.ExprStmt{X: x}
+	return stmt
 }
 
 func (p *parser) parseExpr() semantics.Expr {

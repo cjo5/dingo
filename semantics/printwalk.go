@@ -184,7 +184,7 @@ func (p *printVisitor) VisitBranchStmt(stmt *BranchStmt) {
 func (p *printVisitor) VisitAssignStmt(stmt *AssignStmt) {
 	defer dec(inc(p))
 	p.printToken(stmt.Assign)
-	p.VisitIdent(stmt.Name)
+	VisitExpr(p, stmt.Left)
 	VisitExpr(p, stmt.Right)
 }
 

@@ -67,7 +67,7 @@ func (v *dependencyVisitor) VisitReturnStmt(stmt *ReturnStmt) {
 }
 
 func (v *dependencyVisitor) VisitAssignStmt(stmt *AssignStmt) {
-	v.VisitIdent(stmt.Name)
+	VisitExpr(v, stmt.Left)
 	VisitExpr(v, stmt.Right)
 }
 

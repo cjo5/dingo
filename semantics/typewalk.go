@@ -1,6 +1,10 @@
 package semantics
 
-import "github.com/jhnl/interpreter/token"
+import (
+	"fmt"
+
+	"github.com/jhnl/interpreter/token"
+)
 
 type typeVisitor struct {
 	BaseVisitor
@@ -170,32 +174,61 @@ func (v *typeVisitor) VisitReturnStmt(stmt *ReturnStmt) {
 }
 
 func (v *typeVisitor) VisitAssignStmt(stmt *AssignStmt) {
-	v.VisitIdent(stmt.Name)
-	sym := v.c.lookup(stmt.Name.Name)
+	stmt.Left = VisitExpr(v, stmt.Left)
+
+	var sym *Symbol
+	var name *Ident
+	constant := false
+
+	switch t := stmt.Left.(type) {
+	case *Ident:
+		sym = t.Sym
+		constant = t.Sym.Constant()
+		name = t
+	case *DotExpr:
+		switch right := t.X.(type) {
+		case *Ident:
+			sym = right.Sym
+			constant = t.Name.Sym.Constant()
+			name = right
+		case *FuncCall:
+			sym = right.Name.Sym
+			name = right.Name
+		default:
+			panic(fmt.Sprintf("Unhandled DotExpr %T", right))
+		}
+	default:
+		v.c.error(stmt.Left.FirstPos(), "invalid assignment")
+		return
+	}
+
 	if sym == nil {
+		return
+	} else if sym.ID != ValSymbol {
+		v.c.error(name.Pos(), "invalid assignment: '%s' is not a variable", name.Literal())
 		return
 	}
 
 	stmt.Right = VisitExpr(v, stmt.Right)
 
-	if sym.Constant() {
-		v.c.error(stmt.Name.Pos(), "'%s' was declared with %s and cannot be modified (constant)",
-			stmt.Name.Literal(), token.Val)
+	if constant {
+		v.c.error(name.Pos(), "'%s' was declared with %s and cannot be modified (constant)",
+			name.Literal(), token.Val)
 	}
 
-	if !v.c.tryCastLiteral(stmt.Right, stmt.Name.Type()) {
+	if !v.c.tryCastLiteral(stmt.Right, name.Type()) {
 		return
 	}
 
-	if !stmt.Name.Type().IsEqual(stmt.Right.Type()) {
-		v.c.error(stmt.Name.Pos(), "type mismatch: '%s' is of type %s and it not compatible with %s",
-			stmt.Name.Literal(), stmt.Name.Type(), stmt.Right.Type())
+	if !name.Type().IsEqual(stmt.Right.Type()) {
+		v.c.error(name.Pos(), "type mismatch: '%s' is of type %s and is not compatible with %s",
+			name.Literal(), name.Type(), stmt.Right.Type())
 	}
 
 	if stmt.Assign.ID != token.Assign {
-		if !stmt.Name.Type().IsNumericType() {
-			v.c.error(stmt.Name.Pos(), "type mismatch: %s is not numeric (has type %s)",
-				stmt.Assign, stmt.Name.Literal(), stmt.Name.Type())
+		if !name.Type().IsNumericType() {
+			v.c.error(name.Pos(), "type mismatch: %s is not numeric (has type %s)",
+				stmt.Assign, name.Literal(), name.Type())
 		}
 	}
 }

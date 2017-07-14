@@ -493,20 +493,50 @@ func (v *typeVisitor) VisitFuncCall(expr *FuncCall) Expr {
 }
 
 func (v *typeVisitor) VisitDotExpr(expr *DotExpr) Expr {
-	sym := v.c.lookup(expr.Name.Name)
-
+	v.VisitIdent(expr.Name)
+	sym := expr.Name.Sym
 	if sym == nil {
-		return expr
-	}
-
-	if sym.ID != ModuleSymbol {
-		v.c.error(expr.Name.Pos(), "'%s' is not a module", expr.Name.Literal())
 		expr.T = TBuiltinUntyped
 		return expr
 	}
 
-	mod, _ := sym.Src.(*Module)
-	defer setScope(setScope(v.c, mod.External))
+	// TODO: Fix
+	typeTok := token.Token{ID: token.Ident, Literal: sym.T.Name, Pos: expr.Name.Pos()}
+	typeSym := v.c.typeOfSym(typeTok)
+	if typeSym == nil {
+		expr.T = TBuiltinUntyped
+		return expr
+	}
+
+	var name token.Token
+
+	switch t := expr.X.(type) {
+	case *Ident:
+		name = t.Name
+	case *FuncCall:
+		name = t.Name.Name
+	default:
+		v.c.error(expr.FirstPos(), "unexpected expression")
+		expr.T = TBuiltinUntyped
+		return expr
+	}
+
+	if typeSym.ID != ModuleSymbol && typeSym.ID != StructSymbol {
+		fmt.Println(sym)
+		v.c.error(expr.Name.Pos(), "'%s' of type %s has no field '%s'", expr.Name.Literal(), typeSym.T, name.Literal)
+		expr.T = TBuiltinUntyped
+		return expr
+	}
+
+	if typeSym.ID == ModuleSymbol {
+		mod, _ := typeSym.Src.(*Module)
+		defer setScope(setScope(v.c, mod.External))
+	} else if typeSym.ID == StructSymbol {
+		decl, _ := typeSym.Src.(*StructDecl)
+		defer setScope(setScope(v.c, decl.Scope))
+	} else {
+		panic(fmt.Sprintf("Unhandled DotExpr %s", typeSym.ID))
+	}
 
 	expr.X = VisitExpr(v, expr.X)
 	expr.T = expr.X.Type()
