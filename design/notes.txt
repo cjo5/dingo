@@ -9,13 +9,14 @@ TODO (in no particular order):
 - Add tests
 - Type inference
 - Only allow subset of features when writing C/C++ module
+- Cleaner separation of concerns between Symbol and Type
 - Generics
 - Idiomatic error handling
 - Ad hoc polymorphism
 - Type alias
 - Macros / preprocessor
 - Memory management
-    - Non nullable pointers
+    - Non nullable pointers instead of c++ references
     - Explicit pointer semantics. move, share etc.
 - VM improvements
     - Isolate bytecode instructions for functions

@@ -14,6 +14,7 @@ const (
 	TBool
 	TString
 	TModule
+	TStruct
 
 	// Only used as intermediary types when evaluating constant expressions.
 	TBigInt
@@ -38,6 +39,7 @@ var types = [...]string{
 	TBool:     "bool",
 	TString:   "str",
 	TModule:   "module",
+	TStruct:   "struct",
 	TBigInt:   "integer",
 	TBigFloat: "float",
 	TUInt64:   "u64",
@@ -54,21 +56,21 @@ var types = [...]string{
 
 // Built-in types
 var (
-	TBuiltinUntyped = NewType(TUntyped)
-	TBuiltinVoid    = NewType(TVoid)
-	TBuiltinBool    = NewType(TBool)
-	TBuiltinString  = NewType(TString)
-	TBuiltinModule  = NewType(TModule)
-	TBuiltinUInt64  = NewType(TUInt64)
-	TBuiltinInt64   = NewType(TInt64)
-	TBuiltinUInt32  = NewType(TUInt32)
-	TBuiltinInt32   = NewType(TInt32)
-	TBuiltinUInt16  = NewType(TUInt16)
-	TBuiltinInt16   = NewType(TInt16)
-	TBuiltinUInt8   = NewType(TUInt8)
-	TBuiltinInt8    = NewType(TInt8)
-	TBuiltinFloat64 = NewType(TFloat64)
-	TBuiltinFloat32 = NewType(TFloat32)
+	TBuiltinUntyped = NewTypeFromID(TUntyped)
+	TBuiltinVoid    = NewTypeFromID(TVoid)
+	TBuiltinBool    = NewTypeFromID(TBool)
+	TBuiltinString  = NewTypeFromID(TString)
+	TBuiltinModule  = NewTypeFromID(TModule)
+	TBuiltinUInt64  = NewTypeFromID(TUInt64)
+	TBuiltinInt64   = NewTypeFromID(TInt64)
+	TBuiltinUInt32  = NewTypeFromID(TUInt32)
+	TBuiltinInt32   = NewTypeFromID(TInt32)
+	TBuiltinUInt16  = NewTypeFromID(TUInt16)
+	TBuiltinInt16   = NewTypeFromID(TInt16)
+	TBuiltinUInt8   = NewTypeFromID(TUInt8)
+	TBuiltinInt8    = NewTypeFromID(TInt8)
+	TBuiltinFloat64 = NewTypeFromID(TFloat64)
+	TBuiltinFloat32 = NewTypeFromID(TFloat32)
 )
 
 // Big ints used when evaluating constant expressions and checking for overflow.
@@ -97,11 +99,16 @@ var (
 )
 
 type TType struct {
-	ID TypeID
+	ID   TypeID
+	Name string
 }
 
-func NewType(id TypeID) *TType {
-	return &TType{ID: id}
+func NewType(id TypeID, name string) *TType {
+	return &TType{ID: id, Name: name}
+}
+
+func NewTypeFromID(id TypeID) *TType {
+	return NewType(id, id.String())
 }
 
 func (t *TType) OneOf(ids ...TypeID) bool {
@@ -122,8 +129,20 @@ func (t *TType) IsNumericType() bool {
 	}
 }
 
+func (t *TType) IsEqual(other *TType) bool {
+	if t.ID != other.ID {
+		return false
+	}
+	return t.Name == other.Name
+}
+
 func (t *TType) String() string {
-	return t.ID.String()
+	if t.ID == TModule {
+		return "module " + t.Name
+	} else if t.ID == TStruct {
+		return "struct " + t.Name
+	}
+	return t.Name
 }
 
 func (id TypeID) String() string {
@@ -136,8 +155,10 @@ func (id TypeID) String() string {
 	return s
 }
 
-func castableType(from *TType, to *TType) bool {
+func compatibleTypes(from *TType, to *TType) bool {
 	switch {
+	case from.IsEqual(to):
+		return true
 	case from.IsNumericType():
 		switch {
 		case to.IsNumericType():
@@ -260,7 +281,7 @@ func typeCastNumericLiteral(lit *Literal, target *TType) numericCastResult {
 	}
 
 	if res == numericCastOK {
-		lit.T = NewType(target.ID)
+		lit.T = NewTypeFromID(target.ID)
 	}
 
 	return res

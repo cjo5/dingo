@@ -215,7 +215,17 @@ func (p *printVisitor) VisitLiteral(expr *Literal) Expr {
 }
 
 func (p *printVisitor) VisitStructLiteral(expr *StructLiteral) Expr {
-	panic("VisitStructLiteral not implemented")
+	defer dec(inc(p))
+	p.printf("[struct literal]")
+	defer dec(inc(p))
+	p.VisitIdent(expr.Name)
+	for _, kv := range expr.Initializers {
+		p.level++
+		p.printToken(kv.Key)
+		VisitExpr(p, kv.Value)
+		p.level--
+	}
+	return expr
 }
 
 func (p *printVisitor) VisitIdent(expr *Ident) Expr {

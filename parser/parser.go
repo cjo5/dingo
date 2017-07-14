@@ -176,18 +176,20 @@ func (p *parser) parseTopDecl() semantics.TopDecl {
 func (p *parser) parseValTopDecl(visibility token.Token) *semantics.ValTopDecl {
 	decl := &semantics.ValTopDecl{}
 	decl.Visibility = visibility
-	decl.ValDeclSpec = p.parseValDeclSpec()
+	decl.ValDeclSpec = p.parseValDeclSpec(true)
 	p.expect(token.Semicolon)
 	return decl
 }
 
-func (p *parser) parseValDecl() *semantics.ValDecl {
+func (p *parser) parseValDecl(flags int) *semantics.ValDecl {
 	decl := &semantics.ValDecl{}
-	decl.ValDeclSpec = p.parseValDeclSpec()
+	decl.Flags = flags
+	init := (flags & semantics.ValFlagNoInit) == 0
+	decl.ValDeclSpec = p.parseValDeclSpec(init)
 	return decl
 }
 
-func (p *parser) parseValDeclSpec() semantics.ValDeclSpec {
+func (p *parser) parseValDeclSpec(init bool) semantics.ValDeclSpec {
 	decl := semantics.ValDeclSpec{}
 
 	if p.token.OneOf(token.Val, token.Var) {
@@ -203,11 +205,12 @@ func (p *parser) parseValDeclSpec() semantics.ValDeclSpec {
 	decl.Type = p.token
 	p.expect(token.Ident)
 
-	if p.token.ID == token.Assign {
-		p.expect(token.Assign)
-		decl.Initializer = p.parseExpr()
+	if init {
+		if p.token.ID == token.Assign {
+			p.expect(token.Assign)
+			decl.Initializer = p.parseExpr()
+		}
 	}
-
 	return decl
 }
 
@@ -221,11 +224,12 @@ func (p *parser) parseFuncDecl(visibility token.Token) *semantics.FuncDecl {
 
 	decl.Lparen = p.token
 	p.expect(token.Lparen)
+	flags := semantics.ValFlagNoInit
 	if p.token.ID != token.Rparen {
-		decl.Params = append(decl.Params, p.parseValDecl())
+		decl.Params = append(decl.Params, p.parseValDecl(flags))
 		for p.token.ID != token.EOF && p.token.ID != token.Rparen {
 			p.expect(token.Comma)
-			decl.Params = append(decl.Params, p.parseValDecl())
+			decl.Params = append(decl.Params, p.parseValDecl(flags))
 		}
 	}
 	decl.Rparen = p.token
@@ -252,12 +256,12 @@ func (p *parser) parseStructDecl(visibility token.Token) *semantics.StructDecl {
 
 	decl.Lbrace = p.token
 	p.expect(token.Lbrace)
-
+	flags := semantics.ValFlagNoInit
 	if !p.token.Is(token.Rbrace) {
-		decl.Fields = append(decl.Fields, p.parseValDecl())
+		decl.Fields = append(decl.Fields, p.parseValDecl(flags))
 		for !p.token.OneOf(token.EOF, token.Rbrace) {
 			p.expect(token.Comma)
-			decl.Fields = append(decl.Fields, p.parseValDecl())
+			decl.Fields = append(decl.Fields, p.parseValDecl(flags))
 		}
 	}
 
@@ -315,7 +319,7 @@ func (p *parser) parseBlockStmt() *semantics.BlockStmt {
 }
 
 func (p *parser) parseValDeclStmt() *semantics.DeclStmt {
-	d := p.parseValDecl()
+	d := p.parseValDecl(0)
 	p.expectSemi()
 	return &semantics.DeclStmt{D: d}
 }
@@ -556,7 +560,8 @@ func (p *parser) parseStructLiteral(id *semantics.Ident) semantics.Expr {
 }
 
 func (p *parser) parseKeyValue() *semantics.KeyValue {
-	key := p.parseIdent()
+	key := p.token
+	p.expect(token.Ident)
 	equal := p.token
 	p.expect(token.Assign)
 	value := p.parseExpr()

@@ -11,8 +11,9 @@ var builtinScope = NewScope(nil)
 
 func addBuiltinType(t *TType) {
 	sym := &Symbol{}
-	sym.ID = TypeSymbol
+	sym.ID = BuiltinSymbol
 	sym.T = t
+	sym.Flags = SymFlagType | SymFlagCastable
 	sym.Name = t.String()
 	sym.Pos = token.NoPosition
 	builtinScope.Insert(sym)
@@ -79,6 +80,7 @@ func newChecker(prog *Program) *checker {
 
 func (c *checker) resetWalkState() {
 	c.mod = nil
+	c.fileCtx = nil
 	c.topDecl = nil
 }
 
@@ -94,6 +96,20 @@ func setScope(c *checker, scope *Scope) (*checker, *Scope) {
 	curr := c.scope
 	c.scope = scope
 	return c, curr
+}
+
+func (c *checker) visibilityScope(tok token.Token) *Scope {
+	var scope *Scope
+	if tok.Is(token.External) {
+		scope = c.mod.External
+	} else if tok.Is(token.Internal) {
+		scope = c.mod.Internal
+	} else if tok.Is(token.Restricted) {
+		scope = c.fileScope()
+	} else {
+		panic(fmt.Sprintf("Unhandled visibility %s", tok))
+	}
+	return scope
 }
 
 func (c *checker) fileScope() *Scope {
@@ -138,11 +154,20 @@ func (c *checker) lookup(name token.Token) *Symbol {
 
 func (c *checker) typeOf(spec token.Token) *TType {
 	sym := c.scope.Lookup(spec.Literal)
-	if sym == nil || sym.ID != TypeSymbol {
+	if sym == nil || !sym.Type() {
 		c.error(spec.Pos, "%s is not a type", spec.Literal)
 		return TBuiltinUntyped
 	}
 	return sym.T
+}
+
+func (c *checker) typeOfSym(spec token.Token) *Symbol {
+	sym := c.scope.Lookup(spec.Literal)
+	if sym == nil || !sym.Type() {
+		c.error(spec.Pos, "%s is not a type", spec.Literal)
+		return nil
+	}
+	return sym
 }
 
 func (c *checker) isToplevel() bool {
@@ -241,6 +266,7 @@ func (c *checker) sortDecls() {
 				c.errors.AddTrace(decl.Context().Path, sym.Pos, trace, "initializer cycle detected")
 			}
 		}
+
 		mod.Decls = sortedDecls
 	}
 }

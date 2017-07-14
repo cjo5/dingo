@@ -54,7 +54,7 @@ func (v *typeVisitor) VisitBinaryExpr(expr *BinaryExpr) Expr {
 				if (rightBigInt != nil && rightBigInt.Cmp(BigIntZero) == 0) ||
 					(rightBigFloat != nil && rightBigFloat.Cmp(BigFloatZero) == 0) {
 					v.c.error(rightLit.Value.Pos, "Division by zero")
-					expr.T = NewType(TUntyped)
+					expr.T = NewTypeFromID(TUntyped)
 					return expr
 				}
 			}
@@ -65,7 +65,7 @@ func (v *typeVisitor) VisitBinaryExpr(expr *BinaryExpr) Expr {
 				leftBigFloat = big.NewFloat(0)
 				leftBigFloat.SetInt(leftBigInt)
 				leftLit.Raw = leftBigFloat
-				leftLit.T = NewType(TBigFloat)
+				leftLit.T = NewTypeFromID(TBigFloat)
 				leftType = leftLit.T
 				leftBigInt = nil
 			}
@@ -74,7 +74,7 @@ func (v *typeVisitor) VisitBinaryExpr(expr *BinaryExpr) Expr {
 				rightBigFloat = big.NewFloat(0)
 				rightBigFloat.SetInt(rightBigInt)
 				rightLit.Raw = rightBigFloat
-				rightLit.T = NewType(TBigFloat)
+				rightLit.T = NewTypeFromID(TBigFloat)
 				rightType = rightLit.T
 				rightBigInt = nil
 			}
@@ -145,7 +145,7 @@ func (v *typeVisitor) VisitBinaryExpr(expr *BinaryExpr) Expr {
 						} else {
 							leftLit.Value.ID = token.False
 						}
-						leftLit.T = NewType(TBool)
+						leftLit.T = NewTypeFromID(TBool)
 						leftLit.Raw = nil
 					}
 
@@ -190,7 +190,7 @@ func (v *typeVisitor) VisitBinaryExpr(expr *BinaryExpr) Expr {
 		panic(fmt.Sprintf("Unhandled binop %s", expr.Op.ID))
 	}
 
-	expr.T = NewType(binType)
+	expr.T = NewTypeFromID(binType)
 	return expr
 }
 
@@ -286,10 +286,10 @@ func removeUnderscores(lit string) string {
 
 func (v *typeVisitor) VisitLiteral(expr *Literal) Expr {
 	if expr.Value.ID == token.False || expr.Value.ID == token.True {
-		expr.T = NewType(TBool)
+		expr.T = NewTypeFromID(TBool)
 	} else if expr.Value.ID == token.String {
 		if expr.Raw == nil {
-			expr.T = NewType(TString)
+			expr.T = NewTypeFromID(TString)
 			expr.Raw = unescapeStringLiteral(expr.Value.Literal)
 		}
 	} else if expr.Value.ID == token.Integer {
@@ -300,7 +300,7 @@ func (v *typeVisitor) VisitLiteral(expr *Literal) Expr {
 			if !ok {
 				v.c.error(expr.Value.Pos, "unable to interpret integer literal %s", normalized)
 			}
-			expr.T = NewType(TBigInt)
+			expr.T = NewTypeFromID(TBigInt)
 			expr.Raw = val
 		}
 	} else if expr.Value.ID == token.Float {
@@ -311,7 +311,7 @@ func (v *typeVisitor) VisitLiteral(expr *Literal) Expr {
 			if !ok {
 				v.c.error(expr.Value.Pos, "unable to interpret float literal %s", normalized)
 			}
-			expr.T = NewType(TBigFloat)
+			expr.T = NewTypeFromID(TBigFloat)
 			expr.Raw = val
 		}
 	} else {
@@ -321,59 +321,167 @@ func (v *typeVisitor) VisitLiteral(expr *Literal) Expr {
 }
 
 func (v *typeVisitor) VisitStructLiteral(expr *StructLiteral) Expr {
-	panic("VisitStructLiteral")
+	v.VisitIdent(expr.Name)
+	sym := expr.Name.Sym
+	if sym == nil {
+		expr.T = TBuiltinUntyped
+		return expr
+	} else if sym.ID != StructSymbol {
+		v.c.error(expr.Name.Pos(), "'%s' is not a struct", sym.Name)
+		expr.T = TBuiltinUntyped
+		return expr
+	}
+
+	err := false
+	decl, _ := expr.Name.Sym.Src.(*StructDecl)
+	inits := make(map[string]Expr)
+
+	for _, kv := range expr.Initializers {
+		if existing, ok := inits[kv.Key.Literal]; ok {
+			if existing != nil {
+				v.c.error(kv.Key.Pos, "duplicate field key '%s'", kv.Key.Literal)
+			}
+			inits[kv.Key.Literal] = nil
+			continue
+		}
+
+		fieldSym := decl.Scope.Lookup(kv.Key.Literal)
+		if fieldSym == nil {
+			v.c.error(kv.Key.Pos, "'%s' undefined struct field", kv.Key.Literal)
+			inits[kv.Key.Literal] = nil
+			continue
+		}
+
+		kv.Value = VisitExpr(v, kv.Value)
+
+		if !v.c.tryCastLiteral(kv.Value, fieldSym.T) {
+			inits[kv.Key.Literal] = nil
+			continue
+		}
+
+		if !fieldSym.T.IsEqual(kv.Value.Type()) {
+			v.c.error(kv.Key.Pos, "type mismatch: field '%s' expects type %s but got %s",
+				kv.Key.Literal, fieldSym.T, kv.Value.Type())
+			inits[kv.Key.Literal] = nil
+			continue
+		}
+		inits[kv.Key.Literal] = kv.Value
+	}
+
+	if err {
+		expr.T = TBuiltinUntyped
+		return expr
+	}
+
+	expr.T = sym.T
+	return createStructLiteral(decl, expr)
+}
+
+func createDefaultLiteral(sym *Symbol) Expr {
+	t := sym.T
+	if t.OneOf(TStruct) {
+		decl, _ := sym.Src.(*StructDecl)
+		lit := &StructLiteral{}
+		lit.Name = &Ident{Name: token.Synthetic(token.Ident, t.Name)}
+		lit.Name.Sym = sym
+		lit.T = t
+		return createStructLiteral(decl, lit)
+	}
+	return createDefaultBasicLiteral(t)
+}
+
+func createDefaultBasicLiteral(t *TType) *Literal {
+	var lit *Literal
+	if t.OneOf(TBool) {
+		lit = &Literal{Value: token.Synthetic(token.False, token.False.String())}
+		lit.T = NewTypeFromID(TBool)
+	} else if t.OneOf(TString) {
+		lit = &Literal{Value: token.Synthetic(token.String, "")}
+		lit.T = NewTypeFromID(TString)
+	} else if t.OneOf(TUInt64, TInt64, TUInt32, TInt32, TUInt16, TInt16, TUInt8, TInt8) {
+		lit = &Literal{Value: token.Synthetic(token.Integer, "0")}
+		lit.T = NewTypeFromID(t.ID)
+	} else if t.OneOf(TFloat64, TFloat32) {
+		lit = &Literal{Value: token.Synthetic(token.Float, "0")}
+		lit.T = NewTypeFromID(t.ID)
+	} else {
+		panic(fmt.Sprintf("Unhandled init value for type %s", t.ID))
+	}
+	return lit
+}
+
+func createStructLiteral(decl *StructDecl, lit *StructLiteral) *StructLiteral {
+	for _, f := range decl.Fields {
+		key := f.Name.Literal
+		found := false
+		for _, init := range lit.Initializers {
+			if init.Key.Literal == key {
+				found = true
+				break
+			}
+		}
+		if found {
+			continue
+		}
+		kv := &KeyValue{}
+		kv.Key = token.Synthetic(token.Ident, key)
+		kv.Value = createDefaultLiteral(f.Sym)
+		lit.Initializers = append(lit.Initializers, kv)
+	}
+	return lit
 }
 
 func (v *typeVisitor) VisitIdent(expr *Ident) Expr {
-	sym := v.c.lookup(expr.Name)
-	if sym == nil {
+	expr.Sym = v.c.lookup(expr.Name)
+	if expr.Sym == nil {
 		v.c.error(expr.Name.Pos, "'%s' undefined", expr.Name.Literal)
-		expr.T = TBuiltinUntyped
-	} else {
-		expr.T = sym.T
 	}
 	return expr
 }
 
 func (v *typeVisitor) VisitFuncCall(expr *FuncCall) Expr {
-	sym := v.c.lookup(expr.Name.Name)
-	if sym != nil && sym.ID != FuncSymbol && sym.ID != TypeSymbol {
+	v.VisitIdent(expr.Name)
+	sym := expr.Name.Sym
+	if sym == nil {
+		expr.T = TBuiltinUntyped
+		return expr
+	} else if sym.ID != FuncSymbol && !sym.Castable() {
 		v.c.error(expr.Name.Pos(), "'%s' is not a function", sym.Name)
+		expr.T = TBuiltinUntyped
+		return expr
 	}
 
 	for i, arg := range expr.Args {
 		expr.Args[i] = VisitExpr(v, arg)
 	}
 
-	if sym != nil {
-		if sym.ID == TypeSymbol {
-			if len(expr.Args) != 1 {
-				v.c.error(expr.Name.Pos(), "type conversion %s takes exactly 1 argument", sym.T.ID)
-			} else if !castableType(expr.Args[0].Type(), sym.T) {
-				v.c.error(expr.Name.Pos(), "type mismatch: %s cannot be converted to %s", expr.Args[0].Type(), sym.T)
-			} else if v.c.tryCastLiteral(expr.Args[0], sym.T) {
-				expr.T = sym.T
-			}
-		} else if sym.ID == FuncSymbol {
-			decl, _ := sym.Src.(*FuncDecl)
-			if len(decl.Params) != len(expr.Args) {
-				v.c.error(expr.Name.Pos(), "'%s' takes %d argument(s) but called with %d", sym.Name, len(decl.Params), len(expr.Args))
-			} else {
-				for i, arg := range expr.Args {
-					paramType := decl.Params[i].Sym.T
+	if sym.ID == FuncSymbol {
+		decl, _ := sym.Src.(*FuncDecl)
+		if len(decl.Params) != len(expr.Args) {
+			v.c.error(expr.Name.Pos(), "'%s' takes %d argument(s) but called with %d", sym.Name, len(decl.Params), len(expr.Args))
+		} else {
+			for i, arg := range expr.Args {
+				paramType := decl.Params[i].Sym.T
 
-					if !v.c.tryCastLiteral(arg, paramType) {
-						continue
-					}
-
-					argType := arg.Type()
-					if argType.ID != paramType.ID {
-						v.c.error(arg.FirstPos(), "type mismatch: argument %d of function '%s' expects type %s but got %s",
-							i, expr.Name.Literal(), paramType.ID, argType.ID)
-					}
+				if !v.c.tryCastLiteral(arg, paramType) {
+					continue
 				}
-				expr.T = decl.TReturn.Type()
+
+				argType := arg.Type()
+				if !argType.IsEqual(paramType) {
+					v.c.error(arg.FirstPos(), "type mismatch: argument %d of function '%s' expects type %s but got %s",
+						i, expr.Name.Literal(), paramType.ID, argType.ID)
+				}
 			}
+			expr.T = decl.TReturn.Type()
+		}
+	} else {
+		if len(expr.Args) != 1 {
+			v.c.error(expr.Name.Pos(), "type conversion %s takes exactly 1 argument", sym.T.ID)
+		} else if !compatibleTypes(expr.Args[0].Type(), sym.T) {
+			v.c.error(expr.Name.Pos(), "type mismatch: %s cannot be converted to %s", expr.Args[0].Type(), sym.T)
+		} else if v.c.tryCastLiteral(expr.Args[0], sym.T) {
+			expr.T = sym.T
 		}
 	}
 

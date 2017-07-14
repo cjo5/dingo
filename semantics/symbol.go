@@ -8,8 +8,9 @@ type SymbolID int
 const (
 	ValSymbol SymbolID = iota
 	FuncSymbol
-	TypeSymbol
+	BuiltinSymbol
 	ModuleSymbol
+	StructSymbol
 )
 
 // Symbol flags.
@@ -17,6 +18,8 @@ const (
 	SymFlagDepCycle = 1 << 1
 	SymFlagToplevel = 1 << 2
 	SymFlagConstant = 1 << 3
+	SymFlagType     = 1 << 4
+	SymFlagCastable = 1 << 5
 )
 
 type Symbol struct {
@@ -44,10 +47,12 @@ func (s SymbolID) String() string {
 		return "ValSymbol"
 	case FuncSymbol:
 		return "FuncSymbol"
-	case TypeSymbol:
-		return "TypeSymbol"
+	case BuiltinSymbol:
+		return "BuiltinSymbol"
 	case ModuleSymbol:
 		return "ModuleSymbol"
+	case StructSymbol:
+		return "StructSymbol"
 	default:
 		return "Symbol " + string(s)
 	}
@@ -68,4 +73,12 @@ func (s *Symbol) Toplevel() bool {
 
 func (s *Symbol) Constant() bool {
 	return (s.Flags & SymFlagConstant) != 0
+}
+
+func (s *Symbol) Type() bool {
+	return (s.Flags & SymFlagType) != 0
+}
+
+func (s *Symbol) Castable() bool {
+	return (s.Flags & SymFlagCastable) != 0
 }

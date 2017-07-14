@@ -1,10 +1,9 @@
 module
 
-import "b"
+ext struct Foo {
+    a: u32,
+    b: i32
+}
 
-rst val res: i32 = b.mult(5, 4);
-
-
-rst val a: i32 = "";
-rst val f: i32 = c;
-rst val c: i32 = a;
+val bar: Foo = Foo{a=5, c=2};
+bar.a = 5;

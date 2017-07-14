@@ -1,10 +1,6 @@
 package semantics
 
-import (
-	"fmt"
-
-	"github.com/jhnl/interpreter/token"
-)
+import "github.com/jhnl/interpreter/token"
 
 type typeVisitor struct {
 	BaseVisitor
@@ -20,29 +16,32 @@ func typeWalk(c *checker) {
 func (v *typeVisitor) Module(mod *Module) {
 	v.c.mod = mod
 	for _, decl := range mod.Decls {
+		if decl.Symbol() == nil {
+			// Nil symbol means a redeclaration
+			continue
+		}
 		v.c.setTopDecl(decl)
 		VisitDecl(v, decl)
 	}
 }
 
 func (v *typeVisitor) VisitValTopDecl(decl *ValTopDecl) {
-	v.visitValDeclSpec(decl.Sym, &decl.ValDeclSpec)
+	v.visitValDeclSpec(decl.Sym, &decl.ValDeclSpec, true)
 }
 
 func (v *typeVisitor) VisitValDecl(decl *ValDecl) {
-	v.visitValDeclSpec(decl.Sym, &decl.ValDeclSpec)
+	if decl.Sym != nil {
+		v.visitValDeclSpec(decl.Sym, &decl.ValDeclSpec, decl.Init())
+	}
 }
 
-func (v *typeVisitor) visitValDeclSpec(sym *Symbol, decl *ValDeclSpec) {
-	if sym == nil {
+func (v *typeVisitor) visitValDeclSpec(sym *Symbol, decl *ValDeclSpec, defaultInit bool) {
+	typeSym := v.c.typeOfSym(decl.Type)
+	if typeSym == nil {
+		sym.T = TBuiltinUntyped
 		return
 	}
-
-	t := v.c.typeOf(decl.Type)
-	sym.T = t
-	if t == TBuiltinUntyped {
-		return
-	}
+	sym.T = typeSym.T
 
 	if decl.Decl.Is(token.Val) {
 		sym.Flags |= SymFlagConstant
@@ -55,46 +54,24 @@ func (v *typeVisitor) visitValDeclSpec(sym *Symbol, decl *ValDeclSpec) {
 	if decl.Initializer != nil {
 		decl.Initializer = VisitExpr(v, decl.Initializer)
 
-		if !v.c.tryCastLiteral(decl.Initializer, t) {
+		if !v.c.tryCastLiteral(decl.Initializer, sym.T) {
 			return
 		}
 
-		if t.ID != decl.Initializer.Type().ID {
+		if !sym.T.IsEqual(decl.Initializer.Type()) {
 			v.c.error(decl.Initializer.FirstPos(), "type mismatch: '%s' has type %s and is not compatible with %s",
-				decl.Name.Literal, t, decl.Initializer.Type())
+				decl.Name.Literal, sym.T, decl.Initializer.Type())
 		}
-	} else {
-		decl.Initializer = createDefaultValue(t)
+	} else if defaultInit {
+		decl.Initializer = createDefaultLiteral(typeSym)
 	}
-}
-
-func createDefaultValue(t *TType) Expr {
-	var lit *Literal
-	if t.OneOf(TBool) {
-		lit = &Literal{Value: token.Synthetic(token.False, token.False.String())}
-		lit.T = NewType(TBool)
-	} else if t.OneOf(TString) {
-		lit = &Literal{Value: token.Synthetic(token.String, "")}
-		lit.T = NewType(TString)
-	} else if t.OneOf(TUInt64, TInt64, TUInt32, TInt32, TUInt16, TInt16, TUInt8, TInt8) {
-		lit = &Literal{Value: token.Synthetic(token.Integer, "0")}
-		lit.T = NewType(t.ID)
-	} else if t.OneOf(TFloat64, TFloat32) {
-		lit = &Literal{Value: token.Synthetic(token.Float, "0")}
-		lit.T = NewType(t.ID)
-	} else {
-		panic(fmt.Sprintf("Unhandled init value for type %s", t.ID))
-	}
-	return lit
 }
 
 func (v *typeVisitor) VisitFuncDecl(decl *FuncDecl) {
 	defer setScope(setScope(v.c, decl.Scope))
 
 	for _, param := range decl.Params {
-		if param.Sym != nil {
-			param.Sym.T = v.c.typeOf(param.Type)
-		}
+		v.VisitValDecl(param)
 	}
 
 	decl.TReturn.T = v.c.typeOf(decl.TReturn.Name)
@@ -113,11 +90,26 @@ func (v *typeVisitor) VisitFuncDecl(decl *FuncDecl) {
 	}
 
 	if !endsWithReturn {
-		tok := token.Synthetic(token.Return, "return")
-		returnStmt := &ReturnStmt{Return: tok}
-		decl.Body.Stmts = append(decl.Body.Stmts, returnStmt)
+		if !decl.TReturn.T.IsEqual(TBuiltinVoid) {
+			v.c.error(decl.Body.Rbrace.Pos, "missing return")
+		} else {
+			tok := token.Synthetic(token.Return, "return")
+			returnStmt := &ReturnStmt{Return: tok}
+			decl.Body.Stmts = append(decl.Body.Stmts, returnStmt)
+
+		}
 	}
 }
+
+func (v *typeVisitor) VisitStructDecl(decl *StructDecl) {
+	defer setScope(setScope(v.c, decl.Scope))
+	decl.Sym.T = NewType(TStruct, decl.Name.Literal)
+
+	for _, field := range decl.Fields {
+		v.VisitValDecl(field)
+	}
+}
+
 func (v *typeVisitor) VisitBlockStmt(stmt *BlockStmt) {
 	defer setScope(setScope(v.c, stmt.Scope))
 	VisitStmtList(v, stmt.Stmts)
@@ -195,7 +187,7 @@ func (v *typeVisitor) VisitAssignStmt(stmt *AssignStmt) {
 		return
 	}
 
-	if stmt.Name.Type().ID != stmt.Right.Type().ID {
+	if !stmt.Name.Type().IsEqual(stmt.Right.Type()) {
 		v.c.error(stmt.Name.Pos(), "type mismatch: '%s' is of type %s and it not compatible with %s",
 			stmt.Name.Literal(), stmt.Name.Type(), stmt.Right.Type())
 	}
@@ -203,7 +195,7 @@ func (v *typeVisitor) VisitAssignStmt(stmt *AssignStmt) {
 	if stmt.Assign.ID != token.Assign {
 		if !stmt.Name.Type().IsNumericType() {
 			v.c.error(stmt.Name.Pos(), "type mismatch: %s is not numeric (has type %s)",
-				stmt.Assign, stmt.Name.Literal(), stmt.Name.Type().ID)
+				stmt.Assign, stmt.Name.Literal(), stmt.Name.Type())
 		}
 	}
 }

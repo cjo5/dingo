@@ -1,11 +1,5 @@
 package semantics
 
-import (
-	"fmt"
-
-	"github.com/jhnl/interpreter/token"
-)
-
 type symbolVisitor struct {
 	BaseVisitor
 	c *checker
@@ -47,16 +41,7 @@ func (v *symbolVisitor) VisitImport(decl *Import) {
 }
 
 func (v *symbolVisitor) VisitValTopDecl(decl *ValTopDecl) {
-	var scope *Scope
-	if decl.Visibility.Is(token.External) {
-		scope = v.c.mod.External
-	} else if decl.Visibility.Is(token.Internal) {
-		scope = v.c.mod.Internal
-	} else if decl.Visibility.Is(token.Restricted) {
-		scope = v.c.fileScope()
-	} else {
-		scope = v.c.scope
-	}
+	scope := v.c.visibilityScope(decl.Visibility)
 	decl.Sym = v.c.insert(scope, ValSymbol, decl.Name.Literal, decl.Name.Pos, decl)
 }
 
@@ -65,27 +50,31 @@ func (v *symbolVisitor) VisitValDecl(decl *ValDecl) {
 }
 
 func (v *symbolVisitor) VisitFuncDecl(decl *FuncDecl) {
-	var scope *Scope
-	if decl.Visibility.Is(token.External) {
-		scope = v.c.mod.External
-	} else if decl.Visibility.Is(token.Internal) {
-		scope = v.c.mod.Internal
-	} else if decl.Visibility.Is(token.Restricted) {
-		scope = v.c.fileScope()
-	} else {
-		panic(fmt.Sprintf("Unhandled visibility %s", decl.Visibility))
-	}
-
+	scope := v.c.visibilityScope(decl.Visibility)
 	decl.Sym = v.c.insert(scope, FuncSymbol, decl.Name.Literal, decl.Name.Pos, decl)
 	v.c.openScope()
 	decl.Scope = v.c.scope
 
 	for _, param := range decl.Params {
-		param.Sym = v.c.insert(v.c.scope, ValSymbol, param.Name.Literal, param.Name.Pos, param)
+		v.VisitValDecl(param)
 	}
 
 	decl.Body.Scope = decl.Scope
 	VisitStmtList(v, decl.Body.Stmts)
+	v.c.closeScope()
+}
+
+func (v *symbolVisitor) VisitStructDecl(decl *StructDecl) {
+	scope := v.c.visibilityScope(decl.Visibility)
+	decl.Sym = v.c.insert(scope, StructSymbol, decl.Name.Literal, decl.Name.Pos, decl)
+	decl.Sym.Flags = SymFlagType | SymFlagCastable
+	v.c.openScope()
+	decl.Scope = v.c.scope
+
+	for _, field := range decl.Fields {
+		v.VisitValDecl(field)
+	}
+
 	v.c.closeScope()
 }
 

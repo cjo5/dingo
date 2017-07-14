@@ -48,6 +48,7 @@ func exec(path string) {
 		}
 	}
 
+	fmt.Println("Parse done")
 	fmt.Println(semantics.Print(prog))
 
 	err = semantics.Check(prog)
@@ -55,6 +56,8 @@ func exec(path string) {
 		return
 	}
 
+	fmt.Println("Check done")
+	fmt.Println(semantics.Print(prog))
 	/*
 		ip, code, mem := codegen.Compile(mod)
 

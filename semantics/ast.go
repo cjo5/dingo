@@ -77,7 +77,7 @@ type baseTopDecl struct {
 	Sym *Symbol
 	Ctx *FileContext
 
-	deps  []TopDecl
+	deps  []TopDecl // Dependencies don't cross module boundaries
 	color NodeColor
 }
 
@@ -179,14 +179,24 @@ func (d *ValTopDecl) FirstPos() token.Position {
 	return d.Decl.Pos
 }
 
+// Val decl flags.
+const (
+	ValFlagNoInit = 1 << 0
+)
+
 type ValDecl struct {
 	baseDecl
 	ValDeclSpec
-	Sym *Symbol
+	Sym   *Symbol
+	Flags int
 }
 
 func (d *ValDecl) FirstPos() token.Position {
 	return d.Decl.Pos
+}
+
+func (d *ValDecl) Init() bool {
+	return (d.Flags & ValFlagNoInit) == 0
 }
 
 type FuncDecl struct {
@@ -360,16 +370,16 @@ func (x *Literal) FirstPos() token.Position { return x.Value.Pos }
 
 type KeyValue struct {
 	baseNode
-	Key   *Ident
+	Key   token.Token
 	Equal token.Token
 	Value Expr
 }
 
-func (k *KeyValue) FirstPos() token.Position { return k.Key.FirstPos() }
+func (k *KeyValue) FirstPos() token.Position { return k.Key.Pos }
 
 type StructLiteral struct {
 	baseExpr
-	Name         *Ident // Nil if anonymous
+	Name         *Ident
 	Lbrace       token.Token
 	Initializers []*KeyValue
 	Rbrace       token.Token
@@ -380,6 +390,7 @@ func (x *StructLiteral) FirstPos() token.Position { return x.Name.FirstPos() }
 type Ident struct {
 	baseExpr
 	Name token.Token
+	Sym  *Symbol
 }
 
 func (x *Ident) FirstPos() token.Position { return x.Name.Pos }
@@ -388,6 +399,13 @@ func (x *Ident) Literal() string {
 }
 func (x *Ident) Pos() token.Position {
 	return x.Name.Pos
+}
+
+func (x *Ident) Type() *TType {
+	if x.Sym == nil || x.Sym.T == nil {
+		return TBuiltinUntyped
+	}
+	return x.Sym.T
 }
 
 type FuncCall struct {

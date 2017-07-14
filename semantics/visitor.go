@@ -58,9 +58,7 @@ func (v *BaseVisitor) VisitValTopDecl(decl *ValTopDecl) {}
 func (v *BaseVisitor) VisitValDecl(decl *ValDecl)       {}
 func (v *BaseVisitor) VisitFuncDecl(decl *FuncDecl)     {}
 
-func (v *BaseVisitor) VisitStructDecl(decl *StructDecl) {
-	panic("VisitStructDecl")
-}
+func (v *BaseVisitor) VisitStructDecl(decl *StructDecl) {}
 
 func (v *BaseVisitor) VisitBadStmt(stmt *BadStmt) {
 	panic("VisitBadStmt")

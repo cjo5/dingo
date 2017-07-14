@@ -28,7 +28,7 @@ Stmt = Block | VarDeclStmt | PrintStmt | AssignStmt | CallStmt | 'if' IfStmt | W
         | ReturnStmt | 'break' ';' | 'continue' ';'
 VarDeclStmt = VarDecl ';'
 PrintStmt = 'print' Expr ';'
-AssignStmt = IDENT ('=' | '+=' | '-=' | '*=' | '/=' | '%=' ) Initializer ';'
+AssignStmt = Expr ('=' | '+=' | '-=' | '*=' | '/=' | '%=' ) Initializer ';'
 ExprStmt = Expr ';'
 IfStmt = Expr BlockStmt [('elif' IfStmt) | ('else' Block)]
 WhileStmt = 'while' '{' Stmt* '}'

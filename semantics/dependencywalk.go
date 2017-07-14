@@ -103,9 +103,11 @@ func (v *dependencyVisitor) VisitFuncCall(expr *FuncCall) Expr {
 
 func (v *dependencyVisitor) VisitDotExpr(expr *DotExpr) Expr {
 	sym := v.c.scope.Lookup(expr.Name.Literal())
-	if sym != nil && sym.ID != ModuleSymbol {
+	if sym == nil {
+		return expr
+	}
+	if sym.ID == StructSymbol {
 		v.VisitIdent(expr.Name)
-		VisitExpr(v, expr.X)
 	}
 	return expr
 }
