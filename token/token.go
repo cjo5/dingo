@@ -153,7 +153,7 @@ var tokens = [...]string{
 	Var:        "var",
 	Val:        "val",
 	Static:     "static",
-	Func:       "func",
+	Func:       "fun",
 	Struct:     "struct",
 	External:   "ext",
 	Internal:   "int",

@@ -7,6 +7,6 @@ ext struct Foo {
 
 var bar: i32 = 5;
 
-func main() {
+rst fun main() {
     val data: Foo = Foo{b=9};
 }
