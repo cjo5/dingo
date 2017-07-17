@@ -37,6 +37,7 @@ type loadedModule struct {
 
 type loader struct {
 	errors        *common.ErrorList
+	moduleID      int
 	currentFile   *loadedFile
 	loadedModules []*loadedModule
 }
@@ -48,7 +49,7 @@ func Load(path string) (*semantics.Program, error) {
 		return nil, fmt.Errorf("not a lang file")
 	}
 
-	loader := &loader{}
+	loader := &loader{moduleID: 1} // ID 0 is reserved
 	loader.errors = &common.ErrorList{}
 
 	path, err := normalizePath("", path, false)
@@ -61,6 +62,7 @@ func Load(path string) (*semantics.Program, error) {
 		return nil, loader.errors
 	}
 
+	mainModule.mod.Flags |= semantics.ModFlagMain
 	loader.loadedModules = append(loader.loadedModules, mainModule)
 
 	for i := 0; i < len(loader.loadedModules); i++ {
@@ -96,7 +98,7 @@ func Load(path string) (*semantics.Program, error) {
 		return nil, loader.errors
 	}
 
-	prog := &semantics.Program{Main: mainModule.mod}
+	prog := &semantics.Program{}
 	for _, loadedMod := range loader.loadedModules {
 		prog.Modules = append(prog.Modules, loadedMod.mod)
 	}
@@ -116,7 +118,8 @@ func (l *loader) loadModule(filename string) *loadedModule {
 		return nil
 	}
 
-	mod := &semantics.Module{}
+	mod := &semantics.Module{ID: l.moduleID}
+	l.moduleID++
 	mod.Files = append(mod.Files, mainFile)
 	mod.Decls = append(mod.Decls, mainDecls...)
 	loadedMod := &loadedModule{mod: mod}

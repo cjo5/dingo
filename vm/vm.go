@@ -8,616 +8,44 @@ import (
 	"strconv"
 )
 
-// CodeMemory represents a program's instructions.
-type CodeMemory []Instruction
+// Run bytecode.
+func Run(code *BytecodeProgram, output *os.File) {
+	vm := &vm{code: code, output: output}
 
-// DataMemory represents a program's globals and constants.
-type DataMemory struct {
-	Globals   []interface{}
-	Constants []interface{}
+	defer func() {
+		if r := recover(); r != nil {
+			if vm.frame != nil {
+				if !vm.frame.end() {
+					// TODO: Print stack trace
+					in := vm.frame.instr()
+					panic(fmt.Sprintf("instruction: %s", in))
+				}
+			}
+			panic(r)
+		}
+	}()
+
+	vm.runProgram()
 }
 
-type FunctionDescriptor struct {
-	Name       string
-	Address    int
-	ArgCount   int
-	LocalCount int
-}
-
-type Frame struct {
-	function   *FunctionDescriptor
-	retAddress int
-	locals     []interface{}
-}
-
-func (fd FunctionDescriptor) String() string {
-	return fmt.Sprintf(".%s(address=0x%x, argCount=%d, localCount=%d)", fd.Name, fd.Address, fd.ArgCount, fd.LocalCount)
-}
-
-// VM is the execution context for a bytecode program.
-type VM struct {
-	inited    bool
-	halt      bool
-	ip        int // Instruction pointer
-	operands  []interface{}
-	callStack []*Frame
-	currFrame *Frame
+type vm struct {
+	code      *BytecodeProgram
+	frame     *frame   // Current frame
+	callStack []*frame // Previous frames (current is not included)
 
 	output *os.File
-	Err    string
+	halt   bool
 }
 
-// DumpMemory prints the content of a program's data memory.
-func DumpMemory(mem []interface{}, output *os.File) {
-	for i, c := range mem {
-		s := ""
-		if tmp, ok := c.(string); ok {
-			s = strconv.Quote(tmp)
-		} else {
-			s = fmt.Sprintf("%v", c)
-		}
-		output.WriteString(fmt.Sprintf("%04d: %s <%T>\n", i, s, c))
-	}
+func (vm *vm) pushFrame(frame *frame) {
+	vm.callStack = append(vm.callStack, vm.frame)
+	vm.frame = frame
 }
 
-// Disasm prints a bytecode program in human-readable format.
-func Disasm(code CodeMemory, output *os.File) {
-	for i, c := range code {
-		output.WriteString(fmt.Sprintf("%04x: %s\n", i, c))
-	}
-}
-
-// NewMachine creates a new VM.
-func NewMachine(output *os.File) *VM {
-	vm := &VM{}
-	vm.output = output
-	vm.reset()
-	return vm
-}
-
-// RuntimeError returns true if an error occured during program execution.
-func (vm *VM) RuntimeError() bool {
-	return len(vm.Err) > 0
-}
-
-// Exec a bytecode program.
-func (vm *VM) Exec(ip int, code CodeMemory, mem DataMemory) {
-	if !vm.inited {
-		vm.reset()
-	}
-	vm.currFrame = &Frame{}
-	vm.ip = ip
-	for vm.ip < len(code) && !vm.halt {
-		in := code[vm.ip]
-		ip2 := vm.ip + 1
-
-		switch op := in.Op; op {
-		case Nop:
-			// Do nothing
-		case Halt:
-			vm.halt = true
-		case Dup:
-			if arg := vm.peek1Arg(op); arg != nil {
-				vm.push(arg)
-			}
-		case Pop:
-			vm.pop()
-		case Ret:
-			if len(vm.callStack) > 0 {
-				idx := len(vm.callStack) - 1
-				ip2 = vm.currFrame.retAddress
-				vm.currFrame = vm.callStack[idx]
-				vm.callStack = vm.callStack[:idx]
-			} else {
-				internalPanic(op, "empty call stack")
-			}
-		case Print:
-			if arg := vm.pop1Arg(op); arg != nil {
-				str := ""
-				switch t := arg.(type) {
-				case bool:
-					str = strconv.FormatBool(t)
-				case string:
-					str = t
-				case uint64:
-					str = strconv.FormatUint(uint64(t), 10)
-				case uint32:
-					str = strconv.FormatUint(uint64(t), 10)
-				case uint16:
-					str = strconv.FormatUint(uint64(t), 10)
-				case uint8:
-					str = strconv.FormatUint(uint64(t), 10)
-				case int64:
-					str = strconv.FormatInt(int64(t), 10)
-				case int32:
-					str = strconv.FormatInt(int64(t), 10)
-				case int16:
-					str = strconv.FormatInt(int64(t), 10)
-				case int8:
-					str = strconv.FormatInt(int64(t), 10)
-				case float64:
-					str = floatToString(t)
-				case float32:
-					str = floatToString(float64(t))
-				default:
-					vm.runtimePanic(op, fmt.Sprintf("incompatible type '%T'", t))
-					break
-				}
-				vm.output.WriteString(str)
-			}
-		case Not:
-			if arg, ok := vm.pop1I32Arg(op); ok {
-				res := 0
-				if arg == 0 {
-					res = 1
-				}
-				vm.push(res)
-			}
-		case U64Add, U64Sub, U64Mul, U64Div, U64Mod, U64Cmp:
-			if arg1, arg2, ok := vm.pop2U64Args(op); ok {
-				switch op {
-				case U64Add:
-					vm.push(arg1 + arg2)
-				case U64Sub:
-					vm.push(arg1 - arg2)
-				case U64Mul:
-					vm.push(arg1 * arg2)
-				case U64Div:
-					vm.push(arg1 / arg2)
-				case U64Mod:
-					vm.push(arg1 % arg2)
-				case U64Cmp:
-					res := int32(0)
-					if arg1 < arg2 {
-						res = -1
-					} else if arg1 > arg2 {
-						res = 1
-					}
-					vm.push(res)
-				}
-			}
-		case U32Add, U32Sub, U32Mul, U32Div, U32Mod, U32Cmp:
-			if arg1, arg2, ok := vm.pop2U32Args(op); ok {
-				switch op {
-				case U32Add:
-					vm.push(arg1 + arg2)
-				case U32Sub:
-					vm.push(arg1 - arg2)
-				case U32Mul:
-					vm.push(arg1 * arg2)
-				case U32Div:
-					vm.push(arg1 / arg2)
-				case U32Mod:
-					vm.push(arg1 % arg2)
-				case U32Cmp:
-					res := int32(0)
-					if arg1 < arg2 {
-						res = -1
-					} else if arg1 > arg2 {
-						res = 1
-					}
-					vm.push(res)
-				}
-			}
-		case U16Add, U16Sub, U16Mul, U16Div, U16Mod, U16Cmp:
-			if arg1, arg2, ok := vm.pop2U16Args(op); ok {
-				switch op {
-				case U16Add:
-					vm.push(arg1 + arg2)
-				case U16Sub:
-					vm.push(arg1 - arg2)
-				case U16Mul:
-					vm.push(arg1 * arg2)
-				case U16Div:
-					vm.push(arg1 / arg2)
-				case U16Mod:
-					vm.push(arg1 % arg2)
-				case U16Cmp:
-					res := int32(0)
-					if arg1 < arg2 {
-						res = -1
-					} else if arg1 > arg2 {
-						res = 1
-					}
-					vm.push(res)
-				}
-			}
-		case U8Add, U8Sub, U8Mul, U8Div, U8Mod, U8Cmp:
-			if arg1, arg2, ok := vm.pop2U8Args(op); ok {
-				switch op {
-				case U8Add:
-					vm.push(arg1 + arg2)
-				case U8Sub:
-					vm.push(arg1 - arg2)
-				case U8Mul:
-					vm.push(arg1 * arg2)
-				case U8Div:
-					vm.push(arg1 / arg2)
-				case U8Mod:
-					vm.push(arg1 % arg2)
-				case U8Cmp:
-					res := int32(0)
-					if arg1 < arg2 {
-						res = -1
-					} else if arg1 > arg2 {
-						res = 1
-					}
-					vm.push(res)
-				}
-			}
-		case I64Add, I64Sub, I64Mul, I64Div, I64Mod, I64Cmp:
-			if arg1, arg2, ok := vm.pop2I64Args(op); ok {
-				switch op {
-				case I64Add:
-					vm.push(arg1 + arg2)
-				case I64Sub:
-					vm.push(arg1 - arg2)
-				case I64Mul:
-					vm.push(arg1 * arg2)
-				case I64Div:
-					vm.push(arg1 / arg2)
-				case I64Mod:
-					vm.push(arg1 % arg2)
-				case U64Cmp:
-					res := int32(0)
-					if arg1 < arg2 {
-						res = -1
-					} else if arg1 > arg2 {
-						res = 1
-					}
-					vm.push(res)
-				}
-
-			}
-		case I32Add, I32Sub, I32Mul, I32Div, I32Mod, I32Cmp:
-			if arg1, arg2, ok := vm.pop2I32Args(op); ok {
-				switch op {
-				case I32Add:
-					vm.push(arg1 + arg2)
-				case I32Sub:
-					vm.push(arg1 - arg2)
-				case I32Mul:
-					vm.push(arg1 * arg2)
-				case I32Div:
-					vm.push(arg1 / arg2)
-				case I32Mod:
-					vm.push(arg1 % arg2)
-				case I32Cmp:
-					res := int32(0)
-					if arg1 < arg2 {
-						res = -1
-					} else if arg1 > arg2 {
-						res = 1
-					}
-					vm.push(res)
-				}
-			}
-		case I16Add, I16Sub, I16Mul, I16Div, I16Mod, I16Cmp:
-			if arg1, arg2, ok := vm.pop2I16Args(op); ok {
-				switch op {
-				case I16Add:
-					vm.push(arg1 + arg2)
-				case I16Sub:
-					vm.push(arg1 - arg2)
-				case I16Mul:
-					vm.push(arg1 * arg2)
-				case I16Div:
-					vm.push(arg1 / arg2)
-				case I16Mod:
-					vm.push(arg1 % arg2)
-				case I16Cmp:
-					res := int32(0)
-					if arg1 < arg2 {
-						res = -1
-					} else if arg1 > arg2 {
-						res = 1
-					}
-					vm.push(res)
-				}
-			}
-		case I8Add, I8Sub, I8Mul, I8Div, I8Mod, I8Cmp:
-			if arg1, arg2, ok := vm.pop2I8Args(op); ok {
-				switch op {
-				case I8Add:
-					vm.push(arg1 + arg2)
-				case I8Sub:
-					vm.push(arg1 - arg2)
-				case I8Mul:
-					vm.push(arg1 * arg2)
-				case I8Div:
-					vm.push(arg1 / arg2)
-				case I8Mod:
-					vm.push(arg1 % arg2)
-				case I8Cmp:
-					res := int32(0)
-					if arg1 < arg2 {
-						res = -1
-					} else if arg1 > arg2 {
-						res = 1
-					}
-					vm.push(res)
-				}
-			}
-		case F64Add, F64Sub, F64Mul, F64Div, F64Cmp:
-			if arg1, arg2, ok := vm.pop2F64Args(op); ok {
-				switch op {
-				case F64Add:
-					vm.push(arg1 + arg2)
-				case F64Sub:
-					vm.push(arg1 - arg2)
-				case F64Mul:
-					vm.push(arg1 * arg2)
-				case F64Div:
-					vm.push(arg1 / arg2)
-				case F64Cmp:
-					res := int32(0)
-					if arg1 < arg2 {
-						res = -1
-					} else if arg1 > arg2 {
-						res = 1
-					}
-					vm.push(res)
-				}
-			}
-		case F32Add, F32Sub, F32Mul, F32Div, F32Cmp:
-			if arg1, arg2, ok := vm.pop2F32Args(op); ok {
-				switch op {
-				case F32Add:
-					vm.push(arg1 + arg2)
-				case F32Sub:
-					vm.push(arg1 - arg2)
-				case F32Mul:
-					vm.push(arg1 * arg2)
-				case F32Div:
-					vm.push(arg1 / arg2)
-				case F32Cmp:
-					res := int32(0)
-					if arg1 < arg2 {
-						res = -1
-					} else if arg1 > arg2 {
-						res = 1
-					}
-					vm.push(res)
-				}
-			}
-		case CmpEq, CmpNe, CmpGt, CmpGe, CmpLt, CmpLe:
-			if arg, ok := vm.pop1I32Arg(op); ok {
-				res := int32(0)
-				switch op {
-				case CmpEq:
-					if arg == 0 {
-						res = 1
-					}
-				case CmpNe:
-					if arg != 0 {
-						res = 1
-					}
-				case CmpGt:
-					if arg > 0 {
-						res = 1
-					}
-				case CmpGe:
-					if arg >= 0 {
-						res = 1
-					}
-				case CmpLt:
-					if arg < 0 {
-						res = 1
-					}
-				case CmpLe:
-					if arg <= 0 {
-						res = 1
-					}
-				}
-				vm.push(res)
-			}
-		case NumCast:
-			if arg1, arg2, ok := vm.pop2Args(op); ok {
-				intVal := int64(0)
-				floatVal := float64(0)
-				floatNumber := false
-				err := false
-
-				switch t1 := arg1.(type) {
-				case uint64:
-					intVal = int64(t1)
-				case uint32:
-					intVal = int64(t1)
-				case uint16:
-					intVal = int64(t1)
-				case uint8:
-					intVal = int64(t1)
-				case int64:
-					intVal = int64(t1)
-				case int32:
-					intVal = int64(t1)
-				case int16:
-					intVal = int64(t1)
-				case int8:
-					intVal = int64(t1)
-				case float64:
-					floatVal = float64(t1)
-					floatNumber = true
-				case float32:
-					floatVal = float64(t1)
-					floatNumber = true
-				default:
-					err = true
-				}
-
-				if !err {
-					t2 := reflect.TypeOf(arg2).Kind()
-					switch t2 {
-					case reflect.Uint64:
-						if floatNumber {
-							vm.push(uint64(floatVal))
-						} else {
-							vm.push(uint64(intVal))
-						}
-					case reflect.Uint32:
-						if floatNumber {
-							vm.push(uint32(floatVal))
-						} else {
-							vm.push(uint32(intVal))
-						}
-					case reflect.Uint16:
-						if floatNumber {
-							vm.push(uint16(floatVal))
-						} else {
-							vm.push(uint16(intVal))
-						}
-					case reflect.Uint8:
-						if floatNumber {
-							vm.push(uint8(floatVal))
-						} else {
-							vm.push(uint8(intVal))
-						}
-					case reflect.Int64:
-						if floatNumber {
-							vm.push(int64(floatVal))
-						} else {
-							vm.push(int64(intVal))
-						}
-					case reflect.Int32:
-						if floatNumber {
-							vm.push(int32(floatVal))
-						} else {
-							vm.push(int32(intVal))
-						}
-					case reflect.Int16:
-						if floatNumber {
-							vm.push(int16(floatVal))
-						} else {
-							vm.push(int16(intVal))
-						}
-					case reflect.Int8:
-						if floatNumber {
-							vm.push(int8(floatVal))
-						} else {
-							vm.push(int8(intVal))
-						}
-					case reflect.Float64:
-						if floatNumber {
-							vm.push(float64(floatVal))
-						} else {
-							vm.push(float64(intVal))
-						}
-					case reflect.Float32:
-						if floatNumber {
-							vm.push(float32(floatVal))
-						} else {
-							vm.push(float32(intVal))
-						}
-					default:
-						err = true
-					}
-				}
-
-				if err {
-					vm.runtimePanic(op, "%T cannot be cast to %T", arg1, arg2)
-				}
-			}
-		case U64Load:
-			vm.push(in.U64())
-		case U32Load:
-			vm.push(in.U32())
-		case U16Load:
-			vm.push(in.U16())
-		case U8Load:
-			vm.push(in.U8())
-		case I64Load:
-			vm.push(in.I64())
-		case I32Load:
-			vm.push(in.I32())
-		case I16Load:
-			vm.push(in.I16())
-		case I8Load:
-			vm.push(in.I8())
-		case CLoad:
-			addr := in.Addr()
-			if addr < len(mem.Constants) {
-				vm.push(mem.Constants[addr])
-			} else {
-				indexOutOfRange(op, addr)
-			}
-		case GLoad:
-			addr := in.Addr()
-			if addr < len(mem.Globals) {
-				vm.push(mem.Globals[addr])
-			} else {
-				indexOutOfRange(op, addr)
-			}
-		case GStore:
-			if arg := vm.pop1Arg(op); arg != nil {
-				addr := in.Addr()
-				if addr < len(mem.Globals) {
-					mem.Globals[addr] = arg
-				} else {
-					indexOutOfRange(op, addr)
-				}
-			}
-		case Load:
-			addr := in.Addr()
-			if addr < len(vm.currFrame.locals) {
-				vm.push(vm.currFrame.locals[addr])
-			} else {
-				indexOutOfRange(op, addr)
-			}
-		case Store:
-			addr := in.Addr()
-			if arg := vm.pop1Arg(op); arg != nil {
-				if addr < len(vm.currFrame.locals) {
-					vm.currFrame.locals[addr] = arg
-				} else {
-					indexOutOfRange(op, addr)
-				}
-			}
-		case Goto:
-			ip2 = in.Addr()
-		case IfFalse:
-			if arg, ok := vm.pop1I32Arg(op); ok {
-				if arg == 0 {
-					ip2 = in.Addr()
-				}
-			}
-		case IfTrue:
-			if arg, ok := vm.pop1I32Arg(op); ok {
-				if arg != 0 {
-					ip2 = in.Addr()
-				}
-			}
-		case Call:
-			addr := in.Addr()
-			if addr < len(mem.Constants) {
-				c := mem.Constants[addr]
-				if fun, ok := c.(*FunctionDescriptor); ok {
-					vm.callStack = append(vm.callStack, vm.currFrame)
-					vm.currFrame = &Frame{}
-					vm.currFrame.function = fun
-					vm.currFrame.retAddress = ip2
-					vm.currFrame.locals = make([]interface{}, fun.LocalCount+fun.ArgCount)
-					ip2 = fun.Address
-					for i := 0; i < fun.ArgCount; i++ {
-						if arg := vm.pop1Arg(op); arg != nil {
-							vm.currFrame.locals[i] = arg
-						} else {
-							internalPanic(op, fmt.Sprintf("invalid arg count %d", fun.ArgCount))
-							break
-						}
-					}
-				} else {
-					vm.runtimePanic(op, fmt.Sprintf("expected FunctionDescriptor, got %T", c))
-				}
-			} else {
-				indexOutOfRange(op, addr)
-			}
-		default:
-			internalPanic(op, "not implemented")
-		}
-		vm.ip = ip2
-	}
-
-	vm.inited = false
+func (vm *vm) popFrame() {
+	idx := len(vm.callStack) - 1
+	vm.frame = vm.callStack[idx]
+	vm.callStack = vm.callStack[:idx]
 }
 
 func floatToString(value float64) string {
@@ -631,260 +59,513 @@ func floatToString(value float64) string {
 	return strconv.FormatFloat(value, fmt, -1, 64)
 }
 
-func (vm *VM) pop2Args(op Opcode) (interface{}, interface{}, bool) {
-	arg2 := vm.pop()
-	arg1 := vm.pop()
-	if arg1 == nil || arg2 == nil {
-		internalPanic(op, "2 arguments required")
-		return nil, nil, false
-	}
-	return arg1, arg2, true
-}
+func (vm *vm) runProgram() {
+	bootstrapMod := vm.code.Modules[0]
+	bootstrapFun := bootstrapMod.Functions[0]
+	vm.frame = newFrame(bootstrapMod, bootstrapFun)
 
-func (vm *VM) pop2U64Args(op Opcode) (uint64, uint64, bool) {
-	arg2 := vm.pop()
-	arg1 := vm.pop()
-	if arg1 == nil || arg2 == nil {
-		internalPanic(op, "2 arguments required")
-		return 0, 0, false
-	}
-	arg1Int, ok1 := arg1.(uint64)
-	arg2Int, ok2 := arg2.(uint64)
-	if !ok1 || !ok2 {
-		internalPanic(op, "2 u64 arguments expected (got %T and %T)", arg1, arg2)
-		return 0, 0, false
-	}
-	return arg1Int, arg2Int, true
-}
+	for !vm.halt {
+		frame := vm.frame
+		if frame.end() {
+			if len(vm.callStack) == 0 {
+				vm.halt = true
+			} else {
+				vm.popFrame()
+			}
+			continue
+		}
 
-func (vm *VM) pop2U32Args(op Opcode) (uint32, uint32, bool) {
-	arg2 := vm.pop()
-	arg1 := vm.pop()
-	if arg1 == nil || arg2 == nil {
-		internalPanic(op, "2 arguments required")
-		return 0, 0, false
-	}
-	arg1Int, ok1 := arg1.(uint32)
-	arg2Int, ok2 := arg2.(uint32)
-	if !ok1 || !ok2 {
-		internalPanic(op, "2 u32 arguments expected (got %T and %T)", arg1, arg2)
-		return 0, 0, false
-	}
-	return arg1Int, arg2Int, true
-}
+		in := frame.instr()
+		ip2 := frame.ip + 1
 
-func (vm *VM) pop2U16Args(op Opcode) (uint16, uint16, bool) {
-	arg2 := vm.pop()
-	arg1 := vm.pop()
-	if arg1 == nil || arg2 == nil {
-		internalPanic(op, "2 arguments required")
-		return 0, 0, false
-	}
-	arg1Int, ok1 := arg1.(uint16)
-	arg2Int, ok2 := arg2.(uint16)
-	if !ok1 || !ok2 {
-		internalPanic(op, "2 u16 arguments expected (got %T and %T)", arg1, arg2)
-		return 0, 0, false
-	}
-	return arg1Int, arg2Int, true
-}
+		switch op := in.Op; op {
+		case Nop:
+			// Do nothing
+		case Halt:
+			vm.halt = true
+		case Dup:
+			frame.push(frame.peek())
+		case Pop:
+			frame.pop()
+		case Ret:
+			vm.popFrame()
+			if frame.fun.ReturnValue {
+				vm.frame.push(frame.pop())
+			}
+			frame = vm.frame
+			ip2 = frame.ip
+		case Print:
+			arg := frame.pop()
+			str := ""
+			switch t := arg.(type) {
+			case bool:
+				str = strconv.FormatBool(t)
+			case string:
+				str = t
+			case uint64:
+				str = strconv.FormatUint(uint64(t), 10)
+			case uint32:
+				str = strconv.FormatUint(uint64(t), 10)
+			case uint16:
+				str = strconv.FormatUint(uint64(t), 10)
+			case uint8:
+				str = strconv.FormatUint(uint64(t), 10)
+			case int64:
+				str = strconv.FormatInt(int64(t), 10)
+			case int32:
+				str = strconv.FormatInt(int64(t), 10)
+			case int16:
+				str = strconv.FormatInt(int64(t), 10)
+			case int8:
+				str = strconv.FormatInt(int64(t), 10)
+			case float64:
+				str = floatToString(t)
+			case float32:
+				str = floatToString(float64(t))
+			default:
+				panic(fmt.Sprintf("%s: unsupported type %T", op, t))
+			}
+			vm.output.WriteString(str)
+		case Not:
+			res := 0
+			if frame.popI32() == 0 {
+				res = 1
+			}
+			frame.push(res)
+		case U64Add, U64Sub, U64Mul, U64Div, U64Mod, U64Cmp:
+			arg2 := frame.popU64()
+			arg1 := frame.popU64()
+			switch op {
+			case U64Add:
+				frame.push(arg1 + arg2)
+			case U64Sub:
+				frame.push(arg1 - arg2)
+			case U64Mul:
+				frame.push(arg1 * arg2)
+			case U64Div:
+				frame.push(arg1 / arg2)
+			case U64Mod:
+				frame.push(arg1 % arg2)
+			case U64Cmp:
+				res := int32(0)
+				if arg1 < arg2 {
+					res = -1
+				} else if arg1 > arg2 {
+					res = 1
+				}
+				frame.push(res)
+			}
+		case U32Add, U32Sub, U32Mul, U32Div, U32Mod, U32Cmp:
+			arg2 := frame.popU32()
+			arg1 := frame.popU32()
+			switch op {
+			case U32Add:
+				frame.push(arg1 + arg2)
+			case U32Sub:
+				frame.push(arg1 - arg2)
+			case U32Mul:
+				frame.push(arg1 * arg2)
+			case U32Div:
+				frame.push(arg1 / arg2)
+			case U32Mod:
+				frame.push(arg1 % arg2)
+			case U32Cmp:
+				res := int32(0)
+				if arg1 < arg2 {
+					res = -1
+				} else if arg1 > arg2 {
+					res = 1
+				}
+				frame.push(res)
+			}
+		case U16Add, U16Sub, U16Mul, U16Div, U16Mod, U16Cmp:
+			arg2 := frame.popU16()
+			arg1 := frame.popU16()
+			switch op {
+			case U16Add:
+				frame.push(arg1 + arg2)
+			case U16Sub:
+				frame.push(arg1 - arg2)
+			case U16Mul:
+				frame.push(arg1 * arg2)
+			case U16Div:
+				frame.push(arg1 / arg2)
+			case U16Mod:
+				frame.push(arg1 % arg2)
+			case U16Cmp:
+				res := int32(0)
+				if arg1 < arg2 {
+					res = -1
+				} else if arg1 > arg2 {
+					res = 1
+				}
+				frame.push(res)
+			}
+		case U8Add, U8Sub, U8Mul, U8Div, U8Mod, U8Cmp:
+			arg2 := frame.popU8()
+			arg1 := frame.popU8()
+			switch op {
+			case U8Add:
+				frame.push(arg1 + arg2)
+			case U8Sub:
+				frame.push(arg1 - arg2)
+			case U8Mul:
+				frame.push(arg1 * arg2)
+			case U8Div:
+				frame.push(arg1 / arg2)
+			case U8Mod:
+				frame.push(arg1 % arg2)
+			case U8Cmp:
+				res := int32(0)
+				if arg1 < arg2 {
+					res = -1
+				} else if arg1 > arg2 {
+					res = 1
+				}
+				frame.push(res)
+			}
+		case I64Add, I64Sub, I64Mul, I64Div, I64Mod, I64Cmp:
+			arg2 := frame.popI64()
+			arg1 := frame.popI64()
+			switch op {
+			case I64Add:
+				frame.push(arg1 + arg2)
+			case I64Sub:
+				frame.push(arg1 - arg2)
+			case I64Mul:
+				frame.push(arg1 * arg2)
+			case I64Div:
+				frame.push(arg1 / arg2)
+			case I64Mod:
+				frame.push(arg1 % arg2)
+			case U64Cmp:
+				res := int32(0)
+				if arg1 < arg2 {
+					res = -1
+				} else if arg1 > arg2 {
+					res = 1
+				}
+				frame.push(res)
+			}
+		case I32Add, I32Sub, I32Mul, I32Div, I32Mod, I32Cmp:
+			arg2 := frame.popI32()
+			arg1 := frame.popI32()
+			switch op {
+			case I32Add:
+				frame.push(arg1 + arg2)
+			case I32Sub:
+				frame.push(arg1 - arg2)
+			case I32Mul:
+				frame.push(arg1 * arg2)
+			case I32Div:
+				frame.push(arg1 / arg2)
+			case I32Mod:
+				frame.push(arg1 % arg2)
+			case I32Cmp:
+				res := int32(0)
+				if arg1 < arg2 {
+					res = -1
+				} else if arg1 > arg2 {
+					res = 1
+				}
+				frame.push(res)
+			}
+		case I16Add, I16Sub, I16Mul, I16Div, I16Mod, I16Cmp:
+			arg2 := frame.popI16()
+			arg1 := frame.popI16()
+			switch op {
+			case I16Add:
+				frame.push(arg1 + arg2)
+			case I16Sub:
+				frame.push(arg1 - arg2)
+			case I16Mul:
+				frame.push(arg1 * arg2)
+			case I16Div:
+				frame.push(arg1 / arg2)
+			case I16Mod:
+				frame.push(arg1 % arg2)
+			case I16Cmp:
+				res := int32(0)
+				if arg1 < arg2 {
+					res = -1
+				} else if arg1 > arg2 {
+					res = 1
+				}
+				frame.push(res)
+			}
+		case I8Add, I8Sub, I8Mul, I8Div, I8Mod, I8Cmp:
+			arg2 := frame.popI8()
+			arg1 := frame.popI8()
+			switch op {
+			case I8Add:
+				frame.push(arg1 + arg2)
+			case I8Sub:
+				frame.push(arg1 - arg2)
+			case I8Mul:
+				frame.push(arg1 * arg2)
+			case I8Div:
+				frame.push(arg1 / arg2)
+			case I8Mod:
+				frame.push(arg1 % arg2)
+			case I8Cmp:
+				res := int32(0)
+				if arg1 < arg2 {
+					res = -1
+				} else if arg1 > arg2 {
+					res = 1
+				}
+				frame.push(res)
+			}
+		case F64Add, F64Sub, F64Mul, F64Div, F64Cmp:
+			arg2 := frame.popF64()
+			arg1 := frame.popF64()
+			switch op {
+			case F64Add:
+				frame.push(arg1 + arg2)
+			case F64Sub:
+				frame.push(arg1 - arg2)
+			case F64Mul:
+				frame.push(arg1 * arg2)
+			case F64Div:
+				frame.push(arg1 / arg2)
+			case F64Cmp:
+				res := int32(0)
+				if arg1 < arg2 {
+					res = -1
+				} else if arg1 > arg2 {
+					res = 1
+				}
+				frame.push(res)
+			}
+		case F32Add, F32Sub, F32Mul, F32Div, F32Cmp:
+			arg2 := frame.popF32()
+			arg1 := frame.popF32()
+			switch op {
+			case F32Add:
+				frame.push(arg1 + arg2)
+			case F32Sub:
+				frame.push(arg1 - arg2)
+			case F32Mul:
+				frame.push(arg1 * arg2)
+			case F32Div:
+				frame.push(arg1 / arg2)
+			case F32Cmp:
+				res := int32(0)
+				if arg1 < arg2 {
+					res = -1
+				} else if arg1 > arg2 {
+					res = 1
+				}
+				frame.push(res)
+			}
+		case CmpEq, CmpNe, CmpGt, CmpGe, CmpLt, CmpLe:
+			arg := frame.popI32()
+			res := int32(0)
+			switch op {
+			case CmpEq:
+				if arg == 0 {
+					res = 1
+				}
+			case CmpNe:
+				if arg != 0 {
+					res = 1
+				}
+			case CmpGt:
+				if arg > 0 {
+					res = 1
+				}
+			case CmpGe:
+				if arg >= 0 {
+					res = 1
+				}
+			case CmpLt:
+				if arg < 0 {
+					res = 1
+				}
+			case CmpLe:
+				if arg <= 0 {
+					res = 1
+				}
+			}
+			frame.push(res)
+		case NumCast:
+			arg2 := frame.pop()
+			arg1 := frame.pop()
 
-func (vm *VM) pop2U8Args(op Opcode) (uint8, uint8, bool) {
-	arg2 := vm.pop()
-	arg1 := vm.pop()
-	if arg1 == nil || arg2 == nil {
-		internalPanic(op, "2 arguments required")
-		return 0, 0, false
-	}
-	arg1Int, ok1 := arg1.(uint8)
-	arg2Int, ok2 := arg2.(uint8)
-	if !ok1 || !ok2 {
-		internalPanic(op, "2 u8 arguments expected (got %T and %T)", arg1, arg2)
-		return 0, 0, false
-	}
-	return arg1Int, arg2Int, true
-}
+			intVal := int64(0)
+			floatVal := float64(0)
+			floatNumber := false
+			err := false
 
-func (vm *VM) pop2I64Args(op Opcode) (int64, int64, bool) {
-	arg2 := vm.pop()
-	arg1 := vm.pop()
-	if arg1 == nil || arg2 == nil {
-		internalPanic(op, "2 arguments required")
-		return 0, 0, false
-	}
-	arg1Int, ok1 := arg1.(int64)
-	arg2Int, ok2 := arg2.(int64)
-	if !ok1 || !ok2 {
-		internalPanic(op, "2 i64 arguments expected (got %T and %T)", arg1, arg2)
-		return 0, 0, false
-	}
-	return arg1Int, arg2Int, true
-}
+			switch t1 := arg1.(type) {
+			case uint64:
+				intVal = int64(t1)
+			case uint32:
+				intVal = int64(t1)
+			case uint16:
+				intVal = int64(t1)
+			case uint8:
+				intVal = int64(t1)
+			case int64:
+				intVal = int64(t1)
+			case int32:
+				intVal = int64(t1)
+			case int16:
+				intVal = int64(t1)
+			case int8:
+				intVal = int64(t1)
+			case float64:
+				floatVal = float64(t1)
+				floatNumber = true
+			case float32:
+				floatVal = float64(t1)
+				floatNumber = true
+			default:
+				err = true
+			}
 
-func (vm *VM) pop2I32Args(op Opcode) (int32, int32, bool) {
-	arg2 := vm.pop()
-	arg1 := vm.pop()
-	if arg1 == nil || arg2 == nil {
-		internalPanic(op, "2 arguments required")
-		return 0, 0, false
-	}
-	arg1Int, ok1 := arg1.(int32)
-	arg2Int, ok2 := arg2.(int32)
-	if !ok1 || !ok2 {
-		internalPanic(op, "2xi32 arguments expected (got %T and %T)", arg1, arg2)
-		return 0, 0, false
-	}
-	return arg1Int, arg2Int, true
-}
+			if !err {
+				t2 := reflect.TypeOf(arg2).Kind()
+				switch t2 {
+				case reflect.Uint64:
+					if floatNumber {
+						frame.push(uint64(floatVal))
+					} else {
+						frame.push(uint64(intVal))
+					}
+				case reflect.Uint32:
+					if floatNumber {
+						frame.push(uint32(floatVal))
+					} else {
+						frame.push(uint32(intVal))
+					}
+				case reflect.Uint16:
+					if floatNumber {
+						frame.push(uint16(floatVal))
+					} else {
+						frame.push(uint16(intVal))
+					}
+				case reflect.Uint8:
+					if floatNumber {
+						frame.push(uint8(floatVal))
+					} else {
+						frame.push(uint8(intVal))
+					}
+				case reflect.Int64:
+					if floatNumber {
+						frame.push(int64(floatVal))
+					} else {
+						frame.push(int64(intVal))
+					}
+				case reflect.Int32:
+					if floatNumber {
+						frame.push(int32(floatVal))
+					} else {
+						frame.push(int32(intVal))
+					}
+				case reflect.Int16:
+					if floatNumber {
+						frame.push(int16(floatVal))
+					} else {
+						frame.push(int16(intVal))
+					}
+				case reflect.Int8:
+					if floatNumber {
+						frame.push(int8(floatVal))
+					} else {
+						frame.push(int8(intVal))
+					}
+				case reflect.Float64:
+					if floatNumber {
+						frame.push(float64(floatVal))
+					} else {
+						frame.push(float64(intVal))
+					}
+				case reflect.Float32:
+					if floatNumber {
+						frame.push(float32(floatVal))
+					} else {
+						frame.push(float32(intVal))
+					}
+				default:
+					err = true
+				}
+			}
 
-func (vm *VM) pop2I16Args(op Opcode) (int16, int16, bool) {
-	arg2 := vm.pop()
-	arg1 := vm.pop()
-	if arg1 == nil || arg2 == nil {
-		internalPanic(op, "2 arguments required")
-		return 0, 0, false
+			if err {
+				panic(fmt.Sprintf("%s: %T cannot be cast to %T", op, arg1, arg2))
+			}
+		case U64Load:
+			frame.push(in.U64())
+		case U32Load:
+			frame.push(in.U32())
+		case U16Load:
+			frame.push(in.U16())
+		case U8Load:
+			frame.push(in.U8())
+		case I64Load:
+			frame.push(in.I64())
+		case I32Load:
+			frame.push(in.I32())
+		case I16Load:
+			frame.push(in.I16())
+		case I8Load:
+			frame.push(in.I8())
+		case CLoad:
+			addr := in.Addr()
+			frame.push(frame.mod.Constants[addr])
+		case IntLoad:
+			addr := in.Addr()
+			frame.push(frame.mod.Fields[addr])
+		case FieldLoad:
+			storage := frame.popFieldStorage()
+			frame.push(storage.Get(in.Addr()))
+		case FieldStore:
+			storage := frame.popFieldStorage()
+			storage.Put(in.Addr(), frame.pop())
+		case ModLoad:
+			mod := vm.code.Modules[in.Addr()]
+			frame.push(mod)
+		case IntStore:
+			addr := in.Addr()
+			frame.mod.Fields[addr] = frame.pop()
+		case Load:
+			addr := in.Addr()
+			frame.push(frame.locals[addr])
+		case Store:
+			addr := in.Addr()
+			frame.locals[addr] = frame.pop()
+		case Goto:
+			ip2 = in.Addr()
+		case IfFalse:
+			arg := frame.popI32()
+			if arg == 0 {
+				ip2 = in.Addr()
+			}
+		case IfTrue:
+			arg := frame.popI32()
+			if arg != 0 {
+				ip2 = in.Addr()
+			}
+		case IntCall, ExtCall:
+			mod := frame.mod
+			if op == ExtCall {
+				mod = frame.popModuleObject()
+			}
+			addr := in.Addr()
+			fun := mod.Functions[addr]
+			newFrame := newFrame(mod, fun)
+			newFrame.locals = make([]interface{}, fun.LocalCount+fun.ArgCount)
+			for i := fun.ArgCount - 1; i >= 0; i-- {
+				newFrame.locals[i] = frame.pop()
+			}
+			frame.ip++ // Execute next instruction after return
+			frame = newFrame
+			vm.pushFrame(newFrame)
+			ip2 = 0
+		default:
+			panic(fmt.Sprintf("%s: not implemented", op))
+		}
+		frame.ip = ip2
 	}
-	arg1Int, ok1 := arg1.(int16)
-	arg2Int, ok2 := arg2.(int16)
-	if !ok1 || !ok2 {
-		internalPanic(op, "2xi16 arguments expected (got %T and %T)", arg1, arg2)
-		return 0, 0, false
-	}
-	return arg1Int, arg2Int, true
-}
-
-func (vm *VM) pop2I8Args(op Opcode) (int8, int8, bool) {
-	arg2 := vm.pop()
-	arg1 := vm.pop()
-	if arg1 == nil || arg2 == nil {
-		internalPanic(op, "2 arguments required")
-		return 0, 0, false
-	}
-	arg1Int, ok1 := arg1.(int8)
-	arg2Int, ok2 := arg2.(int8)
-	if !ok1 || !ok2 {
-		internalPanic(op, "2xi8 arguments expected (got %T and %T)", arg1, arg2)
-		return 0, 0, false
-	}
-	return arg1Int, arg2Int, true
-}
-
-func (vm *VM) pop2F64Args(op Opcode) (float64, float64, bool) {
-	arg2 := vm.pop()
-	arg1 := vm.pop()
-	if arg1 == nil || arg2 == nil {
-		internalPanic(op, "2 arguments required")
-		return 0, 0, false
-	}
-	arg1Float, ok1 := arg1.(float64)
-	arg2Float, ok2 := arg2.(float64)
-	if !ok1 || !ok2 {
-		internalPanic(op, "2xf64 arguments expected (got %T and %T)", arg1, arg2)
-		return 0, 0, false
-	}
-	return arg1Float, arg2Float, true
-}
-
-func (vm *VM) pop2F32Args(op Opcode) (float32, float32, bool) {
-	arg2 := vm.pop()
-	arg1 := vm.pop()
-	if arg1 == nil || arg2 == nil {
-		internalPanic(op, "2 arguments required")
-		return 0, 0, false
-	}
-	arg1Float, ok1 := arg1.(float32)
-	arg2Float, ok2 := arg2.(float32)
-	if !ok1 || !ok2 {
-		internalPanic(op, "2xf32 arguments expected (got %T and %T)", arg1, arg2)
-		return 0, 0, false
-	}
-	return arg1Float, arg2Float, true
-}
-
-func (vm *VM) pop1U32Arg(op Opcode) (uint32, bool) {
-	arg := vm.pop1Arg(op)
-	if arg == nil {
-		return 0, false
-	}
-	argInt, ok := arg.(uint32)
-	if !ok {
-		vm.runtimePanic(op, fmt.Sprintf("1xu32 argument expected got (%T)", arg))
-		return 0, false
-	}
-	return argInt, true
-}
-
-func (vm *VM) pop1I32Arg(op Opcode) (int32, bool) {
-	arg := vm.pop1Arg(op)
-	if arg == nil {
-		return 0, false
-	}
-	argInt, ok := arg.(int32)
-	if !ok {
-		vm.runtimePanic(op, fmt.Sprintf("1xi32 argument expected got (%T)", arg))
-		return 0, false
-	}
-	return argInt, true
-}
-
-func (vm *VM) pop1Arg(op Opcode) interface{} {
-	if arg := vm.pop(); arg != nil {
-		return arg
-	}
-	internalPanic(op, "1 argument required")
-	return nil
-}
-
-func (vm *VM) peek1Arg(op Opcode) interface{} {
-	if arg := vm.peek(); arg != nil {
-		return arg
-	}
-	internalPanic(op, "1 argument required")
-	return nil
-}
-
-func (vm *VM) push(arg interface{}) {
-	vm.operands = append(vm.operands, arg)
-}
-
-func (vm *VM) pop() interface{} {
-	n := len(vm.operands)
-	if n == 0 {
-		return nil
-	}
-	index := n - 1
-	arg := vm.operands[index]
-	vm.operands = vm.operands[:index]
-	return arg
-}
-
-func (vm *VM) peek() interface{} {
-	n := len(vm.operands)
-	if n == 0 {
-		return nil
-	}
-	return vm.operands[n-1]
-}
-
-func (vm *VM) reset() {
-	vm.inited = true
-	vm.halt = false
-	vm.ip = 0
-	vm.operands = nil
-	vm.callStack = nil
-	vm.currFrame = nil
-	vm.Err = ""
-}
-
-func (vm *VM) runtimePanic(op Opcode, format string, args ...interface{}) {
-	vm.Err = fmt.Sprintf("%s: %s", op, fmt.Sprintf(format, args...))
-	vm.halt = true
-}
-
-func internalPanic(op Opcode, format string, args ...interface{}) {
-	panic(fmt.Sprintf("%s: %s", op, fmt.Sprintf(format, args...)))
-}
-
-func indexOutOfRange(op Opcode, index int) {
-	internalPanic(op, "index %d out of range", index)
 }

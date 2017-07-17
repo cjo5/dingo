@@ -134,7 +134,7 @@ func (c *checker) error(pos token.Position, format string, args ...interface{}) 
 }
 
 func (c *checker) insert(scope *Scope, id SymbolID, name string, pos token.Position, decl Decl) *Symbol {
-	sym := NewSymbol(id, name, pos, decl, c.isToplevel())
+	sym := NewSymbol(id, c.mod.ID, name, pos, decl)
 	if existing := scope.Insert(sym); existing != nil {
 		msg := fmt.Sprintf("redeclaration of '%s', previously declared at %s", name, existing.Pos)
 		c.error(pos, msg)
@@ -168,21 +168,6 @@ func (c *checker) typeOfSym(spec token.Token) *Symbol {
 		return nil
 	}
 	return sym
-}
-
-func (c *checker) isToplevel() bool {
-	if c.mod != nil {
-		if c.scope == c.mod.External || c.scope == c.mod.Internal {
-			return true
-		}
-	}
-	fileScope := c.fileScope()
-	if fileScope != nil {
-		if c.scope == fileScope {
-			return true
-		}
-	}
-	return false
 }
 
 func (c *checker) sortModules() {

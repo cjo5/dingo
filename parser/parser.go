@@ -256,7 +256,7 @@ func (p *parser) parseStructDecl(visibility token.Token) *semantics.StructDecl {
 
 	decl.Lbrace = p.token
 	p.expect(token.Lbrace)
-	flags := semantics.ValFlagNoInit
+	flags := semantics.ValFlagNoInit | semantics.ValFlagField
 	if !p.token.Is(token.Rbrace) {
 		decl.Fields = append(decl.Fields, p.parseValDecl(flags))
 		for !p.token.OneOf(token.EOF, token.Rbrace) {

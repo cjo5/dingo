@@ -411,11 +411,13 @@ func createDefaultBasicLiteral(t *TType) *Literal {
 }
 
 func createStructLiteral(decl *StructDecl, lit *StructLiteral) *StructLiteral {
+	var initializers []*KeyValue
 	for _, f := range decl.Fields {
 		key := f.Name.Literal
 		found := false
 		for _, init := range lit.Initializers {
 			if init.Key.Literal == key {
+				initializers = append(initializers, init)
 				found = true
 				break
 			}
@@ -426,8 +428,9 @@ func createStructLiteral(decl *StructDecl, lit *StructLiteral) *StructLiteral {
 		kv := &KeyValue{}
 		kv.Key = token.Synthetic(token.Ident, key)
 		kv.Value = createDefaultLiteral(f.Sym)
-		lit.Initializers = append(lit.Initializers, kv)
+		initializers = append(initializers, kv)
 	}
+	lit.Initializers = initializers
 	return lit
 }
 

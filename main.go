@@ -8,6 +8,7 @@ import (
 	"github.com/jhnl/interpreter/common"
 	"github.com/jhnl/interpreter/module"
 	"github.com/jhnl/interpreter/semantics"
+	"github.com/jhnl/interpreter/vm"
 )
 
 func showErrors(oldErrors common.ErrorList, newError error, onlyFatal bool) bool {
@@ -58,23 +59,10 @@ func exec(path string) {
 
 	fmt.Println("Check done")
 	fmt.Println(semantics.Print(prog))
-	/*
-		ip, code, mem := codegen.Compile(mod)
 
-		fmt.Printf("Constants (%d):\n", len(mem.Constants))
-		vm.DumpMemory(mem.Constants, os.Stdout)
-		fmt.Printf("Globals (%d):\n", len(mem.Globals))
-		vm.DumpMemory(mem.Globals, os.Stdout)
-		fmt.Printf("\nCode (%d):\n", len(code))
-		vm.Disasm(code, os.Stdout)
-		fmt.Println()
-
-		machine := vm.NewMachine(os.Stdout)
-		machine.Exec(ip, code, mem)
-		if machine.RuntimeError() {
-			fmt.Println("Runtime error:", machine.Err)
-		}
-	*/
+	bytecode := vm.Compile(prog)
+	vm.Disasm(bytecode, os.Stdout)
+	vm.Run(bytecode, os.Stdout)
 }
 
 func main() {
@@ -86,5 +74,4 @@ func main() {
 	common.Cwd = dir
 
 	exec("examples/modules/a.lang")
-	//testVM()
 }

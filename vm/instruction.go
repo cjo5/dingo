@@ -107,26 +107,33 @@ const (
 	opArg0End
 
 	opArg1Start
-	U64Load // Push immediate u64
-	U32Load // Push immediate u32
-	U16Load // Push immediate u16
-	U8Load  // Push immediate u8
-	I64Load // Push immediate i64
-	I32Load // Push immediate i32
-	I16Load // Push immediate i16
-	I8Load  // Push immediate i8
-	CLoad   // Push constant
-	GLoad   // Push global variable
-	GStore  // Pop and store global variable
-	Load    // Push local variable
-	Store   // Pop loal variable
+	U64Load    // Push immediate u64
+	U32Load    // Push immediate u32
+	U16Load    // Push immediate u16
+	U8Load     // Push immediate u8
+	I64Load    // Push immediate i64
+	I32Load    // Push immediate i32
+	I16Load    // Push immediate i16
+	I8Load     // Push immediate i8
+	CLoad      // Push constant
+	IntLoad    // Push internal value
+	IntStore   // Pop and store in internal variable
+	FieldLoad  // Push field
+	FieldStore // Pop and store in field
+	ModLoad    // Push module
+	Load       // Push local variable
+	Store      // Pop local variable
 
 	// Branch opcodes
 	Goto
 	IfTrue  // Branch if true
 	IfFalse // Branch if false
+	//
 
-	Call
+	IntCall // Internal call
+	ExtCall // External call
+
+	NewStruct // Create new struct
 
 	opArg1End
 )
@@ -226,17 +233,23 @@ var mnemonics = [...]string{
 	I16Load: "i16load",
 	I8Load:  "i8load",
 
-	CLoad:  "cload",
-	GLoad:  "gload",
-	GStore: "gstore",
-	Load:   "load",
-	Store:  "store",
+	CLoad:      "cload",
+	IntLoad:    "intload",
+	IntStore:   "intstore",
+	FieldLoad:  "fieldload",
+	FieldStore: "fieldstore",
+	ModLoad:    "modload",
+	Load:       "load",
+	Store:      "store",
 
 	Goto:    "goto",
 	IfTrue:  "iftrue",
 	IfFalse: "iffalse",
 
-	Call: "call",
+	IntCall: "intcall",
+	ExtCall: "extcall",
+
+	NewStruct: "newstruct",
 }
 
 func (op Opcode) String() string {
@@ -489,6 +502,32 @@ func CmpOp(t semantics.TypeID) Opcode {
 	default:
 		panic(fmt.Sprintf("Unhandled type %s", t))
 	}
+	return op
+}
 
+func LoadOp(t semantics.TypeID) Opcode {
+	op := Nop
+	switch t {
+	case semantics.TUInt64:
+		op = U64Load
+	case semantics.TUInt32:
+		op = U32Load
+	case semantics.TUInt16:
+		op = U16Load
+	case semantics.TUInt8:
+		op = U8Load
+	case semantics.TInt64:
+		op = I64Load
+	case semantics.TInt32:
+		op = I32Load
+	case semantics.TInt16:
+		op = I16Load
+	case semantics.TInt8:
+		op = I8Load
+	case semantics.TFloat64, semantics.TFloat32:
+		op = CLoad
+	default:
+		panic(fmt.Sprintf("Unhandled type %T", t))
+	}
 	return op
 }

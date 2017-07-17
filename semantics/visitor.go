@@ -185,6 +185,7 @@ func StartWalk(v Visitor, node Node) {
 	}
 }
 
+// StartProgramWalk will visit the program's modules.
 func StartProgramWalk(v Visitor, prog *Program) {
 	for _, mod := range prog.Modules {
 		v.Module(mod)
@@ -222,6 +223,10 @@ func VisitStmtList(v Visitor, stmts []Stmt) {
 // VisitExprList visits each expr.
 func VisitExprList(v Visitor, exprs []Expr) {
 	for i, expr := range exprs {
-		exprs[i] = VisitExpr(v, expr)
+		res := VisitExpr(v, expr)
+		if res == nil {
+			panic(fmt.Sprintf("Visitor %T returns nil on expr %T", v, expr))
+		}
+		exprs[i] = res
 	}
 }

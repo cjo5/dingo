@@ -5,7 +5,6 @@ import "github.com/jhnl/interpreter/token"
 // TODO:
 // - Add TypeSpec as a Node interface to represent type annotations.
 //   Right now types can only be represented as idents.
-// - Replace Name Idents for Decls with simple tokens.
 //
 
 // NodeColor is used to color nodes during dfs to sort dependencies.
@@ -117,16 +116,23 @@ type BadDecl struct {
 
 func (d *BadDecl) FirstPos() token.Position { return d.From.Pos }
 
+// TODO: Rename to ModuleSet
 type Program struct {
 	baseNode
 	Modules []*Module
-	Main    *Module // Main is also included in the Modules list
 }
 
 func (d *Program) FirstPos() token.Position { return token.NoPosition }
 
+// Module flags.
+const (
+	ModFlagMain = 1 << 0
+)
+
 type Module struct {
 	baseDecl
+	ID       int
+	Flags    int
 	Path     string
 	Name     token.Token
 	External *Scope
@@ -137,6 +143,10 @@ type Module struct {
 }
 
 func (m *Module) FirstPos() token.Position { return token.NoPosition }
+
+func (m *Module) Main() bool {
+	return (m.Flags & ModFlagMain) != 0
+}
 
 type File struct {
 	Ctx     *FileContext
@@ -182,6 +192,7 @@ func (d *ValTopDecl) FirstPos() token.Position {
 // Val decl flags.
 const (
 	ValFlagNoInit = 1 << 0
+	ValFlagField  = 1 << 1
 )
 
 type ValDecl struct {
@@ -197,6 +208,10 @@ func (d *ValDecl) FirstPos() token.Position {
 
 func (d *ValDecl) Init() bool {
 	return (d.Flags & ValFlagNoInit) == 0
+}
+
+func (d *ValDecl) Field() bool {
+	return (d.Flags & ValFlagField) != 0
 }
 
 type FuncDecl struct {

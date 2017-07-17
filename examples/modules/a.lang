@@ -1,12 +1,7 @@
 module
 
-ext struct Foo {
-    a: u32,
-    b: i32
-}
-
 var bar: i32 = 5;
 
-rst fun main() {
-    val data: Foo = Foo{b=9};
+fun main() {
+    var i: i32 = 0;
 }

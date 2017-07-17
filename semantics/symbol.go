@@ -15,30 +15,26 @@ const (
 
 // Symbol flags.
 const (
-	SymFlagDepCycle = 1 << 1
-	SymFlagToplevel = 1 << 2
-	SymFlagConstant = 1 << 3
-	SymFlagType     = 1 << 4
-	SymFlagCastable = 1 << 5
+	SymFlagDepCycle = 1 << 0
+	SymFlagConstant = 1 << 1
+	SymFlagType     = 1 << 2
+	SymFlagCastable = 1 << 3
 )
 
 type Symbol struct {
-	ID      SymbolID
-	Name    string
-	Pos     token.Position
-	T       *TType
-	Src     Decl // Node in ast where the symbol was defined
-	Flags   int
-	Address int
+	ID       SymbolID
+	ModuleID int
+	Name     string
+	Pos      token.Position
+	T        *TType
+	Src      Decl // Node in ast where the symbol was defined
+	Flags    int
+	Address  int
 }
 
 // NewSymbol creates a new symbol of a given ID and name.
-func NewSymbol(id SymbolID, name string, pos token.Position, src Decl, toplevel bool) *Symbol {
-	flags := 0
-	if toplevel {
-		flags = SymFlagToplevel
-	}
-	return &Symbol{ID: id, Name: name, Pos: pos, Src: src, Flags: flags}
+func NewSymbol(id SymbolID, moduleID int, name string, pos token.Position, src Decl) *Symbol {
+	return &Symbol{ID: id, ModuleID: moduleID, Name: name, Pos: pos, Src: src, Flags: 0}
 }
 
 func (s SymbolID) String() string {
@@ -65,10 +61,6 @@ func (s *Symbol) String() string {
 func (s *Symbol) Func() (*FuncDecl, bool) {
 	decl, ok := s.Src.(*FuncDecl)
 	return decl, ok
-}
-
-func (s *Symbol) Toplevel() bool {
-	return (s.Flags & SymFlagToplevel) != 0
 }
 
 func (s *Symbol) Constant() bool {

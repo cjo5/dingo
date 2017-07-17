@@ -10,7 +10,7 @@ TODO (in no particular order):
 - Type inference
 - Only allow subset of features when writing C/C++ module
 - Cleaner separation of concerns between Symbol and Type
-- Fix String() method for Expr nodes
+- Fix String() method for Expr nodes to improve error messages
 - Generics
 - Idiomatic error handling
 - Ad hoc polymorphism
@@ -20,21 +20,17 @@ TODO (in no particular order):
     - Non nullable pointers instead of c++ references
     - Explicit pointer semantics. move, share etc.
 - VM improvements
-    - Isolate bytecode instructions for functions
     - Make it possible to call native (go) functions
     - Print vm state
+    - Scoped variables should expand and shrink locals array
 - Change op + assign to assign + binary expr
 - Make it easier to merge tokens
-- Overload functions with different number of arguments (not types)
+- Default function arguments + keyed arguments
 - Add cmd package for executable
-- Improve error messages
-    - Recursive declaration errors should include all variables
 - Parse escape sequences in string literal
-- Support relative jump addresses
 - Compile to LLVM
 - Rewrite expression grammar and parser to something simpler
 - Improve parser synchronization
+    - Use recover to synchronize
 - Improve expression statements
-- Improve bytecode disassembly
 - Nested comments?
-- Scoped variables should expand and shrink locals array
