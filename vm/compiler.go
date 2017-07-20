@@ -332,8 +332,12 @@ func (c *compiler) VisitFuncDecl(decl *semantics.FuncDecl) {
 	outer := c.scope
 	c.scope = decl.Scope
 
+	for i, p := range decl.Params {
+		p.Sym.Address = i
+	}
+	c.module.localAddress = len(decl.Params)
+
 	c.currBlock = fun.entry
-	c.module.localAddress = 0
 	c.VisitBlockStmt(decl.Body)
 	fun.obj.LocalCount = c.module.localAddress
 
@@ -681,7 +685,8 @@ func (c *compiler) VisitIdent(expr *semantics.Ident) semantics.Expr {
 	switch sym.ScopeID {
 	case semantics.TopScope:
 		if sym.ID == semantics.ModuleSymbol {
-			c.currBlock.addInstrAddr(SetMod, c.moduleAddress(sym.ModuleID))
+			modt, _ := sym.T.(*semantics.ModuleType)
+			c.currBlock.addInstrAddr(SetMod, c.moduleAddress(modt.ModuleID))
 		} else {
 			c.currBlock.addInstrAddr(GlobalLoad, sym.Address)
 		}

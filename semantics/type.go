@@ -135,7 +135,7 @@ func (t *BasicType) String() string {
 }
 
 type ModuleType struct {
-	moduleID int
+	ModuleID int
 	Scope    *Scope
 }
 
@@ -145,13 +145,13 @@ func (t *ModuleType) ID() TypeID {
 
 func (t *ModuleType) IsEqual(other Type) bool {
 	if t2, ok := other.(*ModuleType); ok {
-		return t.moduleID == t2.moduleID
+		return t.ModuleID == t2.ModuleID
 	}
 	return false
 }
 
 func (t *ModuleType) String() string {
-	return fmt.Sprintf("module %d", t.moduleID)
+	return fmt.Sprintf("module %d", t.ModuleID)
 }
 
 type Field struct {
@@ -231,7 +231,7 @@ func (t *FuncType) String() string {
 			buf.WriteString(", ")
 		}
 	}
-	buf.WriteString(fmt.Sprintf("( -> %s", t.Return))
+	buf.WriteString(fmt.Sprintf(") -> %s", t.Return))
 	return buf.String()
 }
 
@@ -240,7 +240,7 @@ func NewBasicType(id TypeID) Type {
 }
 
 func NewModuleType(moduleID int, scope *Scope) Type {
-	return &ModuleType{moduleID: moduleID, Scope: scope}
+	return &ModuleType{ModuleID: moduleID, Scope: scope}
 }
 
 func NewStructType(decl *StructDecl) Type {
@@ -256,6 +256,7 @@ func NewFuncType(decl *FuncDecl) Type {
 	for _, param := range decl.Params {
 		t.Params = append(t.Params, &Field{Sym: param.Sym, T: param.Type.Type()})
 	}
+	t.Return = decl.TReturn.Type()
 	return t
 }
 

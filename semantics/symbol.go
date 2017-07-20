@@ -24,11 +24,11 @@ const (
 type Symbol struct {
 	ID       SymbolID
 	ScopeID  ScopeID
-	ModuleID int
+	ModuleID int // ID of module where symbol was defined.
 	Name     string
 	Pos      token.Position
-	Src      Decl // Node in ast that generated this symbol
-	T        Type // Type of symbol
+	Src      Decl // Node in ast that created this symbol. Nil if builtin symbol.
+	T        Type // The symbol's type.
 	Flags    int
 	Address  int
 }
