@@ -142,7 +142,7 @@ func (v *typeVisitor) VisitPrintStmt(stmt *PrintStmt) {
 func (v *typeVisitor) VisitIfStmt(stmt *IfStmt) {
 	stmt.Cond = VisitExpr(v, stmt.Cond)
 	if stmt.Cond.Type().ID() != TBool {
-		v.c.error(stmt.Cond.FirstPos(), "if condition is not of type %s (has type %s)", TBool, stmt.Cond.Type())
+		v.c.error(stmt.Cond.FirstPos(), "if condition has type %s (expected %s)", stmt.Cond.Type(), TBool)
 	}
 
 	v.VisitBlockStmt(stmt.Body)
@@ -153,7 +153,7 @@ func (v *typeVisitor) VisitIfStmt(stmt *IfStmt) {
 func (v *typeVisitor) VisitWhileStmt(stmt *WhileStmt) {
 	stmt.Cond = VisitExpr(v, stmt.Cond)
 	if stmt.Cond.Type().ID() != TBool {
-		v.c.error(stmt.Cond.FirstPos(), "while condition is not of type %s (has type %s)", TBool, stmt.Cond.Type())
+		v.c.error(stmt.Cond.FirstPos(), "while condition has type %s (expected %s)", stmt.Cond.Type(), TBool)
 	}
 	v.VisitBlockStmt(stmt.Body)
 }

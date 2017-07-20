@@ -8,53 +8,53 @@ import (
 	"github.com/jhnl/interpreter/token"
 )
 
-type printVisitor struct {
+type astPrinter struct {
 	BaseVisitor
 	buffer bytes.Buffer
 	level  int
 }
 
-// Print walks the ast in pre-order and generates a text representation of it.
-func Print(n Node) string {
-	p := &printVisitor{}
+// PrintAst pre-order.
+func PrintAst(n Node) string {
+	p := &astPrinter{}
 	StartWalk(p, n)
 	return p.buffer.String()
 }
 
-func inc(p *printVisitor) *printVisitor {
+func inc(p *astPrinter) *astPrinter {
 	p.level++
 	return p
 }
 
-func dec(p *printVisitor) {
+func dec(p *astPrinter) {
 	p.level--
 }
 
-func (p *printVisitor) indent() {
+func (p *astPrinter) indent() {
 	for i := 0; i < p.level; i++ {
 		p.buffer.WriteByte(' ')
 	}
 }
 
-func (p *printVisitor) newline() {
+func (p *astPrinter) newline() {
 	p.buffer.WriteByte('\n')
 }
 
-func (p *printVisitor) printf(msg string, args ...interface{}) {
+func (p *astPrinter) printf(msg string, args ...interface{}) {
 	p.indent()
 	p.buffer.WriteString(fmt.Sprintf(msg, args...))
 	p.newline()
 }
 
-func (p *printVisitor) print(msg string) {
+func (p *astPrinter) print(msg string) {
 	p.printf("[%s]", msg)
 }
 
-func (p *printVisitor) printToken(tok token.Token) {
+func (p *astPrinter) printToken(tok token.Token) {
 	p.printf("[%s]", tok)
 }
 
-func (p *printVisitor) Module(mod *Module) {
+func (p *astPrinter) Module(mod *Module) {
 	defer dec(inc(p))
 	p.printf("[module %s]", mod.Name.Literal)
 	defer dec(inc(p))
@@ -67,36 +67,36 @@ func (p *printVisitor) Module(mod *Module) {
 	}
 }
 
-func (p *printVisitor) VisitImport(decl *Import) {
+func (p *astPrinter) VisitImport(decl *Import) {
 	defer dec(inc(p))
 	p.printToken(decl.Import)
 	defer dec(inc(p))
 	p.printToken(decl.Literal)
 }
 
-func (p *printVisitor) VisitBlockStmt(stmt *BlockStmt) {
+func (p *astPrinter) VisitBlockStmt(stmt *BlockStmt) {
 	defer dec(inc(p))
 	p.print("BLOCK")
 	VisitStmtList(p, stmt.Stmts)
 }
 
-func (p *printVisitor) VisitDeclStmt(stmt *DeclStmt) {
+func (p *astPrinter) VisitDeclStmt(stmt *DeclStmt) {
 	VisitDecl(p, stmt.D)
 }
 
-func (p *printVisitor) VisitValTopDecl(decl *ValTopDecl) {
+func (p *astPrinter) VisitValTopDecl(decl *ValTopDecl) {
 	defer dec(inc(p))
 	p.printToken(decl.Visibility)
 	defer dec(inc(p))
 	p.visitValDeclSpec(&decl.ValDeclSpec)
 }
 
-func (p *printVisitor) VisitValDecl(decl *ValDecl) {
+func (p *astPrinter) VisitValDecl(decl *ValDecl) {
 	defer dec(inc(p))
 	p.visitValDeclSpec(&decl.ValDeclSpec)
 }
 
-func (p *printVisitor) visitValDeclSpec(decl *ValDeclSpec) {
+func (p *astPrinter) visitValDeclSpec(decl *ValDeclSpec) {
 	p.printToken(decl.Decl)
 	p.printToken(decl.Name)
 	VisitExpr(p, decl.Type)
@@ -105,7 +105,7 @@ func (p *printVisitor) visitValDeclSpec(decl *ValDeclSpec) {
 	}
 }
 
-func (p *printVisitor) VisitFuncDecl(decl *FuncDecl) {
+func (p *astPrinter) VisitFuncDecl(decl *FuncDecl) {
 	defer dec(inc(p))
 	p.printToken(decl.Decl)
 	defer dec(inc(p))
@@ -123,7 +123,7 @@ func (p *printVisitor) VisitFuncDecl(decl *FuncDecl) {
 	p.VisitBlockStmt(decl.Body)
 }
 
-func (p *printVisitor) VisitStructDecl(decl *StructDecl) {
+func (p *astPrinter) VisitStructDecl(decl *StructDecl) {
 	defer dec(inc(p))
 	p.printToken(decl.Decl)
 	defer dec(inc(p))
@@ -135,13 +135,13 @@ func (p *printVisitor) VisitStructDecl(decl *StructDecl) {
 	}
 }
 
-func (p *printVisitor) VisitPrintStmt(stmt *PrintStmt) {
+func (p *astPrinter) VisitPrintStmt(stmt *PrintStmt) {
 	defer dec(inc(p))
 	p.printToken(stmt.Print)
 	VisitExpr(p, stmt.X)
 }
 
-func (p *printVisitor) VisitIfStmt(stmt *IfStmt) {
+func (p *astPrinter) VisitIfStmt(stmt *IfStmt) {
 	defer dec(inc(p))
 	p.printToken(stmt.If)
 	p.level++
@@ -155,7 +155,7 @@ func (p *printVisitor) VisitIfStmt(stmt *IfStmt) {
 	}
 }
 
-func (p *printVisitor) VisitWhileStmt(stmt *WhileStmt) {
+func (p *astPrinter) VisitWhileStmt(stmt *WhileStmt) {
 	defer dec(inc(p))
 	p.printToken(stmt.While)
 	p.level++
@@ -165,7 +165,7 @@ func (p *printVisitor) VisitWhileStmt(stmt *WhileStmt) {
 	p.VisitBlockStmt(stmt.Body)
 }
 
-func (p *printVisitor) VisitReturnStmt(stmt *ReturnStmt) {
+func (p *astPrinter) VisitReturnStmt(stmt *ReturnStmt) {
 	defer dec(inc(p))
 	p.printToken(stmt.Return)
 	if stmt.X != nil {
@@ -173,24 +173,24 @@ func (p *printVisitor) VisitReturnStmt(stmt *ReturnStmt) {
 	}
 }
 
-func (p *printVisitor) VisitBranchStmt(stmt *BranchStmt) {
+func (p *astPrinter) VisitBranchStmt(stmt *BranchStmt) {
 	defer dec(inc(p))
 	p.printToken(stmt.Tok)
 }
 
-func (p *printVisitor) VisitAssignStmt(stmt *AssignStmt) {
+func (p *astPrinter) VisitAssignStmt(stmt *AssignStmt) {
 	defer dec(inc(p))
 	p.printToken(stmt.Assign)
 	VisitExpr(p, stmt.Left)
 	VisitExpr(p, stmt.Right)
 }
 
-func (p *printVisitor) VisitExprStmt(stmt *ExprStmt) {
+func (p *astPrinter) VisitExprStmt(stmt *ExprStmt) {
 	defer dec(inc(p))
 	VisitExpr(p, stmt.X)
 }
 
-func (p *printVisitor) VisitBinaryExpr(expr *BinaryExpr) Expr {
+func (p *astPrinter) VisitBinaryExpr(expr *BinaryExpr) Expr {
 	defer dec(inc(p))
 	p.printToken(expr.Op)
 	VisitExpr(p, expr.Left)
@@ -198,20 +198,20 @@ func (p *printVisitor) VisitBinaryExpr(expr *BinaryExpr) Expr {
 	return expr
 }
 
-func (p *printVisitor) VisitUnaryExpr(expr *UnaryExpr) Expr {
+func (p *astPrinter) VisitUnaryExpr(expr *UnaryExpr) Expr {
 	defer dec(inc(p))
 	p.printToken(expr.Op)
 	VisitExpr(p, expr.X)
 	return expr
 }
 
-func (p *printVisitor) VisitBasicLit(expr *BasicLit) Expr {
+func (p *astPrinter) VisitBasicLit(expr *BasicLit) Expr {
 	defer dec(inc(p))
 	p.printToken(expr.Value)
 	return expr
 }
 
-func (p *printVisitor) VisitStructLit(expr *StructLit) Expr {
+func (p *astPrinter) VisitStructLit(expr *StructLit) Expr {
 	defer dec(inc(p))
 	p.printf("[struct literal]")
 	defer dec(inc(p))
@@ -225,13 +225,13 @@ func (p *printVisitor) VisitStructLit(expr *StructLit) Expr {
 	return expr
 }
 
-func (p *printVisitor) VisitIdent(expr *Ident) Expr {
+func (p *astPrinter) VisitIdent(expr *Ident) Expr {
 	defer dec(inc(p))
 	p.printToken(expr.Name)
 	return expr
 }
 
-func (p *printVisitor) VisitDotIdent(expr *DotIdent) Expr {
+func (p *astPrinter) VisitDotIdent(expr *DotIdent) Expr {
 	defer dec(inc(p))
 	p.print("DOT")
 	VisitExpr(p, expr.X)
@@ -239,7 +239,7 @@ func (p *printVisitor) VisitDotIdent(expr *DotIdent) Expr {
 	return expr
 }
 
-func (p *printVisitor) VisitFuncCall(expr *FuncCall) Expr {
+func (p *astPrinter) VisitFuncCall(expr *FuncCall) Expr {
 	defer dec(inc(p))
 	p.print("FUNCCALL")
 	VisitExpr(p, expr.X)

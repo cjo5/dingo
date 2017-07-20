@@ -50,7 +50,7 @@ func exec(path string) {
 	}
 
 	fmt.Println("Parse done")
-	fmt.Println(semantics.Print(prog))
+	fmt.Println(semantics.PrintAst(prog))
 
 	err = semantics.Check(prog)
 	if showErrors(errors, err, false) {
@@ -58,7 +58,7 @@ func exec(path string) {
 	}
 
 	fmt.Println("Check done")
-	fmt.Println(semantics.Print(prog))
+	fmt.Println(semantics.PrintAst(prog))
 
 	bytecode := vm.Compile(prog)
 	vm.Disasm(bytecode, os.Stdout)
@@ -73,5 +73,5 @@ func main() {
 	}
 	common.Cwd = dir
 
-	exec("examples/modules/a.lang")
+	exec("examples/modules/c.lang")
 }

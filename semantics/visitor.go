@@ -42,8 +42,8 @@ type Visitor interface {
 // BaseVisitor provides default implementations for Visitor functions.
 type BaseVisitor struct{}
 
-func (v *BaseVisitor) Program(prog *Program) {
-	panic("Program")
+func (v *BaseVisitor) Module(mod *Module) {
+	panic("Module")
 }
 
 func (v *BaseVisitor) VisitBadDecl(decl *BadDecl) {

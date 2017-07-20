@@ -1,9 +1,9 @@
 module
 
-fun foo1() {
-    foo2();
+fun foo1(a: i32) {
 }
 
 fun foo2() {
-    foo1();
+   val x: i64; 
+   foo1(x);
 }

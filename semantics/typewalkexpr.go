@@ -24,8 +24,8 @@ func (v *typeVisitor) VisitBinaryExpr(expr *BinaryExpr) Expr {
 
 	if expr.Op.OneOf(token.And, token.Or) {
 		if leftType.ID() != TBool || rightType.ID() != TBool {
-			v.c.error(expr.Op.Pos, "type mismatch: arguments to operation '%s' are not of type %s (got %s and %s)",
-				expr.Op.ID, TBool, leftType, rightType)
+			v.c.error(expr.Op.Pos, "type mismatch: expression %s have types %s and %s (expected %s)",
+				PrintExpr(expr), leftType, rightType, TBool)
 		} else {
 			binType = TBool
 		}
@@ -175,10 +175,10 @@ func (v *typeVisitor) VisitBinaryExpr(expr *BinaryExpr) Expr {
 		}
 
 		if typeNotSupported != TUntyped {
-			v.c.error(expr.Op.Pos, "operation '%s' does not support type %s", expr.Op.ID, typeNotSupported)
+			v.c.error(expr.Op.Pos, "type mismatch: expression %s with type %s is not supported", PrintExpr(expr), typeNotSupported)
 		} else if !leftType.IsEqual(rightType) {
-			v.c.error(expr.Op.Pos, "type mismatch: arguments to operation '%s' are not compatible (got %s and %s)",
-				expr.Op.ID, leftType, rightType)
+			v.c.error(expr.Op.Pos, "type mismatch: expression %s have types %s and %s",
+				PrintExpr(expr), leftType, rightType)
 		} else {
 			if boolOp {
 				binType = TBool
@@ -200,7 +200,7 @@ func (v *typeVisitor) VisitUnaryExpr(expr *UnaryExpr) Expr {
 	switch expr.Op.ID {
 	case token.Sub:
 		if !IsNumericType(expr.T) {
-			v.c.error(expr.Op.Pos, "type mismatch: operation '%s' expects a numeric type but got %s", token.Sub, expr.T)
+			v.c.error(expr.Op.Pos, "type mismatch: expression %s has type %s (expects integer or float)", PrintExpr(expr), expr.T)
 		} else if lit, ok := expr.X.(*BasicLit); ok {
 			var raw interface{}
 
@@ -327,8 +327,7 @@ func (v *typeVisitor) VisitStructLit(expr *StructLit) Expr {
 		expr.T = TBuiltinUntyped
 		return expr
 	} else if t.ID() != TStruct {
-		// TODO: Better error message
-		v.c.error(expr.Name.FirstPos(), "not a struct")
+		v.c.error(expr.Name.FirstPos(), "'%s' is not a struct", PrintExpr(expr.Name))
 		expr.T = TBuiltinUntyped
 		return expr
 	}
@@ -514,8 +513,7 @@ func (v *typeVisitor) VisitFuncCall(expr *FuncCall) Expr {
 	} else {
 		funcType := t.(*FuncType)
 		if len(funcType.Params) != len(expr.Args) {
-			// TODO: Better error message
-			v.c.error(expr.X.FirstPos(), "'%s' takes %d argument(s) but called with %d", "func", len(funcType.Params), len(expr.Args))
+			v.c.error(expr.X.FirstPos(), "'%s' takes %d argument(s) but called with %d", PrintExpr(expr.X), len(funcType.Params), len(expr.Args))
 		} else {
 			for i, arg := range expr.Args {
 				paramType := funcType.Params[i].T
@@ -527,7 +525,7 @@ func (v *typeVisitor) VisitFuncCall(expr *FuncCall) Expr {
 				argType := arg.Type()
 				if !argType.IsEqual(paramType) {
 					v.c.error(arg.FirstPos(), "type mismatch: argument %d of function '%s' expects type %s but got %s",
-						i, "func", paramType, argType)
+						i, PrintExpr(expr.X), paramType, argType)
 				}
 			}
 			expr.T = funcType.Return
