@@ -2,50 +2,48 @@
 # (..)*  : 0 or more
 # [..] : optional
 
-Module = ['module'] Import* TopLevelDecl*
+Module = ['module'] Import* TopDecl*
 
 Import = 'import' STRING
-TopLevelDecl = [Visibility] Decl
+TopDecl = [Visibility] Decl
 Decl = ValDecl | FuncDecl | StructDecl
 ValDecl = ('val' | 'var') IDENT ':' Type ['=' Expr] ';'
-FuncDecl = 'func' IDENT Function
+FuncDecl = 'func' IDENT Func
 StructDecl = 'struct' IDENT Struct
 
 Visibility = 'ext' | 'int' | 'rst'
-Type = IDENT  | AnonStructType | FunctionType
-Field =  ['val' | 'var'] [IDENT ':'] Type
-FieldList = Field {',' Field} [',]
+Type = IDENT ['.' IDENT] 
 StructField = [Visibility] ['static' | 'val' | 'var'] IDENT ':' Type ['=' Expr]
 Struct= '{' [StructField {',' StructField} [',']]'}'
-AnonStructType = '{' [FieldList] '}'
-FunctionField = ['val' | 'var'] IDENT ':' Type
-FunctionSignature = '(' [FunctionField {',' FunctionField} [',']] ')' ['->' Type]
-Function = FuncSignature Block
-FunctionType = '(' [FieldList] ')' ['->' Type]
+FuncField = ['val' | 'var'] IDENT ':' Type
+FuncSignature = '(' [FuncField {',' FuncField} [',']] ')' ['->' Type]
+Func = FuncSignature Block
 
 Block = '{' Stmt* '}'
 Stmt = Block | ValDeclStmt | PrintStmt | ExprStmt | AssignStmt | 'if' IfStmt | WhileStmt 
         | ReturnStmt | 'break' ';' | 'continue' ';'
 ValDeclStmt = ValDecl ';'
 PrintStmt = 'print' Expr ';'
-AssignStmt = Expr ('=' | '+=' | '-=' | '*=' | '/=' | '%=' ) Initializer ';'
+AssignStmt = Expr ('=' | '+=' | '-=' | '*=' | '/=' | '%=' ) Expr ';'
 ExprStmt = Expr ';'
 IfStmt = Expr BlockStmt [('elif' IfStmt) | ('else' Block)]
 WhileStmt = 'while' '{' Stmt* '}'
 ReturnStmt = 'return' [Expr] ';'
 
-Expr = LogicalOr | StructLiteral | FunctionLiteral
+Expr = LogicalOr 
 LogicalOr = LogicalAnd {'||' LogicalAnd}
 LogicalAnd = Equality {'&&' Equality}
 Equality = Comparison {( '!=' | '==' ) Comparison}
 Comparison = Term {( '>' | '>=' | '<' | '<=' ) Term}
 Term = Factor {( '-' | '+' ) Factor}
 Factor = Unary {( '/' | '%' | '*' ) Unary}
-Unary = ( '!' | '-' ) Unary | Primary
-Primary = INTEGER | FLOAT | STRING | IDENT | FuncCall | DotExpr | 'false' | 'true' | '(' Expr ')'
-FuncCall = IDENT '(' [IDENT {',' IDENT} ] ')'
-DotExpr = IDENT '.' (FuncCall | IDENT);
+Unary = (( '!' | '-' ) Expr) | Operand
+Operand = Primary | BasicLiteral | StructLiteral | '(' Expr ')'
 
-KeyValue = IDENT '=' Initializer
-StructLiteral = IDENT '{' [KeyValue {',' KeyValue} [',]] '}'
-FunctionLiteral = 'func' Function
+Primary = IDENT | DotIdent | FuncCall 
+FuncCall = Primary '(' [Expr {',' Expr} ] ')'
+DotIdent = Primary '.' IDENT
+
+BasicLiteral = INTEGER | FLOAT | STRING | 'false' | 'true'
+KeyValue = IDENT '=' Expr
+StructLiteral = Type '{' [KeyValue {',' KeyValue} [',]] '}'

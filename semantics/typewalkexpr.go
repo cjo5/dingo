@@ -23,9 +23,9 @@ func (v *typeVisitor) VisitBinaryExpr(expr *BinaryExpr) Expr {
 	typeNotSupported := TUntyped
 
 	if expr.Op.OneOf(token.And, token.Or) {
-		if leftType.ID != TBool || rightType.ID != TBool {
+		if leftType.ID() != TBool || rightType.ID() != TBool {
 			v.c.error(expr.Op.Pos, "type mismatch: arguments to operation '%s' are not of type %s (got %s and %s)",
-				expr.Op.ID, TBool, leftType.ID, rightType.ID)
+				expr.Op.ID, TBool, leftType, rightType)
 		} else {
 			binType = TBool
 		}
@@ -33,7 +33,7 @@ func (v *typeVisitor) VisitBinaryExpr(expr *BinaryExpr) Expr {
 		leftLit, _ := expr.Left.(*Literal)
 		rightLit, _ := expr.Right.(*Literal)
 
-		if leftType.IsNumericType() && rightType.IsNumericType() {
+		if IsNumericType(leftType) && IsNumericType(rightType) {
 			var leftBigInt *big.Int
 			var leftBigFloat *big.Float
 			var rightBigInt *big.Int
@@ -54,7 +54,7 @@ func (v *typeVisitor) VisitBinaryExpr(expr *BinaryExpr) Expr {
 				if (rightBigInt != nil && rightBigInt.Cmp(BigIntZero) == 0) ||
 					(rightBigFloat != nil && rightBigFloat.Cmp(BigFloatZero) == 0) {
 					v.c.error(rightLit.Value.Pos, "Division by zero")
-					expr.T = NewTypeFromID(TUntyped)
+					expr.T = NewBasicType(TUntyped)
 					return expr
 				}
 			}
@@ -65,7 +65,7 @@ func (v *typeVisitor) VisitBinaryExpr(expr *BinaryExpr) Expr {
 				leftBigFloat = big.NewFloat(0)
 				leftBigFloat.SetInt(leftBigInt)
 				leftLit.Raw = leftBigFloat
-				leftLit.T = NewTypeFromID(TBigFloat)
+				leftLit.T = NewBasicType(TBigFloat)
 				leftType = leftLit.T
 				leftBigInt = nil
 			}
@@ -74,7 +74,7 @@ func (v *typeVisitor) VisitBinaryExpr(expr *BinaryExpr) Expr {
 				rightBigFloat = big.NewFloat(0)
 				rightBigFloat.SetInt(rightBigInt)
 				rightLit.Raw = rightBigFloat
-				rightLit.T = NewTypeFromID(TBigFloat)
+				rightLit.T = NewBasicType(TBigFloat)
 				rightType = rightLit.T
 				rightBigInt = nil
 			}
@@ -131,7 +131,7 @@ func (v *typeVisitor) VisitBinaryExpr(expr *BinaryExpr) Expr {
 						case token.Div:
 							leftBigFloat.Quo(leftBigFloat, rightBigFloat)
 						case token.Mod:
-							typeNotSupported = leftType.ID
+							typeNotSupported = leftType.ID()
 						default:
 							panic(fmt.Sprintf("Unhandled binop %s", expr.Op.ID))
 						}
@@ -145,7 +145,7 @@ func (v *typeVisitor) VisitBinaryExpr(expr *BinaryExpr) Expr {
 						} else {
 							leftLit.Value.ID = token.False
 						}
-						leftLit.T = NewTypeFromID(TBool)
+						leftLit.T = NewBasicType(TBool)
 						leftLit.Raw = nil
 					}
 
@@ -166,31 +166,31 @@ func (v *typeVisitor) VisitBinaryExpr(expr *BinaryExpr) Expr {
 				typeCastNumericLiteral(rightLit, leftType)
 				rightType = rightLit.T
 			}
-		} else if leftType.OneOf(TBool) && rightType.OneOf(TBool) {
+		} else if leftType.ID() == TBool && rightType.ID() == TBool {
 			if arithOp || expr.Op.OneOf(token.Gt, token.GtEq, token.Lt, token.LtEq) {
 				typeNotSupported = TBool
 			}
-		} else if leftType.OneOf(TString) && rightType.OneOf(TString) {
+		} else if leftType.ID() == TString && rightType.ID() == TString {
 			typeNotSupported = TString
 		}
 
 		if typeNotSupported != TUntyped {
 			v.c.error(expr.Op.Pos, "operation '%s' does not support type %s", expr.Op.ID, typeNotSupported)
-		} else if leftType.ID != rightType.ID {
+		} else if !leftType.IsEqual(rightType) {
 			v.c.error(expr.Op.Pos, "type mismatch: arguments to operation '%s' are not compatible (got %s and %s)",
-				expr.Op.ID, leftType.ID, rightType.ID)
+				expr.Op.ID, leftType, rightType)
 		} else {
 			if boolOp {
 				binType = TBool
 			} else {
-				binType = leftType.ID
+				binType = leftType.ID()
 			}
 		}
 	} else {
 		panic(fmt.Sprintf("Unhandled binop %s", expr.Op.ID))
 	}
 
-	expr.T = NewTypeFromID(binType)
+	expr.T = NewBasicType(binType)
 	return expr
 }
 
@@ -199,8 +199,8 @@ func (v *typeVisitor) VisitUnaryExpr(expr *UnaryExpr) Expr {
 	expr.T = expr.X.Type()
 	switch expr.Op.ID {
 	case token.Sub:
-		if !expr.T.IsNumericType() {
-			v.c.error(expr.Op.Pos, "type mismatch: operation '%s' expects a numeric type but got %s", token.Sub, expr.T.ID)
+		if !IsNumericType(expr.T) {
+			v.c.error(expr.Op.Pos, "type mismatch: operation '%s' expects a numeric type but got %s", token.Sub, expr.T)
 		} else if lit, ok := expr.X.(*Literal); ok {
 			var raw interface{}
 
@@ -223,8 +223,8 @@ func (v *typeVisitor) VisitUnaryExpr(expr *UnaryExpr) Expr {
 			return lit
 		}
 	case token.Lnot:
-		if expr.T.ID != TBool {
-			v.c.error(expr.Op.Pos, "type mismatch: operation '%s' expects type %s but got %s", token.Lnot, TBool, expr.T.ID)
+		if expr.T.ID() != TBool {
+			v.c.error(expr.Op.Pos, "type mismatch: operation '%s' expects type %s but got %s", token.Lnot, TBuiltinBool, expr.T)
 		}
 	default:
 		panic(fmt.Sprintf("Unhandled unary op %s", expr.Op.ID))
@@ -286,10 +286,10 @@ func removeUnderscores(lit string) string {
 
 func (v *typeVisitor) VisitLiteral(expr *Literal) Expr {
 	if expr.Value.ID == token.False || expr.Value.ID == token.True {
-		expr.T = NewTypeFromID(TBool)
+		expr.T = TBuiltinBool
 	} else if expr.Value.ID == token.String {
 		if expr.Raw == nil {
-			expr.T = NewTypeFromID(TString)
+			expr.T = TBuiltinString
 			expr.Raw = unescapeStringLiteral(expr.Value.Literal)
 		}
 	} else if expr.Value.ID == token.Integer {
@@ -300,7 +300,7 @@ func (v *typeVisitor) VisitLiteral(expr *Literal) Expr {
 			if !ok {
 				v.c.error(expr.Value.Pos, "unable to interpret integer literal %s", normalized)
 			}
-			expr.T = NewTypeFromID(TBigInt)
+			expr.T = NewBasicType(TBigInt)
 			expr.Raw = val
 		}
 	} else if expr.Value.ID == token.Float {
@@ -311,7 +311,7 @@ func (v *typeVisitor) VisitLiteral(expr *Literal) Expr {
 			if !ok {
 				v.c.error(expr.Value.Pos, "unable to interpret float literal %s", normalized)
 			}
-			expr.T = NewTypeFromID(TBigFloat)
+			expr.T = NewBasicType(TBigFloat)
 			expr.Raw = val
 		}
 	} else {
@@ -321,20 +321,21 @@ func (v *typeVisitor) VisitLiteral(expr *Literal) Expr {
 }
 
 func (v *typeVisitor) VisitStructLiteral(expr *StructLiteral) Expr {
-	v.VisitIdent(expr.Name)
-	sym := expr.Name.Sym
-	if sym == nil {
+	expr.Name = VisitExpr(v, expr.Name)
+	t := expr.Name.Type()
+	if IsUntyped(t) {
 		expr.T = TBuiltinUntyped
 		return expr
-	} else if sym.ID != StructSymbol {
-		v.c.error(expr.Name.Pos(), "'%s' is not a struct", sym.Name)
+	} else if t.ID() != TStruct {
+		// TODO: Better error message
+		v.c.error(expr.Name.FirstPos(), "not a struct")
 		expr.T = TBuiltinUntyped
 		return expr
 	}
 
 	err := false
-	decl, _ := expr.Name.Sym.Src.(*StructDecl)
 	inits := make(map[string]Expr)
+	structt, _ := t.(*StructType)
 
 	for _, kv := range expr.Initializers {
 		if existing, ok := inits[kv.Key.Literal]; ok {
@@ -345,7 +346,7 @@ func (v *typeVisitor) VisitStructLiteral(expr *StructLiteral) Expr {
 			continue
 		}
 
-		fieldSym := decl.Scope.Lookup(kv.Key.Literal)
+		fieldSym := structt.Scope.Lookup(kv.Key.Literal)
 		if fieldSym == nil {
 			v.c.error(kv.Key.Pos, "'%s' undefined struct field", kv.Key.Literal)
 			inits[kv.Key.Literal] = nil
@@ -373,47 +374,49 @@ func (v *typeVisitor) VisitStructLiteral(expr *StructLiteral) Expr {
 		return expr
 	}
 
-	expr.T = sym.T
-	return createStructLiteral(decl, expr)
+	expr.T = structt
+	return createStructLiteral(structt, expr)
 }
 
-func createDefaultLiteral(sym *Symbol) Expr {
-	t := sym.T
-	if t.OneOf(TStruct) {
-		decl, _ := sym.Src.(*StructDecl)
+func createDefaultLiteral(t Type) Expr {
+	if t.ID() == TStruct {
+		structt, _ := t.(*StructType)
+		name := &Ident{Name: token.Synthetic(token.Ident, structt.Name())}
+		name.setSymbol(structt.Sym)
 		lit := &StructLiteral{}
-		lit.Name = &Ident{Name: token.Synthetic(token.Ident, t.Name)}
-		lit.Name.Sym = sym
-		lit.T = t
-		return createStructLiteral(decl, lit)
+		lit.Name = name
+		return createStructLiteral(structt, lit)
 	}
 	return createDefaultBasicLiteral(t)
 }
 
-func createDefaultBasicLiteral(t *TType) *Literal {
+func createDefaultBasicLiteral(t Type) *Literal {
 	var lit *Literal
-	if t.OneOf(TBool) {
+	if IsTypeID(t, TBool) {
 		lit = &Literal{Value: token.Synthetic(token.False, token.False.String())}
-		lit.T = NewTypeFromID(TBool)
-	} else if t.OneOf(TString) {
+		lit.T = NewBasicType(TBool)
+	} else if IsTypeID(t, TString) {
 		lit = &Literal{Value: token.Synthetic(token.String, "")}
-		lit.T = NewTypeFromID(TString)
-	} else if t.OneOf(TUInt64, TInt64, TUInt32, TInt32, TUInt16, TInt16, TUInt8, TInt8) {
+		lit.Raw = ""
+		lit.T = NewBasicType(TString)
+	} else if IsTypeID(t, TUInt64, TInt64, TUInt32, TInt32, TUInt16, TInt16, TUInt8, TInt8) {
 		lit = &Literal{Value: token.Synthetic(token.Integer, "0")}
-		lit.T = NewTypeFromID(t.ID)
-	} else if t.OneOf(TFloat64, TFloat32) {
+		lit.Raw = BigIntZero
+		lit.T = NewBasicType(t.ID())
+	} else if IsTypeID(t, TFloat64, TFloat32) {
 		lit = &Literal{Value: token.Synthetic(token.Float, "0")}
-		lit.T = NewTypeFromID(t.ID)
+		lit.Raw = BigFloatZero
+		lit.T = NewBasicType(t.ID())
 	} else {
-		panic(fmt.Sprintf("Unhandled init value for type %s", t.ID))
+		panic(fmt.Sprintf("Unhandled init value for type %s", t.ID()))
 	}
 	return lit
 }
 
-func createStructLiteral(decl *StructDecl, lit *StructLiteral) *StructLiteral {
+func createStructLiteral(structt *StructType, lit *StructLiteral) *StructLiteral {
 	var initializers []*KeyValue
-	for _, f := range decl.Fields {
-		key := f.Name.Literal
+	for _, f := range structt.Fields {
+		key := f.Name()
 		found := false
 		for _, init := range lit.Initializers {
 			if init.Key.Literal == key {
@@ -427,7 +430,7 @@ func createStructLiteral(decl *StructDecl, lit *StructLiteral) *StructLiteral {
 		}
 		kv := &KeyValue{}
 		kv.Key = token.Synthetic(token.Ident, key)
-		kv.Value = createDefaultLiteral(f.Sym)
+		kv.Value = createDefaultLiteral(f.T)
 		initializers = append(initializers, kv)
 	}
 	lit.Initializers = initializers
@@ -435,21 +438,64 @@ func createStructLiteral(decl *StructDecl, lit *StructLiteral) *StructLiteral {
 }
 
 func (v *typeVisitor) VisitIdent(expr *Ident) Expr {
-	expr.Sym = v.c.lookup(expr.Name)
-	if expr.Sym == nil {
+	sym := v.c.lookup(expr.Name.Literal)
+	if sym == nil {
 		v.c.error(expr.Name.Pos, "'%s' undefined", expr.Name.Literal)
+		expr.T = TBuiltinUntyped
+	} else {
+		expr.Sym = sym
+		expr.T = sym.T
 	}
 	return expr
 }
 
-func (v *typeVisitor) VisitFuncCall(expr *FuncCall) Expr {
-	v.VisitIdent(expr.Name)
-	sym := expr.Name.Sym
-	if sym == nil {
+func (v *typeVisitor) VisitDotIdent(expr *DotIdent) Expr {
+	expr.X = VisitExpr(v, expr.X)
+	t := expr.X.Type()
+	if IsUntyped(t) {
 		expr.T = TBuiltinUntyped
 		return expr
-	} else if sym.ID != FuncSymbol && !sym.Castable() {
-		v.c.error(expr.Name.Pos(), "'%s' is not a function", sym.Name)
+	}
+
+	if t.ID() == TModule {
+		mod, _ := t.(*ModuleType)
+		defer setScope(setScope(v.c, mod.Scope))
+	} else if t.ID() == TStruct {
+		structt, _ := t.(*StructType)
+		defer setScope(setScope(v.c, structt.Scope))
+	} else {
+		v.c.error(expr.X.FirstPos(), "type %s has no field '%s'", t, expr.Name.Literal())
+		expr.T = TBuiltinUntyped
+		return expr
+	}
+
+	v.VisitIdent(expr.Name)
+	expr.T = expr.Name.Type()
+
+	return expr
+}
+
+func (v *typeVisitor) VisitFuncCall(expr *FuncCall) Expr {
+	expr.X = VisitExpr(v, expr.X)
+	t := expr.X.Type()
+	if IsUntyped(t) {
+		expr.T = TBuiltinUntyped
+		return expr
+	}
+
+	typeCast := false
+
+	// Check if type cast
+	switch id := expr.X.(type) {
+	case *Ident:
+		if id.Sym.ID == TypeSymbol && id.Sym.Castable() {
+			typeCast = true
+		}
+	}
+
+	if !typeCast && t.ID() != TFunc {
+		// TODO: Better error message
+		v.c.error(expr.X.FirstPos(), "not a function")
 		expr.T = TBuiltinUntyped
 		return expr
 	}
@@ -458,13 +504,22 @@ func (v *typeVisitor) VisitFuncCall(expr *FuncCall) Expr {
 		expr.Args[i] = VisitExpr(v, arg)
 	}
 
-	if sym.ID == FuncSymbol {
-		decl, _ := sym.Src.(*FuncDecl)
-		if len(decl.Params) != len(expr.Args) {
-			v.c.error(expr.Name.Pos(), "'%s' takes %d argument(s) but called with %d", sym.Name, len(decl.Params), len(expr.Args))
+	if typeCast {
+		if len(expr.Args) != 1 {
+			v.c.error(expr.X.FirstPos(), "type conversion takes exactly 1 argument")
+		} else if !compatibleTypes(expr.Args[0].Type(), t) {
+			v.c.error(expr.X.FirstPos(), "type mismatch: %s cannot be converted to %s", expr.Args[0].Type(), t)
+		} else if v.c.tryCastLiteral(expr.Args[0], t) {
+			expr.T = t
+		}
+	} else {
+		funcType := t.(*FuncType)
+		if len(funcType.Params) != len(expr.Args) {
+			// TODO: Better error message
+			v.c.error(expr.X.FirstPos(), "'%s' takes %d argument(s) but called with %d", "func", len(funcType.Params), len(expr.Args))
 		} else {
 			for i, arg := range expr.Args {
-				paramType := decl.Params[i].Sym.T
+				paramType := funcType.Params[i].T
 
 				if !v.c.tryCastLiteral(arg, paramType) {
 					continue
@@ -473,76 +528,16 @@ func (v *typeVisitor) VisitFuncCall(expr *FuncCall) Expr {
 				argType := arg.Type()
 				if !argType.IsEqual(paramType) {
 					v.c.error(arg.FirstPos(), "type mismatch: argument %d of function '%s' expects type %s but got %s",
-						i, expr.Name.Literal(), paramType.ID, argType.ID)
+						i, "func", paramType, argType)
 				}
 			}
-			expr.T = decl.TReturn.Type()
-		}
-	} else {
-		if len(expr.Args) != 1 {
-			v.c.error(expr.Name.Pos(), "type conversion %s takes exactly 1 argument", sym.T.ID)
-		} else if !compatibleTypes(expr.Args[0].Type(), sym.T) {
-			v.c.error(expr.Name.Pos(), "type mismatch: %s cannot be converted to %s", expr.Args[0].Type(), sym.T)
-		} else if v.c.tryCastLiteral(expr.Args[0], sym.T) {
-			expr.T = sym.T
+			expr.T = funcType.Return
 		}
 	}
 
 	if expr.T == nil {
 		expr.T = TBuiltinUntyped
 	}
-
-	return expr
-}
-
-func (v *typeVisitor) VisitDotExpr(expr *DotExpr) Expr {
-	v.VisitIdent(expr.Name)
-	sym := expr.Name.Sym
-	if sym == nil {
-		expr.T = TBuiltinUntyped
-		return expr
-	}
-
-	// TODO: Fix
-	typeTok := token.Token{ID: token.Ident, Literal: sym.T.Name, Pos: expr.Name.Pos()}
-	typeSym := v.c.typeOfSym(typeTok)
-	if typeSym == nil {
-		expr.T = TBuiltinUntyped
-		return expr
-	}
-
-	var name token.Token
-
-	switch t := expr.X.(type) {
-	case *Ident:
-		name = t.Name
-	case *FuncCall:
-		name = t.Name.Name
-	default:
-		v.c.error(expr.FirstPos(), "unexpected expression")
-		expr.T = TBuiltinUntyped
-		return expr
-	}
-
-	if typeSym.ID != ModuleSymbol && typeSym.ID != StructSymbol {
-		fmt.Println(sym)
-		v.c.error(expr.Name.Pos(), "'%s' of type %s has no field '%s'", expr.Name.Literal(), typeSym.T, name.Literal)
-		expr.T = TBuiltinUntyped
-		return expr
-	}
-
-	if typeSym.ID == ModuleSymbol {
-		mod, _ := typeSym.Src.(*Module)
-		defer setScope(setScope(v.c, mod.External))
-	} else if typeSym.ID == StructSymbol {
-		decl, _ := typeSym.Src.(*StructDecl)
-		defer setScope(setScope(v.c, decl.Scope))
-	} else {
-		panic(fmt.Sprintf("Unhandled DotExpr %s", typeSym.ID))
-	}
-
-	expr.X = VisitExpr(v, expr.X)
-	expr.T = expr.X.Type()
 
 	return expr
 }

@@ -20,12 +20,14 @@ func (v *dependencyVisitor) Module(mod *Module) {
 }
 
 func (v *dependencyVisitor) VisitValTopDecl(decl *ValTopDecl) {
+	VisitExpr(v, decl.Type)
 	if decl.Initializer != nil {
 		VisitExpr(v, decl.Initializer)
 	}
 }
 
 func (v *dependencyVisitor) VisitValDecl(decl *ValDecl) {
+	VisitExpr(v, decl.Type)
 	if decl.Initializer != nil {
 		VisitExpr(v, decl.Initializer)
 	}
@@ -34,6 +36,12 @@ func (v *dependencyVisitor) VisitValDecl(decl *ValDecl) {
 func (v *dependencyVisitor) VisitFuncDecl(decl *FuncDecl) {
 	defer setScope(setScope(v.c, decl.Scope))
 	VisitStmtList(v, decl.Body.Stmts)
+}
+
+func (v *dependencyVisitor) VisitStructDecl(decl *StructDecl) {
+	for _, f := range decl.Fields {
+		v.VisitValDecl(f)
+	}
 }
 
 func (v *dependencyVisitor) VisitBlockStmt(stmt *BlockStmt) {
@@ -85,9 +93,16 @@ func (v *dependencyVisitor) VisitUnaryExpr(expr *UnaryExpr) Expr {
 	VisitExpr(v, expr.X)
 	return expr
 }
+func (v *dependencyVisitor) VisitStructLiteral(expr *StructLiteral) Expr {
+	VisitExpr(v, expr.Name)
+	for _, kv := range expr.Initializers {
+		VisitExpr(v, kv.Value)
+	}
+	return expr
+}
 
 func (v *dependencyVisitor) VisitIdent(expr *Ident) Expr {
-	sym := v.c.scope.Lookup(expr.Name.Literal)
+	sym := v.c.lookup(expr.Literal())
 	if sym != nil {
 		if decl, ok := sym.Src.(TopDecl); ok {
 			v.c.topDecl.addDependency(decl)
@@ -96,18 +111,14 @@ func (v *dependencyVisitor) VisitIdent(expr *Ident) Expr {
 	return expr
 }
 
-func (v *dependencyVisitor) VisitFuncCall(expr *FuncCall) Expr {
-	VisitExprList(v, expr.Args)
+func (v *dependencyVisitor) VisitDotIdent(expr *DotIdent) Expr {
+	VisitExpr(v, expr.X)
+	v.VisitIdent(expr.Name)
 	return expr
 }
 
-func (v *dependencyVisitor) VisitDotExpr(expr *DotExpr) Expr {
-	sym := v.c.scope.Lookup(expr.Name.Literal())
-	if sym == nil {
-		return expr
-	}
-	if sym.ID == StructSymbol {
-		v.VisitIdent(expr.Name)
-	}
+func (v *dependencyVisitor) VisitFuncCall(expr *FuncCall) Expr {
+	VisitExpr(v, expr.X)
+	VisitExprList(v, expr.Args)
 	return expr
 }

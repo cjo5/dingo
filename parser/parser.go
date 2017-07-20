@@ -202,8 +202,7 @@ func (p *parser) parseValDeclSpec(init bool) semantics.ValDeclSpec {
 	decl.Name = p.token
 	p.expect(token.Ident)
 	p.expect(token.Colon)
-	decl.Type = p.token
-	p.expect(token.Ident)
+	decl.Type = p.parseTypeName(nil)
 
 	if init {
 		if p.token.ID == token.Assign {
@@ -237,7 +236,7 @@ func (p *parser) parseFuncDecl(visibility token.Token) *semantics.FuncDecl {
 
 	if p.token.ID == token.Arrow {
 		p.next()
-		decl.TReturn = p.parseIdent()
+		decl.TReturn = p.parseTypeName(nil)
 	} else {
 		decl.TReturn = &semantics.Ident{Name: token.Synthetic(token.Ident, semantics.TVoid.String())}
 	}
@@ -256,7 +255,7 @@ func (p *parser) parseStructDecl(visibility token.Token) *semantics.StructDecl {
 
 	decl.Lbrace = p.token
 	p.expect(token.Lbrace)
-	flags := semantics.ValFlagNoInit | semantics.ValFlagField
+	flags := semantics.ValFlagNoInit
 	if !p.token.Is(token.Rbrace) {
 		decl.Fields = append(decl.Fields, p.parseValDecl(flags))
 		for !p.token.OneOf(token.EOF, token.Rbrace) {
@@ -384,6 +383,30 @@ func (p *parser) parseExprOrAssignStmt() semantics.Stmt {
 	return stmt
 }
 
+func (p *parser) parseTypeName(name1 *semantics.Ident) semantics.Expr {
+	tok := p.token
+	if name1 == nil {
+		if p.token.ID == token.Ident {
+			name1 = &semantics.Ident{Name: p.token}
+			p.next()
+		}
+	}
+	if p.token.ID == token.Dot {
+		dot := p.token
+		p.next()
+		name2Tok := p.token
+		if p.expect(token.Ident) {
+			return &semantics.DotIdent{X: name1, Dot: dot, Name: &semantics.Ident{Name: name2Tok}}
+		}
+		tok = name2Tok
+	} else if name1 != nil {
+		return name1
+	}
+	p.next()
+	p.error(tok, "got '%s', expected type name", tok.ID)
+	return &semantics.BadExpr{From: tok, To: tok}
+}
+
 func (p *parser) parseExpr() semantics.Expr {
 	return p.parseLogicalOr()
 }
@@ -459,40 +482,35 @@ func (p *parser) parseUnary() semantics.Expr {
 	if p.token.ID == token.Sub || p.token.ID == token.Lnot {
 		op := p.token
 		p.next()
-		x := p.parseUnary()
+		x := p.parseExpr()
 		return &semantics.UnaryExpr{Op: op, X: x}
 	}
-	return p.parsePrimary()
+	return p.parseOperand()
 }
 
-func (p *parser) parsePrimary() semantics.Expr {
-	switch p.token.ID {
-	case token.Integer, token.Float, token.String, token.True, token.False:
-		tok := p.token
-		p.next()
-		return &semantics.Literal{Value: tok}
-	case token.Ident:
-		ident := p.parseIdent()
-		if p.token.Is(token.Lparen) {
-			return p.parseFuncCall(ident)
-		} else if p.token.Is(token.Dot) {
-			return p.parseDotExpr(ident)
-		} else if p.token.Is(token.Lbrace) {
-			return p.parseStructLiteral(ident)
-		}
-		return ident
-	case token.Lparen:
+func (p *parser) parseOperand() semantics.Expr {
+	if p.token.ID == token.Lparen {
 		p.next()
 		x := p.parseExpr()
 		p.expect(token.Rparen)
 		return x
-	default:
-		// TODO: Sync?
-		tok := p.token
-		p.error(tok, "got '%s', expected expression", tok.ID)
-		p.next()
-		return &semantics.BadExpr{From: tok, To: tok}
+	} else if p.token.ID == token.Ident {
+		ident := p.parseIdent()
+		if p.token.Is(token.Lbrace) {
+			return p.parseStructLiteral(ident)
+		}
+		return p.parsePrimary(ident)
 	}
+	return p.parseBasicLiteral()
+}
+
+func (p *parser) parsePrimary(expr semantics.Expr) semantics.Expr {
+	if p.token.Is(token.Lparen) {
+		return p.parsePrimary(p.parseFuncCall(expr))
+	} else if p.token.Is(token.Dot) {
+		return p.parsePrimary(p.parseDotIdent(expr))
+	}
+	return expr
 }
 
 func (p *parser) parseIdent() *semantics.Ident {
@@ -501,7 +519,14 @@ func (p *parser) parseIdent() *semantics.Ident {
 	return &semantics.Ident{Name: tok}
 }
 
-func (p *parser) parseFuncCall(id *semantics.Ident) semantics.Expr {
+func (p *parser) parseDotIdent(expr semantics.Expr) semantics.Expr {
+	dot := p.token
+	p.expect(token.Dot)
+	name := p.parseIdent()
+	return &semantics.DotIdent{X: expr, Dot: dot, Name: name}
+}
+
+func (p *parser) parseFuncCall(expr semantics.Expr) semantics.Expr {
 	lparen := p.token
 	p.expect(token.Lparen)
 	var args []semantics.Expr
@@ -516,21 +541,34 @@ func (p *parser) parseFuncCall(id *semantics.Ident) semantics.Expr {
 	if !p.expect(token.Rparen) {
 		return &semantics.BadExpr{From: lparen, To: rparen}
 	}
-	return &semantics.FuncCall{Name: id, Lparen: lparen, Args: args, Rparen: rparen}
+	return &semantics.FuncCall{X: expr, Lparen: lparen, Args: args, Rparen: rparen}
 }
 
-func (p *parser) parseDotExpr(id *semantics.Ident) semantics.Expr {
-	dot := p.token
-	p.expect(token.Dot)
-	id2 := p.parseIdent()
-	expr := semantics.Expr(id2)
-	if p.token.Is(token.Lparen) {
-		expr = p.parseFuncCall(id2)
+func (p *parser) parseBasicLiteral() semantics.Expr {
+	switch p.token.ID {
+	case token.Integer, token.Float, token.String, token.True, token.False:
+		tok := p.token
+		p.next()
+		return &semantics.Literal{Value: tok}
+	default:
+		tok := p.token
+		p.error(tok, "got '%s', expected expression", tok.ID)
+		p.next()
+		return &semantics.BadExpr{From: tok, To: tok}
 	}
-	return &semantics.DotExpr{Name: id, Dot: dot, X: expr}
 }
 
-func (p *parser) parseStructLiteral(id *semantics.Ident) semantics.Expr {
+func (p *parser) parseKeyValue() *semantics.KeyValue {
+	key := p.token
+	p.expect(token.Ident)
+	equal := p.token
+	p.expect(token.Assign)
+	value := p.parseExpr()
+	return &semantics.KeyValue{Key: key, Equal: equal, Value: value}
+}
+
+func (p *parser) parseStructLiteral(name1 *semantics.Ident) semantics.Expr {
+	name := p.parseTypeName(name1)
 	lbrace := p.token
 	p.expect(token.Lbrace)
 	var inits []*semantics.KeyValue
@@ -543,14 +581,5 @@ func (p *parser) parseStructLiteral(id *semantics.Ident) semantics.Expr {
 	}
 	rbrace := p.token
 	p.expect(token.Rbrace)
-	return &semantics.StructLiteral{Name: id, Lbrace: lbrace, Initializers: inits, Rbrace: rbrace}
-}
-
-func (p *parser) parseKeyValue() *semantics.KeyValue {
-	key := p.token
-	p.expect(token.Ident)
-	equal := p.token
-	p.expect(token.Assign)
-	value := p.parseExpr()
-	return &semantics.KeyValue{Key: key, Equal: equal, Value: value}
+	return &semantics.StructLiteral{Name: name, Lbrace: lbrace, Initializers: inits, Rbrace: rbrace}
 }

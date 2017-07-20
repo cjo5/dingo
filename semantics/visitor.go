@@ -35,8 +35,8 @@ type Visitor interface {
 	VisitLiteral(expr *Literal) Expr
 	VisitStructLiteral(expr *StructLiteral) Expr
 	VisitIdent(expr *Ident) Expr
+	VisitDotIdent(expr *DotIdent) Expr
 	VisitFuncCall(expr *FuncCall) Expr
-	VisitDotExpr(expr *DotExpr) Expr
 }
 
 // BaseVisitor provides default implementations for Visitor functions.
@@ -80,13 +80,13 @@ func (v *BaseVisitor) VisitBadExpr(decl *BadExpr) Expr {
 	panic("VisitBadExpr")
 }
 
-func (v *BaseVisitor) VisitBinaryExpr(expr *BinaryExpr) Expr       { return nil }
-func (v *BaseVisitor) VisitUnaryExpr(expr *UnaryExpr) Expr         { return nil }
-func (v *BaseVisitor) VisitLiteral(expr *Literal) Expr             { return nil }
-func (v *BaseVisitor) VisitStructLiteral(expr *StructLiteral) Expr { return nil }
-func (v *BaseVisitor) VisitIdent(expr *Ident) Expr                 { return nil }
-func (v *BaseVisitor) VisitFuncCall(expr *FuncCall) Expr           { return nil }
-func (v *BaseVisitor) VisitDotExpr(expr *DotExpr) Expr             { return nil }
+func (v *BaseVisitor) VisitBinaryExpr(expr *BinaryExpr) Expr       { return expr }
+func (v *BaseVisitor) VisitUnaryExpr(expr *UnaryExpr) Expr         { return expr }
+func (v *BaseVisitor) VisitLiteral(expr *Literal) Expr             { return expr }
+func (v *BaseVisitor) VisitStructLiteral(expr *StructLiteral) Expr { return expr }
+func (v *BaseVisitor) VisitIdent(expr *Ident) Expr                 { return expr }
+func (v *BaseVisitor) VisitDotIdent(expr *DotIdent) Expr           { return expr }
+func (v *BaseVisitor) VisitFuncCall(expr *FuncCall) Expr           { return expr }
 
 // VisitNode switches on node type and invokes corresponding Visit function.
 func VisitNode(v Visitor, node Node) {
@@ -165,10 +165,10 @@ func VisitExpr(v Visitor, expr Expr) Expr {
 		return v.VisitStructLiteral(e)
 	case *Ident:
 		return v.VisitIdent(e)
+	case *DotIdent:
+		return v.VisitDotIdent(e)
 	case *FuncCall:
 		return v.VisitFuncCall(e)
-	case *DotExpr:
-		return v.VisitDotExpr(e)
 	default:
 		panic(fmt.Sprintf("Unhandled expr %T", e))
 	}

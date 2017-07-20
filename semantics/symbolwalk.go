@@ -12,13 +12,13 @@ func symbolWalk(c *checker) {
 }
 
 func (v *symbolVisitor) Module(mod *Module) {
-	v.c.openScope()
+	v.c.openScope(TopScope)
 	mod.External = v.c.scope
-	v.c.openScope()
+	v.c.openScope(TopScope)
 	mod.Internal = v.c.scope
 	v.c.mod = mod
 	for _, file := range mod.Files {
-		v.c.openScope()
+		v.c.openScope(TopScope)
 		file.Ctx.Scope = v.c.scope
 		v.c.fileCtx = file.Ctx
 		VisitImportList(v, file.Imports)
@@ -34,9 +34,9 @@ func (v *symbolVisitor) Module(mod *Module) {
 }
 
 func (v *symbolVisitor) VisitImport(decl *Import) {
-	sym := v.c.insert(v.c.fileScope(), ModuleSymbol, decl.Mod.Name.Literal, decl.Literal.Pos, decl.Mod)
+	sym := v.c.insert(v.c.fileScope(), ModuleSymbol, decl.Mod.Name.Literal, decl.Literal.Pos, decl)
 	if sym != nil {
-		sym.T = TBuiltinModule
+		sym.T = NewModuleType(decl.Mod.ID, decl.Mod.External)
 	}
 }
 
@@ -52,7 +52,7 @@ func (v *symbolVisitor) VisitValDecl(decl *ValDecl) {
 func (v *symbolVisitor) VisitFuncDecl(decl *FuncDecl) {
 	scope := v.c.visibilityScope(decl.Visibility)
 	decl.Sym = v.c.insert(scope, FuncSymbol, decl.Name.Literal, decl.Name.Pos, decl)
-	v.c.openScope()
+	v.c.openScope(LocalScope)
 	decl.Scope = v.c.scope
 
 	for _, param := range decl.Params {
@@ -66,9 +66,8 @@ func (v *symbolVisitor) VisitFuncDecl(decl *FuncDecl) {
 
 func (v *symbolVisitor) VisitStructDecl(decl *StructDecl) {
 	scope := v.c.visibilityScope(decl.Visibility)
-	decl.Sym = v.c.insert(scope, StructSymbol, decl.Name.Literal, decl.Name.Pos, decl)
-	decl.Sym.Flags = SymFlagType | SymFlagCastable
-	v.c.openScope()
+	decl.Sym = v.c.insert(scope, TypeSymbol, decl.Name.Literal, decl.Name.Pos, decl)
+	v.c.openScope(FieldScope)
 	decl.Scope = v.c.scope
 
 	for _, field := range decl.Fields {
@@ -79,7 +78,7 @@ func (v *symbolVisitor) VisitStructDecl(decl *StructDecl) {
 }
 
 func (v *symbolVisitor) VisitBlockStmt(stmt *BlockStmt) {
-	v.c.openScope()
+	v.c.openScope(LocalScope)
 	stmt.Scope = v.c.scope
 	VisitStmtList(v, stmt.Stmts)
 	v.c.closeScope()

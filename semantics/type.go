@@ -1,10 +1,13 @@
 package semantics
 
 import (
+	"bytes"
+	"fmt"
 	"math"
 	"math/big"
 )
 
+// TypeID identifies the base type.
 type TypeID int
 
 // Type IDs
@@ -15,6 +18,7 @@ const (
 	TString
 	TModule
 	TStruct
+	TFunc
 
 	// Only used as intermediary types when evaluating constant expressions.
 	TBigInt
@@ -40,6 +44,7 @@ var types = [...]string{
 	TString:   "str",
 	TModule:   "module",
 	TStruct:   "struct",
+	TFunc:     "func",
 	TBigInt:   "integer",
 	TBigFloat: "float",
 	TUInt64:   "u64",
@@ -54,23 +59,32 @@ var types = [...]string{
 	TFloat32:  "f32",
 }
 
+func (id TypeID) String() string {
+	s := ""
+	if 0 <= id && id < TypeID(len(types)) {
+		s = types[id]
+	} else {
+		s = "unknown"
+	}
+	return s
+}
+
 // Built-in types
 var (
-	TBuiltinUntyped = NewTypeFromID(TUntyped)
-	TBuiltinVoid    = NewTypeFromID(TVoid)
-	TBuiltinBool    = NewTypeFromID(TBool)
-	TBuiltinString  = NewTypeFromID(TString)
-	TBuiltinModule  = NewTypeFromID(TModule)
-	TBuiltinUInt64  = NewTypeFromID(TUInt64)
-	TBuiltinInt64   = NewTypeFromID(TInt64)
-	TBuiltinUInt32  = NewTypeFromID(TUInt32)
-	TBuiltinInt32   = NewTypeFromID(TInt32)
-	TBuiltinUInt16  = NewTypeFromID(TUInt16)
-	TBuiltinInt16   = NewTypeFromID(TInt16)
-	TBuiltinUInt8   = NewTypeFromID(TUInt8)
-	TBuiltinInt8    = NewTypeFromID(TInt8)
-	TBuiltinFloat64 = NewTypeFromID(TFloat64)
-	TBuiltinFloat32 = NewTypeFromID(TFloat32)
+	TBuiltinUntyped = NewBasicType(TUntyped)
+	TBuiltinVoid    = NewBasicType(TVoid)
+	TBuiltinBool    = NewBasicType(TBool)
+	TBuiltinString  = NewBasicType(TString)
+	TBuiltinUInt64  = NewBasicType(TUInt64)
+	TBuiltinInt64   = NewBasicType(TInt64)
+	TBuiltinUInt32  = NewBasicType(TUInt32)
+	TBuiltinInt32   = NewBasicType(TInt32)
+	TBuiltinUInt16  = NewBasicType(TUInt16)
+	TBuiltinInt16   = NewBasicType(TInt16)
+	TBuiltinUInt8   = NewBasicType(TUInt8)
+	TBuiltinInt8    = NewBasicType(TInt8)
+	TBuiltinFloat64 = NewBasicType(TFloat64)
+	TBuiltinFloat32 = NewBasicType(TFloat32)
 )
 
 // Big ints used when evaluating constant expressions and checking for overflow.
@@ -98,30 +112,168 @@ var (
 	BigFloatZero = big.NewFloat(0)
 )
 
-type TType struct {
-	ID   TypeID
-	Name string
+type Type interface {
+	ID() TypeID
+	IsEqual(Type) bool
+	String() string
 }
 
-func NewType(id TypeID, name string) *TType {
-	return &TType{ID: id, Name: name}
+type BasicType struct {
+	id TypeID
 }
 
-func NewTypeFromID(id TypeID) *TType {
-	return NewType(id, id.String())
+func (t *BasicType) ID() TypeID {
+	return t.id
 }
 
-func (t *TType) OneOf(ids ...TypeID) bool {
+func (t *BasicType) IsEqual(other Type) bool {
+	return t.id == other.ID()
+}
+
+func (t *BasicType) String() string {
+	return t.id.String()
+}
+
+type ModuleType struct {
+	moduleID int
+	Scope    *Scope
+}
+
+func (t *ModuleType) ID() TypeID {
+	return TModule
+}
+
+func (t *ModuleType) IsEqual(other Type) bool {
+	if t2, ok := other.(*ModuleType); ok {
+		return t.moduleID == t2.moduleID
+	}
+	return false
+}
+
+func (t *ModuleType) String() string {
+	return fmt.Sprintf("module %d", t.moduleID)
+}
+
+type Field struct {
+	Sym *Symbol
+	T   Type
+}
+
+func (f *Field) Name() string {
+	if f.Sym != nil {
+		return f.Sym.Name
+	}
+	return "<anon>"
+}
+
+type StructType struct {
+	Sym    *Symbol
+	Scope  *Scope
+	Fields []*Field
+}
+
+func (t *StructType) ID() TypeID {
+	return TStruct
+}
+
+func (t *StructType) IsEqual(other Type) bool {
+	if t2, ok := other.(*StructType); ok {
+		return t.Sym == t2.Sym
+	}
+	return false
+}
+
+func (t *StructType) String() string {
+	return fmt.Sprintf("struct %s", t.Name())
+}
+
+func (t *StructType) Name() string {
+	if t.Sym != nil {
+		return t.Sym.Name
+	}
+	return "<anon>"
+}
+
+type FuncType struct {
+	Sym    *Symbol
+	Params []*Field
+	Return Type
+}
+
+func (t *FuncType) ID() TypeID {
+	return TFunc
+}
+
+func (t *FuncType) IsEqual(other Type) bool {
+	if t2, ok := other.(*FuncType); ok {
+		if len(t.Params) != len(t2.Params) {
+			return false
+		}
+		if !t.Return.IsEqual(t2.Return) {
+			return false
+		}
+		for i := 0; i < len(t.Params); i++ {
+			if !t.Params[i].T.IsEqual(t2.Params[i].T) {
+				return false
+			}
+		}
+		return true
+	}
+	return false
+}
+
+func (t *FuncType) String() string {
+	var buf bytes.Buffer
+	buf.WriteString("(")
+	for i, p := range t.Params {
+		buf.WriteString(p.T.String())
+		if (i + 1) < len(t.Params) {
+			buf.WriteString(", ")
+		}
+	}
+	buf.WriteString(fmt.Sprintf("( -> %s", t.Return))
+	return buf.String()
+}
+
+func NewBasicType(id TypeID) Type {
+	return &BasicType{id: id}
+}
+
+func NewModuleType(moduleID int, scope *Scope) Type {
+	return &ModuleType{moduleID: moduleID, Scope: scope}
+}
+
+func NewStructType(decl *StructDecl) Type {
+	t := &StructType{Sym: decl.Sym, Scope: decl.Scope}
+	for _, field := range decl.Fields {
+		t.Fields = append(t.Fields, &Field{Sym: field.Sym, T: field.Type.Type()})
+	}
+	return t
+}
+
+func NewFuncType(decl *FuncDecl) Type {
+	t := &FuncType{Sym: decl.Sym}
+	for _, param := range decl.Params {
+		t.Params = append(t.Params, &Field{Sym: param.Sym, T: param.Type.Type()})
+	}
+	return t
+}
+
+func IsTypeID(t Type, ids ...TypeID) bool {
 	for _, id := range ids {
-		if t.ID == id {
+		if t.ID() == id {
 			return true
 		}
 	}
 	return false
 }
 
-func (t *TType) IsNumericType() bool {
-	switch t.ID {
+func IsUntyped(t Type) bool {
+	return t.ID() == TUntyped
+}
+
+func IsNumericType(t Type) bool {
+	switch t.ID() {
 	case TBigInt, TBigFloat, TUInt64, TInt64, TUInt32, TInt32, TUInt16, TInt16, TUInt8, TInt8, TFloat64, TFloat32:
 		return true
 	default:
@@ -129,39 +281,13 @@ func (t *TType) IsNumericType() bool {
 	}
 }
 
-func (t *TType) IsEqual(other *TType) bool {
-	if t.ID != other.ID {
-		return false
-	}
-	return t.Name == other.Name
-}
-
-func (t *TType) String() string {
-	if t.ID == TModule {
-		return "module " + t.Name
-	} else if t.ID == TStruct {
-		return "struct " + t.Name
-	}
-	return t.Name
-}
-
-func (id TypeID) String() string {
-	s := ""
-	if 0 <= id && id < TypeID(len(types)) {
-		s = types[id]
-	} else {
-		s = "unknown"
-	}
-	return s
-}
-
-func compatibleTypes(from *TType, to *TType) bool {
+func compatibleTypes(from Type, to Type) bool {
 	switch {
 	case from.IsEqual(to):
 		return true
-	case from.IsNumericType():
+	case IsNumericType(from):
 		switch {
-		case to.IsNumericType():
+		case IsNumericType(to):
 			return true
 		default:
 			return false
@@ -237,19 +363,20 @@ func floatOverflows(val *big.Float, t TypeID) bool {
 	return !fits
 }
 
-func typeCastNumericLiteral(lit *Literal, target *TType) numericCastResult {
+func typeCastNumericLiteral(lit *Literal, target Type) numericCastResult {
 	res := numericCastOK
+	id := target.ID()
 
 	switch t := lit.Raw.(type) {
 	case *big.Int:
-		switch target.ID {
+		switch id {
 		case TBigInt, TUInt64, TUInt32, TUInt16, TUInt8, TInt64, TInt32, TInt16, TInt8:
-			if integerOverflows(t, target.ID) {
+			if integerOverflows(t, id) {
 				res = numericCastOverflows
 			}
 		case TBigFloat, TFloat64, TFloat32:
 			fval := toBigFloat(t)
-			if floatOverflows(fval, target.ID) {
+			if floatOverflows(fval, id) {
 				res = numericCastOverflows
 			} else {
 				lit.Raw = fval
@@ -258,10 +385,10 @@ func typeCastNumericLiteral(lit *Literal, target *TType) numericCastResult {
 			return numericCastFails
 		}
 	case *big.Float:
-		switch target.ID {
+		switch id {
 		case TBigInt, TUInt64, TUInt32, TUInt16, TUInt8, TInt64, TInt32, TInt16, TInt8:
 			if ival := toBigInt(t); ival != nil {
-				if integerOverflows(ival, target.ID) {
+				if integerOverflows(ival, id) {
 					res = numericCastOverflows
 				} else {
 					lit.Raw = ival
@@ -270,7 +397,7 @@ func typeCastNumericLiteral(lit *Literal, target *TType) numericCastResult {
 				res = numericCastTruncated
 			}
 		case TBigFloat, TFloat64, TFloat32:
-			if floatOverflows(t, target.ID) {
+			if floatOverflows(t, id) {
 				res = numericCastOverflows
 			}
 		default:
@@ -281,7 +408,7 @@ func typeCastNumericLiteral(lit *Literal, target *TType) numericCastResult {
 	}
 
 	if res == numericCastOK {
-		lit.T = NewTypeFromID(target.ID)
+		lit.T = NewBasicType(id)
 	}
 
 	return res

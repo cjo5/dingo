@@ -16,7 +16,7 @@ func Compile(prog *semantics.Program) *BytecodeProgram {
 
 	bootstrapFun := newFunctionUnit("<init>")
 	bootstrapFun.entry = &basicBlock{}
-	bootstrapMod := newModuleUnit(0, "<bootstrap>", "")
+	bootstrapMod := newModuleUnit(0, 0, "<bootstrap>", "")
 	bootstrapMod.functions = append(bootstrapMod.functions, bootstrapFun)
 	c.compiledModules = append(c.compiledModules, bootstrapMod)
 
@@ -24,8 +24,8 @@ func Compile(prog *semantics.Program) *BytecodeProgram {
 
 	mainModAddr := -1
 	for i := 1; i < len(c.compiledModules); i++ {
-		bootstrapFun.entry.addInstrAddr(ModLoad, i)
-		bootstrapFun.entry.addInstrAddr(ExtCall, 0) // Module init function is defined at address 0
+		bootstrapFun.entry.addInstrAddr(SetMod, i)
+		bootstrapFun.entry.addInstrAddr(Call, 0) // Module init function is defined at address 0
 
 		mod := c.compiledModules[i]
 		if mod.main != nil {
@@ -35,8 +35,8 @@ func Compile(prog *semantics.Program) *BytecodeProgram {
 
 	if mainModAddr > -1 {
 		main := c.compiledModules[mainModAddr].main
-		bootstrapFun.entry.addInstrAddr(ModLoad, mainModAddr)
-		bootstrapFun.entry.addInstrAddr(ExtCall, main.Address)
+		bootstrapFun.entry.addInstrAddr(SetMod, mainModAddr)
+		bootstrapFun.entry.addInstrAddr(Call, main.Address)
 	} else {
 		panic("Missing main function")
 	}
@@ -45,12 +45,13 @@ func Compile(prog *semantics.Program) *BytecodeProgram {
 }
 
 type moduleUnit struct {
-	id   int
-	obj  *ModuleObject
-	main *semantics.Symbol
+	id      int
+	obj     *ModuleObject
+	address int
+	main    *semantics.Symbol
 
-	fieldAddress int
-	localAddress int
+	globalAddress int
+	localAddress  int
 
 	constants []interface{}
 	functions []*functionUnit
@@ -92,8 +93,8 @@ type edge struct {
 	target     *basicBlock
 }
 
-func newModuleUnit(id int, name string, path string) *moduleUnit {
-	mod := &moduleUnit{id: id}
+func newModuleUnit(id int, address int, name string, path string) *moduleUnit {
+	mod := &moduleUnit{id: id, address: address}
 	mod.obj = &ModuleObject{Name: name, Path: path}
 	return mod
 }
@@ -201,7 +202,7 @@ func (c *compiler) createBytecodeProgram() *BytecodeProgram {
 	for _, mod := range c.compiledModules {
 		obj := mod.obj
 		obj.Constants = mod.constants
-		obj.Fields = make([]interface{}, mod.fieldAddress)
+		obj.Globals = make([]interface{}, mod.globalAddress)
 		for _, fun := range mod.functions {
 			fun.sortBlocks(fun.entry)
 			fun.patchJumpAddresses()
@@ -217,6 +218,15 @@ func (c *compiler) setNextBlock(block *basicBlock) {
 		c.currBlock.next = block
 	}
 	c.currBlock = block
+}
+
+func (c *compiler) moduleAddress(moduleID int) int {
+	for _, mod := range c.compiledModules {
+		if mod.id == moduleID {
+			return mod.address
+		}
+	}
+	panic(fmt.Sprintf("Failed to find module with ID %d", moduleID))
 }
 
 func (b *basicBlock) addJumpInstr(in Instruction, target *basicBlock) {
@@ -243,7 +253,7 @@ func (b *basicBlock) addInstrAddr(op Opcode, arg1 int) {
 }
 
 func (c *compiler) Module(mod *semantics.Module) {
-	c.module = newModuleUnit(mod.ID, mod.Name.Literal, mod.Path)
+	c.module = newModuleUnit(mod.ID, len(c.compiledModules), mod.Name.Literal, mod.Path)
 	c.compiledModules = append(c.compiledModules, c.module)
 
 	if mod.Main() {
@@ -295,11 +305,11 @@ func (c *compiler) Module(mod *semantics.Module) {
 func (c *compiler) VisitValTopDecl(decl *semantics.ValTopDecl) {
 	semantics.VisitExpr(c, decl.Initializer)
 
-	addr := c.module.fieldAddress
-	c.module.fieldAddress++
+	addr := c.module.globalAddress
+	c.module.globalAddress++
 
 	decl.Sym.Address = addr
-	c.currBlock.addInstrAddr(IntStore, addr)
+	c.currBlock.addInstrAddr(GlobalStore, addr)
 }
 
 func (c *compiler) VisitValDecl(decl *semantics.ValDecl) {
@@ -315,7 +325,7 @@ func (c *compiler) VisitValDecl(decl *semantics.ValDecl) {
 func (c *compiler) VisitFuncDecl(decl *semantics.FuncDecl) {
 	fun := newFunctionUnit(decl.Name.Literal)
 	fun.obj.ArgCount = len(decl.Params)
-	if decl.TReturn.T.ID != semantics.TVoid {
+	if decl.TReturn.Type().ID() != semantics.TVoid {
 		fun.obj.ReturnValue = true
 	}
 
@@ -325,7 +335,7 @@ func (c *compiler) VisitFuncDecl(decl *semantics.FuncDecl) {
 	c.currBlock = fun.entry
 	c.module.localAddress = 0
 	c.VisitBlockStmt(decl.Body)
-	fun.obj.ArgCount = c.module.localAddress
+	fun.obj.LocalCount = c.module.localAddress
 
 	c.scope = outer
 	addr := decl.Sym.Address
@@ -333,7 +343,11 @@ func (c *compiler) VisitFuncDecl(decl *semantics.FuncDecl) {
 }
 
 func (c *compiler) VisitStructDecl(decl *semantics.StructDecl) {
-	// TODO
+	desc := &StructDescriptor{Name: decl.Name.Literal, FieldCount: len(decl.Fields)}
+	c.module.constants[decl.Sym.Address] = desc
+	for i, f := range decl.Fields {
+		f.Sym.Address = i
+	}
 }
 
 func (c *compiler) VisitBlockStmt(stmt *semantics.BlockStmt) {
@@ -432,7 +446,7 @@ func (c *compiler) VisitAssignStmt(stmt *semantics.AssignStmt) {
 		semantics.VisitExpr(c, stmt.Left)
 	}
 	semantics.VisitExpr(c, stmt.Right)
-	t := stmt.Left.Type().ID
+	t := stmt.Left.Type().ID()
 	if assign == token.AddAssign {
 		c.currBlock.addInstr0(AddOp(t))
 	} else if assign == token.SubAssign {
@@ -445,24 +459,47 @@ func (c *compiler) VisitAssignStmt(stmt *semantics.AssignStmt) {
 		c.currBlock.addInstr0(ModOp(t))
 	}
 
-	// TODO: Check left expression
+	var sym *semantics.Symbol
+	switch t := stmt.Left.(type) {
+	case *semantics.Ident:
+		sym = t.Sym
+	case *semantics.DotIdent:
+		semantics.VisitExpr(c, t.X)
+		sym = t.Name.Sym
+	default:
+		panic(fmt.Sprintf("Unhandled assign expr %T", t))
+	}
+
+	switch sym.ScopeID {
+	case semantics.TopScope:
+		c.currBlock.addInstrAddr(GlobalStore, sym.Address)
+	case semantics.FieldScope:
+		c.currBlock.addInstrAddr(FieldStore, sym.Address)
+	case semantics.LocalScope:
+		c.currBlock.addInstrAddr(Store, sym.Address)
+	default:
+		panic(fmt.Sprintf("Unhandled scope ID %d", sym.ScopeID))
+	}
+
+	if sym.ModuleID != c.module.id {
+		c.currBlock.addInstrAddr(SetMod, c.module.address)
+	}
 }
 
 func (c *compiler) VisitExprStmt(stmt *semantics.ExprStmt) {
 	semantics.VisitExpr(c, stmt.X)
 
-	if call, ok := stmt.X.(*semantics.FuncCall); ok {
-		sym := call.Name.Sym
+	if _, ok := stmt.X.(*semantics.FuncCall); ok {
+		typ := stmt.X.Type()
 		pop := false
-		if sym.ID == semantics.FuncSymbol {
-			decl, _ := sym.Src.(*semantics.FuncDecl)
-			if decl.TReturn.Type().ID == semantics.TVoid {
+		if typ.ID() == semantics.TFunc {
+			funct, _ := typ.(*semantics.FuncType)
+			if funct.Return.ID() == semantics.TVoid {
 				pop = true
 			}
-		} else if sym.Castable() {
-			pop = true
 		} else {
-			panic(fmt.Sprintf("Unhandled FuncCall symbol %s", sym))
+			// Type cast
+			pop = true
 		}
 
 		if pop {
@@ -504,7 +541,7 @@ func (c *compiler) VisitBinaryExpr(expr *semantics.BinaryExpr) semantics.Expr {
 		semantics.VisitExpr(c, expr.Left)
 		semantics.VisitExpr(c, expr.Right)
 
-		t := expr.Type().ID
+		t := expr.Type().ID()
 
 		switch expr.Op.ID {
 		case token.Add:
@@ -518,7 +555,7 @@ func (c *compiler) VisitBinaryExpr(expr *semantics.BinaryExpr) semantics.Expr {
 		case token.Mod:
 			c.currBlock.addInstr0(ModOp(t))
 		case token.Eq, token.Neq, token.Gt, token.GtEq, token.Lt, token.LtEq:
-			c.currBlock.addInstr0(CmpOp(expr.Left.Type().ID))
+			c.currBlock.addInstr0(CmpOp(expr.Left.Type().ID()))
 			switch expr.Op.ID {
 			case token.Eq:
 				c.currBlock.addInstr0(CmpEq)
@@ -541,11 +578,11 @@ func (c *compiler) VisitBinaryExpr(expr *semantics.BinaryExpr) semantics.Expr {
 func (c *compiler) VisitUnaryExpr(expr *semantics.UnaryExpr) semantics.Expr {
 	binop := Nop
 	if expr.Op.ID == token.Sub {
-		loadop := LoadOp(expr.T.ID)
+		loadop := LoadOp(expr.T.ID())
 		arg := 0
-		if expr.T.ID == semantics.TFloat64 {
+		if expr.T.ID() == semantics.TFloat64 {
 			arg = c.module.defineConstant(float64(0))
-		} else if expr.T.ID == semantics.TFloat32 {
+		} else if expr.T.ID() == semantics.TFloat32 {
 			arg = c.module.defineConstant(float32(0))
 		}
 		c.currBlock.addInstr1(loadop, int64(arg))
@@ -564,13 +601,13 @@ func (c *compiler) VisitLiteral(expr *semantics.Literal) semantics.Expr {
 	if expr.Value.ID == token.String {
 		if str, ok := expr.Raw.(string); ok {
 			addr := c.module.defineConstant(str)
-			c.currBlock.addInstrAddr(CLoad, addr)
+			c.currBlock.addInstrAddr(ConstLoad, addr)
 		} else {
 			panic(fmt.Sprintf("Failed to convert raw expreral %s with type %T", expr.Value, expr.Raw))
 		}
 	} else if expr.Value.ID == token.Integer || expr.Value.ID == token.Float {
 		if bigInt, ok := expr.Raw.(*big.Int); ok {
-			switch expr.T.ID {
+			switch expr.T.ID() {
 			case semantics.TUInt64:
 				c.currBlock.addInstr1(U64Load, int64(bigInt.Uint64()))
 			case semantics.TUInt32:
@@ -588,11 +625,11 @@ func (c *compiler) VisitLiteral(expr *semantics.Literal) semantics.Expr {
 			case semantics.TInt8:
 				c.currBlock.addInstr1(I8Load, int64(bigInt.Int64()))
 			default:
-				panic(fmt.Sprintf("Unhandled Expr %s with type %s", expr.Value, expr.T.ID))
+				panic(fmt.Sprintf("Unhandled Expr %s with type %s", expr.Value, expr.T))
 			}
 		} else if bigFloat, ok := expr.Raw.(*big.Float); ok {
 			addr := 0
-			switch expr.T.ID {
+			switch expr.T.ID() {
 			case semantics.TFloat64:
 				val, _ := bigFloat.Float64()
 				addr = c.module.defineConstant(val)
@@ -600,9 +637,9 @@ func (c *compiler) VisitLiteral(expr *semantics.Literal) semantics.Expr {
 				val, _ := bigFloat.Float32()
 				addr = c.module.defineConstant(val)
 			default:
-				panic(fmt.Sprintf("Unhandled Literal %s with type %s", expr.Value, expr.T.ID))
+				panic(fmt.Sprintf("Unhandled Literal %s with type %s", expr.Value, expr.T))
 			}
-			c.currBlock.addInstrAddr(CLoad, addr)
+			c.currBlock.addInstrAddr(ConstLoad, addr)
 		} else {
 			panic(fmt.Sprintf("Failed to convert raw Literal %s with type %T", expr.Value, expr.Raw))
 		}
@@ -620,65 +657,85 @@ func (c *compiler) VisitStructLiteral(expr *semantics.StructLiteral) semantics.E
 	for _, init := range expr.Initializers {
 		semantics.VisitExpr(c, init.Value)
 	}
+	var sym *semantics.Symbol
+	switch id := expr.Name.(type) {
+	case *semantics.Ident:
+		sym = id.Sym
+	case *semantics.DotIdent:
+		semantics.VisitExpr(c, id.X)
+		sym = id.Name.Sym
+	default:
+		panic(fmt.Sprintf("Unhandled struct literal expr %T", id))
+	}
+	c.currBlock.addInstrAddr(ConstLoad, sym.Address)
+	c.currBlock.addInstr0(NewStruct)
 
-	sym := expr.Name.Sym
-	c.currBlock.addInstrAddr(NewStruct, sym.Address)
-
+	if sym.ModuleID != c.module.id {
+		c.currBlock.addInstrAddr(SetMod, c.module.address)
+	}
 	return expr
 }
 
 func (c *compiler) VisitIdent(expr *semantics.Ident) semantics.Expr {
 	sym := expr.Sym
-	switch t := sym.Src.(type) {
-	case *semantics.ValTopDecl:
-		if sym.ModuleID == c.module.id {
-			c.currBlock.addInstrAddr(IntLoad, sym.Address)
+	switch sym.ScopeID {
+	case semantics.TopScope:
+		if sym.ID == semantics.ModuleSymbol {
+			c.currBlock.addInstrAddr(SetMod, c.moduleAddress(sym.ModuleID))
 		} else {
-			c.currBlock.addInstrAddr(FieldLoad, sym.Address)
+			c.currBlock.addInstrAddr(GlobalLoad, sym.Address)
 		}
-	case *semantics.ValDecl:
-		if t.Field() {
-			c.currBlock.addInstrAddr(FieldLoad, sym.Address)
-		} else {
-			c.currBlock.addInstrAddr(Load, sym.Address)
-		}
+	case semantics.FieldScope:
+		c.currBlock.addInstrAddr(FieldLoad, sym.Address)
+	case semantics.LocalScope:
+		c.currBlock.addInstrAddr(Load, sym.Address)
 	default:
-		panic(fmt.Sprintf("Unhandled decl %T", t))
+		panic(fmt.Sprintf("Unhandled scope ID %d", sym.ScopeID))
 	}
+	return expr
+}
+
+func (c *compiler) VisitDotIdent(expr *semantics.DotIdent) semantics.Expr {
+	semantics.VisitExpr(c, expr.X)
+	c.VisitIdent(expr.Name)
 	return expr
 }
 
 func (c *compiler) VisitFuncCall(expr *semantics.FuncCall) semantics.Expr {
 	semantics.VisitExprList(c, expr.Args)
 
-	sym := expr.Name.Sym
+	var sym *semantics.Symbol
+	switch id := expr.X.(type) {
+	case *semantics.Ident:
+		sym = id.Sym
+	case *semantics.DotIdent:
+		semantics.VisitExpr(c, id.X)
+		sym = id.Name.Sym
+	default:
+		panic(fmt.Sprintf("Unhandled function expr %T", id))
+	}
+
 	if sym.ID == semantics.FuncSymbol {
-		if sym.ModuleID == c.module.id {
-			c.currBlock.addInstrAddr(IntCall, sym.Address)
-		} else {
-			c.currBlock.addInstrAddr(ExtCall, sym.Address)
-		}
+		c.currBlock.addInstrAddr(Call, sym.Address)
 		c.setNextBlock(&basicBlock{})
-	} else if sym.Castable() {
-		dstType := sym.T
+	} else {
+		dstType := expr.X.Type()
 
 		arg := 0
-		op := LoadOp(dstType.ID)
-		if dstType.ID == semantics.TFloat64 {
+		op := LoadOp(dstType.ID())
+		if dstType.ID() == semantics.TFloat64 {
 			arg = c.module.defineConstant(float64(0))
-		} else if dstType.ID == semantics.TFloat32 {
+		} else if dstType.ID() == semantics.TFloat32 {
 			arg = c.module.defineConstant(float32(0))
 		}
 
 		c.currBlock.addInstr1(op, int64(arg))
 		c.currBlock.addInstr0(NumCast)
-	} else {
-		panic(fmt.Sprintf("Unhandled FuncCall symbol %s", sym))
 	}
-	return expr
-}
 
-func (c *compiler) VisitDotExpr(expr *semantics.DotExpr) semantics.Expr {
-	// TODO
+	if sym.ModuleID != c.module.id {
+		c.currBlock.addInstrAddr(SetMod, c.module.address)
+	}
+
 	return expr
 }

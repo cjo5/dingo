@@ -2,7 +2,6 @@ package vm
 
 import (
 	"fmt"
-	"math/big"
 	"os"
 	"reflect"
 	"strconv"
@@ -49,14 +48,7 @@ func (vm *vm) popFrame() {
 }
 
 func floatToString(value float64) string {
-	exp := big.NewFloat(value).MantExp(nil)
-
-	fmt := byte('f')
-	if exp >= 20 {
-		fmt = 'e' // Print big floats using scientific notation
-	}
-
-	return strconv.FormatFloat(value, fmt, -1, 64)
+	return fmt.Sprintf("%.6g", value)
 }
 
 func (vm *vm) runProgram() {
@@ -495,6 +487,14 @@ func (vm *vm) runProgram() {
 			if err {
 				panic(fmt.Sprintf("%s: %T cannot be cast to %T", op, arg1, arg2))
 			}
+		case NewStruct:
+			desc := frame.popStructDescriptor()
+			obj := &StructObject{Name: desc.Name}
+			obj.Fields = make([]interface{}, desc.FieldCount)
+			for i := desc.FieldCount - 1; i >= 0; i-- {
+				obj.Fields[i] = frame.pop()
+			}
+			frame.push(obj)
 		case U64Load:
 			frame.push(in.U64())
 		case U32Load:
@@ -511,30 +511,29 @@ func (vm *vm) runProgram() {
 			frame.push(in.I16())
 		case I8Load:
 			frame.push(in.I8())
-		case CLoad:
+		case ConstLoad:
 			addr := in.Addr()
 			frame.push(frame.mod.Constants[addr])
-		case IntLoad:
+		case GlobalLoad:
 			addr := in.Addr()
-			frame.push(frame.mod.Fields[addr])
+			frame.push(frame.mod.Globals[addr])
 		case FieldLoad:
-			storage := frame.popFieldStorage()
+			storage := frame.popStructObject()
 			frame.push(storage.Get(in.Addr()))
 		case FieldStore:
-			storage := frame.popFieldStorage()
+			storage := frame.popStructObject()
 			storage.Put(in.Addr(), frame.pop())
-		case ModLoad:
-			mod := vm.code.Modules[in.Addr()]
-			frame.push(mod)
-		case IntStore:
+		case GlobalStore:
 			addr := in.Addr()
-			frame.mod.Fields[addr] = frame.pop()
+			frame.mod.Globals[addr] = frame.pop()
 		case Load:
 			addr := in.Addr()
 			frame.push(frame.locals[addr])
 		case Store:
 			addr := in.Addr()
 			frame.locals[addr] = frame.pop()
+		case SetMod:
+			frame.mod = vm.code.Modules[in.Addr()]
 		case Goto:
 			ip2 = in.Addr()
 		case IfFalse:
@@ -547,11 +546,8 @@ func (vm *vm) runProgram() {
 			if arg != 0 {
 				ip2 = in.Addr()
 			}
-		case IntCall, ExtCall:
+		case Call:
 			mod := frame.mod
-			if op == ExtCall {
-				mod = frame.popModuleObject()
-			}
 			addr := in.Addr()
 			fun := mod.Functions[addr]
 			newFrame := newFrame(mod, fun)

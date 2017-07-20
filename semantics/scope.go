@@ -3,15 +3,27 @@ package semantics
 import "bytes"
 import "fmt"
 
+// ScopeID identifies the type of scope.
+type ScopeID int
+
+// Scope IDs.
+const (
+	RootScope ScopeID = iota
+	TopScope
+	LocalScope
+	FieldScope
+)
+
 type Scope struct {
+	ID      ScopeID
 	Outer   *Scope
 	Symbols map[string]*Symbol
 }
 
 // NewScope creates a new scope nested in the outer scope.
-func NewScope(outer *Scope) *Scope {
+func NewScope(id ScopeID, outer *Scope) *Scope {
 	const n = 4 // Initial scope capacity
-	return &Scope{outer, make(map[string]*Symbol, n)}
+	return &Scope{id, outer, make(map[string]*Symbol, n)}
 }
 
 func (s *Scope) String() string {
@@ -37,16 +49,6 @@ func (s *Scope) Insert(sym *Symbol) *Symbol {
 
 func (s *Scope) Lookup(name string) *Symbol {
 	return doLookup(s, name)
-}
-
-func (s *Scope) LookupFuncDecl(name string) *FuncDecl {
-	sym := s.Lookup(name)
-	if sym == nil {
-		return nil
-	}
-
-	decl, _ := sym.Func()
-	return decl
 }
 
 func doLookup(s *Scope, name string) *Symbol {

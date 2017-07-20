@@ -12,12 +12,6 @@ type InstructionList []Instruction
 // MemoryRegion represents a data memory region.
 type MemoryRegion []interface{}
 
-// FieldStorage interface for access and modify operations on fields.
-type FieldStorage interface {
-	Get(int) interface{}
-	Put(int, interface{})
-}
-
 type BytecodeProgram struct {
 	Modules []*ModuleObject
 }
@@ -26,16 +20,8 @@ type ModuleObject struct {
 	Name      string
 	Path      string
 	Constants MemoryRegion
-	Fields    MemoryRegion
+	Globals   MemoryRegion
 	Functions []*FunctionObject
-}
-
-func (m *ModuleObject) Get(index int) interface{} {
-	return m.Fields[index]
-}
-
-func (m *ModuleObject) Put(index int, value interface{}) {
-	m.Fields[index] = value
 }
 
 type FunctionObject struct {
@@ -75,8 +61,8 @@ func (m *ModuleObject) Disasm(address int, output *os.File) {
 	output.WriteString(fmt.Sprintf("%04x: %s\n", address, m))
 	output.WriteString(fmt.Sprintf("constants (%d)\n", len(m.Constants)))
 	writeMemory(m.Constants, output)
-	output.WriteString(fmt.Sprintf("fields (%d)\n", len(m.Fields)))
-	writeMemory(m.Fields, output)
+	output.WriteString(fmt.Sprintf("globals (%d)\n", len(m.Globals)))
+	writeMemory(m.Globals, output)
 	output.WriteString(fmt.Sprintf("functions (%d)\n", len(m.Functions)))
 	for idx, f := range m.Functions {
 		f.Disasm(idx, output)

@@ -1,7 +1,20 @@
 module
 
-var bar: i32 = 5;
+import "b"
 
 fun main() {
-    var i: i32 = 0;
+    var i: Foo = Foo{bar=Bar{z=2.2}};
+    i.x = b.mult(2, 5); 
+    print i.x;
+    print "\n";
+}
+
+struct Bar {
+    z: f32
+}
+
+struct Foo {
+    x: i32,
+    y: i32,
+    bar: Bar
 }

@@ -1,10 +1,6 @@
 package semantics
 
-import (
-	"fmt"
-
-	"github.com/jhnl/interpreter/token"
-)
+import "github.com/jhnl/interpreter/token"
 
 type typeVisitor struct {
 	BaseVisitor
@@ -40,18 +36,14 @@ func (v *typeVisitor) VisitValDecl(decl *ValDecl) {
 }
 
 func (v *typeVisitor) visitValDeclSpec(sym *Symbol, decl *ValDeclSpec, defaultInit bool) {
-	typeSym := v.c.typeOfSym(decl.Type)
-	if typeSym == nil {
-		sym.T = TBuiltinUntyped
-		return
-	}
-	sym.T = typeSym.T
+	VisitExpr(v, decl.Type)
+	sym.T = decl.Type.Type()
 
 	if decl.Decl.Is(token.Val) {
 		sym.Flags |= SymFlagConstant
 	}
 
-	if (sym.Flags & SymFlagDepCycle) != 0 {
+	if sym.DepCycle() || IsUntyped(sym.T) {
 		return
 	}
 
@@ -67,7 +59,7 @@ func (v *typeVisitor) visitValDeclSpec(sym *Symbol, decl *ValDeclSpec, defaultIn
 				decl.Name.Literal, sym.T, decl.Initializer.Type())
 		}
 	} else if defaultInit {
-		decl.Initializer = createDefaultLiteral(typeSym)
+		decl.Initializer = createDefaultLiteral(sym.T)
 	}
 }
 
@@ -77,12 +69,10 @@ func (v *typeVisitor) VisitFuncDecl(decl *FuncDecl) {
 	for _, param := range decl.Params {
 		v.VisitValDecl(param)
 	}
+	decl.TReturn = VisitExpr(v, decl.TReturn)
 
-	decl.TReturn.T = v.c.typeOf(decl.TReturn.Name)
-
+	decl.Sym.T = NewFuncType(decl)
 	v.VisitBlockStmt(decl.Body)
-
-	// TODO: See if this can be improved
 
 	endsWithReturn := false
 	for i, stmt := range decl.Body.Stmts {
@@ -94,7 +84,7 @@ func (v *typeVisitor) VisitFuncDecl(decl *FuncDecl) {
 	}
 
 	if !endsWithReturn {
-		if !decl.TReturn.T.IsEqual(TBuiltinVoid) {
+		if decl.TReturn.Type().ID() != TVoid {
 			v.c.error(decl.Body.Rbrace.Pos, "missing return")
 		} else {
 			tok := token.Synthetic(token.Return, "return")
@@ -106,12 +96,10 @@ func (v *typeVisitor) VisitFuncDecl(decl *FuncDecl) {
 }
 
 func (v *typeVisitor) VisitStructDecl(decl *StructDecl) {
-	defer setScope(setScope(v.c, decl.Scope))
-	decl.Sym.T = NewType(TStruct, decl.Name.Literal)
-
 	for _, field := range decl.Fields {
 		v.VisitValDecl(field)
 	}
+	decl.Sym.T = NewStructType(decl)
 }
 
 func (v *typeVisitor) VisitBlockStmt(stmt *BlockStmt) {
@@ -129,7 +117,7 @@ func (v *typeVisitor) VisitPrintStmt(stmt *PrintStmt) {
 
 func (v *typeVisitor) VisitIfStmt(stmt *IfStmt) {
 	stmt.Cond = VisitExpr(v, stmt.Cond)
-	if stmt.Cond.Type().ID != TBool {
+	if stmt.Cond.Type().ID() != TBool {
 		v.c.error(stmt.Cond.FirstPos(), "if condition is not of type %s (has type %s)", TBool, stmt.Cond.Type())
 	}
 
@@ -140,7 +128,7 @@ func (v *typeVisitor) VisitIfStmt(stmt *IfStmt) {
 }
 func (v *typeVisitor) VisitWhileStmt(stmt *WhileStmt) {
 	stmt.Cond = VisitExpr(v, stmt.Cond)
-	if stmt.Cond.Type().ID != TBool {
+	if stmt.Cond.Type().ID() != TBool {
 		v.c.error(stmt.Cond.FirstPos(), "while condition is not of type %s (has type %s)", TBool, stmt.Cond.Type())
 	}
 	v.VisitBlockStmt(stmt.Body)
@@ -149,59 +137,54 @@ func (v *typeVisitor) VisitWhileStmt(stmt *WhileStmt) {
 func (v *typeVisitor) VisitReturnStmt(stmt *ReturnStmt) {
 	mismatch := false
 
-	exprType := TVoid
 	funDecl, _ := v.c.topDecl.(*FuncDecl)
 	retType := funDecl.TReturn.Type()
+	if retType.ID() == TUntyped {
+		return
+	}
+
+	exprType := TVoid
+
 	if stmt.X == nil {
-		if retType.ID != TVoid {
+		if retType.ID() != TVoid {
 			mismatch = true
 		}
 	} else {
 		stmt.X = VisitExpr(v, stmt.X)
 		if !v.c.tryCastLiteral(stmt.X, retType) {
-			exprType = stmt.X.Type().ID
+			exprType = stmt.X.Type().ID()
 			mismatch = true
-		} else if stmt.X.Type().ID != retType.ID {
-			exprType = stmt.X.Type().ID
+		} else if !stmt.X.Type().IsEqual(retType) {
+			exprType = stmt.X.Type().ID()
 			mismatch = true
 		}
 	}
 
 	if mismatch {
 		v.c.error(stmt.Return.Pos, "type mismatch: return type %s does not match function '%s' return type %s",
-			exprType, funDecl.Name.Literal, retType.ID)
+			exprType, funDecl.Name.Literal, retType)
 	}
 }
 
 func (v *typeVisitor) VisitAssignStmt(stmt *AssignStmt) {
 	stmt.Left = VisitExpr(v, stmt.Left)
+	if stmt.Left.Type().ID() == TUntyped {
+		return
+	}
 
-	var sym *Symbol
 	var name *Ident
-	constant := false
 
-	switch t := stmt.Left.(type) {
+	switch id := stmt.Left.(type) {
 	case *Ident:
-		sym = t.Sym
-		constant = t.Sym.Constant()
-		name = t
-	case *DotExpr:
-		switch right := t.X.(type) {
-		case *Ident:
-			sym = right.Sym
-			constant = t.Name.Sym.Constant()
-			name = right
-		case *FuncCall:
-			sym = right.Name.Sym
-			name = right.Name
-		default:
-			panic(fmt.Sprintf("Unhandled DotExpr %T", right))
-		}
+		name = id
+	case *DotIdent:
+		name = id.Name
 	default:
 		v.c.error(stmt.Left.FirstPos(), "invalid assignment")
 		return
 	}
 
+	sym := name.Sym
 	if sym == nil {
 		return
 	} else if sym.ID != ValSymbol {
@@ -211,9 +194,9 @@ func (v *typeVisitor) VisitAssignStmt(stmt *AssignStmt) {
 
 	stmt.Right = VisitExpr(v, stmt.Right)
 
-	if constant {
-		v.c.error(name.Pos(), "'%s' was declared with %s and cannot be modified (constant)",
-			name.Literal(), token.Val)
+	if constID := v.c.checkConstant(stmt.Left); constID != nil {
+		v.c.error(constID.Pos(), "'%s' was declared with %s and cannot be modified (constant)",
+			constID.Literal(), token.Val)
 	}
 
 	if !v.c.tryCastLiteral(stmt.Right, name.Type()) {
@@ -226,7 +209,7 @@ func (v *typeVisitor) VisitAssignStmt(stmt *AssignStmt) {
 	}
 
 	if stmt.Assign.ID != token.Assign {
-		if !name.Type().IsNumericType() {
+		if !IsNumericType(name.Type()) {
 			v.c.error(name.Pos(), "type mismatch: %s is not numeric (has type %s)",
 				stmt.Assign, name.Literal(), name.Type())
 		}

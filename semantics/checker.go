@@ -7,14 +7,14 @@ import (
 	"github.com/jhnl/interpreter/token"
 )
 
-var builtinScope = NewScope(nil)
+var builtinScope = NewScope(RootScope, nil)
 
-func addBuiltinType(t *TType) {
+func addBuiltinType(t Type) {
 	sym := &Symbol{}
-	sym.ID = BuiltinSymbol
+	sym.ID = TypeSymbol
 	sym.T = t
-	sym.Flags = SymFlagType | SymFlagCastable
-	sym.Name = t.String()
+	sym.Flags = SymFlagCastable
+	sym.Name = t.ID().String()
 	sym.Pos = token.NoPosition
 	builtinScope.Insert(sym)
 }
@@ -23,7 +23,6 @@ func init() {
 	addBuiltinType(TBuiltinVoid)
 	addBuiltinType(TBuiltinBool)
 	addBuiltinType(TBuiltinString)
-	addBuiltinType(TBuiltinModule)
 	addBuiltinType(TBuiltinUInt64)
 	addBuiltinType(TBuiltinInt64)
 	addBuiltinType(TBuiltinUInt32)
@@ -84,8 +83,8 @@ func (c *checker) resetWalkState() {
 	c.topDecl = nil
 }
 
-func (c *checker) openScope() {
-	c.scope = NewScope(c.scope)
+func (c *checker) openScope(id ScopeID) {
+	c.scope = NewScope(id, c.scope)
 }
 
 func (c *checker) closeScope() {
@@ -133,8 +132,8 @@ func (c *checker) error(pos token.Position, format string, args ...interface{}) 
 	c.errors.Add(filename, pos, format, args...)
 }
 
-func (c *checker) insert(scope *Scope, id SymbolID, name string, pos token.Position, decl Decl) *Symbol {
-	sym := NewSymbol(id, c.mod.ID, name, pos, decl)
+func (c *checker) insert(scope *Scope, id SymbolID, name string, pos token.Position, src Decl) *Symbol {
+	sym := NewSymbol(id, scope.ID, c.mod.ID, name, pos, src)
 	if existing := scope.Insert(sym); existing != nil {
 		msg := fmt.Sprintf("redeclaration of '%s', previously declared at %s", name, existing.Pos)
 		c.error(pos, msg)
@@ -143,31 +142,11 @@ func (c *checker) insert(scope *Scope, id SymbolID, name string, pos token.Posit
 	return sym
 }
 
-func (c *checker) lookup(name token.Token) *Symbol {
-	if existing := c.scope.Lookup(name.Literal); existing == nil {
-		c.error(name.Pos, "'%s' undefined", name.Literal)
-	} else {
+func (c *checker) lookup(name string) *Symbol {
+	if existing := c.scope.Lookup(name); existing != nil {
 		return existing
 	}
 	return nil
-}
-
-func (c *checker) typeOf(spec token.Token) *TType {
-	sym := c.scope.Lookup(spec.Literal)
-	if sym == nil || !sym.Type() {
-		c.error(spec.Pos, "%s is not a type", spec.Literal)
-		return TBuiltinUntyped
-	}
-	return sym.T
-}
-
-func (c *checker) typeOfSym(spec token.Token) *Symbol {
-	sym := c.scope.Lookup(spec.Literal)
-	if sym == nil || !sym.Type() {
-		c.error(spec.Pos, "%s is not a type", spec.Literal)
-		return nil
-	}
-	return sym
 }
 
 func (c *checker) sortModules() {
@@ -251,7 +230,6 @@ func (c *checker) sortDecls() {
 				c.errors.AddTrace(decl.Context().Path, sym.Pos, trace, "initializer cycle detected")
 			}
 		}
-
 		mod.Decls = sortedDecls
 	}
 }
@@ -280,8 +258,8 @@ func sortDeclDependencies(decl TopDecl, trace *[]TopDecl, sortedDecls *[]TopDecl
 }
 
 // Returns false if error
-func (c *checker) tryCastLiteral(expr Expr, target *TType) bool {
-	if target.IsNumericType() && expr.Type().IsNumericType() {
+func (c *checker) tryCastLiteral(expr Expr, target Type) bool {
+	if IsNumericType(expr.Type()) && IsNumericType(target) {
 		lit, _ := expr.(*Literal)
 		if lit != nil {
 			castResult := typeCastNumericLiteral(lit, target)
@@ -291,9 +269,9 @@ func (c *checker) tryCastLiteral(expr Expr, target *TType) bool {
 			}
 
 			if castResult == numericCastOverflows {
-				c.error(lit.Value.Pos, "constant expression %s overflows %s", lit.Value.Literal, target.ID)
+				c.error(lit.Value.Pos, "constant expression %s overflows %s", lit.Value.Literal, target)
 			} else if castResult == numericCastTruncated {
-				c.error(lit.Value.Pos, "type mismatch: constant float expression %s not compatible with %s", lit.Value.Literal, target.ID)
+				c.error(lit.Value.Pos, "type mismatch: constant float expression %s not compatible with %s", lit.Value.Literal, target)
 			} else {
 				panic(fmt.Sprintf("Unhandled numeric cast result %d", castResult))
 			}
@@ -302,4 +280,28 @@ func (c *checker) tryCastLiteral(expr Expr, target *TType) bool {
 		}
 	}
 	return true
+}
+
+// Returns Ident that was declared as const. Nil otherwise.
+func (c *checker) checkConstant(expr Expr) *Ident {
+	return checkConstantRecursively(expr)
+}
+
+func checkConstantRecursively(expr Expr) *Ident {
+	switch t := expr.(type) {
+	case *Ident:
+		if t.Sym != nil && t.Sym.Constant() {
+			return t
+		}
+	case *DotIdent:
+		if t.Name.Sym != nil {
+			if t.Name.Sym.Constant() {
+				return t.Name
+			}
+		} else {
+			return nil
+		}
+		return checkConstantRecursively(t.X)
+	}
+	return nil
 }

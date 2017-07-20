@@ -55,7 +55,7 @@ type Stmt interface {
 // Expr is the main interface for expression nodes.
 type Expr interface {
 	Node
-	Type() *TType
+	Type() Type
 	exprNode()
 }
 
@@ -171,7 +171,7 @@ func (i *Import) FirstPos() token.Position { return i.Import.Pos }
 type ValDeclSpec struct {
 	Decl        token.Token
 	Name        token.Token
-	Type        token.Token
+	Type        Expr
 	Assign      token.Token
 	Initializer Expr
 }
@@ -192,7 +192,6 @@ func (d *ValTopDecl) FirstPos() token.Position {
 // Val decl flags.
 const (
 	ValFlagNoInit = 1 << 0
-	ValFlagField  = 1 << 1
 )
 
 type ValDecl struct {
@@ -210,10 +209,6 @@ func (d *ValDecl) Init() bool {
 	return (d.Flags & ValFlagNoInit) == 0
 }
 
-func (d *ValDecl) Field() bool {
-	return (d.Flags & ValFlagField) != 0
-}
-
 type FuncDecl struct {
 	baseTopDecl
 	Visibility token.Token
@@ -222,7 +217,7 @@ type FuncDecl struct {
 	Lparen     token.Token
 	Params     []*ValDecl
 	Rparen     token.Token
-	TReturn    *Ident
+	TReturn    Expr
 	Body       *BlockStmt
 	Scope      *Scope
 }
@@ -337,12 +332,12 @@ func (s *ExprStmt) FirstPos() token.Position { return s.X.FirstPos() }
 
 type baseExpr struct {
 	baseNode
-	T *TType
+	T Type
 }
 
 func (x *baseExpr) exprNode() {}
 
-func (x *baseExpr) Type() *TType {
+func (x *baseExpr) Type() Type {
 	if x.T == nil {
 		return TBuiltinUntyped
 	}
@@ -394,7 +389,7 @@ func (k *KeyValue) FirstPos() token.Position { return k.Key.Pos }
 
 type StructLiteral struct {
 	baseExpr
-	Name         *Ident
+	Name         Expr // Ident or DotIdent
 	Lbrace       token.Token
 	Initializers []*KeyValue
 	Rbrace       token.Token
@@ -409,6 +404,7 @@ type Ident struct {
 }
 
 func (x *Ident) FirstPos() token.Position { return x.Name.Pos }
+
 func (x *Ident) Literal() string {
 	return x.Name.Literal
 }
@@ -416,28 +412,28 @@ func (x *Ident) Pos() token.Position {
 	return x.Name.Pos
 }
 
-func (x *Ident) Type() *TType {
-	if x.Sym == nil || x.Sym.T == nil {
-		return TBuiltinUntyped
+func (x *Ident) setSymbol(sym *Symbol) {
+	x.Sym = sym
+	if sym != nil {
+		x.T = sym.T
 	}
-	return x.Sym.T
 }
+
+type DotIdent struct {
+	baseExpr
+	X    Expr
+	Dot  token.Token
+	Name *Ident
+}
+
+func (x *DotIdent) FirstPos() token.Position { return x.X.FirstPos() }
 
 type FuncCall struct {
 	baseExpr
-	Name   *Ident
+	X      Expr
 	Lparen token.Token
 	Args   []Expr
 	Rparen token.Token
 }
 
-func (x *FuncCall) FirstPos() token.Position { return x.Name.FirstPos() }
-
-type DotExpr struct {
-	baseExpr
-	Name *Ident
-	Dot  token.Token
-	X    Expr
-}
-
-func (x *DotExpr) FirstPos() token.Position { return x.Name.FirstPos() }
+func (x *FuncCall) FirstPos() token.Position { return x.X.FirstPos() }

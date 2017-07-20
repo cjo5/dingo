@@ -99,7 +99,7 @@ func (p *printVisitor) VisitValDecl(decl *ValDecl) {
 func (p *printVisitor) visitValDeclSpec(decl *ValDeclSpec) {
 	p.printToken(decl.Decl)
 	p.printToken(decl.Name)
-	p.printToken(decl.Type)
+	VisitExpr(p, decl.Type)
 	if decl.Initializer != nil {
 		VisitExpr(p, decl.Initializer)
 	}
@@ -119,7 +119,7 @@ func (p *printVisitor) VisitFuncDecl(decl *FuncDecl) {
 	p.level--
 	p.print("RETURN")
 	if decl.TReturn != nil {
-		p.VisitIdent(decl.TReturn)
+		VisitExpr(p, decl.TReturn)
 	}
 	p.level--
 	p.VisitBlockStmt(decl.Body)
@@ -218,7 +218,7 @@ func (p *printVisitor) VisitStructLiteral(expr *StructLiteral) Expr {
 	defer dec(inc(p))
 	p.printf("[struct literal]")
 	defer dec(inc(p))
-	p.VisitIdent(expr.Name)
+	VisitExpr(p, expr.Name)
 	for _, kv := range expr.Initializers {
 		p.level++
 		p.printToken(kv.Key)
@@ -234,20 +234,20 @@ func (p *printVisitor) VisitIdent(expr *Ident) Expr {
 	return expr
 }
 
-func (p *printVisitor) VisitFuncCall(expr *FuncCall) Expr {
+func (p *printVisitor) VisitDotIdent(expr *DotIdent) Expr {
 	defer dec(inc(p))
-	p.print("FUNCCALL")
+	p.print("DOT")
+	VisitExpr(p, expr.X)
 	p.VisitIdent(expr.Name)
-	for _, arg := range expr.Args {
-		VisitExpr(p, arg)
-	}
 	return expr
 }
 
-func (p *printVisitor) VisitDotExpr(expr *DotExpr) Expr {
+func (p *printVisitor) VisitFuncCall(expr *FuncCall) Expr {
 	defer dec(inc(p))
-	p.print("DOT")
-	p.VisitIdent(expr.Name)
+	p.print("FUNCCALL")
 	VisitExpr(p, expr.X)
+	for _, arg := range expr.Args {
+		VisitExpr(p, arg)
+	}
 	return expr
 }

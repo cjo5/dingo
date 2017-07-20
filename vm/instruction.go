@@ -102,27 +102,28 @@ const (
 	CmpLt
 	CmpLe
 
-	NumCast // Numeric cast. Cast operand1 to type of operand2.
+	NumCast   // Numeric cast. Cast operand1 to type of operand2.
+	NewStruct // Create new struct
 
 	opArg0End
 
 	opArg1Start
-	U64Load    // Push immediate u64
-	U32Load    // Push immediate u32
-	U16Load    // Push immediate u16
-	U8Load     // Push immediate u8
-	I64Load    // Push immediate i64
-	I32Load    // Push immediate i32
-	I16Load    // Push immediate i16
-	I8Load     // Push immediate i8
-	CLoad      // Push constant
-	IntLoad    // Push internal value
-	IntStore   // Pop and store in internal variable
-	FieldLoad  // Push field
-	FieldStore // Pop and store in field
-	ModLoad    // Push module
-	Load       // Push local variable
-	Store      // Pop local variable
+	U64Load     // Push immediate u64
+	U32Load     // Push immediate u32
+	U16Load     // Push immediate u16
+	U8Load      // Push immediate u8
+	I64Load     // Push immediate i64
+	I32Load     // Push immediate i32
+	I16Load     // Push immediate i16
+	I8Load      // Push immediate i8
+	ConstLoad   // Push constant
+	GlobalLoad  // Push global value
+	GlobalStore // Pop and store in global variable
+	FieldLoad   // Push field
+	FieldStore  // Pop and store in field
+	Load        // Push local variable
+	Store       // Pop local variable
+	SetMod      // Set current mod
 
 	// Branch opcodes
 	Goto
@@ -130,10 +131,7 @@ const (
 	IfFalse // Branch if false
 	//
 
-	IntCall // Internal call
-	ExtCall // External call
-
-	NewStruct // Create new struct
+	Call // Call function
 
 	opArg1End
 )
@@ -222,7 +220,8 @@ var mnemonics = [...]string{
 	CmpLt: "cmplt",
 	CmpLe: "cmple",
 
-	NumCast: "numcast",
+	NumCast:   "numcast",
+	NewStruct: "newstruct",
 
 	U64Load: "u64load",
 	U32Load: "u32load",
@@ -233,23 +232,20 @@ var mnemonics = [...]string{
 	I16Load: "i16load",
 	I8Load:  "i8load",
 
-	CLoad:      "cload",
-	IntLoad:    "intload",
-	IntStore:   "intstore",
-	FieldLoad:  "fieldload",
-	FieldStore: "fieldstore",
-	ModLoad:    "modload",
-	Load:       "load",
-	Store:      "store",
+	ConstLoad:   "constload",
+	GlobalLoad:  "globalload",
+	GlobalStore: "globalstore",
+	FieldLoad:   "fieldload",
+	FieldStore:  "fieldstore",
+	Load:        "load",
+	Store:       "store",
+	SetMod:      "setmod",
 
 	Goto:    "goto",
 	IfTrue:  "iftrue",
 	IfFalse: "iffalse",
 
-	IntCall: "intcall",
-	ExtCall: "extcall",
-
-	NewStruct: "newstruct",
+	Call: "call",
 }
 
 func (op Opcode) String() string {
@@ -525,7 +521,7 @@ func LoadOp(t semantics.TypeID) Opcode {
 	case semantics.TInt8:
 		op = I8Load
 	case semantics.TFloat64, semantics.TFloat32:
-		op = CLoad
+		op = ConstLoad
 	default:
 		panic(fmt.Sprintf("Unhandled type %T", t))
 	}

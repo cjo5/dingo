@@ -100,14 +100,14 @@ func (f *frame) popF32() float32 {
 	return argFloat
 }
 
-func (f *frame) popFieldStorage() FieldStorage {
+func (f *frame) popStructObject() *StructObject {
 	arg := f.pop()
-	argFieldStorage, _ := arg.(FieldStorage)
-	return argFieldStorage
+	argStructObject, _ := arg.(*StructObject)
+	return argStructObject
 }
 
-func (f *frame) popModuleObject() *ModuleObject {
+func (f *frame) popStructDescriptor() *StructDescriptor {
 	arg := f.pop()
-	argModuleObject, _ := arg.(*ModuleObject)
-	return argModuleObject
+	argStructDescriptor, _ := arg.(*StructDescriptor)
+	return argStructDescriptor
 }
