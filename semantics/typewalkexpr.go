@@ -200,7 +200,7 @@ func (v *typeVisitor) VisitUnaryExpr(expr *UnaryExpr) Expr {
 	switch expr.Op.ID {
 	case token.Sub:
 		if !IsNumericType(expr.T) {
-			v.c.error(expr.Op.Pos, "type mismatch: expression %s has type %s (expects integer or float)", PrintExpr(expr), expr.T)
+			v.c.error(expr.Op.Pos, "type mismatch: expression %s has type %s (expected integer or float)", PrintExpr(expr), expr.T)
 		} else if lit, ok := expr.X.(*BasicLit); ok {
 			var raw interface{}
 
@@ -224,7 +224,7 @@ func (v *typeVisitor) VisitUnaryExpr(expr *UnaryExpr) Expr {
 		}
 	case token.Lnot:
 		if expr.T.ID() != TBool {
-			v.c.error(expr.Op.Pos, "type mismatch: operation '%s' expects type %s but got %s", token.Lnot, TBuiltinBool, expr.T)
+			v.c.error(expr.Op.Pos, "type mismatch: expression %s has type %s (expected %s)", PrintExpr(expr), expr.T, TBuiltinBool)
 		}
 	default:
 		panic(fmt.Sprintf("Unhandled unary op %s", expr.Op.ID))

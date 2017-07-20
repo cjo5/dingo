@@ -4,6 +4,5 @@ fun foo1(a: i32) {
 }
 
 fun foo2() {
-   val x: i64; 
-   foo1(x);
+   var x: bool = -(true && false);
 }

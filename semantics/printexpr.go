@@ -50,6 +50,7 @@ func (p *exprPrinter) VisitUnaryExpr(expr *UnaryExpr) Expr {
 	xPrec := prec(expr.X)
 	opPrec := prec(expr)
 
+	p.buffer.WriteString(expr.Op.Literal)
 	if opPrec < xPrec {
 		p.buffer.WriteString("(")
 	}
@@ -57,8 +58,6 @@ func (p *exprPrinter) VisitUnaryExpr(expr *UnaryExpr) Expr {
 	if opPrec < xPrec {
 		p.buffer.WriteString("(")
 	}
-
-	p.buffer.WriteString(expr.Op.Literal)
 
 	return expr
 }
