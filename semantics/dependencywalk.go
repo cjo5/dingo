@@ -105,7 +105,13 @@ func (v *dependencyVisitor) VisitIdent(expr *Ident) Expr {
 	sym := v.c.lookup(expr.Literal())
 	if sym != nil {
 		if decl, ok := sym.Src.(TopDecl); ok {
-			v.c.topDecl.addDependency(decl)
+			_, isFunc1 := v.c.topDecl.(*FuncDecl)
+			_, isFunc2 := decl.(*FuncDecl)
+
+			// Cycle between functions is ok
+			if !isFunc1 || !isFunc2 {
+				v.c.topDecl.addDependency(decl)
+			}
 		}
 	}
 	return expr

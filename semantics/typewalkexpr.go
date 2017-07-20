@@ -439,12 +439,11 @@ func createStructLiteral(structt *StructType, lit *StructLiteral) *StructLiteral
 
 func (v *typeVisitor) VisitIdent(expr *Ident) Expr {
 	sym := v.c.lookup(expr.Name.Literal)
-	if sym == nil {
+	if sym == nil || sym.Untyped() {
 		v.c.error(expr.Name.Pos, "'%s' undefined", expr.Name.Literal)
 		expr.T = TBuiltinUntyped
 	} else {
-		expr.Sym = sym
-		expr.T = sym.T
+		expr.setSymbol(sym)
 	}
 	return expr
 }

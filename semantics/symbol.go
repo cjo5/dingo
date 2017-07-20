@@ -68,3 +68,10 @@ func (s *Symbol) Constant() bool {
 func (s *Symbol) Castable() bool {
 	return (s.Flags & SymFlagCastable) != 0
 }
+
+func (s *Symbol) Untyped() bool {
+	if s.T == nil || IsUntyped(s.T) {
+		return true
+	}
+	return false
+}

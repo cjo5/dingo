@@ -4,7 +4,8 @@ import "github.com/jhnl/interpreter/token"
 
 type typeVisitor struct {
 	BaseVisitor
-	c *checker
+	signature bool
+	c         *checker
 }
 
 func typeWalk(c *checker) {
@@ -15,6 +16,21 @@ func typeWalk(c *checker) {
 
 func (v *typeVisitor) Module(mod *Module) {
 	v.c.mod = mod
+
+	v.signature = true
+	for _, decl := range mod.Decls {
+		if decl.Symbol() == nil {
+			// Nil symbol means a redeclaration
+			continue
+		}
+
+		if fun, ok := decl.(*FuncDecl); ok {
+			v.c.setTopDecl(decl)
+			v.VisitFuncDecl(fun)
+		}
+	}
+
+	v.signature = false
 	for _, decl := range mod.Decls {
 		if decl.Symbol() == nil {
 			// Nil symbol means a redeclaration
@@ -66,12 +82,20 @@ func (v *typeVisitor) visitValDeclSpec(sym *Symbol, decl *ValDeclSpec, defaultIn
 func (v *typeVisitor) VisitFuncDecl(decl *FuncDecl) {
 	defer setScope(setScope(v.c, decl.Scope))
 
-	for _, param := range decl.Params {
-		v.VisitValDecl(param)
-	}
-	decl.TReturn = VisitExpr(v, decl.TReturn)
+	if v.signature {
+		for _, param := range decl.Params {
+			v.VisitValDecl(param)
+		}
+		decl.TReturn = VisitExpr(v, decl.TReturn)
 
-	decl.Sym.T = NewFuncType(decl)
+		decl.Sym.T = NewFuncType(decl)
+		return
+	}
+
+	if decl.Sym.DepCycle() {
+		return
+	}
+
 	v.VisitBlockStmt(decl.Body)
 
 	endsWithReturn := false

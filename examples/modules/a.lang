@@ -4,7 +4,7 @@ import "b"
 
 fun main() {
     var i: Foo = Foo{bar=Bar{z=2.2}};
-    i.x = b.factorial()
+    i.x = b.factorial(5);
     print i.x;
     print "\n";
 }

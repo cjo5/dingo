@@ -63,15 +63,14 @@ func (p *printVisitor) Module(mod *Module) {
 		VisitImportList(p, file.Imports)
 	}
 	for _, decl := range mod.Decls {
-		p.level++
 		VisitDecl(p, decl)
-		p.level--
 	}
 }
 
 func (p *printVisitor) VisitImport(decl *Import) {
 	defer dec(inc(p))
 	p.printToken(decl.Import)
+	defer dec(inc(p))
 	p.printToken(decl.Literal)
 }
 
@@ -88,6 +87,7 @@ func (p *printVisitor) VisitDeclStmt(stmt *DeclStmt) {
 func (p *printVisitor) VisitValTopDecl(decl *ValTopDecl) {
 	defer dec(inc(p))
 	p.printToken(decl.Visibility)
+	defer dec(inc(p))
 	p.visitValDeclSpec(&decl.ValDeclSpec)
 }
 
@@ -108,15 +108,13 @@ func (p *printVisitor) visitValDeclSpec(decl *ValDeclSpec) {
 func (p *printVisitor) VisitFuncDecl(decl *FuncDecl) {
 	defer dec(inc(p))
 	p.printToken(decl.Decl)
+	defer dec(inc(p))
 	p.printToken(decl.Name)
 	p.level++
 	p.print("PARAMS")
-	p.level++
 	for _, param := range decl.Params {
-		p.print("FIELD")
 		p.VisitValDecl(param)
 	}
-	p.level--
 	p.print("RETURN")
 	if decl.TReturn != nil {
 		VisitExpr(p, decl.TReturn)
@@ -128,12 +126,11 @@ func (p *printVisitor) VisitFuncDecl(decl *FuncDecl) {
 func (p *printVisitor) VisitStructDecl(decl *StructDecl) {
 	defer dec(inc(p))
 	p.printToken(decl.Decl)
+	defer dec(inc(p))
 	p.printToken(decl.Name)
 	defer dec(inc(p))
 	p.print("FIELDS")
-	defer dec(inc(p))
 	for _, field := range decl.Fields {
-		p.print("FIELD")
 		p.VisitValDecl(field)
 	}
 }
@@ -246,6 +243,8 @@ func (p *printVisitor) VisitFuncCall(expr *FuncCall) Expr {
 	defer dec(inc(p))
 	p.print("FUNCCALL")
 	VisitExpr(p, expr.X)
+	defer dec(inc(p))
+	p.print("ARGS")
 	for _, arg := range expr.Args {
 		VisitExpr(p, arg)
 	}

@@ -1,3 +1,9 @@
 module
 
-import "d"
+fun foo1() {
+    foo2();
+}
+
+fun foo2() {
+    foo1();
+}

@@ -37,8 +37,6 @@ func Compile(prog *semantics.Program) *BytecodeProgram {
 		main := c.compiledModules[mainModAddr].main
 		bootstrapFun.entry.addInstrAddr(SetMod, mainModAddr)
 		bootstrapFun.entry.addInstrAddr(Call, main.Address)
-	} else {
-		panic("Missing main function")
 	}
 
 	return c.createBytecodeProgram()
