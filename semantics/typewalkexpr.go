@@ -30,8 +30,8 @@ func (v *typeVisitor) VisitBinaryExpr(expr *BinaryExpr) Expr {
 			binType = TBool
 		}
 	} else if boolOp || arithOp {
-		leftLit, _ := expr.Left.(*Literal)
-		rightLit, _ := expr.Right.(*Literal)
+		leftLit, _ := expr.Left.(*BasicLit)
+		rightLit, _ := expr.Right.(*BasicLit)
 
 		if IsNumericType(leftType) && IsNumericType(rightType) {
 			var leftBigInt *big.Int
@@ -201,7 +201,7 @@ func (v *typeVisitor) VisitUnaryExpr(expr *UnaryExpr) Expr {
 	case token.Sub:
 		if !IsNumericType(expr.T) {
 			v.c.error(expr.Op.Pos, "type mismatch: operation '%s' expects a numeric type but got %s", token.Sub, expr.T)
-		} else if lit, ok := expr.X.(*Literal); ok {
+		} else if lit, ok := expr.X.(*BasicLit); ok {
 			var raw interface{}
 
 			switch n := lit.Raw.(type) {
@@ -284,7 +284,7 @@ func removeUnderscores(lit string) string {
 	return res
 }
 
-func (v *typeVisitor) VisitLiteral(expr *Literal) Expr {
+func (v *typeVisitor) VisitBasicLit(expr *BasicLit) Expr {
 	if expr.Value.ID == token.False || expr.Value.ID == token.True {
 		expr.T = TBuiltinBool
 	} else if expr.Value.ID == token.String {
@@ -320,7 +320,7 @@ func (v *typeVisitor) VisitLiteral(expr *Literal) Expr {
 	return expr
 }
 
-func (v *typeVisitor) VisitStructLiteral(expr *StructLiteral) Expr {
+func (v *typeVisitor) VisitStructLit(expr *StructLit) Expr {
 	expr.Name = VisitExpr(v, expr.Name)
 	t := expr.Name.Type()
 	if IsUntyped(t) {
@@ -375,7 +375,7 @@ func (v *typeVisitor) VisitStructLiteral(expr *StructLiteral) Expr {
 	}
 
 	expr.T = structt
-	return createStructLiteral(structt, expr)
+	return createStructLit(structt, expr)
 }
 
 func createDefaultLiteral(t Type) Expr {
@@ -383,28 +383,28 @@ func createDefaultLiteral(t Type) Expr {
 		structt, _ := t.(*StructType)
 		name := &Ident{Name: token.Synthetic(token.Ident, structt.Name())}
 		name.setSymbol(structt.Sym)
-		lit := &StructLiteral{}
+		lit := &StructLit{}
 		lit.Name = name
-		return createStructLiteral(structt, lit)
+		return createStructLit(structt, lit)
 	}
-	return createDefaultBasicLiteral(t)
+	return createDefaultBasicLit(t)
 }
 
-func createDefaultBasicLiteral(t Type) *Literal {
-	var lit *Literal
+func createDefaultBasicLit(t Type) *BasicLit {
+	var lit *BasicLit
 	if IsTypeID(t, TBool) {
-		lit = &Literal{Value: token.Synthetic(token.False, token.False.String())}
+		lit = &BasicLit{Value: token.Synthetic(token.False, token.False.String())}
 		lit.T = NewBasicType(TBool)
 	} else if IsTypeID(t, TString) {
-		lit = &Literal{Value: token.Synthetic(token.String, "")}
+		lit = &BasicLit{Value: token.Synthetic(token.String, "")}
 		lit.Raw = ""
 		lit.T = NewBasicType(TString)
 	} else if IsTypeID(t, TUInt64, TInt64, TUInt32, TInt32, TUInt16, TInt16, TUInt8, TInt8) {
-		lit = &Literal{Value: token.Synthetic(token.Integer, "0")}
+		lit = &BasicLit{Value: token.Synthetic(token.Integer, "0")}
 		lit.Raw = BigIntZero
 		lit.T = NewBasicType(t.ID())
 	} else if IsTypeID(t, TFloat64, TFloat32) {
-		lit = &Literal{Value: token.Synthetic(token.Float, "0")}
+		lit = &BasicLit{Value: token.Synthetic(token.Float, "0")}
 		lit.Raw = BigFloatZero
 		lit.T = NewBasicType(t.ID())
 	} else {
@@ -413,7 +413,7 @@ func createDefaultBasicLiteral(t Type) *Literal {
 	return lit
 }
 
-func createStructLiteral(structt *StructType, lit *StructLiteral) *StructLiteral {
+func createStructLit(structt *StructType, lit *StructLit) *StructLit {
 	var initializers []*KeyValue
 	for _, f := range structt.Fields {
 		key := f.Name()

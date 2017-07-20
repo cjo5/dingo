@@ -364,7 +364,7 @@ func floatOverflows(val *big.Float, t TypeID) bool {
 	return !fits
 }
 
-func typeCastNumericLiteral(lit *Literal, target Type) numericCastResult {
+func typeCastNumericLiteral(lit *BasicLit, target Type) numericCastResult {
 	res := numericCastOK
 	id := target.ID()
 

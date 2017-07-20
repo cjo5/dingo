@@ -260,7 +260,7 @@ func sortDeclDependencies(decl TopDecl, trace *[]TopDecl, sortedDecls *[]TopDecl
 // Returns false if error
 func (c *checker) tryCastLiteral(expr Expr, target Type) bool {
 	if IsNumericType(expr.Type()) && IsNumericType(target) {
-		lit, _ := expr.(*Literal)
+		lit, _ := expr.(*BasicLit)
 		if lit != nil {
 			castResult := typeCastNumericLiteral(lit, target)
 

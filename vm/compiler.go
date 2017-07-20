@@ -599,7 +599,7 @@ func (c *compiler) VisitUnaryExpr(expr *semantics.UnaryExpr) semantics.Expr {
 	return expr
 }
 
-func (c *compiler) VisitLiteral(expr *semantics.Literal) semantics.Expr {
+func (c *compiler) VisitBasicLit(expr *semantics.BasicLit) semantics.Expr {
 	if expr.Value.ID == token.String {
 		if str, ok := expr.Raw.(string); ok {
 			addr := c.module.defineConstant(str)
@@ -655,7 +655,7 @@ func (c *compiler) VisitLiteral(expr *semantics.Literal) semantics.Expr {
 	return expr
 }
 
-func (c *compiler) VisitStructLiteral(expr *semantics.StructLiteral) semantics.Expr {
+func (c *compiler) VisitStructLit(expr *semantics.StructLit) semantics.Expr {
 	for _, init := range expr.Initializers {
 		semantics.VisitExpr(c, init.Value)
 	}

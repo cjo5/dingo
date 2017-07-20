@@ -3,10 +3,18 @@ module
 import "b"
 
 fun main() {
-    var i: Foo = Foo{bar=Bar{z=2.2}};
-    i.x = b.factorial(5);
-    print i.x;
-    print "\n";
+    var i: i32 = 0;
+    while i < 10 {
+        i += 1;
+        if i == 5 {
+            continue;
+        } elif i == 6 {
+            print "SIX\n";
+        }
+
+        print i;
+        print "\n";
+    }
 }
 
 struct Bar {

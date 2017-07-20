@@ -497,11 +497,11 @@ func (p *parser) parseOperand() semantics.Expr {
 	} else if p.token.ID == token.Ident {
 		ident := p.parseIdent()
 		if p.token.Is(token.Lbrace) {
-			return p.parseStructLiteral(ident)
+			return p.parseStructLit(ident)
 		}
 		return p.parsePrimary(ident)
 	}
-	return p.parseBasicLiteral()
+	return p.parseBasicLit()
 }
 
 func (p *parser) parsePrimary(expr semantics.Expr) semantics.Expr {
@@ -544,12 +544,12 @@ func (p *parser) parseFuncCall(expr semantics.Expr) semantics.Expr {
 	return &semantics.FuncCall{X: expr, Lparen: lparen, Args: args, Rparen: rparen}
 }
 
-func (p *parser) parseBasicLiteral() semantics.Expr {
+func (p *parser) parseBasicLit() semantics.Expr {
 	switch p.token.ID {
 	case token.Integer, token.Float, token.String, token.True, token.False:
 		tok := p.token
 		p.next()
-		return &semantics.Literal{Value: tok}
+		return &semantics.BasicLit{Value: tok}
 	default:
 		tok := p.token
 		p.error(tok, "got '%s', expected expression", tok.ID)
@@ -567,7 +567,7 @@ func (p *parser) parseKeyValue() *semantics.KeyValue {
 	return &semantics.KeyValue{Key: key, Equal: equal, Value: value}
 }
 
-func (p *parser) parseStructLiteral(name1 *semantics.Ident) semantics.Expr {
+func (p *parser) parseStructLit(name1 *semantics.Ident) semantics.Expr {
 	name := p.parseTypeName(name1)
 	lbrace := p.token
 	p.expect(token.Lbrace)
@@ -581,5 +581,5 @@ func (p *parser) parseStructLiteral(name1 *semantics.Ident) semantics.Expr {
 	}
 	rbrace := p.token
 	p.expect(token.Rbrace)
-	return &semantics.StructLiteral{Name: name, Lbrace: lbrace, Initializers: inits, Rbrace: rbrace}
+	return &semantics.StructLit{Name: name, Lbrace: lbrace, Initializers: inits, Rbrace: rbrace}
 }

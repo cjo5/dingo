@@ -2,11 +2,6 @@ package semantics
 
 import "github.com/jhnl/interpreter/token"
 
-// TODO:
-// - Add TypeSpec as a Node interface to represent type annotations.
-//   Right now types can only be represented as idents.
-//
-
 // NodeColor is used to color nodes during dfs to sort dependencies.
 type NodeColor int
 
@@ -369,14 +364,14 @@ type UnaryExpr struct {
 
 func (x *UnaryExpr) FirstPos() token.Position { return x.Op.Pos }
 
-type Literal struct {
+type BasicLit struct {
 	baseExpr
 	Value   token.Token
 	Raw     interface{}
 	Rewrite int
 }
 
-func (x *Literal) FirstPos() token.Position { return x.Value.Pos }
+func (x *BasicLit) FirstPos() token.Position { return x.Value.Pos }
 
 type KeyValue struct {
 	baseNode
@@ -387,7 +382,7 @@ type KeyValue struct {
 
 func (k *KeyValue) FirstPos() token.Position { return k.Key.Pos }
 
-type StructLiteral struct {
+type StructLit struct {
 	baseExpr
 	Name         Expr // Ident or DotIdent
 	Lbrace       token.Token
@@ -395,7 +390,7 @@ type StructLiteral struct {
 	Rbrace       token.Token
 }
 
-func (x *StructLiteral) FirstPos() token.Position { return x.Name.FirstPos() }
+func (x *StructLit) FirstPos() token.Position { return x.Name.FirstPos() }
 
 type Ident struct {
 	baseExpr

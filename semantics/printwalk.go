@@ -205,13 +205,13 @@ func (p *printVisitor) VisitUnaryExpr(expr *UnaryExpr) Expr {
 	return expr
 }
 
-func (p *printVisitor) VisitLiteral(expr *Literal) Expr {
+func (p *printVisitor) VisitBasicLit(expr *BasicLit) Expr {
 	defer dec(inc(p))
 	p.printToken(expr.Value)
 	return expr
 }
 
-func (p *printVisitor) VisitStructLiteral(expr *StructLiteral) Expr {
+func (p *printVisitor) VisitStructLit(expr *StructLit) Expr {
 	defer dec(inc(p))
 	p.printf("[struct literal]")
 	defer dec(inc(p))

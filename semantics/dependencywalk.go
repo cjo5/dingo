@@ -93,7 +93,7 @@ func (v *dependencyVisitor) VisitUnaryExpr(expr *UnaryExpr) Expr {
 	VisitExpr(v, expr.X)
 	return expr
 }
-func (v *dependencyVisitor) VisitStructLiteral(expr *StructLiteral) Expr {
+func (v *dependencyVisitor) VisitStructLit(expr *StructLit) Expr {
 	VisitExpr(v, expr.Name)
 	for _, kv := range expr.Initializers {
 		VisitExpr(v, kv.Value)

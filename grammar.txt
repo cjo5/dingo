@@ -38,12 +38,12 @@ Comparison = Term {( '>' | '>=' | '<' | '<=' ) Term}
 Term = Factor {( '-' | '+' ) Factor}
 Factor = Unary {( '/' | '%' | '*' ) Unary}
 Unary = (( '!' | '-' ) Expr) | Operand
-Operand = Primary | BasicLiteral | StructLiteral | '(' Expr ')'
+Operand = Primary | BasicLit | StructLit | '(' Expr ')'
 
 Primary = IDENT | DotIdent | FuncCall 
 FuncCall = Primary '(' [Expr {',' Expr} ] ')'
 DotIdent = Primary '.' IDENT
 
-BasicLiteral = INTEGER | FLOAT | STRING | 'false' | 'true'
+BasicLit = INTEGER | FLOAT | STRING | 'false' | 'true'
 KeyValue = IDENT '=' Expr
-StructLiteral = Type '{' [KeyValue {',' KeyValue} [',]] '}'
+StructLit = Type '{' [KeyValue {',' KeyValue} [',]] '}'
