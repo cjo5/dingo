@@ -95,6 +95,8 @@ const (
 	F32Div
 	F32Cmp
 
+	BoolCmp
+
 	CmpEq
 	CmpNe
 	CmpGt
@@ -116,6 +118,7 @@ const (
 	I32Load     // Push immediate i32
 	I16Load     // Push immediate i16
 	I8Load      // Push immediate i8
+	BoolLoad    // Push boolean
 	ConstLoad   // Push constant
 	GlobalLoad  // Push global value
 	GlobalStore // Pop and store in global variable
@@ -214,6 +217,8 @@ var mnemonics = [...]string{
 	F32Div: "f32div",
 	F32Cmp: "f32cmp",
 
+	BoolCmp: "boolcmp",
+
 	CmpEq: "cmpeq",
 	CmpNe: "cmpne",
 	CmpGt: "cmpgt",
@@ -223,14 +228,15 @@ var mnemonics = [...]string{
 	NumCast:   "numcast",
 	NewStruct: "newstruct",
 
-	U64Load: "u64load",
-	U32Load: "u32load",
-	U16Load: "u16load",
-	U8Load:  "u8load",
-	I64Load: "i64load",
-	I32Load: "i32load",
-	I16Load: "i16load",
-	I8Load:  "i8load",
+	U64Load:  "u64load",
+	U32Load:  "u32load",
+	U16Load:  "u16load",
+	U8Load:   "u8load",
+	I64Load:  "i64load",
+	I32Load:  "i32load",
+	I16Load:  "i16load",
+	I8Load:   "i8load",
+	BoolLoad: "boolload",
 
 	ConstLoad:   "constload",
 	GlobalLoad:  "globalload",
@@ -522,6 +528,8 @@ func LoadOp(t semantics.TypeID) Opcode {
 		op = I8Load
 	case semantics.TFloat64, semantics.TFloat32:
 		op = ConstLoad
+	case semantics.TBool:
+		op = BoolLoad
 	default:
 		panic(fmt.Sprintf("Unhandled type %T", t))
 	}

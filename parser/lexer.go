@@ -75,16 +75,16 @@ func (l *lexer) lex() token.Token {
 		case ':':
 			tok.ID = token.Colon
 		case '+':
-			tok.ID = l.lexOptionalEqual(token.Add, token.AddAssign)
+			tok.ID = l.lexOptionalEqual(token.AddAssign, token.Add)
 		case '-':
 			if l.ch == '>' {
 				tok.ID = token.Arrow
 				l.next()
 			} else {
-				tok.ID = l.lexOptionalEqual(token.Sub, token.SubAssign)
+				tok.ID = l.lexOptionalEqual(token.SubAssign, token.Sub)
 			}
 		case '*':
-			tok.ID = l.lexOptionalEqual(token.Mul, token.MulAssign)
+			tok.ID = l.lexOptionalEqual(token.MulAssign, token.Mul)
 		case '/':
 			if l.ch == '/' {
 				// Single-line comment
@@ -114,22 +114,22 @@ func (l *lexer) lex() token.Token {
 				}
 				tok.ID = token.MultiComment
 			} else {
-				tok.ID = l.lexOptionalEqual(token.Div, token.DivAssign)
+				tok.ID = l.lexOptionalEqual(token.DivAssign, token.Div)
 			}
 		case '%':
-			tok.ID = l.lexOptionalEqual(token.Mod, token.ModAssign)
+			tok.ID = l.lexOptionalEqual(token.ModAssign, token.Mod)
 		case '=':
-			tok.ID = l.lexOptionalEqual(token.Assign, token.Eq)
+			tok.ID = l.lexOptionalEqual(token.Eq, token.Assign)
 		case '&':
-			tok.ID = l.lexOptionalEqual(token.And, token.Land)
+			tok.ID = l.lexOptional('&', token.Land, token.And)
 		case '|':
-			tok.ID = l.lexOptionalEqual(token.Or, token.Lor)
+			tok.ID = l.lexOptional('|', token.Lor, token.Or)
 		case '!':
-			tok.ID = l.lexOptionalEqual(token.Lnot, token.Neq)
+			tok.ID = l.lexOptionalEqual(token.Neq, token.Lnot)
 		case '>':
-			tok.ID = l.lexOptionalEqual(token.Gt, token.GtEq)
+			tok.ID = l.lexOptionalEqual(token.GtEq, token.Gt)
 		case '<':
-			tok.ID = l.lexOptionalEqual(token.Lt, token.LtEq)
+			tok.ID = l.lexOptionalEqual(token.LtEq, token.Lt)
 		default:
 			tok.ID = token.Invalid
 		}
@@ -198,12 +198,16 @@ func (l *lexer) skipWhitespace() {
 	}
 }
 
-func (l *lexer) lexOptionalEqual(tok0 token.ID, tok1 token.ID) token.ID {
-	if l.ch == '=' {
+func (l *lexer) lexOptional(ch rune, tok0 token.ID, tok1 token.ID) token.ID {
+	if l.ch == ch {
 		l.next()
-		return tok1
+		return tok0
 	}
-	return tok0
+	return tok1
+}
+
+func (l *lexer) lexOptionalEqual(tok0 token.ID, tok1 token.ID) token.ID {
+	return l.lexOptional('=', tok0, tok1)
 }
 
 func (l *lexer) lexIdent() (token.ID, string) {

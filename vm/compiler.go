@@ -520,10 +520,10 @@ func (c *compiler) VisitBinaryExpr(expr *semantics.BinaryExpr) semantics.Expr {
 		target1 := &basicBlock{} // true
 		join := &basicBlock{}
 		jump2.next = target0
-		target0.addInstr1(I32Load, 0)
+		target0.addInstr1(BoolLoad, 0)
 		target0.addJumpInstr0(Goto, join)
 		target0.next = target1
-		target1.addInstr1(I32Load, 1)
+		target1.addInstr1(BoolLoad, 1)
 		target1.next = join
 
 		semantics.VisitExpr(c, expr.Left)
@@ -646,9 +646,9 @@ func (c *compiler) VisitBasicLit(expr *semantics.BasicLit) semantics.Expr {
 			panic(fmt.Sprintf("Failed to convert raw Literal %s with type %T", expr.Value, expr.Raw))
 		}
 	} else if expr.Value.ID == token.True {
-		c.currBlock.addInstr1(I32Load, 1)
+		c.currBlock.addInstr1(BoolLoad, 1)
 	} else if expr.Value.ID == token.False {
-		c.currBlock.addInstr1(I32Load, 0)
+		c.currBlock.addInstr1(BoolLoad, 0)
 	} else {
 		panic(fmt.Sprintf("Unhandled Literal %s", expr.Value))
 	}

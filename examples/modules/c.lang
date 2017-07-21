@@ -3,6 +3,9 @@ module
 fun foo1(a: i32) {
 }
 
-fun foo2() {
-   var x: bool = -(true && false);
+fun main() {
+   var x: bool = (true && false);
+   if !x {
+        print "true\n"; 
+   }
 }

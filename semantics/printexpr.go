@@ -56,7 +56,7 @@ func (p *exprPrinter) VisitUnaryExpr(expr *UnaryExpr) Expr {
 	}
 	VisitExpr(p, expr.X)
 	if opPrec < xPrec {
-		p.buffer.WriteString("(")
+		p.buffer.WriteString(")")
 	}
 
 	return expr
@@ -113,9 +113,9 @@ func prec(expr Expr) int {
 			return 5
 		case token.Eq, token.Neq:
 			return 6
-		case token.And:
+		case token.Land:
 			return 7
-		case token.Or:
+		case token.Lor:
 			return 8
 		default:
 			panic(fmt.Sprintf("Unhandled binary op %s", t.Op.ID))

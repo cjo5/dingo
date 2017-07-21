@@ -119,11 +119,8 @@ func (vm *vm) runProgram() {
 			}
 			vm.output.WriteString(str)
 		case Not:
-			res := 0
-			if frame.popI32() == 0 {
-				res = 1
-			}
-			frame.push(res)
+			res := frame.popBool()
+			frame.push(!res)
 		case U64Add, U64Sub, U64Mul, U64Div, U64Mod, U64Cmp:
 			arg2 := frame.popU64()
 			arg1 := frame.popU64()
@@ -350,33 +347,43 @@ func (vm *vm) runProgram() {
 				}
 				frame.push(res)
 			}
+		case BoolCmp:
+			arg2 := frame.popBool()
+			arg1 := frame.popBool()
+			res := 0
+			if !arg1 && arg2 {
+				res = -1
+			} else if arg1 && !arg2 {
+				res = 1
+			}
+			frame.push(res)
 		case CmpEq, CmpNe, CmpGt, CmpGe, CmpLt, CmpLe:
 			arg := frame.popI32()
-			res := int32(0)
+			res := false
 			switch op {
 			case CmpEq:
 				if arg == 0 {
-					res = 1
+					res = true
 				}
 			case CmpNe:
 				if arg != 0 {
-					res = 1
+					res = true
 				}
 			case CmpGt:
 				if arg > 0 {
-					res = 1
+					res = true
 				}
 			case CmpGe:
 				if arg >= 0 {
-					res = 1
+					res = true
 				}
 			case CmpLt:
 				if arg < 0 {
-					res = 1
+					res = true
 				}
 			case CmpLe:
 				if arg <= 0 {
-					res = 1
+					res = true
 				}
 			}
 			frame.push(res)
@@ -511,6 +518,13 @@ func (vm *vm) runProgram() {
 			frame.push(in.I16())
 		case I8Load:
 			frame.push(in.I8())
+		case BoolLoad:
+			arg := in.I32()
+			if arg == 0 {
+				frame.push(false)
+			} else {
+				frame.push(true)
+			}
 		case ConstLoad:
 			addr := in.Addr()
 			frame.push(frame.mod.Constants[addr])
@@ -537,13 +551,13 @@ func (vm *vm) runProgram() {
 		case Goto:
 			ip2 = in.Addr()
 		case IfFalse:
-			arg := frame.popI32()
-			if arg == 0 {
+			arg := frame.popBool()
+			if !arg {
 				ip2 = in.Addr()
 			}
 		case IfTrue:
-			arg := frame.popI32()
-			if arg != 0 {
+			arg := frame.popBool()
+			if arg {
 				ip2 = in.Addr()
 			}
 		case Call:

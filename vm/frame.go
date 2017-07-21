@@ -1,5 +1,9 @@
 package vm
 
+import (
+	"fmt"
+)
+
 type frame struct {
 	mod      *ModuleObject   // Current module
 	fun      *FunctionObject // Current function
@@ -42,72 +46,121 @@ func (f *frame) pop() interface{} {
 
 func (f *frame) popU64() uint64 {
 	arg := f.pop()
-	argInt, _ := arg.(uint64)
-	return argInt
+	argInt, ok := arg.(uint64)
+	if ok {
+		return argInt
+	}
+	panic(typeErr(argInt, arg))
 }
 
 func (f *frame) popU32() uint32 {
 	arg := f.pop()
-	argInt, _ := arg.(uint32)
-	return argInt
+	argInt, ok := arg.(uint32)
+	if ok {
+		return argInt
+	}
+	panic(typeErr(argInt, arg))
 }
 
 func (f *frame) popU16() uint16 {
 	arg := f.pop()
-	argInt, _ := arg.(uint16)
-	return argInt
+	argInt, ok := arg.(uint16)
+	if ok {
+		return argInt
+	}
+	panic(typeErr(argInt, arg))
 }
 
 func (f *frame) popU8() uint8 {
 	arg := f.pop()
-	argInt, _ := arg.(uint8)
-	return argInt
+	argInt, ok := arg.(uint8)
+	if ok {
+		return argInt
+	}
+	panic(typeErr(argInt, arg))
 }
 
 func (f *frame) popI64() int64 {
 	arg := f.pop()
-	argInt, _ := arg.(int64)
-	return argInt
+	argInt, ok := arg.(int64)
+	if ok {
+		return argInt
+	}
+	panic(typeErr(argInt, arg))
 }
 
 func (f *frame) popI32() int32 {
 	arg := f.pop()
-	argInt, _ := arg.(int32)
-	return argInt
+	argInt, ok := arg.(int32)
+	if ok {
+		return argInt
+	}
+	panic(typeErr(argInt, arg))
 }
 
 func (f *frame) popI16() int16 {
 	arg := f.pop()
-	argInt, _ := arg.(int16)
-	return argInt
+	argInt, ok := arg.(int16)
+	if ok {
+		return argInt
+	}
+	panic(typeErr(argInt, arg))
 }
 
 func (f *frame) popI8() int8 {
 	arg := f.pop()
-	argInt, _ := arg.(int8)
-	return argInt
+	argInt, ok := arg.(int8)
+	if ok {
+		return argInt
+	}
+	panic(typeErr(argInt, arg))
 }
 
 func (f *frame) popF64() float64 {
 	arg := f.pop()
-	argFloat, _ := arg.(float64)
-	return argFloat
+	argFloat, ok := arg.(float64)
+	if ok {
+		return argFloat
+	}
+	panic(typeErr(argFloat, arg))
 }
 
 func (f *frame) popF32() float32 {
 	arg := f.pop()
-	argFloat, _ := arg.(float32)
-	return argFloat
+	argFloat, ok := arg.(float32)
+	if ok {
+		return argFloat
+	}
+	panic(typeErr(argFloat, arg))
+}
+
+func (f *frame) popBool() bool {
+	arg := f.pop()
+	argBool, ok := arg.(bool)
+	if ok {
+		return argBool
+	}
+	panic(typeErr(argBool, arg))
 }
 
 func (f *frame) popStructObject() *StructObject {
 	arg := f.pop()
-	argStructObject, _ := arg.(*StructObject)
-	return argStructObject
+	argStructObject, ok := arg.(*StructObject)
+	if ok {
+		return argStructObject
+	}
+	panic(typeErr(argStructObject, arg))
 }
 
 func (f *frame) popStructDescriptor() *StructDescriptor {
 	arg := f.pop()
-	argStructDescriptor, _ := arg.(*StructDescriptor)
-	return argStructDescriptor
+	argStructDescriptor, ok := arg.(*StructDescriptor)
+	if ok {
+		return argStructDescriptor
+	}
+	panic(typeErr(argStructDescriptor, arg))
+}
+
+func typeErr(expected interface{}, got interface{}) string {
+	return fmt.Sprintf("internal error: expected type %T but got %T", expected, got)
 }

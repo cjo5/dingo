@@ -22,7 +22,7 @@ func (v *typeVisitor) VisitBinaryExpr(expr *BinaryExpr) Expr {
 	arithOp := expr.Op.OneOf(token.Add, token.Sub, token.Mul, token.Div, token.Mod)
 	typeNotSupported := TUntyped
 
-	if expr.Op.OneOf(token.And, token.Or) {
+	if expr.Op.OneOf(token.Land, token.Lor) {
 		if leftType.ID() != TBool || rightType.ID() != TBool {
 			v.c.error(expr.Op.Pos, "type mismatch: expression %s have types %s and %s (expected %s)",
 				PrintExpr(expr), leftType, rightType, TBool)

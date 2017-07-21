@@ -40,8 +40,9 @@ type parser struct {
 	errors *common.ErrorList
 	trace  bool
 
-	token  token.Token
-	inLoop bool
+	token       token.Token
+	inLoop      bool
+	inCondition bool
 }
 
 func (p *parser) init(src []byte, filename string) {
@@ -335,7 +336,9 @@ func (p *parser) parseIfStmt() *semantics.IfStmt {
 	s := &semantics.IfStmt{}
 	s.If = p.token
 	p.next()
+	p.inCondition = true
 	s.Cond = p.parseExpr()
+	p.inCondition = false
 	s.Body = p.parseBlockStmt()
 	if p.token.ID == token.Elif {
 		s.Else = p.parseIfStmt()
@@ -351,7 +354,9 @@ func (p *parser) parseWhileStmt() *semantics.WhileStmt {
 	p.inLoop = true
 	s.While = p.token
 	p.next()
+	p.inCondition = true
 	s.Cond = p.parseExpr()
+	p.inCondition = false
 	s.Body = p.parseBlockStmt()
 	p.inLoop = false
 	return s
@@ -496,7 +501,7 @@ func (p *parser) parseOperand() semantics.Expr {
 		return x
 	} else if p.token.ID == token.Ident {
 		ident := p.parseIdent()
-		if p.token.Is(token.Lbrace) {
+		if !p.inCondition && p.token.Is(token.Lbrace) {
 			return p.parseStructLit(ident)
 		}
 		return p.parsePrimary(ident)
