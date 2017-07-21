@@ -138,7 +138,9 @@ func (p *astPrinter) VisitStructDecl(decl *StructDecl) {
 func (p *astPrinter) VisitPrintStmt(stmt *PrintStmt) {
 	defer dec(inc(p))
 	p.printToken(stmt.Print)
-	VisitExpr(p, stmt.X)
+	for _, x := range stmt.Xs {
+		VisitExpr(p, x)
+	}
 }
 
 func (p *astPrinter) VisitIfStmt(stmt *IfStmt) {

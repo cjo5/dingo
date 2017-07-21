@@ -268,7 +268,7 @@ func (s *DeclStmt) FirstPos() token.Position { return s.D.FirstPos() }
 type PrintStmt struct {
 	baseStmt
 	Print token.Token
-	X     Expr
+	Xs    []Expr
 }
 
 func (s *PrintStmt) FirstPos() token.Position { return s.Print.Pos }

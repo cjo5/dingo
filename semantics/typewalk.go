@@ -59,6 +59,15 @@ func (v *typeVisitor) visitValDeclSpec(sym *Symbol, decl *ValDeclSpec, defaultIn
 		sym.Flags |= SymFlagConstant
 	}
 
+	if sym.T.ID() == TVoid {
+		declType := "variable"
+		if sym.Constant() {
+			declType = "value"
+		}
+		v.c.error(decl.Type.FirstPos(), "cannot declare %s with type %s", declType, TVoid)
+		return
+	}
+
 	if sym.DepCycle() || IsUntyped(sym.T) {
 		return
 	}
@@ -136,7 +145,10 @@ func (v *typeVisitor) VisitDeclStmt(stmt *DeclStmt) {
 }
 
 func (v *typeVisitor) VisitPrintStmt(stmt *PrintStmt) {
-	stmt.X = VisitExpr(v, stmt.X)
+	for i, x := range stmt.Xs {
+		stmt.Xs[i] = VisitExpr(v, x)
+		v.c.tryCoerceBigNumber(stmt.Xs[i])
+	}
 }
 
 func (v *typeVisitor) VisitIfStmt(stmt *IfStmt) {
@@ -242,4 +254,5 @@ func (v *typeVisitor) VisitAssignStmt(stmt *AssignStmt) {
 
 func (v *typeVisitor) VisitExprStmt(stmt *ExprStmt) {
 	stmt.X = VisitExpr(v, stmt.X)
+	v.c.tryCoerceBigNumber(stmt.X)
 }

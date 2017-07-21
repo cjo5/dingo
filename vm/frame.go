@@ -162,5 +162,5 @@ func (f *frame) popStructDescriptor() *StructDescriptor {
 }
 
 func typeErr(expected interface{}, got interface{}) string {
-	return fmt.Sprintf("internal error: expected type %T but got %T", expected, got)
+	return fmt.Sprintf("expected type %T but got %T", expected, got)
 }

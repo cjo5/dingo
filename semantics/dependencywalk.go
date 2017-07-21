@@ -54,7 +54,9 @@ func (v *dependencyVisitor) VisitDeclStmt(stmt *DeclStmt) {
 }
 
 func (v *dependencyVisitor) VisitPrintStmt(stmt *PrintStmt) {
-	VisitExpr(v, stmt.X)
+	for _, x := range stmt.Xs {
+		VisitExpr(v, x)
+	}
 }
 
 func (v *dependencyVisitor) VisitIfStmt(stmt *IfStmt) {

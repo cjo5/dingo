@@ -86,38 +86,6 @@ func (vm *vm) runProgram() {
 			}
 			frame = vm.frame
 			ip2 = frame.ip
-		case Print:
-			arg := frame.pop()
-			str := ""
-			switch t := arg.(type) {
-			case bool:
-				str = strconv.FormatBool(t)
-			case string:
-				str = t
-			case uint64:
-				str = strconv.FormatUint(uint64(t), 10)
-			case uint32:
-				str = strconv.FormatUint(uint64(t), 10)
-			case uint16:
-				str = strconv.FormatUint(uint64(t), 10)
-			case uint8:
-				str = strconv.FormatUint(uint64(t), 10)
-			case int64:
-				str = strconv.FormatInt(int64(t), 10)
-			case int32:
-				str = strconv.FormatInt(int64(t), 10)
-			case int16:
-				str = strconv.FormatInt(int64(t), 10)
-			case int8:
-				str = strconv.FormatInt(int64(t), 10)
-			case float64:
-				str = floatToString(t)
-			case float32:
-				str = floatToString(float64(t))
-			default:
-				panic(fmt.Sprintf("%s: unsupported type %T", op, t))
-			}
-			vm.output.WriteString(str)
 		case Not:
 			res := frame.popBool()
 			frame.push(!res)
@@ -573,6 +541,44 @@ func (vm *vm) runProgram() {
 			frame = newFrame
 			vm.pushFrame(newFrame)
 			ip2 = 0
+		case Print:
+			n := int(in.Arg1)
+			args := make([]interface{}, n)
+			for i := n - 1; i >= 0; i-- {
+				args[i] = frame.pop()
+			}
+			for _, arg := range args {
+				str := ""
+				switch t := arg.(type) {
+				case bool:
+					str = strconv.FormatBool(t)
+				case string:
+					str = t
+				case uint64:
+					str = strconv.FormatUint(uint64(t), 10)
+				case uint32:
+					str = strconv.FormatUint(uint64(t), 10)
+				case uint16:
+					str = strconv.FormatUint(uint64(t), 10)
+				case uint8:
+					str = strconv.FormatUint(uint64(t), 10)
+				case int64:
+					str = strconv.FormatInt(int64(t), 10)
+				case int32:
+					str = strconv.FormatInt(int64(t), 10)
+				case int16:
+					str = strconv.FormatInt(int64(t), 10)
+				case int8:
+					str = strconv.FormatInt(int64(t), 10)
+				case float64:
+					str = floatToString(t)
+				case float32:
+					str = floatToString(float64(t))
+				default:
+					panic(fmt.Sprintf("%s: unsupported type %T", op, t))
+				}
+				vm.output.WriteString(str)
+			}
 		default:
 			panic(fmt.Sprintf("%s: not implemented", op))
 		}

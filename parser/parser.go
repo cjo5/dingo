@@ -294,13 +294,8 @@ func (p *parser) parseStmt() semantics.Stmt {
 		p.next()
 		p.expectSemi()
 		stmt = &semantics.BranchStmt{Tok: tok}
-	} else if p.token.ID == token.Ident {
-		stmt = p.parseExprOrAssignStmt()
 	} else {
-		tok := p.token
-		p.next()
-		p.error(tok, "got '%s', expected statement", tok.ID)
-		stmt = &semantics.BadStmt{From: tok, To: tok}
+		stmt = p.parseExprOrAssignStmt()
 	}
 	return stmt
 }
@@ -327,7 +322,14 @@ func (p *parser) parsePrintStmt() *semantics.PrintStmt {
 	s := &semantics.PrintStmt{}
 	s.Print = p.token
 	p.expect(token.Print)
-	s.X = p.parseExpr()
+	s.Xs = append(s.Xs, p.parseExpr())
+	for !p.token.OneOf(token.Semicolon, token.Invalid, token.EOF) {
+		p.expect(token.Comma)
+		if p.token.ID == token.Semicolon {
+			break
+		}
+		s.Xs = append(s.Xs, p.parseExpr())
+	}
 	p.expectSemi()
 	return s
 }

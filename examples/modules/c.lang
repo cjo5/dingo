@@ -1,11 +1,10 @@
 module
 
-fun foo1(a: i32) {
+fun foo1(a: i32, b: i32) {
+    print a, b, "\n";
 }
 
 fun main() {
-   var x: bool = (true && false);
-   if !x {
-        print "true\n"; 
-   }
+    //print 2, "!=, 3", "\n";
+    foo1(i32, i32);
 }

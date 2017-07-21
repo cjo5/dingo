@@ -21,7 +21,6 @@ func showErrors(oldErrors common.ErrorList, newError error, onlyFatal bool) bool
 			return false
 		}
 		errList.Sort()
-		errList.Filter()
 		for _, e := range errList.Errors {
 			fmt.Printf("%s\n", e)
 		}

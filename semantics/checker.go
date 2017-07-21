@@ -282,6 +282,17 @@ func (c *checker) tryCastLiteral(expr Expr, target Type) bool {
 	return true
 }
 
+// Returns false if error
+func (c *checker) tryCoerceBigNumber(expr Expr) bool {
+	t := expr.Type()
+	if t.ID() == TBigInt {
+		return c.tryCastLiteral(expr, TBuiltinInt32)
+	} else if t.ID() == TBigFloat {
+		return c.tryCastLiteral(expr, TBuiltinFloat32)
+	}
+	return true
+}
+
 // Returns Ident that was declared as const. Nil otherwise.
 func (c *checker) checkConstant(expr Expr) *Ident {
 	return checkConstantRecursively(expr)

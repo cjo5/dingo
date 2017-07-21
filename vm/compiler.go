@@ -369,8 +369,10 @@ func (c *compiler) VisitDeclStmt(stmt *semantics.DeclStmt) {
 }
 
 func (c *compiler) VisitPrintStmt(stmt *semantics.PrintStmt) {
-	semantics.VisitExpr(c, stmt.X)
-	c.currBlock.addInstr0(Print)
+	for _, x := range stmt.Xs {
+		semantics.VisitExpr(c, x)
+	}
+	c.currBlock.addInstr1(Print, int64(len(stmt.Xs)))
 }
 
 func (c *compiler) VisitIfStmt(stmt *semantics.IfStmt) {
@@ -491,23 +493,10 @@ func (c *compiler) VisitAssignStmt(stmt *semantics.AssignStmt) {
 func (c *compiler) VisitExprStmt(stmt *semantics.ExprStmt) {
 	semantics.VisitExpr(c, stmt.X)
 
-	if _, ok := stmt.X.(*semantics.FuncCall); ok {
-		typ := stmt.X.Type()
-		pop := false
-		if typ.ID() == semantics.TFunc {
-			funct, _ := typ.(*semantics.FuncType)
-			if funct.Return.ID() == semantics.TVoid {
-				pop = true
-			}
-		} else {
-			// Type cast
-			pop = true
-		}
-
-		if pop {
-			// Pop unused return value
-			c.currBlock.addInstr0(Pop)
-		}
+	typ := stmt.X.Type()
+	if typ.ID() != semantics.TVoid {
+		// Pop unused return value
+		c.currBlock.addInstr0(Pop)
 	}
 }
 

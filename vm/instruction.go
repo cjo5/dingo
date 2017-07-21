@@ -23,7 +23,6 @@ const (
 	Dup
 	Pop
 	Ret
-	Print
 
 	Not
 
@@ -135,6 +134,7 @@ const (
 	//
 
 	Call // Call function
+	Print
 
 	opArg1End
 )
