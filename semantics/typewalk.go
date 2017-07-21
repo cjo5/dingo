@@ -2,10 +2,17 @@ package semantics
 
 import "github.com/jhnl/interpreter/token"
 
+const (
+	identModeNone = 0
+	identModeType = 1
+	identModeFunc = 2
+)
+
 type typeVisitor struct {
 	BaseVisitor
-	signature bool
-	c         *checker
+	funcSignature bool
+	identMode     int
+	c             *checker
 }
 
 func typeWalk(c *checker) {
@@ -17,7 +24,7 @@ func typeWalk(c *checker) {
 func (v *typeVisitor) Module(mod *Module) {
 	v.c.mod = mod
 
-	v.signature = true
+	v.funcSignature = true
 	for _, decl := range mod.Decls {
 		if decl.Symbol() == nil {
 			// Nil symbol means a redeclaration
@@ -30,7 +37,7 @@ func (v *typeVisitor) Module(mod *Module) {
 		}
 	}
 
-	v.signature = false
+	v.funcSignature = false
 	for _, decl := range mod.Decls {
 		if decl.Symbol() == nil {
 			// Nil symbol means a redeclaration
@@ -52,11 +59,21 @@ func (v *typeVisitor) VisitValDecl(decl *ValDecl) {
 }
 
 func (v *typeVisitor) visitValDeclSpec(sym *Symbol, decl *ValDeclSpec, defaultInit bool) {
+	v.identMode = identModeType
 	VisitExpr(v, decl.Type)
+	v.identMode = identModeNone
 	sym.T = decl.Type.Type()
 
 	if decl.Decl.Is(token.Val) {
 		sym.Flags |= SymFlagConstant
+	}
+
+	if typeSym := ExprSymbol(decl.Type); typeSym != nil {
+		if typeSym.ID != TypeSymbol {
+			v.c.error(decl.Type.FirstPos(), "'%s' is not a type", PrintExpr(decl.Type))
+			sym.T = TBuiltinUntyped
+			return
+		}
 	}
 
 	if sym.T.ID() == TVoid {
@@ -65,6 +82,7 @@ func (v *typeVisitor) visitValDeclSpec(sym *Symbol, decl *ValDeclSpec, defaultIn
 			declType = "value"
 		}
 		v.c.error(decl.Type.FirstPos(), "cannot declare %s with type %s", declType, TVoid)
+		sym.T = TBuiltinUntyped
 		return
 	}
 
@@ -91,11 +109,13 @@ func (v *typeVisitor) visitValDeclSpec(sym *Symbol, decl *ValDeclSpec, defaultIn
 func (v *typeVisitor) VisitFuncDecl(decl *FuncDecl) {
 	defer setScope(setScope(v.c, decl.Scope))
 
-	if v.signature {
+	if v.funcSignature {
 		for _, param := range decl.Params {
 			v.VisitValDecl(param)
 		}
+		v.identMode = identModeType
 		decl.TReturn = VisitExpr(v, decl.TReturn)
+		v.identMode = identModeNone
 
 		decl.Sym.T = NewFuncType(decl)
 		return

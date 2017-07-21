@@ -439,7 +439,13 @@ func createStructLit(structt *StructType, lit *StructLit) *StructLit {
 func (v *typeVisitor) VisitIdent(expr *Ident) Expr {
 	sym := v.c.lookup(expr.Name.Literal)
 	if sym == nil || sym.Untyped() {
-		v.c.error(expr.Name.Pos, "'%s' undefined", expr.Name.Literal)
+		v.c.error(expr.Pos(), "'%s' undefined", expr.Name.Literal)
+		expr.T = TBuiltinUntyped
+	} else if v.identMode != identModeType && sym.ID == TypeSymbol {
+		v.c.error(expr.Pos(), "type %s cannot be used in an expression", sym.T)
+		expr.T = TBuiltinUntyped
+	} else if v.identMode == identModeNone && sym.ID == FuncSymbol {
+		v.c.error(expr.Pos(), "invalid function call to '%s' (missing argument list)", expr.Literal())
 		expr.T = TBuiltinUntyped
 	} else {
 		expr.setSymbol(sym)
@@ -455,6 +461,14 @@ func (v *typeVisitor) VisitDotIdent(expr *DotIdent) Expr {
 		return expr
 	}
 
+	if id := ExprToIdent(expr.X); id != nil {
+		sym := id.Sym
+		if sym != nil && sym.ID == TypeSymbol {
+			v.c.error(id.Pos(), "static field access is not supported")
+			expr.T = TBuiltinUntyped
+		}
+	}
+
 	if t.ID() == TModule {
 		mod, _ := t.(*ModuleType)
 		defer setScope(setScope(v.c, mod.Scope))
@@ -462,7 +476,7 @@ func (v *typeVisitor) VisitDotIdent(expr *DotIdent) Expr {
 		structt, _ := t.(*StructType)
 		defer setScope(setScope(v.c, structt.Scope))
 	} else {
-		v.c.error(expr.X.FirstPos(), "type %s has no field '%s'", t, expr.Name.Literal())
+		v.c.error(expr.X.FirstPos(), "type %s does not support field access", t)
 		expr.T = TBuiltinUntyped
 		return expr
 	}
@@ -474,7 +488,11 @@ func (v *typeVisitor) VisitDotIdent(expr *DotIdent) Expr {
 }
 
 func (v *typeVisitor) VisitFuncCall(expr *FuncCall) Expr {
+	prevMode := v.identMode
+	v.identMode = identModeFunc
 	expr.X = VisitExpr(v, expr.X)
+	v.identMode = prevMode
+
 	t := expr.X.Type()
 	if IsUntyped(t) {
 		expr.T = TBuiltinUntyped
@@ -492,8 +510,7 @@ func (v *typeVisitor) VisitFuncCall(expr *FuncCall) Expr {
 	}
 
 	if !typeCast && t.ID() != TFunc {
-		// TODO: Better error message
-		v.c.error(expr.X.FirstPos(), "not a function")
+		v.c.error(expr.X.FirstPos(), "'%s' is not a function", PrintExpr(expr.X))
 		expr.T = TBuiltinUntyped
 		return expr
 	}
@@ -511,7 +528,7 @@ func (v *typeVisitor) VisitFuncCall(expr *FuncCall) Expr {
 			expr.T = t
 		}
 	} else {
-		funcType := t.(*FuncType)
+		funcType, _ := t.(*FuncType)
 		if len(funcType.Params) != len(expr.Args) {
 			v.c.error(expr.X.FirstPos(), "'%s' takes %d argument(s) but called with %d", PrintExpr(expr.X), len(funcType.Params), len(expr.Args))
 		} else {

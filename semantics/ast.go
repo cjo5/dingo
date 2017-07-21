@@ -423,6 +423,23 @@ type DotIdent struct {
 
 func (x *DotIdent) FirstPos() token.Position { return x.X.FirstPos() }
 
+func ExprToIdent(expr Expr) *Ident {
+	switch t := expr.(type) {
+	case *Ident:
+		return t
+	case *DotIdent:
+		return t.Name
+	}
+	return nil
+}
+
+func ExprSymbol(expr Expr) *Symbol {
+	if id := ExprToIdent(expr); id != nil {
+		return id.Sym
+	}
+	return nil
+}
+
 type FuncCall struct {
 	baseExpr
 	X      Expr

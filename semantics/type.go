@@ -224,7 +224,7 @@ func (t *FuncType) IsEqual(other Type) bool {
 
 func (t *FuncType) String() string {
 	var buf bytes.Buffer
-	buf.WriteString("(")
+	buf.WriteString("fun (")
 	for i, p := range t.Params {
 		buf.WriteString(p.T.String())
 		if (i + 1) < len(t.Params) {
