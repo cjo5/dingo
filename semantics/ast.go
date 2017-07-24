@@ -1,6 +1,7 @@
 package semantics
 
 import "github.com/jhnl/interpreter/token"
+import "fmt"
 
 // NodeColor is used to color nodes during dfs to sort dependencies.
 type NodeColor int
@@ -423,6 +424,16 @@ type DotIdent struct {
 
 func (x *DotIdent) FirstPos() token.Position { return x.X.FirstPos() }
 
+type FuncCall struct {
+	baseExpr
+	X      Expr
+	Lparen token.Token
+	Args   []Expr
+	Rparen token.Token
+}
+
+func (x *FuncCall) FirstPos() token.Position { return x.X.FirstPos() }
+
 func ExprToIdent(expr Expr) *Ident {
 	switch t := expr.(type) {
 	case *Ident:
@@ -440,12 +451,23 @@ func ExprSymbol(expr Expr) *Symbol {
 	return nil
 }
 
-type FuncCall struct {
-	baseExpr
-	X      Expr
-	Lparen token.Token
-	Args   []Expr
-	Rparen token.Token
+func CopyExpr(expr Expr, includePositions bool) Expr {
+	switch src := expr.(type) {
+	case *Ident:
+		dst := &Ident{}
+		dst.Name = src.Name
+		if !includePositions {
+			dst.Name.Pos = token.NoPosition
+		}
+		dst.setSymbol(src.Sym)
+		return dst
+	case *DotIdent:
+		dst := &DotIdent{}
+		dst.X = CopyExpr(src.X, includePositions)
+		dst.Name = CopyExpr(src.Name, includePositions).(*Ident)
+		dst.T = src.T
+		return dst
+	default:
+		panic(fmt.Sprintf("Unhandled CopyExpr src %T", src))
+	}
 }
-
-func (x *FuncCall) FirstPos() token.Position { return x.X.FirstPos() }

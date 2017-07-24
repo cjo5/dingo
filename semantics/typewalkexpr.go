@@ -321,7 +321,11 @@ func (v *typeVisitor) VisitBasicLit(expr *BasicLit) Expr {
 }
 
 func (v *typeVisitor) VisitStructLit(expr *StructLit) Expr {
+	prevMode := v.identMode
+	v.identMode = identModeType
 	expr.Name = VisitExpr(v, expr.Name)
+	v.identMode = prevMode
+
 	t := expr.Name.Type()
 	if IsUntyped(t) {
 		expr.T = TBuiltinUntyped
@@ -377,13 +381,11 @@ func (v *typeVisitor) VisitStructLit(expr *StructLit) Expr {
 	return createStructLit(structt, expr)
 }
 
-func createDefaultLiteral(t Type) Expr {
+func createDefaultLiteral(t Type, name Expr) Expr {
 	if t.ID() == TStruct {
 		structt, _ := t.(*StructType)
-		name := &Ident{Name: token.Synthetic(token.Ident, structt.Name())}
-		name.setSymbol(structt.Sym)
 		lit := &StructLit{}
-		lit.Name = name
+		lit.Name = CopyExpr(name, false)
 		return createStructLit(structt, lit)
 	}
 	return createDefaultBasicLit(t)
@@ -429,7 +431,9 @@ func createStructLit(structt *StructType, lit *StructLit) *StructLit {
 		}
 		kv := &KeyValue{}
 		kv.Key = token.Synthetic(token.Ident, key)
-		kv.Value = createDefaultLiteral(f.T)
+
+		decl := f.Sym.Src.(*ValDecl)
+		kv.Value = createDefaultLiteral(f.T, decl.Type)
 		initializers = append(initializers, kv)
 	}
 	lit.Initializers = initializers

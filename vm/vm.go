@@ -17,7 +17,7 @@ func Run(code *BytecodeProgram, output *os.File) {
 				if !vm.frame.end() {
 					// TODO: Print stack trace
 					in := vm.frame.instr()
-					panic(fmt.Sprintf("instruction: %s", in))
+					panic(fmt.Sprintf("%s:%04x: %s", vm.frame.fun.Name, vm.frame.ip, in))
 				}
 			}
 			panic(r)

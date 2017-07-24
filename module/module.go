@@ -285,7 +285,7 @@ func normalizePath(rel string, path string, appendExtension bool) (string, error
 	}
 
 	// Failed to find file or package
-	return "", fmt.Errorf("%s is not a valid file or package module", absPath)
+	return "", fmt.Errorf("failed to find file or package module %s", absPath)
 }
 
 func checkImportCycle(loadedMod *loadedModule, importPath string, trace *[]string) bool {

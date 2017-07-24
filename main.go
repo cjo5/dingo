@@ -72,5 +72,5 @@ func main() {
 	}
 	common.Cwd = dir
 
-	exec("examples/modules/c.lang")
+	exec("examples/test_basic.lang")
 }

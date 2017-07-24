@@ -496,17 +496,21 @@ func (p *parser) parseUnary() semantics.Expr {
 }
 
 func (p *parser) parseOperand() semantics.Expr {
-	if p.token.ID == token.Lparen {
+	if p.token.Is(token.Lparen) {
 		p.next()
 		x := p.parseExpr()
 		p.expect(token.Rparen)
 		return x
-	} else if p.token.ID == token.Ident {
+	} else if p.token.Is(token.Ident) {
 		ident := p.parseIdent()
-		if !p.inCondition && p.token.Is(token.Lbrace) {
-			return p.parseStructLit(ident)
+		var x semantics.Expr = ident
+		if p.token.Is(token.Dot) {
+			x = p.parseDotIdent(ident)
 		}
-		return p.parsePrimary(ident)
+		if !p.inCondition && p.token.Is(token.Lbrace) {
+			return p.parseStructLit(x)
+		}
+		return p.parsePrimary(x)
 	}
 	return p.parseBasicLit()
 }
@@ -574,8 +578,7 @@ func (p *parser) parseKeyValue() *semantics.KeyValue {
 	return &semantics.KeyValue{Key: key, Equal: equal, Value: value}
 }
 
-func (p *parser) parseStructLit(name1 *semantics.Ident) semantics.Expr {
-	name := p.parseTypeName(name1)
+func (p *parser) parseStructLit(name semantics.Expr) semantics.Expr {
 	lbrace := p.token
 	p.expect(token.Lbrace)
 	var inits []*semantics.KeyValue

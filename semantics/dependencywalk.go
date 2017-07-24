@@ -35,6 +35,10 @@ func (v *dependencyVisitor) VisitValDecl(decl *ValDecl) {
 
 func (v *dependencyVisitor) VisitFuncDecl(decl *FuncDecl) {
 	defer setScope(setScope(v.c, decl.Scope))
+	for _, param := range decl.Params {
+		VisitExpr(v, param.Type)
+	}
+	VisitExpr(v, decl.TReturn)
 	VisitStmtList(v, decl.Body.Stmts)
 }
 

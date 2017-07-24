@@ -10,9 +10,9 @@ const (
 
 type typeVisitor struct {
 	BaseVisitor
-	funcSignature bool
-	identMode     int
-	c             *checker
+	signature bool
+	identMode int
+	c         *checker
 }
 
 func typeWalk(c *checker) {
@@ -24,20 +24,17 @@ func typeWalk(c *checker) {
 func (v *typeVisitor) Module(mod *Module) {
 	v.c.mod = mod
 
-	v.funcSignature = true
+	v.signature = true
 	for _, decl := range mod.Decls {
 		if decl.Symbol() == nil {
 			// Nil symbol means a redeclaration
 			continue
 		}
-
-		if fun, ok := decl.(*FuncDecl); ok {
-			v.c.setTopDecl(decl)
-			v.VisitFuncDecl(fun)
-		}
+		v.c.setTopDecl(decl)
+		VisitDecl(v, decl)
 	}
 
-	v.funcSignature = false
+	v.signature = false
 	for _, decl := range mod.Decls {
 		if decl.Symbol() == nil {
 			// Nil symbol means a redeclaration
@@ -49,6 +46,9 @@ func (v *typeVisitor) Module(mod *Module) {
 }
 
 func (v *typeVisitor) VisitValTopDecl(decl *ValTopDecl) {
+	if v.signature {
+		return
+	}
 	v.visitValDeclSpec(decl.Sym, &decl.ValDeclSpec, true)
 }
 
@@ -102,14 +102,14 @@ func (v *typeVisitor) visitValDeclSpec(sym *Symbol, decl *ValDeclSpec, defaultIn
 				decl.Name.Literal, sym.T, decl.Initializer.Type())
 		}
 	} else if defaultInit {
-		decl.Initializer = createDefaultLiteral(sym.T)
+		decl.Initializer = createDefaultLiteral(sym.T, decl.Type)
 	}
 }
 
 func (v *typeVisitor) VisitFuncDecl(decl *FuncDecl) {
 	defer setScope(setScope(v.c, decl.Scope))
 
-	if v.funcSignature {
+	if v.signature {
 		for _, param := range decl.Params {
 			v.VisitValDecl(param)
 		}
@@ -149,6 +149,10 @@ func (v *typeVisitor) VisitFuncDecl(decl *FuncDecl) {
 }
 
 func (v *typeVisitor) VisitStructDecl(decl *StructDecl) {
+	if !v.signature {
+		return
+	}
+
 	for _, field := range decl.Fields {
 		v.VisitValDecl(field)
 	}

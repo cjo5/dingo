@@ -1,11 +1,16 @@
 TODO (in no particular order):
-- Add anonymous functions
+- Compile to LLVM
+- Improve module system
+- Memory management and arrays
+    - Non nullable pointers instead of c++ references
+    - Explicit pointer semantics. move, share etc.
+- Add tests
+- Improve IR format. The use of AST, symbol and type is very confusing right now.
 - Add methods
-- Add arrays
 - Add characters
+- Add anonymous functions
 - Add anonymous structs
 - Add enums
-- Add tests
 - Type inference
 - Only allow subset of features when writing C/C++ module
 - Generics
@@ -13,9 +18,6 @@ TODO (in no particular order):
 - Ad hoc polymorphism
 - Type alias
 - Macros / preprocessor
-- Memory management
-    - Non nullable pointers instead of c++ references
-    - Explicit pointer semantics. move, share etc.
 - VM improvements
     - Make it possible to call native (go) functions
     - Print vm state
@@ -25,10 +27,8 @@ TODO (in no particular order):
 - Default function arguments + keyed arguments
 - Add cmd package for executable
 - Parse escape sequences in string literal
-- Compile to LLVM
 - Rewrite expression grammar and parser to something simpler
 - Improve parser synchronization
     - Use recover to synchronize
-- Improve expression statements
 - Nested comments
 - Trailing commas 
