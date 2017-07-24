@@ -358,6 +358,11 @@ func (v *typeVisitor) VisitStructLit(expr *StructLit) Expr {
 
 		kv.Value = VisitExpr(v, kv.Value)
 
+		if IsUntyped(fieldSym.T) {
+			inits[kv.Key.Literal] = nil
+			continue
+		}
+
 		if !v.c.tryCastLiteral(kv.Value, fieldSym.T) {
 			inits[kv.Key.Literal] = nil
 			continue

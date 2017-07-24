@@ -1,0 +1,9 @@
+module;
+
+struct Foo {
+    a: i3;
+}
+
+fun main() {
+    var x: Foo = Foo{a=9+""};
+}
