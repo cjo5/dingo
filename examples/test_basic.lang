@@ -1,4 +1,4 @@
-module
+module;
 
 import "dep"
 
@@ -98,16 +98,16 @@ fun printStruct(foo: Foo) {
 }
 
 struct Foo {
-    a: i32,
-    b: f32,
-    bar: Bar
+    a: i32;
+    b: f32;
+    bar: Bar;
 }
 
 struct Bar {
-    c: i64,
-    d: f64,
-    defaultI32: i32,
-    defaultF32: f32,
-    defaultBool: bool,
-    defaultString: str
+    c: i64;
+    d: f64;
+    defaultI32: i32;
+    defaultF32: f32;
+    defaultBool: bool;
+    defaultString: str;
 }

@@ -1,8 +1,8 @@
-module
+module;
 
 ext struct Vec2 {
-    a: i32,
-    b: i32
+    a: i32;
+    b: i32;
 }
 
 ext fun printVec2(v: Vec2)  {

@@ -72,9 +72,13 @@ func (p *parser) sync() {
 loop:
 	for {
 		switch p.token.ID {
-		case token.Semicolon: // TODO: Remove this?
+		case token.Semicolon, token.Rbrace: // TODO: Remove this?
 			break loop
-		case token.Var, token.Print, token.If, token.Break, token.Continue:
+		case token.External, token.Internal, token.Restricted: // Visibility modifiers
+			return
+		case token.Func, token.Struct, token.Var, token.Val: // Decls
+			return
+		case token.Import, token.Print, token.Return, token.If, token.While, token.Break, token.Continue: // Keywords
 			return
 		case token.EOF:
 			return
@@ -120,6 +124,7 @@ func (p *parser) parseFile() (*semantics.File, []semantics.TopDecl) {
 	if p.token.Is(token.Module) {
 		file.Ctx.Decl = p.token
 		p.expect(token.Module)
+		p.expectSemi()
 	} else {
 		file.Ctx.Decl = token.Synthetic(token.Module, token.Module.String())
 	}
@@ -257,12 +262,9 @@ func (p *parser) parseStructDecl(visibility token.Token) *semantics.StructDecl {
 	decl.Lbrace = p.token
 	p.expect(token.Lbrace)
 	flags := semantics.ValFlagNoInit
-	if !p.token.Is(token.Rbrace) {
+	for !p.token.OneOf(token.EOF, token.Rbrace) {
 		decl.Fields = append(decl.Fields, p.parseValDecl(flags))
-		for !p.token.OneOf(token.EOF, token.Rbrace) {
-			p.expect(token.Comma)
-			decl.Fields = append(decl.Fields, p.parseValDecl(flags))
-		}
+		p.expectSemi()
 	}
 
 	decl.Rbrace = p.token

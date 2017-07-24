@@ -3,7 +3,7 @@
 # [..] : optional
 # a | b : a or b
 
-Module = ['module'] Import* TopDecl*
+Module = ['module' ';'] Import* TopDecl*
 
 Import = 'import' STRING
 TopDecl = [Visibility] Decl
@@ -15,7 +15,7 @@ StructDecl = 'struct' IDENT Struct
 Visibility = 'ext' | 'int' | 'rst'
 Type = IDENT ['.' IDENT] 
 StructField = ['val' | 'var'] IDENT ':' Type
-Struct= '{' [StructField {',' StructField} [',']]'}'
+Struct= '{' {StructField ';'} '}'
 FuncField = ['val' | 'var'] IDENT ':' Type
 FuncSignature = '(' [FuncField {',' FuncField} [',']] ')' ['->' Type]
 Func = FuncSignature Block
