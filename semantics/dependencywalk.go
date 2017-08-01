@@ -20,14 +20,18 @@ func (v *dependencyVisitor) Module(mod *Module) {
 }
 
 func (v *dependencyVisitor) VisitValTopDecl(decl *ValTopDecl) {
-	VisitExpr(v, decl.Type)
+	if decl.Type != nil {
+		VisitExpr(v, decl.Type)
+	}
 	if decl.Initializer != nil {
 		VisitExpr(v, decl.Initializer)
 	}
 }
 
 func (v *dependencyVisitor) VisitValDecl(decl *ValDecl) {
-	VisitExpr(v, decl.Type)
+	if decl.Type != nil {
+		VisitExpr(v, decl.Type)
+	}
 	if decl.Initializer != nil {
 		VisitExpr(v, decl.Initializer)
 	}

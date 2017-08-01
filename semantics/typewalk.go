@@ -59,48 +59,62 @@ func (v *typeVisitor) VisitValDecl(decl *ValDecl) {
 }
 
 func (v *typeVisitor) visitValDeclSpec(sym *Symbol, decl *ValDeclSpec, defaultInit bool) {
-	v.identMode = identModeType
-	VisitExpr(v, decl.Type)
-	v.identMode = identModeNone
-	sym.T = decl.Type.Type()
-
 	if decl.Decl.Is(token.Val) {
 		sym.Flags |= SymFlagConstant
 	}
 
-	if typeSym := ExprSymbol(decl.Type); typeSym != nil {
-		if typeSym.ID != TypeSymbol {
-			v.c.error(decl.Type.FirstPos(), "'%s' is not a type", PrintExpr(decl.Type))
+	if sym.DepCycle() {
+		return
+	}
+
+	if decl.Type != nil {
+		v.identMode = identModeType
+		VisitExpr(v, decl.Type)
+		v.identMode = identModeNone
+		sym.T = decl.Type.Type()
+
+		if typeSym := ExprSymbol(decl.Type); typeSym != nil {
+			if typeSym.ID != TypeSymbol {
+				v.c.error(decl.Type.FirstPos(), "'%s' is not a type", PrintExpr(decl.Type))
+				sym.T = TBuiltinUntyped
+				return
+			}
+		}
+
+		if sym.T.ID() == TVoid {
+			declType := "variable"
+			if sym.Constant() {
+				declType = "value"
+			}
+			v.c.error(decl.Type.FirstPos(), "cannot declare %s with type %s", declType, TVoid)
 			sym.T = TBuiltinUntyped
 			return
 		}
-	}
 
-	if sym.T.ID() == TVoid {
-		declType := "variable"
-		if sym.Constant() {
-			declType = "value"
+		if IsUntyped(sym.T) {
+			return
 		}
-		v.c.error(decl.Type.FirstPos(), "cannot declare %s with type %s", declType, TVoid)
-		sym.T = TBuiltinUntyped
-		return
-	}
-
-	if sym.DepCycle() || IsUntyped(sym.T) {
-		return
 	}
 
 	if decl.Initializer != nil {
 		decl.Initializer = VisitExpr(v, decl.Initializer)
 
-		if !v.c.tryCastLiteral(decl.Initializer, sym.T) {
-			return
+		if decl.Type == nil {
+			if !v.c.tryCoerceBigNumber(decl.Initializer) {
+				return
+			}
+			sym.T = decl.Initializer.Type()
+		} else {
+			if !v.c.tryCastLiteral(decl.Initializer, sym.T) {
+				return
+			}
+			if !sym.T.IsEqual(decl.Initializer.Type()) {
+				v.c.error(decl.Initializer.FirstPos(), "type mismatch: '%s' has type %s and is not compatible with %s",
+					decl.Name.Literal, sym.T, decl.Initializer.Type())
+			}
 		}
-
-		if !sym.T.IsEqual(decl.Initializer.Type()) {
-			v.c.error(decl.Initializer.FirstPos(), "type mismatch: '%s' has type %s and is not compatible with %s",
-				decl.Name.Literal, sym.T, decl.Initializer.Type())
-		}
+	} else if decl.Type == nil {
+		v.c.error(decl.Name.Pos, "missing type specifier or initializer")
 	} else if defaultInit {
 		decl.Initializer = createDefaultLiteral(sym.T, decl.Type)
 	}

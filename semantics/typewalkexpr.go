@@ -450,7 +450,7 @@ func (v *typeVisitor) VisitIdent(expr *Ident) Expr {
 	if sym == nil || sym.Untyped() {
 		v.c.error(expr.Pos(), "'%s' undefined", expr.Name.Literal)
 		expr.T = TBuiltinUntyped
-	} else if v.identMode != identModeType && sym.ID == TypeSymbol {
+	} else if v.identMode != identModeType && v.identMode != identModeFunc && sym.ID == TypeSymbol {
 		v.c.error(expr.Pos(), "type %s cannot be used in an expression", sym.T)
 		expr.T = TBuiltinUntyped
 	} else if v.identMode == identModeNone && sym.ID == FuncSymbol {

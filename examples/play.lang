@@ -1,9 +1,10 @@
 module;
 
 struct Foo {
-    a: i3;
+    a: i32;
 }
 
 fun main() {
-    var x: Foo = Foo{a=9+""};
+    val x = true;
+    print x, "\n";
 }

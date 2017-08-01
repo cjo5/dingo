@@ -99,7 +99,9 @@ func (p *astPrinter) VisitValDecl(decl *ValDecl) {
 func (p *astPrinter) visitValDeclSpec(decl *ValDeclSpec) {
 	p.printToken(decl.Decl)
 	p.printToken(decl.Name)
-	VisitExpr(p, decl.Type)
+	if decl.Type != nil {
+		VisitExpr(p, decl.Type)
+	}
 	if decl.Initializer != nil {
 		VisitExpr(p, decl.Initializer)
 	}
