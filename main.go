@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/jhnl/interpreter/common"
+	"github.com/jhnl/interpreter/llvm"
 	"github.com/jhnl/interpreter/module"
 	"github.com/jhnl/interpreter/semantics"
 	"github.com/jhnl/interpreter/vm"
@@ -58,6 +59,9 @@ func exec(path string) {
 
 	fmt.Println("Check done")
 	fmt.Println(semantics.PrintAst(prog))
+
+	// Test
+	llvm.Compile(prog)
 
 	bytecode := vm.Compile(prog)
 	vm.Disasm(bytecode, os.Stdout)

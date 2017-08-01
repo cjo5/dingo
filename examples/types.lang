@@ -1,27 +1,10 @@
-module
-
 import "@std/math"
 import "builtin"
-import "mylib" as lib2 (
+import "mylib" as lib2 [
     Shape as x, 
     PI, Code, man, x
-)
+]
 
-main() {
-
-}
-
-rst func main() {
-
-}
-
-int func main() -> bool {
-
-}
-
-ext func main() {
-
-}
 
 /*
     @std: standard library
@@ -77,25 +60,50 @@ func main() {
     var ptr z
 }
 
-ext struct data<T> [Parent<T>] {
-    rst static CONSTANT: f32 = 6,
-    ext val x: f32 = 5.0,
-    rst y: f32 = 6.0,
-    int var y: i64 =a5,
+exp : (
+    :a i64 = 5;
+
+)
+
+const int a = 5;
+
+:a = 5;
+
+
+int a = 5;
+
+::a = 5;
+
+struct Point {
+    :value i32;
+    :y: i32;
 }
 
-interface x {
-    api() -> bool;
+exp struct A {
+    exp (
+        :a f32 = 5.0;
+        ::myVariable;
+    )
+
+    :a f32 = 6.0;
+
+    rst (
+        a i64 =a5;
+        a = i32 
+    )
 }
 
-def x [Y] {
-    mul(a: i32, b: i32) -> i32 {
-        return a * b;
-    } 
-}
+exp fun (
+    Whatsup() -> bool {
 
+    }
+)
 
-let z: []int = 5;
+A += fun (
+    Hello() {
+        print "hello";
+    }
+)
 
 var x: str = ""
 
@@ -114,13 +122,54 @@ val f: (s32, u64) -> i32 = fun (a: s32, b: s32) -> i32 {
 
 var f2: (a: str, b: str) -> i32;
 
-let f: {a: s32, b: s32} = struct {
-    a = 9,
-    b = 9
-};
-
-let f = fun (a, b) -> i32 {
-
-};
-
 */
+
+.a i32 = 5;
+
+struct a {
+    a i32 = 9;
+    a i32 = 5;
+}
+
+enum b {
+	
+}
+
+fun x(a i32, b i32) -> i32 {
+    :a = 9;
+    :a = 4;
+}
+
+.a (a i32, b i32) -> i32 = fun (a i32, b i32) i32 {
+	
+}
+
+.a:struct{.a i32, .b i32} = struct{.a=5, .b=9}; 
+
+.a = struct{a=9, b=6};
+
+:a {.a i32 = 5, .b i32 = 9} = [struct {a=9, b=9}, declt(5, b)];
+
+.a = [
+	struct {:a=9, :b=9},
+	struct {:a=5, :b=5}
+]
+
+.a = 5;
+
+import "a"
+import "b"
+
+embed "a"
+
+fun main() {
+    var c = 2;
+    val c: i32 = i32:(c+2341);
+    val c i32 = i32:(c+2341);
+    val c = i32:c;
+    val c = i32:c
+
+}
+
+
+embed "ok"
