@@ -12,7 +12,7 @@ ValDecl = ('val' | 'var') IDENT [':' Type] ['=' Expr] ';'
 FuncDecl = 'func' IDENT Func
 StructDecl = 'struct' IDENT Struct
 
-Visibility = 'ext' | 'int' | 'rst'
+Visibility = 'pub' | 'int' | 'priv'
 Type = IDENT ['.' IDENT] 
 Field = ['val' | 'var'] IDENT ':' Type
 Struct= '{' {Field ';'} '}'

@@ -1,6 +1,25 @@
 TODO (in no particular order):
 - Compile to LLVM
 - Improve module system
+    - Modules and partial modules
+        - module a
+        - partial module a
+    - Embed partial modules in module
+        - embed "a", embed "../b/c" etc
+    - Use modules
+        - use a, use a.b etc
+    - Specify mappings between module names and paths
+    - Public, internal, private as visibility modifiers
+    - Apply visibility modifier to multiple vars/functions by using () (same as Go)
+    - Declarations are internal by default
+    - Modules can be declared multiple times.
+- Conventions
+    - File names are snake_case. If module is a.b, path should be a/b.lang, or a/b/module.lang if there are submodules.
+    - File names of partial modules should be a/b_details_etc.lang
+    - Modules are lowercase and preferably a single word
+    - Types are PascalCase
+    - Variables and functions are camelCase
+    - Static constants are UPPERCASE_AND_UNDERSCORE.
 - Memory management and arrays
     - Non nullable pointers instead of c++ references
     - Explicit pointer semantics. move, share etc.

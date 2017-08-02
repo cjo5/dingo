@@ -171,5 +171,19 @@ fun main() {
 
 }
 
+embed "a";
 
-embed "ok"
+alias a b;
+
+pub struct a {
+	pub (
+		priv a i32;
+		int b i32;
+	)
+}
+
+fun b(i32, i32) bool;
+
+fun a(a i32, b i32) bool {
+	
+}

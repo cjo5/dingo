@@ -74,7 +74,7 @@ loop:
 		switch p.token.ID {
 		case token.Semicolon, token.Rbrace: // TODO: Remove this?
 			break loop
-		case token.External, token.Internal, token.Restricted: // Visibility modifiers
+		case token.Public, token.Internal, token.Private: // Visibility modifiers
 			return
 		case token.Func, token.Struct, token.Var, token.Val: // Decls
 			return
@@ -157,7 +157,7 @@ func (p *parser) parseImport() *semantics.Import {
 
 func (p *parser) parseTopDecl() semantics.TopDecl {
 	visibility := token.Synthetic(token.Internal, token.Internal.String())
-	if p.token.OneOf(token.External, token.Internal, token.Restricted) {
+	if p.token.OneOf(token.Public, token.Internal, token.Private) {
 		visibility = p.token
 		p.next()
 	}

@@ -13,7 +13,7 @@ func symbolWalk(c *checker) {
 
 func (v *symbolVisitor) Module(mod *Module) {
 	v.c.openScope(TopScope)
-	mod.External = v.c.scope
+	mod.Public = v.c.scope
 	v.c.openScope(TopScope)
 	mod.Internal = v.c.scope
 	v.c.mod = mod
@@ -36,7 +36,7 @@ func (v *symbolVisitor) Module(mod *Module) {
 func (v *symbolVisitor) VisitImport(decl *Import) {
 	sym := v.c.insert(v.c.fileScope(), ModuleSymbol, decl.Mod.Name.Literal, decl.Literal.Pos, decl)
 	if sym != nil {
-		sym.T = NewModuleType(decl.Mod.ID, decl.Mod.External)
+		sym.T = NewModuleType(decl.Mod.ID, decl.Mod.Public)
 	}
 }
 

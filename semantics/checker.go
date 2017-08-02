@@ -99,11 +99,11 @@ func setScope(c *checker, scope *Scope) (*checker, *Scope) {
 
 func (c *checker) visibilityScope(tok token.Token) *Scope {
 	var scope *Scope
-	if tok.Is(token.External) {
-		scope = c.mod.External
+	if tok.Is(token.Public) {
+		scope = c.mod.Public
 	} else if tok.Is(token.Internal) {
 		scope = c.mod.Internal
-	} else if tok.Is(token.Restricted) {
+	} else if tok.Is(token.Private) {
 		scope = c.fileScope()
 	} else {
 		panic(fmt.Sprintf("Unhandled visibility %s", tok))

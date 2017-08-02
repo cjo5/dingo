@@ -80,9 +80,9 @@ const (
 	Static
 	Func
 	Struct
-	External
+	Public
 	Internal
-	Restricted
+	Private
 
 	False
 	True
@@ -139,25 +139,25 @@ var tokens = [...]string{
 	Lt:   "<",
 	LtEq: "<=",
 
-	If:         "if",
-	Else:       "else",
-	Elif:       "elif",
-	For:        "for",
-	While:      "while",
-	Return:     "return",
-	Continue:   "continue",
-	Break:      "break",
-	Print:      "print",
-	Module:     "module",
-	Import:     "import",
-	Var:        "var",
-	Val:        "val",
-	Static:     "static",
-	Func:       "fun",
-	Struct:     "struct",
-	External:   "ext",
-	Internal:   "int",
-	Restricted: "rst",
+	If:       "if",
+	Else:     "else",
+	Elif:     "elif",
+	For:      "for",
+	While:    "while",
+	Return:   "return",
+	Continue: "continue",
+	Break:    "break",
+	Print:    "print",
+	Module:   "module",
+	Import:   "import",
+	Var:      "var",
+	Val:      "val",
+	Static:   "static",
+	Func:     "fun",
+	Struct:   "struct",
+	Public:   "pub",
+	Internal: "int",
+	Private:  "priv",
 
 	True:  "true",
 	False: "false",

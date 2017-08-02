@@ -131,7 +131,7 @@ type Module struct {
 	Flags    int
 	Path     string
 	Name     token.Token
-	External *Scope
+	Public   *Scope
 	Internal *Scope
 	Files    []*File
 	Decls    []TopDecl
