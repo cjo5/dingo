@@ -8,15 +8,15 @@ Module = ['module' ';'] Import* TopDecl*
 Import = 'import' STRING
 TopDecl = [Visibility] Decl
 Decl = ValDecl | FuncDecl | StructDecl
-ValDecl = ('val' | 'var') IDENT [':' Type] ['=' Expr] ';'
+ValDecl = ('val' | 'var') IDENT [Type] ['=' Expr] ';'
 FuncDecl = 'func' IDENT Func
 StructDecl = 'struct' IDENT Struct
 
 Visibility = 'pub' | 'int' | 'priv'
 Type = IDENT ['.' IDENT] 
-Field = ['val' | 'var'] IDENT ':' Type
+Field = ['val' | 'var'] IDENT Type
 Struct= '{' {Field ';'} '}'
-FuncSignature = '(' [Field {',' Field}] ')' ['->' Type]
+FuncSignature = '(' [Field {',' Field}] ')' [ Type]
 Func = FuncSignature Block
 
 Block = '{' Stmt* '}'

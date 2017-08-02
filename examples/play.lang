@@ -1,10 +1,13 @@
 module;
 
 struct Foo {
-    a: i32;
+    a i32;
+}
+
+pub fun mult(a i32, b i32) i32 {
+    return a*b;
 }
 
 fun main() {
-    val x = true;
-    print x, "\n";
+    print mult(5, 2), "\n";    
 }
