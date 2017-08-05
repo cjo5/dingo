@@ -187,3 +187,31 @@ fun b(i32, i32) bool;
 fun a(a i32, b i32) bool {
 	
 }
+
+
+
+struct Foo {
+    a i32;
+    b i32;
+}
+
+Foo += (
+    fun sayHello() {
+
+    }
+)
+
+var c Foo;
+
+c.sayHello()
+
+
+struct Foo<T> {
+    a T;
+}
+
+Foo += (
+    fun sayHello<T, B, C>(a T, b B, c C) {
+
+    }
+)

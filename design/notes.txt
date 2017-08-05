@@ -46,7 +46,5 @@ TODO (in no particular order):
 - Add cmd package for executable
 - Parse escape sequences in string literal
 - Rewrite expression grammar and parser to something simpler
-- Improve parser synchronization
-    - Use recover to synchronize
 - Nested comments
 - Trailing commas 

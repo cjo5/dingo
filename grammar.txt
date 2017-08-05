@@ -8,7 +8,7 @@ Module = ['module' ';'] Import* TopDecl*
 Import = 'import' STRING
 TopDecl = [Visibility] Decl
 Decl = ValDecl | FuncDecl | StructDecl
-ValDecl = ('val' | 'var') IDENT [Type] ['=' Expr] ';'
+ValDecl = ('val' | 'var') IDENT (Type | ([Type] '=' Expr)) ';'
 FuncDecl = 'func' IDENT Func
 StructDecl = 'struct' IDENT Struct
 

@@ -9,5 +9,6 @@ pub fun mult(a i32, b i32) i32 {
 }
 
 fun main() {
-    print mult(5, 2), "\n";    
+    var a;
+    a += 9;
 }
