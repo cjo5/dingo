@@ -97,19 +97,19 @@ func (l *lexer) lex() token.Token {
 			} else if l.ch == '*' {
 				// Multi-line comment
 				l.next()
-				found := false
-				for l.ch != -1 {
+				nested := 1
+				for l.ch != -1 && nested > 0 {
 					ch := l.ch
 					l.next()
-					if ch == '*' {
-						if l.ch == '/' {
-							l.next()
-							found = true
-							break
-						}
+					if ch == '*' && l.ch == '/' {
+						nested--
+						l.next()
+					} else if ch == '/' && l.ch == '*' {
+						nested++
+						l.next()
 					}
 				}
-				if !found {
+				if nested > 0 {
 					l.error(pos, "multi-line comment not closed")
 				}
 				tok.ID = token.MultiComment
