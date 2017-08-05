@@ -1,5 +1,9 @@
 package semantics
 
+import (
+	"github.com/jhnl/interpreter/token"
+)
+
 type symbolVisitor struct {
 	BaseVisitor
 	c *checker
@@ -40,18 +44,34 @@ func (v *symbolVisitor) VisitImport(decl *Import) {
 	}
 }
 
+func (v *symbolVisitor) isTypeName(name token.Token) bool {
+	if sym := v.c.lookup(name.Literal); sym != nil {
+		if sym.ID == TypeSymbol {
+			v.c.error(name.Pos, "%s is a type and cannot be used as an identifier", name.Literal)
+			return true
+		}
+	}
+	return false
+}
+
 func (v *symbolVisitor) VisitValTopDecl(decl *ValTopDecl) {
-	scope := v.c.visibilityScope(decl.Visibility)
-	decl.Sym = v.c.insert(scope, ValSymbol, decl.Name.Literal, decl.Name.Pos, decl)
+	if !v.isTypeName(decl.Name) {
+		scope := v.c.visibilityScope(decl.Visibility)
+		decl.Sym = v.c.insert(scope, ValSymbol, decl.Name.Literal, decl.Name.Pos, decl)
+	}
 }
 
 func (v *symbolVisitor) VisitValDecl(decl *ValDecl) {
-	decl.Sym = v.c.insert(v.c.scope, ValSymbol, decl.Name.Literal, decl.Name.Pos, decl)
+	if !v.isTypeName(decl.Name) {
+		decl.Sym = v.c.insert(v.c.scope, ValSymbol, decl.Name.Literal, decl.Name.Pos, decl)
+	}
 }
 
 func (v *symbolVisitor) VisitFuncDecl(decl *FuncDecl) {
-	scope := v.c.visibilityScope(decl.Visibility)
-	decl.Sym = v.c.insert(scope, FuncSymbol, decl.Name.Literal, decl.Name.Pos, decl)
+	if !v.isTypeName(decl.Name) {
+		scope := v.c.visibilityScope(decl.Visibility)
+		decl.Sym = v.c.insert(scope, FuncSymbol, decl.Name.Literal, decl.Name.Pos, decl)
+	}
 	v.c.openScope(LocalScope)
 	decl.Scope = v.c.scope
 
