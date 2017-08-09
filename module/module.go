@@ -10,8 +10,8 @@ import (
 	"fmt"
 
 	"github.com/jhnl/interpreter/common"
+	"github.com/jhnl/interpreter/ir"
 	"github.com/jhnl/interpreter/parser"
-	"github.com/jhnl/interpreter/semantics"
 	"github.com/jhnl/interpreter/token"
 )
 
@@ -19,19 +19,19 @@ const langExtension = ".lang"
 const packageFile = "package" + langExtension
 
 type moduleImport struct {
-	imp  *semantics.Import
+	imp  *ir.Import
 	path string
 	mod  *loadedModule
 }
 
 type loadedFile struct {
-	file       *semantics.File
+	file       *ir.File
 	importedBy *loadedFile
 	imports    []*moduleImport
 }
 
 type loadedModule struct {
-	mod   *semantics.Module
+	mod   *ir.Module
 	files []*loadedFile
 }
 
@@ -44,7 +44,7 @@ type loader struct {
 
 // Load module and imports.
 //
-func Load(path string) (*semantics.Program, error) {
+func Load(path string) (*ir.ModuleSet, error) {
 	if !strings.HasSuffix(path, langExtension) {
 		return nil, fmt.Errorf("not a lang file")
 	}
@@ -62,7 +62,7 @@ func Load(path string) (*semantics.Program, error) {
 		return nil, loader.errors
 	}
 
-	mainModule.mod.Flags |= semantics.ModFlagMain
+	mainModule.mod.Flags |= ir.ModFlagMain
 	loader.loadedModules = append(loader.loadedModules, mainModule)
 
 	for i := 0; i < len(loader.loadedModules); i++ {
@@ -98,12 +98,12 @@ func Load(path string) (*semantics.Program, error) {
 		return nil, loader.errors
 	}
 
-	prog := &semantics.Program{}
+	set := &ir.ModuleSet{}
 	for _, loadedMod := range loader.loadedModules {
-		prog.Modules = append(prog.Modules, loadedMod.mod)
+		set.Modules = append(set.Modules, loadedMod.mod)
 	}
 
-	return prog, loader.errors
+	return set, loader.errors
 }
 
 func (l *loader) loadModule(filename string) *loadedModule {
@@ -118,7 +118,7 @@ func (l *loader) loadModule(filename string) *loadedModule {
 		return nil
 	}
 
-	mod := &semantics.Module{ID: l.moduleID}
+	mod := &ir.Module{ID: l.moduleID}
 	l.moduleID++
 	mod.Files = append(mod.Files, mainFile)
 	mod.Decls = append(mod.Decls, mainDecls...)
@@ -173,7 +173,7 @@ func (l *loader) loadModule(filename string) *loadedModule {
 	return loadedMod
 }
 
-func (l *loader) createModuleImports(file *semantics.File, dir string) []*moduleImport {
+func (l *loader) createModuleImports(file *ir.File, dir string) []*moduleImport {
 	var imports []*moduleImport
 
 	for _, imp := range file.Imports {

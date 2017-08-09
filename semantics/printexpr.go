@@ -5,6 +5,7 @@ import (
 
 	"fmt"
 
+	"github.com/jhnl/interpreter/ir"
 	"github.com/jhnl/interpreter/token"
 )
 
@@ -13,14 +14,7 @@ type exprPrinter struct {
 	buffer bytes.Buffer
 }
 
-// PrintExpr in-order.
-func PrintExpr(expr Expr) string {
-	p := &exprPrinter{}
-	VisitExpr(p, expr)
-	return p.buffer.String()
-}
-
-func (p *exprPrinter) VisitBinaryExpr(expr *BinaryExpr) Expr {
+func (p *exprPrinter) VisitBinaryExpr(expr *ir.BinaryExpr) ir.Expr {
 	leftPrec := prec(expr.Left)
 	rightPrec := prec(expr.Right)
 	opPrec := prec(expr)
@@ -46,7 +40,7 @@ func (p *exprPrinter) VisitBinaryExpr(expr *BinaryExpr) Expr {
 	return expr
 }
 
-func (p *exprPrinter) VisitUnaryExpr(expr *UnaryExpr) Expr {
+func (p *exprPrinter) VisitUnaryExpr(expr *ir.UnaryExpr) ir.Expr {
 	xPrec := prec(expr.X)
 	opPrec := prec(expr)
 
@@ -62,30 +56,30 @@ func (p *exprPrinter) VisitUnaryExpr(expr *UnaryExpr) Expr {
 	return expr
 }
 
-func (p *exprPrinter) VisitBasicLit(expr *BasicLit) Expr {
+func (p *exprPrinter) VisitBasicLit(expr *ir.BasicLit) ir.Expr {
 	p.buffer.WriteString(expr.Value.Literal)
 	return expr
 }
 
-func (p *exprPrinter) VisitStructLit(expr *StructLit) Expr {
+func (p *exprPrinter) VisitStructLit(expr *ir.StructLit) ir.Expr {
 	p.buffer.WriteString("struct ")
 	VisitExpr(p, expr.Name)
 	return expr
 }
 
-func (p *exprPrinter) VisitIdent(expr *Ident) Expr {
+func (p *exprPrinter) VisitIdent(expr *ir.Ident) ir.Expr {
 	p.buffer.WriteString(expr.Name.Literal)
 	return expr
 }
 
-func (p *exprPrinter) VisitDotIdent(expr *DotIdent) Expr {
+func (p *exprPrinter) VisitDotExpr(expr *ir.DotExpr) ir.Expr {
 	VisitExpr(p, expr.X)
 	p.buffer.WriteString(".")
 	p.VisitIdent(expr.Name)
 	return expr
 }
 
-func (p *exprPrinter) VisitFuncCall(expr *FuncCall) Expr {
+func (p *exprPrinter) VisitFuncCall(expr *ir.FuncCall) ir.Expr {
 	VisitExpr(p, expr)
 
 	p.buffer.WriteString("(")
@@ -101,9 +95,9 @@ func (p *exprPrinter) VisitFuncCall(expr *FuncCall) Expr {
 }
 
 // Lower number means higher precedence
-func prec(expr Expr) int {
+func prec(expr ir.Expr) int {
 	switch t := expr.(type) {
-	case *BinaryExpr:
+	case *ir.BinaryExpr:
 		switch t.Op.ID {
 		case token.Mul, token.Div, token.Mod:
 			return 3
@@ -120,13 +114,13 @@ func prec(expr Expr) int {
 		default:
 			panic(fmt.Sprintf("Unhandled binary op %s", t.Op.ID))
 		}
-	case *UnaryExpr:
+	case *ir.UnaryExpr:
 		return 2
-	case *BasicLit, *StructLit, *Ident:
+	case *ir.BasicLit, *ir.StructLit, *ir.Ident:
 		return 0
-	case *DotIdent:
+	case *ir.DotExpr:
 		return 1
-	case *FuncCall:
+	case *ir.FuncCall:
 		return 1
 	default:
 		return -1

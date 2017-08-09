@@ -1,8 +1,7 @@
 package semantics
 
-import (
-	"github.com/jhnl/interpreter/token"
-)
+import "github.com/jhnl/interpreter/token"
+import "github.com/jhnl/interpreter/ir"
 
 type symbolVisitor struct {
 	BaseVisitor
@@ -11,18 +10,18 @@ type symbolVisitor struct {
 
 func symbolWalk(c *checker) {
 	v := &symbolVisitor{c: c}
-	StartProgramWalk(v, c.prog)
+	VisitModuleSet(v, c.set)
 	c.resetWalkState()
 }
 
-func (v *symbolVisitor) Module(mod *Module) {
-	v.c.openScope(TopScope)
+func (v *symbolVisitor) Module(mod *ir.Module) {
+	v.c.openScope(ir.TopScope)
 	mod.Public = v.c.scope
-	v.c.openScope(TopScope)
+	v.c.openScope(ir.TopScope)
 	mod.Internal = v.c.scope
 	v.c.mod = mod
 	for _, file := range mod.Files {
-		v.c.openScope(TopScope)
+		v.c.openScope(ir.TopScope)
 		file.Ctx.Scope = v.c.scope
 		v.c.fileCtx = file.Ctx
 		VisitImportList(v, file.Imports)
@@ -37,16 +36,16 @@ func (v *symbolVisitor) Module(mod *Module) {
 	v.c.closeScope() // External
 }
 
-func (v *symbolVisitor) VisitImport(decl *Import) {
-	sym := v.c.insert(v.c.fileScope(), ModuleSymbol, decl.Mod.Name.Literal, decl.Literal.Pos, decl)
+func (v *symbolVisitor) VisitImport(decl *ir.Import) {
+	sym := v.c.insert(v.c.fileScope(), ir.ModuleSymbol, decl.Mod.Name.Literal, decl.Literal.Pos, decl)
 	if sym != nil {
-		sym.T = NewModuleType(decl.Mod.ID, decl.Mod.Public)
+		sym.T = ir.NewModuleType(decl.Mod.ID, decl.Mod.Public)
 	}
 }
 
 func (v *symbolVisitor) isTypeName(name token.Token) bool {
 	if sym := v.c.lookup(name.Literal); sym != nil {
-		if sym.ID == TypeSymbol {
+		if sym.ID == ir.TypeSymbol {
 			v.c.error(name.Pos, "%s is a type and cannot be used as an identifier", name.Literal)
 			return true
 		}
@@ -54,25 +53,25 @@ func (v *symbolVisitor) isTypeName(name token.Token) bool {
 	return false
 }
 
-func (v *symbolVisitor) VisitValTopDecl(decl *ValTopDecl) {
+func (v *symbolVisitor) VisitValTopDecl(decl *ir.ValTopDecl) {
 	if !v.isTypeName(decl.Name) {
 		scope := v.c.visibilityScope(decl.Visibility)
-		decl.Sym = v.c.insert(scope, ValSymbol, decl.Name.Literal, decl.Name.Pos, decl)
+		decl.Sym = v.c.insert(scope, ir.ValSymbol, decl.Name.Literal, decl.Name.Pos, decl)
 	}
 }
 
-func (v *symbolVisitor) VisitValDecl(decl *ValDecl) {
+func (v *symbolVisitor) VisitValDecl(decl *ir.ValDecl) {
 	if !v.isTypeName(decl.Name) {
-		decl.Sym = v.c.insert(v.c.scope, ValSymbol, decl.Name.Literal, decl.Name.Pos, decl)
+		decl.Sym = v.c.insert(v.c.scope, ir.ValSymbol, decl.Name.Literal, decl.Name.Pos, decl)
 	}
 }
 
-func (v *symbolVisitor) VisitFuncDecl(decl *FuncDecl) {
+func (v *symbolVisitor) VisitFuncDecl(decl *ir.FuncDecl) {
 	if !v.isTypeName(decl.Name) {
 		scope := v.c.visibilityScope(decl.Visibility)
-		decl.Sym = v.c.insert(scope, FuncSymbol, decl.Name.Literal, decl.Name.Pos, decl)
+		decl.Sym = v.c.insert(scope, ir.FuncSymbol, decl.Name.Literal, decl.Name.Pos, decl)
 	}
-	v.c.openScope(LocalScope)
+	v.c.openScope(ir.LocalScope)
 	decl.Scope = v.c.scope
 
 	for _, param := range decl.Params {
@@ -84,10 +83,10 @@ func (v *symbolVisitor) VisitFuncDecl(decl *FuncDecl) {
 	v.c.closeScope()
 }
 
-func (v *symbolVisitor) VisitStructDecl(decl *StructDecl) {
+func (v *symbolVisitor) VisitStructDecl(decl *ir.StructDecl) {
 	scope := v.c.visibilityScope(decl.Visibility)
-	decl.Sym = v.c.insert(scope, TypeSymbol, decl.Name.Literal, decl.Name.Pos, decl)
-	v.c.openScope(FieldScope)
+	decl.Sym = v.c.insert(scope, ir.TypeSymbol, decl.Name.Literal, decl.Name.Pos, decl)
+	v.c.openScope(ir.FieldScope)
 	decl.Scope = v.c.scope
 
 	for _, field := range decl.Fields {
@@ -97,24 +96,24 @@ func (v *symbolVisitor) VisitStructDecl(decl *StructDecl) {
 	v.c.closeScope()
 }
 
-func (v *symbolVisitor) VisitBlockStmt(stmt *BlockStmt) {
-	v.c.openScope(LocalScope)
+func (v *symbolVisitor) VisitBlockStmt(stmt *ir.BlockStmt) {
+	v.c.openScope(ir.LocalScope)
 	stmt.Scope = v.c.scope
 	VisitStmtList(v, stmt.Stmts)
 	v.c.closeScope()
 }
 
-func (v *symbolVisitor) VisitDeclStmt(stmt *DeclStmt) {
+func (v *symbolVisitor) VisitDeclStmt(stmt *ir.DeclStmt) {
 	VisitDecl(v, stmt.D)
 }
 
-func (v *symbolVisitor) VisitIfStmt(stmt *IfStmt) {
+func (v *symbolVisitor) VisitIfStmt(stmt *ir.IfStmt) {
 	v.VisitBlockStmt(stmt.Body)
 	if stmt.Else != nil {
 		VisitStmt(v, stmt.Else)
 	}
 }
 
-func (v *symbolVisitor) VisitWhileStmt(stmt *WhileStmt) {
+func (v *symbolVisitor) VisitWhileStmt(stmt *ir.WhileStmt) {
 	v.VisitBlockStmt(stmt.Body)
 }

@@ -1,4 +1,4 @@
-package semantics
+package ir
 
 import "github.com/jhnl/interpreter/token"
 import "fmt"

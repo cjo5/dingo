@@ -33,13 +33,13 @@ func showErrors(oldErrors common.ErrorList, newError error, onlyFatal bool) bool
 
 func exec(path string) {
 	var errors common.ErrorList
-	prog, err := module.Load(path)
+	modules, err := module.Load(path)
 
 	if showErrors(errors, err, false) {
 		return
 	}
 
-	for _, mod := range prog.Modules {
+	for _, mod := range modules.Modules {
 		fmt.Println("Module", mod.Name.Literal)
 		for _, file := range mod.Files {
 			fmt.Println("  File", file.Ctx.Path)
@@ -50,20 +50,20 @@ func exec(path string) {
 	}
 
 	fmt.Println("Parse done")
-	fmt.Println(semantics.PrintAst(prog))
+	fmt.Println(semantics.PrintTree(modules))
 
-	err = semantics.Check(prog)
+	err = semantics.Check(modules)
 	if showErrors(errors, err, false) {
 		return
 	}
 
 	fmt.Println("Check done")
-	fmt.Println(semantics.PrintAst(prog))
+	fmt.Println(semantics.PrintTree(modules))
 
 	// Test
-	llvm.Compile(prog)
+	llvm.Build(modules)
 
-	bytecode := vm.Compile(prog)
+	bytecode := vm.Compile(modules)
 	vm.Disasm(bytecode, os.Stdout)
 	vm.Run(bytecode, os.Stdout)
 }

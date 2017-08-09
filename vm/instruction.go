@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/jhnl/interpreter/semantics"
+	"github.com/jhnl/interpreter/ir"
 )
 
 type Opcode int
@@ -103,7 +103,7 @@ const (
 	CmpLt
 	CmpLe
 
-	NumCast   // Numeric cast. Cast operand1 to type of operand2.
+	NumCast   // Numeric cir. Cast operand1 to type of operand2.
 	NewStruct // Create new struct
 
 	opArg0End
@@ -335,28 +335,28 @@ func NewInstr1(op Opcode, arg1 int64) Instruction {
 	return Instruction{Op: op, Arg1: arg1}
 }
 
-func AddOp(t semantics.TypeID) Opcode {
+func AddOp(t ir.TypeID) Opcode {
 	op := Nop
 	switch t {
-	case semantics.TUInt64:
+	case ir.TUInt64:
 		op = U64Add
-	case semantics.TUInt32:
+	case ir.TUInt32:
 		op = U32Add
-	case semantics.TUInt16:
+	case ir.TUInt16:
 		op = U16Add
-	case semantics.TUInt8:
+	case ir.TUInt8:
 		op = U8Add
-	case semantics.TInt64:
+	case ir.TInt64:
 		op = I64Add
-	case semantics.TInt32:
+	case ir.TInt32:
 		op = I32Add
-	case semantics.TInt16:
+	case ir.TInt16:
 		op = I16Add
-	case semantics.TInt8:
+	case ir.TInt8:
 		op = I8Add
-	case semantics.TFloat64:
+	case ir.TFloat64:
 		op = F64Add
-	case semantics.TFloat32:
+	case ir.TFloat32:
 		op = F32Add
 	default:
 		panic(fmt.Sprintf("Unhandled type %s", t))
@@ -364,28 +364,28 @@ func AddOp(t semantics.TypeID) Opcode {
 	return op
 }
 
-func SubOp(t semantics.TypeID) Opcode {
+func SubOp(t ir.TypeID) Opcode {
 	op := Nop
 	switch t {
-	case semantics.TUInt64:
+	case ir.TUInt64:
 		op = U64Sub
-	case semantics.TUInt32:
+	case ir.TUInt32:
 		op = U32Sub
-	case semantics.TUInt16:
+	case ir.TUInt16:
 		op = U16Sub
-	case semantics.TUInt8:
+	case ir.TUInt8:
 		op = U8Sub
-	case semantics.TInt64:
+	case ir.TInt64:
 		op = I64Sub
-	case semantics.TInt32:
+	case ir.TInt32:
 		op = I32Sub
-	case semantics.TInt16:
+	case ir.TInt16:
 		op = I16Sub
-	case semantics.TInt8:
+	case ir.TInt8:
 		op = I8Sub
-	case semantics.TFloat64:
+	case ir.TFloat64:
 		op = F64Sub
-	case semantics.TFloat32:
+	case ir.TFloat32:
 		op = F32Sub
 	default:
 		panic(fmt.Sprintf("Unhandled type %s", t))
@@ -393,28 +393,28 @@ func SubOp(t semantics.TypeID) Opcode {
 	return op
 }
 
-func MulOp(t semantics.TypeID) Opcode {
+func MulOp(t ir.TypeID) Opcode {
 	op := Nop
 	switch t {
-	case semantics.TUInt64:
+	case ir.TUInt64:
 		op = U64Mul
-	case semantics.TUInt32:
+	case ir.TUInt32:
 		op = U32Mul
-	case semantics.TUInt16:
+	case ir.TUInt16:
 		op = U16Mul
-	case semantics.TUInt8:
+	case ir.TUInt8:
 		op = U8Mul
-	case semantics.TInt64:
+	case ir.TInt64:
 		op = I64Mul
-	case semantics.TInt32:
+	case ir.TInt32:
 		op = I32Mul
-	case semantics.TInt16:
+	case ir.TInt16:
 		op = I16Mul
-	case semantics.TInt8:
+	case ir.TInt8:
 		op = I8Mul
-	case semantics.TFloat64:
+	case ir.TFloat64:
 		op = F64Mul
-	case semantics.TFloat32:
+	case ir.TFloat32:
 		op = F32Mul
 	default:
 		panic(fmt.Sprintf("Unhandled type %s", t))
@@ -422,28 +422,28 @@ func MulOp(t semantics.TypeID) Opcode {
 	return op
 }
 
-func DivOp(t semantics.TypeID) Opcode {
+func DivOp(t ir.TypeID) Opcode {
 	op := Nop
 	switch t {
-	case semantics.TUInt64:
+	case ir.TUInt64:
 		op = U64Div
-	case semantics.TUInt32:
+	case ir.TUInt32:
 		op = U32Div
-	case semantics.TUInt16:
+	case ir.TUInt16:
 		op = U16Div
-	case semantics.TUInt8:
+	case ir.TUInt8:
 		op = U8Div
-	case semantics.TInt64:
+	case ir.TInt64:
 		op = I64Div
-	case semantics.TInt32:
+	case ir.TInt32:
 		op = I32Div
-	case semantics.TInt16:
+	case ir.TInt16:
 		op = I16Div
-	case semantics.TInt8:
+	case ir.TInt8:
 		op = I8Div
-	case semantics.TFloat64:
+	case ir.TFloat64:
 		op = F64Div
-	case semantics.TFloat32:
+	case ir.TFloat32:
 		op = F32Div
 	default:
 		panic(fmt.Sprintf("Unhandled type %s", t))
@@ -451,24 +451,24 @@ func DivOp(t semantics.TypeID) Opcode {
 	return op
 }
 
-func ModOp(t semantics.TypeID) Opcode {
+func ModOp(t ir.TypeID) Opcode {
 	op := Nop
 	switch t {
-	case semantics.TUInt64:
+	case ir.TUInt64:
 		op = U64Mod
-	case semantics.TUInt32:
+	case ir.TUInt32:
 		op = U32Mod
-	case semantics.TUInt16:
+	case ir.TUInt16:
 		op = U16Mod
-	case semantics.TUInt8:
+	case ir.TUInt8:
 		op = U8Mod
-	case semantics.TInt64:
+	case ir.TInt64:
 		op = I64Mod
-	case semantics.TInt32:
+	case ir.TInt32:
 		op = I32Mod
-	case semantics.TInt16:
+	case ir.TInt16:
 		op = I16Mod
-	case semantics.TInt8:
+	case ir.TInt8:
 		op = I8Mod
 	default:
 		panic(fmt.Sprintf("Unhandled type %s", t))
@@ -476,30 +476,30 @@ func ModOp(t semantics.TypeID) Opcode {
 	return op
 }
 
-func CmpOp(t semantics.TypeID) Opcode {
+func CmpOp(t ir.TypeID) Opcode {
 	op := Nop
 	switch t {
-	case semantics.TBool:
+	case ir.TBool:
 		op = I32Cmp
-	case semantics.TUInt64:
+	case ir.TUInt64:
 		op = U64Cmp
-	case semantics.TUInt32:
+	case ir.TUInt32:
 		op = U32Cmp
-	case semantics.TUInt16:
+	case ir.TUInt16:
 		op = U16Cmp
-	case semantics.TUInt8:
+	case ir.TUInt8:
 		op = U8Cmp
-	case semantics.TInt64:
+	case ir.TInt64:
 		op = I64Cmp
-	case semantics.TInt32:
+	case ir.TInt32:
 		op = I32Cmp
-	case semantics.TInt16:
+	case ir.TInt16:
 		op = I16Cmp
-	case semantics.TInt8:
+	case ir.TInt8:
 		op = I8Cmp
-	case semantics.TFloat64:
+	case ir.TFloat64:
 		op = F64Cmp
-	case semantics.TFloat32:
+	case ir.TFloat32:
 		op = F32Cmp
 	default:
 		panic(fmt.Sprintf("Unhandled type %s", t))
@@ -507,28 +507,28 @@ func CmpOp(t semantics.TypeID) Opcode {
 	return op
 }
 
-func LoadOp(t semantics.TypeID) Opcode {
+func LoadOp(t ir.TypeID) Opcode {
 	op := Nop
 	switch t {
-	case semantics.TUInt64:
+	case ir.TUInt64:
 		op = U64Load
-	case semantics.TUInt32:
+	case ir.TUInt32:
 		op = U32Load
-	case semantics.TUInt16:
+	case ir.TUInt16:
 		op = U16Load
-	case semantics.TUInt8:
+	case ir.TUInt8:
 		op = U8Load
-	case semantics.TInt64:
+	case ir.TInt64:
 		op = I64Load
-	case semantics.TInt32:
+	case ir.TInt32:
 		op = I32Load
-	case semantics.TInt16:
+	case ir.TInt16:
 		op = I16Load
-	case semantics.TInt8:
+	case ir.TInt8:
 		op = I8Load
-	case semantics.TFloat64, semantics.TFloat32:
+	case ir.TFloat64, ir.TFloat32:
 		op = ConstLoad
-	case semantics.TBool:
+	case ir.TBool:
 		op = BoolLoad
 	default:
 		panic(fmt.Sprintf("Unhandled type %T", t))

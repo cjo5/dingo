@@ -1,18 +1,34 @@
 module;
 
-struct Foo {
-    a i32;
-}
+fun fizzbuzz(n i32) {
+    var i = 1;
+    while i <= n {
+        var printed = false;
+        if (i%3) == 0 {
+            print "fizz";
+            printed = true;
+        }
+        if (i%5) == 0 {
+            if printed {
+                print " ";
+            }
+            print "buzz";
+            printed = true;
+        }
 
-pub fun mult(a i32, b i32) i32 {
-    return a*b;
+        if !printed {
+            print i;
+        }
+
+        i += 1;
+        if i <= n {
+            print ", ";
+        }
+    }
 }
 
 fun main() {
-    /*
-    /*
-        Shitty code
-    */
-        More shitty code
-    */
+    fizzbuzz(20);
+    print "\n";
 }
+

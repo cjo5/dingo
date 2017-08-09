@@ -5,13 +5,15 @@ import (
 	"math/big"
 
 	"github.com/jhnl/interpreter/semantics"
+
+	"github.com/jhnl/interpreter/ir"
 	"github.com/jhnl/interpreter/token"
 )
 
 // Compile to bytecode.
 // 1. Convert AST to CFG, where a node in the CFG is a basic block with bytecode instructions.
 // 2. Flatten CFG to linear bytecode and patch jump addresses.
-func Compile(prog *semantics.Program) *BytecodeProgram {
+func Compile(set *ir.ModuleSet) *BytecodeProgram {
 	c := &compiler{}
 
 	bootstrapFun := newFunctionUnit("<init>")
@@ -20,7 +22,7 @@ func Compile(prog *semantics.Program) *BytecodeProgram {
 	bootstrapMod.functions = append(bootstrapMod.functions, bootstrapFun)
 	c.compiledModules = append(c.compiledModules, bootstrapMod)
 
-	semantics.StartProgramWalk(c, prog)
+	semantics.VisitModuleSet(c, set)
 
 	mainModAddr := -1
 	for i := 1; i < len(c.compiledModules); i++ {
@@ -46,7 +48,7 @@ type moduleUnit struct {
 	id      int
 	obj     *ModuleObject
 	address int
-	main    *semantics.Symbol
+	main    *ir.Symbol
 
 	globalAddress int
 	localAddress  int
@@ -73,7 +75,7 @@ type compiler struct {
 	target0   *basicBlock
 	target1   *basicBlock
 
-	scope *semantics.Scope
+	scope *ir.Scope
 }
 
 type basicBlock struct {
@@ -250,13 +252,13 @@ func (b *basicBlock) addInstrAddr(op Opcode, arg1 int) {
 	b.instructions = append(b.instructions, NewInstr1(op, int64(arg1)))
 }
 
-func (c *compiler) Module(mod *semantics.Module) {
+func (c *compiler) Module(mod *ir.Module) {
 	c.module = newModuleUnit(mod.ID, len(c.compiledModules), mod.Name.Literal, mod.Path)
 	c.compiledModules = append(c.compiledModules, c.module)
 
 	if mod.Main() {
 		if main := mod.Internal.Lookup("main"); main != nil {
-			if main.ID == semantics.FuncSymbol {
+			if main.ID == ir.FuncSymbol {
 				c.module.main = main
 			}
 		}
@@ -267,16 +269,16 @@ func (c *compiler) Module(mod *semantics.Module) {
 	init := newFunctionUnit("<init>")
 	c.module.functions = append(c.module.functions, init)
 
-	var valDecls []*semantics.ValTopDecl
-	var decls []semantics.TopDecl
+	var valDecls []*ir.ValTopDecl
+	var decls []ir.TopDecl
 	for _, decl := range mod.Decls {
 		switch t := decl.(type) {
-		case *semantics.ValTopDecl:
+		case *ir.ValTopDecl:
 			valDecls = append(valDecls, t)
-		case *semantics.FuncDecl:
+		case *ir.FuncDecl:
 			t.Sym.Address = c.module.reserveFunctionAddr()
 			decls = append(decls, t)
-		case *semantics.StructDecl:
+		case *ir.StructDecl:
 			t.Sym.Address = c.module.reserveConstantAddr()
 			decls = append(decls, t)
 		default:
@@ -300,7 +302,7 @@ func (c *compiler) Module(mod *semantics.Module) {
 	}
 }
 
-func (c *compiler) VisitValTopDecl(decl *semantics.ValTopDecl) {
+func (c *compiler) VisitValTopDecl(decl *ir.ValTopDecl) {
 	semantics.VisitExpr(c, decl.Initializer)
 
 	addr := c.module.globalAddress
@@ -310,7 +312,7 @@ func (c *compiler) VisitValTopDecl(decl *semantics.ValTopDecl) {
 	c.currBlock.addInstrAddr(GlobalStore, addr)
 }
 
-func (c *compiler) VisitValDecl(decl *semantics.ValDecl) {
+func (c *compiler) VisitValDecl(decl *ir.ValDecl) {
 	semantics.VisitExpr(c, decl.Initializer)
 
 	addr := c.module.localAddress
@@ -320,10 +322,10 @@ func (c *compiler) VisitValDecl(decl *semantics.ValDecl) {
 	c.currBlock.addInstrAddr(Store, addr)
 }
 
-func (c *compiler) VisitFuncDecl(decl *semantics.FuncDecl) {
+func (c *compiler) VisitFuncDecl(decl *ir.FuncDecl) {
 	fun := newFunctionUnit(decl.Name.Literal)
 	fun.obj.ArgCount = len(decl.Params)
-	if decl.TReturn.Type().ID() != semantics.TVoid {
+	if decl.TReturn.Type().ID() != ir.TVoid {
 		fun.obj.ReturnValue = true
 	}
 
@@ -344,7 +346,7 @@ func (c *compiler) VisitFuncDecl(decl *semantics.FuncDecl) {
 	c.module.functions[addr] = fun
 }
 
-func (c *compiler) VisitStructDecl(decl *semantics.StructDecl) {
+func (c *compiler) VisitStructDecl(decl *ir.StructDecl) {
 	desc := &StructDescriptor{Name: decl.Name.Literal, FieldCount: len(decl.Fields)}
 	c.module.constants[decl.Sym.Address] = desc
 	for i, f := range decl.Fields {
@@ -352,30 +354,30 @@ func (c *compiler) VisitStructDecl(decl *semantics.StructDecl) {
 	}
 }
 
-func (c *compiler) VisitBlockStmt(stmt *semantics.BlockStmt) {
+func (c *compiler) VisitBlockStmt(stmt *ir.BlockStmt) {
 	outer := c.scope
 	c.scope = stmt.Scope
 	semantics.VisitStmtList(c, stmt.Stmts)
 	c.scope = outer
 }
 
-func (c *compiler) VisitDeclStmt(stmt *semantics.DeclStmt) {
+func (c *compiler) VisitDeclStmt(stmt *ir.DeclStmt) {
 	switch t := stmt.D.(type) {
-	case *semantics.ValDecl:
+	case *ir.ValDecl:
 		c.VisitValDecl(t)
 	default:
 		panic(fmt.Sprintf("Unhandled DeclStmt %T", t))
 	}
 }
 
-func (c *compiler) VisitPrintStmt(stmt *semantics.PrintStmt) {
+func (c *compiler) VisitPrintStmt(stmt *ir.PrintStmt) {
 	for _, x := range stmt.Xs {
 		semantics.VisitExpr(c, x)
 	}
 	c.currBlock.addInstr1(Print, int64(len(stmt.Xs)))
 }
 
-func (c *compiler) VisitIfStmt(stmt *semantics.IfStmt) {
+func (c *compiler) VisitIfStmt(stmt *ir.IfStmt) {
 	jump := &basicBlock{}
 	seq := &basicBlock{}
 
@@ -398,7 +400,7 @@ func (c *compiler) VisitIfStmt(stmt *semantics.IfStmt) {
 		c.setNextBlock(jump)
 		semantics.VisitStmt(c, stmt.Else)
 
-		if _, ok := stmt.Else.(*semantics.BlockStmt); ok {
+		if _, ok := stmt.Else.(*ir.BlockStmt); ok {
 			c.setNextBlock(&basicBlock{})
 		}
 
@@ -407,7 +409,7 @@ func (c *compiler) VisitIfStmt(stmt *semantics.IfStmt) {
 	}
 }
 
-func (c *compiler) VisitWhileStmt(stmt *semantics.WhileStmt) {
+func (c *compiler) VisitWhileStmt(stmt *ir.WhileStmt) {
 	loop := &basicBlock{}
 	cond := &basicBlock{}
 	join := &basicBlock{}
@@ -424,7 +426,7 @@ func (c *compiler) VisitWhileStmt(stmt *semantics.WhileStmt) {
 	c.target1 = nil
 }
 
-func (c *compiler) VisitReturnStmt(stmt *semantics.ReturnStmt) {
+func (c *compiler) VisitReturnStmt(stmt *ir.ReturnStmt) {
 	if stmt.X != nil {
 		semantics.VisitExpr(c, stmt.X)
 	}
@@ -432,7 +434,7 @@ func (c *compiler) VisitReturnStmt(stmt *semantics.ReturnStmt) {
 	c.setNextBlock(&basicBlock{})
 }
 
-func (c *compiler) VisitBranchStmt(stmt *semantics.BranchStmt) {
+func (c *compiler) VisitBranchStmt(stmt *ir.BranchStmt) {
 	if stmt.Tok.ID == token.Continue {
 		c.currBlock.addJumpInstr(NewInstr0(Goto), c.target0)
 	} else if stmt.Tok.ID == token.Break {
@@ -442,7 +444,7 @@ func (c *compiler) VisitBranchStmt(stmt *semantics.BranchStmt) {
 	}
 }
 
-func (c *compiler) VisitAssignStmt(stmt *semantics.AssignStmt) {
+func (c *compiler) VisitAssignStmt(stmt *ir.AssignStmt) {
 	assign := stmt.Assign.ID
 	if assign == token.AddAssign || assign == token.SubAssign ||
 		assign == token.MulAssign || assign == token.DivAssign ||
@@ -463,11 +465,11 @@ func (c *compiler) VisitAssignStmt(stmt *semantics.AssignStmt) {
 		c.currBlock.addInstr0(ModOp(t))
 	}
 
-	var sym *semantics.Symbol
+	var sym *ir.Symbol
 	switch t := stmt.Left.(type) {
-	case *semantics.Ident:
+	case *ir.Ident:
 		sym = t.Sym
-	case *semantics.DotIdent:
+	case *ir.DotExpr:
 		semantics.VisitExpr(c, t.X)
 		sym = t.Name.Sym
 	default:
@@ -475,11 +477,11 @@ func (c *compiler) VisitAssignStmt(stmt *semantics.AssignStmt) {
 	}
 
 	switch sym.ScopeID {
-	case semantics.TopScope:
+	case ir.TopScope:
 		c.currBlock.addInstrAddr(GlobalStore, sym.Address)
-	case semantics.FieldScope:
+	case ir.FieldScope:
 		c.currBlock.addInstrAddr(FieldStore, sym.Address)
-	case semantics.LocalScope:
+	case ir.LocalScope:
 		c.currBlock.addInstrAddr(Store, sym.Address)
 	default:
 		panic(fmt.Sprintf("Unhandled scope ID %d", sym.ScopeID))
@@ -490,17 +492,17 @@ func (c *compiler) VisitAssignStmt(stmt *semantics.AssignStmt) {
 	}
 }
 
-func (c *compiler) VisitExprStmt(stmt *semantics.ExprStmt) {
+func (c *compiler) VisitExprStmt(stmt *ir.ExprStmt) {
 	semantics.VisitExpr(c, stmt.X)
 
 	typ := stmt.X.Type()
-	if typ.ID() != semantics.TVoid {
+	if typ.ID() != ir.TVoid {
 		// Pop unused return value
 		c.currBlock.addInstr0(Pop)
 	}
 }
 
-func (c *compiler) VisitBinaryExpr(expr *semantics.BinaryExpr) semantics.Expr {
+func (c *compiler) VisitBinaryExpr(expr *ir.BinaryExpr) ir.Expr {
 	if expr.Op.ID == token.Lor || expr.Op.ID == token.Land {
 		// TODO: Make it more efficient if expression is part of control flow (if, while etc)
 
@@ -566,14 +568,14 @@ func (c *compiler) VisitBinaryExpr(expr *semantics.BinaryExpr) semantics.Expr {
 	return expr
 }
 
-func (c *compiler) VisitUnaryExpr(expr *semantics.UnaryExpr) semantics.Expr {
+func (c *compiler) VisitUnaryExpr(expr *ir.UnaryExpr) ir.Expr {
 	binop := Nop
 	if expr.Op.ID == token.Sub {
 		loadop := LoadOp(expr.T.ID())
 		arg := 0
-		if expr.T.ID() == semantics.TFloat64 {
+		if expr.T.ID() == ir.TFloat64 {
 			arg = c.module.defineConstant(float64(0))
-		} else if expr.T.ID() == semantics.TFloat32 {
+		} else if expr.T.ID() == ir.TFloat32 {
 			arg = c.module.defineConstant(float32(0))
 		}
 		c.currBlock.addInstr1(loadop, int64(arg))
@@ -588,7 +590,7 @@ func (c *compiler) VisitUnaryExpr(expr *semantics.UnaryExpr) semantics.Expr {
 	return expr
 }
 
-func (c *compiler) VisitBasicLit(expr *semantics.BasicLit) semantics.Expr {
+func (c *compiler) VisitBasicLit(expr *ir.BasicLit) ir.Expr {
 	if expr.Value.ID == token.String {
 		if str, ok := expr.Raw.(string); ok {
 			addr := c.module.defineConstant(str)
@@ -599,21 +601,21 @@ func (c *compiler) VisitBasicLit(expr *semantics.BasicLit) semantics.Expr {
 	} else if expr.Value.ID == token.Integer || expr.Value.ID == token.Float {
 		if bigInt, ok := expr.Raw.(*big.Int); ok {
 			switch expr.T.ID() {
-			case semantics.TUInt64:
+			case ir.TUInt64:
 				c.currBlock.addInstr1(U64Load, int64(bigInt.Uint64()))
-			case semantics.TUInt32:
+			case ir.TUInt32:
 				c.currBlock.addInstr1(U32Load, int64(bigInt.Uint64()))
-			case semantics.TUInt16:
+			case ir.TUInt16:
 				c.currBlock.addInstr1(U16Load, int64(bigInt.Uint64()))
-			case semantics.TUInt8:
+			case ir.TUInt8:
 				c.currBlock.addInstr1(U8Load, int64(bigInt.Uint64()))
-			case semantics.TInt64:
+			case ir.TInt64:
 				c.currBlock.addInstr1(I64Load, int64(bigInt.Int64()))
-			case semantics.TInt32:
+			case ir.TInt32:
 				c.currBlock.addInstr1(I32Load, int64(bigInt.Int64()))
-			case semantics.TInt16:
+			case ir.TInt16:
 				c.currBlock.addInstr1(I16Load, int64(bigInt.Int64()))
-			case semantics.TInt8:
+			case ir.TInt8:
 				c.currBlock.addInstr1(I8Load, int64(bigInt.Int64()))
 			default:
 				panic(fmt.Sprintf("Unhandled Expr %s with type %s", expr.Value, expr.T))
@@ -621,10 +623,10 @@ func (c *compiler) VisitBasicLit(expr *semantics.BasicLit) semantics.Expr {
 		} else if bigFloat, ok := expr.Raw.(*big.Float); ok {
 			addr := 0
 			switch expr.T.ID() {
-			case semantics.TFloat64:
+			case ir.TFloat64:
 				val, _ := bigFloat.Float64()
 				addr = c.module.defineConstant(val)
-			case semantics.TFloat32:
+			case ir.TFloat32:
 				val, _ := bigFloat.Float32()
 				addr = c.module.defineConstant(val)
 			default:
@@ -644,15 +646,15 @@ func (c *compiler) VisitBasicLit(expr *semantics.BasicLit) semantics.Expr {
 	return expr
 }
 
-func (c *compiler) VisitStructLit(expr *semantics.StructLit) semantics.Expr {
+func (c *compiler) VisitStructLit(expr *ir.StructLit) ir.Expr {
 	for _, init := range expr.Initializers {
 		semantics.VisitExpr(c, init.Value)
 	}
-	var sym *semantics.Symbol
+	var sym *ir.Symbol
 	switch id := expr.Name.(type) {
-	case *semantics.Ident:
+	case *ir.Ident:
 		sym = id.Sym
-	case *semantics.DotIdent:
+	case *ir.DotExpr:
 		semantics.VisitExpr(c, id.X)
 		sym = id.Name.Sym
 	default:
@@ -667,19 +669,19 @@ func (c *compiler) VisitStructLit(expr *semantics.StructLit) semantics.Expr {
 	return expr
 }
 
-func (c *compiler) VisitIdent(expr *semantics.Ident) semantics.Expr {
+func (c *compiler) VisitIdent(expr *ir.Ident) ir.Expr {
 	sym := expr.Sym
 	switch sym.ScopeID {
-	case semantics.TopScope:
-		if sym.ID == semantics.ModuleSymbol {
-			modt, _ := sym.T.(*semantics.ModuleType)
+	case ir.TopScope:
+		if sym.ID == ir.ModuleSymbol {
+			modt, _ := sym.T.(*ir.ModuleType)
 			c.currBlock.addInstrAddr(SetMod, c.moduleAddress(modt.ModuleID))
 		} else {
 			c.currBlock.addInstrAddr(GlobalLoad, sym.Address)
 		}
-	case semantics.FieldScope:
+	case ir.FieldScope:
 		c.currBlock.addInstrAddr(FieldLoad, sym.Address)
-	case semantics.LocalScope:
+	case ir.LocalScope:
 		c.currBlock.addInstrAddr(Load, sym.Address)
 	default:
 		panic(fmt.Sprintf("Unhandled scope ID %d", sym.ScopeID))
@@ -687,27 +689,27 @@ func (c *compiler) VisitIdent(expr *semantics.Ident) semantics.Expr {
 	return expr
 }
 
-func (c *compiler) VisitDotIdent(expr *semantics.DotIdent) semantics.Expr {
+func (c *compiler) VisitDotExpr(expr *ir.DotExpr) ir.Expr {
 	semantics.VisitExpr(c, expr.X)
 	c.VisitIdent(expr.Name)
 	return expr
 }
 
-func (c *compiler) VisitFuncCall(expr *semantics.FuncCall) semantics.Expr {
+func (c *compiler) VisitFuncCall(expr *ir.FuncCall) ir.Expr {
 	semantics.VisitExprList(c, expr.Args)
 
-	var sym *semantics.Symbol
+	var sym *ir.Symbol
 	switch id := expr.X.(type) {
-	case *semantics.Ident:
+	case *ir.Ident:
 		sym = id.Sym
-	case *semantics.DotIdent:
+	case *ir.DotExpr:
 		semantics.VisitExpr(c, id.X)
 		sym = id.Name.Sym
 	default:
 		panic(fmt.Sprintf("Unhandled function expr %T", id))
 	}
 
-	if sym.ID == semantics.FuncSymbol {
+	if sym.ID == ir.FuncSymbol {
 		c.currBlock.addInstrAddr(Call, sym.Address)
 		c.setNextBlock(&basicBlock{})
 	} else {
@@ -715,9 +717,9 @@ func (c *compiler) VisitFuncCall(expr *semantics.FuncCall) semantics.Expr {
 
 		arg := 0
 		op := LoadOp(dstType.ID())
-		if dstType.ID() == semantics.TFloat64 {
+		if dstType.ID() == ir.TFloat64 {
 			arg = c.module.defineConstant(float64(0))
-		} else if dstType.ID() == semantics.TFloat32 {
+		} else if dstType.ID() == ir.TFloat32 {
 			arg = c.module.defineConstant(float32(0))
 		}
 

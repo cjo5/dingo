@@ -61,7 +61,7 @@ fun main() {
     print "25%6==", 25%6, "\n";
 
     print "While start\n";
-    var i: i32 = 0;
+    var i i32 = 0;
     while i < 5 {
         print i, "\n";
         i += 1;
@@ -71,22 +71,22 @@ fun main() {
     print "factorial(5) = ", factorial(5), "\n";
 
     print "Local struct\n";
-    var foo: Foo = Foo{a=5, b=3.14, bar=Bar{c=6, d=4.14}};
+    var foo Foo = Foo{a=5, b=3.14, bar=Bar{c=6, d=4.14}};
     printStruct(foo);
 
     print "Dep struct\n";
-    var v2: dep.Vec2 = dep.Vec2{a=2, b=3};
+    var v2 dep.Vec2 = dep.Vec2{a=2, b=3};
     dep.printVec2(v2);
 }
 
-fun factorial(n: i32) -> i32 {
+fun factorial(n i32) i32 {
     if n <= 1 {
         return 1;
     }
     return n * factorial(n-1);
 }
 
-fun printStruct(foo: Foo) {
+fun printStruct(foo Foo) {
     print "foo.a = ", foo.a, "\n";
     print "foo.b = ", foo.b, "\n";
     print "foo.bar.c = ", foo.bar.c, "\n";
@@ -98,16 +98,16 @@ fun printStruct(foo: Foo) {
 }
 
 struct Foo {
-    a: i32;
-    b: f32;
-    bar: Bar;
+    a i32;
+    b f32;
+    bar Bar;
 }
 
 struct Bar {
-    c: i64;
-    d: f64;
-    defaultI32: i32;
-    defaultF32: f32;
-    defaultBool: bool;
-    defaultString: str;
+    c i64;
+    d f64;
+    defaultI32 i32;
+    defaultF32 f32;
+    defaultBool bool;
+    defaultString str;
 }

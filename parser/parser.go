@@ -5,11 +5,11 @@ import (
 	"io/ioutil"
 
 	"github.com/jhnl/interpreter/common"
-	"github.com/jhnl/interpreter/semantics"
+	"github.com/jhnl/interpreter/ir"
 	"github.com/jhnl/interpreter/token"
 )
 
-func ParseFile(filepath string) (*semantics.File, []semantics.TopDecl, error) {
+func ParseFile(filepath string) (*ir.File, []ir.TopDecl, error) {
 	buf, err := ioutil.ReadFile(filepath)
 	if err != nil {
 		return nil, nil, err
@@ -17,11 +17,11 @@ func ParseFile(filepath string) (*semantics.File, []semantics.TopDecl, error) {
 	return parse(buf, filepath)
 }
 
-func Parse(src []byte) (*semantics.File, []semantics.TopDecl, error) {
+func Parse(src []byte) (*ir.File, []ir.TopDecl, error) {
 	return parse(src, "")
 }
 
-func parse(src []byte, filepath string) (*semantics.File, []semantics.TopDecl, error) {
+func parse(src []byte, filepath string) (*ir.File, []ir.TopDecl, error) {
 	var p parser
 	p.init(src, filepath)
 	p.next()
@@ -94,8 +94,6 @@ func (p *parser) syncStmt() {
 		case token.Semicolon:
 			p.next()
 			return
-		case token.Rbrace:
-			return
 		case token.Var, token.Val:
 			return
 		case token.Print, token.Return, token.If, token.While, token.Break, token.Continue:
@@ -117,7 +115,7 @@ func (p *parser) match(id token.ID) bool {
 
 func (p *parser) expect(id token.ID) bool {
 	if !p.match(id) {
-		p.error(p.token, "got '%s', expected '%s'", p.token.ID, id)
+		p.error(p.token, "got '%s', expected '%s'", p.token.Literal, id)
 		p.next()
 		return false
 	}
@@ -157,8 +155,8 @@ func (p *parser) consumeSemi() bool {
 //
 // Improve parsing of function signature and struct fields. Try to synchronize locally instead of panicking.
 //
-func (p *parser) parseFile() (*semantics.File, []semantics.TopDecl) {
-	file := &semantics.File{Ctx: &semantics.FileContext{Path: p.lexer.filename}}
+func (p *parser) parseFile() (*ir.File, []ir.TopDecl) {
+	file := &ir.File{Ctx: &ir.FileContext{Path: p.lexer.filename}}
 	if p.token.Is(token.Module) {
 		file.Ctx.Decl = p.token
 		p.next()
@@ -172,7 +170,7 @@ func (p *parser) parseFile() (*semantics.File, []semantics.TopDecl) {
 			file.Imports = append(file.Imports, imp)
 		}
 	}
-	var decls []semantics.TopDecl
+	var decls []ir.TopDecl
 	for !p.token.Is(token.EOF) {
 		decl := p.parseTopDecl()
 		if decl != nil {
@@ -183,17 +181,17 @@ func (p *parser) parseFile() (*semantics.File, []semantics.TopDecl) {
 	return file, decls
 }
 
-func (p *parser) parseImport() *semantics.Import {
+func (p *parser) parseImport() *ir.Import {
 	tok := p.token
 	p.next()
 	path := p.token
 	if !p.expect(token.String) {
 		return nil
 	}
-	return &semantics.Import{Import: tok, Literal: path}
+	return &ir.Import{Import: tok, Literal: path}
 }
 
-func (p *parser) parseTopDecl() (decl semantics.TopDecl) {
+func (p *parser) parseTopDecl() (decl ir.TopDecl) {
 	defer func() {
 		if r := recover(); r != nil {
 			if _, ok := r.(parseError); ok {
@@ -218,29 +216,29 @@ func (p *parser) parseTopDecl() (decl semantics.TopDecl) {
 	} else if p.token.ID == token.Struct {
 		decl = p.parseStructDecl(visibility)
 	} else {
-		p.error(p.token, "non-declaration outside function body")
+		p.error(p.token, "got '%s', expected declaration", p.token.Literal)
 		p.syncDecl()
 	}
 
 	return decl
 }
 
-func (p *parser) parseValTopDecl(visibility token.Token) *semantics.ValTopDecl {
-	decl := &semantics.ValTopDecl{}
+func (p *parser) parseValTopDecl(visibility token.Token) *ir.ValTopDecl {
+	decl := &ir.ValTopDecl{}
 	decl.Visibility = visibility
 	decl.ValDeclSpec = p.parseValDeclSpec()
 	p.consumeSemi()
 	return decl
 }
 
-func (p *parser) parseValDecl() *semantics.ValDecl {
-	decl := &semantics.ValDecl{}
+func (p *parser) parseValDecl() *ir.ValDecl {
+	decl := &ir.ValDecl{}
 	decl.ValDeclSpec = p.parseValDeclSpec()
 	return decl
 }
 
-func (p *parser) parseValDeclSpec() semantics.ValDeclSpec {
-	decl := semantics.ValDeclSpec{}
+func (p *parser) parseValDeclSpec() ir.ValDeclSpec {
+	decl := ir.ValDeclSpec{}
 
 	decl.Decl = p.token
 	p.next()
@@ -260,8 +258,8 @@ func (p *parser) parseValDeclSpec() semantics.ValDeclSpec {
 	return decl
 }
 
-func (p *parser) parseField(flags int, defaultDecl token.ID) *semantics.ValDecl {
-	decl := &semantics.ValDecl{}
+func (p *parser) parseField(flags int, defaultDecl token.ID) *ir.ValDecl {
+	decl := &ir.ValDecl{}
 	decl.Flags = flags
 
 	if p.token.OneOf(token.Val, token.Var) {
@@ -278,8 +276,8 @@ func (p *parser) parseField(flags int, defaultDecl token.ID) *semantics.ValDecl 
 	return decl
 }
 
-func (p *parser) parseFuncDecl(visibility token.Token) *semantics.FuncDecl {
-	decl := &semantics.FuncDecl{}
+func (p *parser) parseFuncDecl(visibility token.Token) *ir.FuncDecl {
+	decl := &ir.FuncDecl{}
 	decl.Visibility = visibility
 	decl.Decl = p.token
 	p.next()
@@ -288,7 +286,7 @@ func (p *parser) parseFuncDecl(visibility token.Token) *semantics.FuncDecl {
 
 	decl.Lparen = p.token
 	p.consume(token.Lparen)
-	flags := semantics.ValFlagNoInit
+	flags := ir.ValFlagNoInit
 	if !p.token.Is(token.Rparen) {
 		decl.Params = append(decl.Params, p.parseField(flags, token.Val))
 		for !p.token.OneOf(token.EOF, token.Rparen) {
@@ -302,15 +300,15 @@ func (p *parser) parseFuncDecl(visibility token.Token) *semantics.FuncDecl {
 	if !p.token.Is(token.Lbrace) {
 		decl.TReturn = p.parseTypeSpec(nil)
 	} else {
-		decl.TReturn = &semantics.Ident{Name: token.Synthetic(token.Ident, semantics.TVoid.String())}
+		decl.TReturn = &ir.Ident{Name: token.Synthetic(token.Ident, ir.TVoid.String())}
 	}
 
 	decl.Body = p.parseBlockStmt()
 	return decl
 }
 
-func (p *parser) parseStructDecl(visibility token.Token) *semantics.StructDecl {
-	decl := &semantics.StructDecl{}
+func (p *parser) parseStructDecl(visibility token.Token) *ir.StructDecl {
+	decl := &ir.StructDecl{}
 	decl.Visibility = visibility
 	decl.Decl = p.token
 	p.next()
@@ -319,7 +317,7 @@ func (p *parser) parseStructDecl(visibility token.Token) *semantics.StructDecl {
 
 	decl.Lbrace = p.token
 	p.consume(token.Lbrace)
-	flags := semantics.ValFlagNoInit
+	flags := ir.ValFlagNoInit
 	for !p.token.OneOf(token.EOF, token.Rbrace) {
 		decl.Fields = append(decl.Fields, p.parseField(flags, token.Var))
 		p.consumeSemi()
@@ -331,12 +329,12 @@ func (p *parser) parseStructDecl(visibility token.Token) *semantics.StructDecl {
 	return decl
 }
 
-func (p *parser) parseStmt() (stmt semantics.Stmt) {
+func (p *parser) parseStmt() (stmt ir.Stmt) {
 	defer func() {
 		if r := recover(); r != nil {
 			if err, ok := r.(parseError); ok {
 				p.syncStmt()
-				stmt = &semantics.BadStmt{From: err.tok, To: p.prev}
+				stmt = &ir.BadStmt{From: err.tok, To: p.prev}
 			} else {
 				panic(r)
 			}
@@ -358,21 +356,21 @@ func (p *parser) parseStmt() (stmt semantics.Stmt) {
 	} else if p.token.ID == token.Break || p.token.ID == token.Continue {
 		if !p.inLoop {
 			// TODO: This should be done in type checker
-			p.error(p.token, "%s can only be used in a loop", p.token.ID)
+			p.error(p.token, "%s can only be used in a loop", p.token.Literal)
 		}
 
 		tok := p.token
 		p.next()
 		p.consumeSemi()
-		stmt = &semantics.BranchStmt{Tok: tok}
+		stmt = &ir.BranchStmt{Tok: tok}
 	} else {
 		stmt = p.parseExprOrAssignStmt()
 	}
 	return stmt
 }
 
-func (p *parser) parseBlockStmt() *semantics.BlockStmt {
-	block := &semantics.BlockStmt{}
+func (p *parser) parseBlockStmt() *ir.BlockStmt {
+	block := &ir.BlockStmt{}
 	block.Lbrace = p.token
 	p.consume(token.Lbrace)
 	for p.token.ID != token.Rbrace && p.token.ID != token.EOF {
@@ -383,14 +381,14 @@ func (p *parser) parseBlockStmt() *semantics.BlockStmt {
 	return block
 }
 
-func (p *parser) parseValDeclStmt() *semantics.DeclStmt {
+func (p *parser) parseValDeclStmt() *ir.DeclStmt {
 	d := p.parseValDecl()
 	p.consumeSemi()
-	return &semantics.DeclStmt{D: d}
+	return &ir.DeclStmt{D: d}
 }
 
-func (p *parser) parsePrintStmt() *semantics.PrintStmt {
-	s := &semantics.PrintStmt{}
+func (p *parser) parsePrintStmt() *ir.PrintStmt {
+	s := &ir.PrintStmt{}
 	s.Print = p.token
 	p.consume(token.Print)
 	s.Xs = append(s.Xs, p.parseExpr())
@@ -405,8 +403,8 @@ func (p *parser) parsePrintStmt() *semantics.PrintStmt {
 	return s
 }
 
-func (p *parser) parseIfStmt() *semantics.IfStmt {
-	s := &semantics.IfStmt{}
+func (p *parser) parseIfStmt() *ir.IfStmt {
+	s := &ir.IfStmt{}
 	s.If = p.token
 	p.next()
 	p.inCondition = true
@@ -422,8 +420,8 @@ func (p *parser) parseIfStmt() *semantics.IfStmt {
 	return s
 }
 
-func (p *parser) parseWhileStmt() *semantics.WhileStmt {
-	s := &semantics.WhileStmt{}
+func (p *parser) parseWhileStmt() *ir.WhileStmt {
+	s := &ir.WhileStmt{}
 	p.inLoop = true
 	s.While = p.token
 	p.next()
@@ -435,8 +433,8 @@ func (p *parser) parseWhileStmt() *semantics.WhileStmt {
 	return s
 }
 
-func (p *parser) parseReturnStmt() *semantics.ReturnStmt {
-	s := &semantics.ReturnStmt{}
+func (p *parser) parseReturnStmt() *ir.ReturnStmt {
+	s := &ir.ReturnStmt{}
 	s.Return = p.token
 	p.next()
 	if p.token.ID != token.Semicolon {
@@ -446,25 +444,25 @@ func (p *parser) parseReturnStmt() *semantics.ReturnStmt {
 	return s
 }
 
-func (p *parser) parseExprOrAssignStmt() semantics.Stmt {
-	var stmt semantics.Stmt
+func (p *parser) parseExprOrAssignStmt() ir.Stmt {
+	var stmt ir.Stmt
 	expr := p.parseExpr()
 	if p.token.IsAssignOperator() {
 		assign := p.token
 		p.next()
 		right := p.parseExpr()
-		stmt = &semantics.AssignStmt{Left: expr, Assign: assign, Right: right}
+		stmt = &ir.AssignStmt{Left: expr, Assign: assign, Right: right}
 	} else {
-		stmt = &semantics.ExprStmt{X: expr}
+		stmt = &ir.ExprStmt{X: expr}
 	}
 	p.consumeSemi()
 	return stmt
 }
 
-func (p *parser) parseTypeSpec(name1 *semantics.Ident) semantics.Expr {
+func (p *parser) parseTypeSpec(name1 *ir.Ident) ir.Expr {
 	if name1 == nil {
 		if p.token.ID == token.Ident {
-			name1 = &semantics.Ident{Name: p.token}
+			name1 = &ir.Ident{Name: p.token}
 			p.next()
 		}
 	}
@@ -473,98 +471,98 @@ func (p *parser) parseTypeSpec(name1 *semantics.Ident) semantics.Expr {
 		p.next()
 		name2Tok := p.token
 		p.consume(token.Ident)
-		return &semantics.DotIdent{X: name1, Dot: dot, Name: &semantics.Ident{Name: name2Tok}}
+		return &ir.DotExpr{X: name1, Dot: dot, Name: &ir.Ident{Name: name2Tok}}
 	} else if name1 != nil {
 		return name1
 	}
 	tok := p.token
 	p.next()
-	p.error(tok, "got '%s', expected type specifier", tok.ID)
+	p.error(tok, "got '%s', expected type specifier", tok.Literal)
 	panic(parseError{tok})
 }
 
-func (p *parser) parseExpr() semantics.Expr {
+func (p *parser) parseExpr() ir.Expr {
 	return p.parseLogicalOr()
 }
 
-func (p *parser) parseLogicalOr() semantics.Expr {
+func (p *parser) parseLogicalOr() ir.Expr {
 	expr := p.parseLogicalAnd()
 	for p.token.ID == token.Lor {
 		op := p.token
 		p.next()
 		right := p.parseLogicalAnd()
-		expr = &semantics.BinaryExpr{Left: expr, Op: op, Right: right}
+		expr = &ir.BinaryExpr{Left: expr, Op: op, Right: right}
 	}
 	return expr
 }
 
-func (p *parser) parseLogicalAnd() semantics.Expr {
+func (p *parser) parseLogicalAnd() ir.Expr {
 	expr := p.parseEquality()
 	for p.token.ID == token.Land {
 		op := p.token
 		p.next()
 		right := p.parseEquality()
-		expr = &semantics.BinaryExpr{Left: expr, Op: op, Right: right}
+		expr = &ir.BinaryExpr{Left: expr, Op: op, Right: right}
 	}
 	return expr
 }
 
-func (p *parser) parseEquality() semantics.Expr {
+func (p *parser) parseEquality() ir.Expr {
 	expr := p.parseComparison()
 	for p.token.ID == token.Eq || p.token.ID == token.Neq {
 		op := p.token
 		p.next()
 		right := p.parseComparison()
-		expr = &semantics.BinaryExpr{Left: expr, Op: op, Right: right}
+		expr = &ir.BinaryExpr{Left: expr, Op: op, Right: right}
 	}
 	return expr
 }
 
-func (p *parser) parseComparison() semantics.Expr {
+func (p *parser) parseComparison() ir.Expr {
 	expr := p.parseTerm()
 	for p.token.ID == token.Gt || p.token.ID == token.GtEq ||
 		p.token.ID == token.Lt || p.token.ID == token.LtEq {
 		op := p.token
 		p.next()
 		right := p.parseTerm()
-		expr = &semantics.BinaryExpr{Left: expr, Op: op, Right: right}
+		expr = &ir.BinaryExpr{Left: expr, Op: op, Right: right}
 	}
 	return expr
 }
 
-func (p *parser) parseTerm() semantics.Expr {
+func (p *parser) parseTerm() ir.Expr {
 	expr := p.parseFactor()
 	for p.token.ID == token.Add || p.token.ID == token.Sub {
 		op := p.token
 		p.next()
 		right := p.parseFactor()
-		expr = &semantics.BinaryExpr{Left: expr, Op: op, Right: right}
+		expr = &ir.BinaryExpr{Left: expr, Op: op, Right: right}
 	}
 	return expr
 }
 
-func (p *parser) parseFactor() semantics.Expr {
+func (p *parser) parseFactor() ir.Expr {
 	expr := p.parseUnary()
 	for p.token.ID == token.Mul || p.token.ID == token.Div || p.token.ID == token.Mod {
 		op := p.token
 		p.next()
 		right := p.parseUnary()
-		expr = &semantics.BinaryExpr{Left: expr, Op: op, Right: right}
+		expr = &ir.BinaryExpr{Left: expr, Op: op, Right: right}
 	}
 	return expr
 }
 
-func (p *parser) parseUnary() semantics.Expr {
+func (p *parser) parseUnary() ir.Expr {
 	if p.token.ID == token.Sub || p.token.ID == token.Lnot {
 		op := p.token
 		p.next()
 		x := p.parseExpr()
-		return &semantics.UnaryExpr{Op: op, X: x}
+		return &ir.UnaryExpr{Op: op, X: x}
 	}
 	return p.parseOperand()
 }
 
-func (p *parser) parseOperand() semantics.Expr {
+func (p *parser) parseOperand() ir.Expr {
 	if p.token.Is(token.Lparen) {
 		p.next()
 		x := p.parseExpr()
@@ -572,9 +570,9 @@ func (p *parser) parseOperand() semantics.Expr {
 		return x
 	} else if p.token.Is(token.Ident) {
 		ident := p.parseIdent()
-		var x semantics.Expr = ident
+		var x ir.Expr = ident
 		if p.token.Is(token.Dot) {
-			x = p.parseDotIdent(ident)
+			x = p.parseDotExpr(ident)
 		}
 		if !p.inCondition && p.token.Is(token.Lbrace) {
 			return p.parseStructLit(x)
@@ -584,32 +582,32 @@ func (p *parser) parseOperand() semantics.Expr {
 	return p.parseBasicLit()
 }
 
-func (p *parser) parsePrimary(expr semantics.Expr) semantics.Expr {
+func (p *parser) parsePrimary(expr ir.Expr) ir.Expr {
 	if p.token.Is(token.Lparen) {
 		return p.parsePrimary(p.parseFuncCall(expr))
 	} else if p.token.Is(token.Dot) {
-		return p.parsePrimary(p.parseDotIdent(expr))
+		return p.parsePrimary(p.parseDotExpr(expr))
 	}
 	return expr
 }
 
-func (p *parser) parseIdent() *semantics.Ident {
+func (p *parser) parseIdent() *ir.Ident {
 	tok := p.token
 	p.consume(token.Ident)
-	return &semantics.Ident{Name: tok}
+	return &ir.Ident{Name: tok}
 }
 
-func (p *parser) parseDotIdent(expr semantics.Expr) semantics.Expr {
+func (p *parser) parseDotExpr(expr ir.Expr) ir.Expr {
 	dot := p.token
 	p.consume(token.Dot)
 	name := p.parseIdent()
-	return &semantics.DotIdent{X: expr, Dot: dot, Name: name}
+	return &ir.DotExpr{X: expr, Dot: dot, Name: name}
 }
 
-func (p *parser) parseFuncCall(expr semantics.Expr) semantics.Expr {
+func (p *parser) parseFuncCall(expr ir.Expr) ir.Expr {
 	lparen := p.token
 	p.consume(token.Lparen)
-	var args []semantics.Expr
+	var args []ir.Expr
 	if p.token.ID != token.Rparen {
 		args = append(args, p.parseExpr())
 		for p.token.ID != token.EOF && p.token.ID != token.Rparen {
@@ -619,36 +617,36 @@ func (p *parser) parseFuncCall(expr semantics.Expr) semantics.Expr {
 	}
 	rparen := p.token
 	p.consume(token.Rparen)
-	return &semantics.FuncCall{X: expr, Lparen: lparen, Args: args, Rparen: rparen}
+	return &ir.FuncCall{X: expr, Lparen: lparen, Args: args, Rparen: rparen}
 }
 
-func (p *parser) parseBasicLit() semantics.Expr {
+func (p *parser) parseBasicLit() ir.Expr {
 	switch p.token.ID {
 	case token.Integer, token.Float, token.String, token.True, token.False:
 		tok := p.token
 		p.next()
-		return &semantics.BasicLit{Value: tok}
+		return &ir.BasicLit{Value: tok}
 	default:
 		tok := p.token
-		p.error(tok, "got '%s', expected expression", tok.ID)
+		p.error(tok, "got '%s', expected expression", tok.Literal)
 		p.next()
 		panic(parseError{tok})
 	}
 }
 
-func (p *parser) parseKeyValue() *semantics.KeyValue {
+func (p *parser) parseKeyValue() *ir.KeyValue {
 	key := p.token
 	p.consume(token.Ident)
 	equal := p.token
 	p.consume(token.Assign)
 	value := p.parseExpr()
-	return &semantics.KeyValue{Key: key, Equal: equal, Value: value}
+	return &ir.KeyValue{Key: key, Equal: equal, Value: value}
 }
 
-func (p *parser) parseStructLit(name semantics.Expr) semantics.Expr {
+func (p *parser) parseStructLit(name ir.Expr) ir.Expr {
 	lbrace := p.token
 	p.consume(token.Lbrace)
-	var inits []*semantics.KeyValue
+	var inits []*ir.KeyValue
 	if p.token.Is(token.Ident) {
 		inits = append(inits, p.parseKeyValue())
 		for p.token.ID != token.EOF && p.token.ID != token.Rbrace {
@@ -658,5 +656,5 @@ func (p *parser) parseStructLit(name semantics.Expr) semantics.Expr {
 	}
 	rbrace := p.token
 	p.consume(token.Rbrace)
-	return &semantics.StructLit{Name: name, Lbrace: lbrace, Initializers: inits, Rbrace: rbrace}
+	return &ir.StructLit{Name: name, Lbrace: lbrace, Initializers: inits, Rbrace: rbrace}
 }

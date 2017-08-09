@@ -1,6 +1,7 @@
 package semantics
 
 import "github.com/jhnl/interpreter/token"
+import "github.com/jhnl/interpreter/ir"
 
 const (
 	identModeNone = 0
@@ -18,10 +19,10 @@ type typeVisitor struct {
 func typeWalk(c *checker) {
 	v := &typeVisitor{c: c}
 	c.resetWalkState()
-	StartProgramWalk(v, c.prog)
+	VisitModuleSet(v, c.set)
 }
 
-func (v *typeVisitor) Module(mod *Module) {
+func (v *typeVisitor) Module(mod *ir.Module) {
 	v.c.mod = mod
 
 	v.signature = true
@@ -45,22 +46,22 @@ func (v *typeVisitor) Module(mod *Module) {
 	}
 }
 
-func (v *typeVisitor) VisitValTopDecl(decl *ValTopDecl) {
+func (v *typeVisitor) VisitValTopDecl(decl *ir.ValTopDecl) {
 	if v.signature {
 		return
 	}
 	v.visitValDeclSpec(decl.Sym, &decl.ValDeclSpec, true)
 }
 
-func (v *typeVisitor) VisitValDecl(decl *ValDecl) {
+func (v *typeVisitor) VisitValDecl(decl *ir.ValDecl) {
 	if decl.Sym != nil {
 		v.visitValDeclSpec(decl.Sym, &decl.ValDeclSpec, decl.Init())
 	}
 }
 
-func (v *typeVisitor) visitValDeclSpec(sym *Symbol, decl *ValDeclSpec, defaultInit bool) {
+func (v *typeVisitor) visitValDeclSpec(sym *ir.Symbol, decl *ir.ValDeclSpec, defaultInit bool) {
 	if decl.Decl.Is(token.Val) {
-		sym.Flags |= SymFlagConstant
+		sym.Flags |= ir.SymFlagConstant
 	}
 
 	if sym.DepCycle() {
@@ -73,25 +74,25 @@ func (v *typeVisitor) visitValDeclSpec(sym *Symbol, decl *ValDeclSpec, defaultIn
 		v.identMode = identModeNone
 		sym.T = decl.Type.Type()
 
-		if typeSym := ExprSymbol(decl.Type); typeSym != nil {
-			if typeSym.ID != TypeSymbol {
+		if typeSym := ir.ExprSymbol(decl.Type); typeSym != nil {
+			if typeSym.ID != ir.TypeSymbol {
 				v.c.error(decl.Type.FirstPos(), "'%s' is not a type", PrintExpr(decl.Type))
-				sym.T = TBuiltinUntyped
+				sym.T = ir.TBuiltinUntyped
 				return
 			}
 		}
 
-		if sym.T.ID() == TVoid {
+		if sym.T.ID() == ir.TVoid {
 			declType := "variable"
 			if sym.Constant() {
 				declType = "value"
 			}
-			v.c.error(decl.Type.FirstPos(), "cannot declare %s with type %s", declType, TVoid)
-			sym.T = TBuiltinUntyped
+			v.c.error(decl.Type.FirstPos(), "cannot declare %s with type %s", declType, ir.TVoid)
+			sym.T = ir.TBuiltinUntyped
 			return
 		}
 
-		if IsUntyped(sym.T) {
+		if ir.IsUntyped(sym.T) {
 			return
 		}
 	}
@@ -120,7 +121,7 @@ func (v *typeVisitor) visitValDeclSpec(sym *Symbol, decl *ValDeclSpec, defaultIn
 	}
 }
 
-func (v *typeVisitor) VisitFuncDecl(decl *FuncDecl) {
+func (v *typeVisitor) VisitFuncDecl(decl *ir.FuncDecl) {
 	defer setScope(setScope(v.c, decl.Scope))
 
 	if v.signature {
@@ -131,7 +132,7 @@ func (v *typeVisitor) VisitFuncDecl(decl *FuncDecl) {
 		decl.TReturn = VisitExpr(v, decl.TReturn)
 		v.identMode = identModeNone
 
-		decl.Sym.T = NewFuncType(decl)
+		decl.Sym.T = ir.NewFuncType(decl)
 		return
 	}
 
@@ -143,7 +144,7 @@ func (v *typeVisitor) VisitFuncDecl(decl *FuncDecl) {
 
 	endsWithReturn := false
 	for i, stmt := range decl.Body.Stmts {
-		if _, ok := stmt.(*ReturnStmt); ok {
+		if _, ok := stmt.(*ir.ReturnStmt); ok {
 			if (i + 1) == len(decl.Body.Stmts) {
 				endsWithReturn = true
 			}
@@ -151,18 +152,18 @@ func (v *typeVisitor) VisitFuncDecl(decl *FuncDecl) {
 	}
 
 	if !endsWithReturn {
-		if decl.TReturn.Type().ID() != TVoid {
+		if decl.TReturn.Type().ID() != ir.TVoid {
 			v.c.error(decl.Body.Rbrace.Pos, "missing return")
 		} else {
 			tok := token.Synthetic(token.Return, "return")
-			returnStmt := &ReturnStmt{Return: tok}
+			returnStmt := &ir.ReturnStmt{Return: tok}
 			decl.Body.Stmts = append(decl.Body.Stmts, returnStmt)
 
 		}
 	}
 }
 
-func (v *typeVisitor) VisitStructDecl(decl *StructDecl) {
+func (v *typeVisitor) VisitStructDecl(decl *ir.StructDecl) {
 	if !v.signature {
 		return
 	}
@@ -170,29 +171,29 @@ func (v *typeVisitor) VisitStructDecl(decl *StructDecl) {
 	for _, field := range decl.Fields {
 		v.VisitValDecl(field)
 	}
-	decl.Sym.T = NewStructType(decl)
+	decl.Sym.T = ir.NewStructType(decl)
 }
 
-func (v *typeVisitor) VisitBlockStmt(stmt *BlockStmt) {
+func (v *typeVisitor) VisitBlockStmt(stmt *ir.BlockStmt) {
 	defer setScope(setScope(v.c, stmt.Scope))
 	VisitStmtList(v, stmt.Stmts)
 }
 
-func (v *typeVisitor) VisitDeclStmt(stmt *DeclStmt) {
+func (v *typeVisitor) VisitDeclStmt(stmt *ir.DeclStmt) {
 	VisitDecl(v, stmt.D)
 }
 
-func (v *typeVisitor) VisitPrintStmt(stmt *PrintStmt) {
+func (v *typeVisitor) VisitPrintStmt(stmt *ir.PrintStmt) {
 	for i, x := range stmt.Xs {
 		stmt.Xs[i] = VisitExpr(v, x)
 		v.c.tryCoerceBigNumber(stmt.Xs[i])
 	}
 }
 
-func (v *typeVisitor) VisitIfStmt(stmt *IfStmt) {
+func (v *typeVisitor) VisitIfStmt(stmt *ir.IfStmt) {
 	stmt.Cond = VisitExpr(v, stmt.Cond)
-	if stmt.Cond.Type().ID() != TBool {
-		v.c.error(stmt.Cond.FirstPos(), "if condition has type %s (expected %s)", stmt.Cond.Type(), TBool)
+	if stmt.Cond.Type().ID() != ir.TBool {
+		v.c.error(stmt.Cond.FirstPos(), "if condition has type %s (expected %s)", stmt.Cond.Type(), ir.TBool)
 	}
 
 	v.VisitBlockStmt(stmt.Body)
@@ -200,27 +201,27 @@ func (v *typeVisitor) VisitIfStmt(stmt *IfStmt) {
 		VisitStmt(v, stmt.Else)
 	}
 }
-func (v *typeVisitor) VisitWhileStmt(stmt *WhileStmt) {
+func (v *typeVisitor) VisitWhileStmt(stmt *ir.WhileStmt) {
 	stmt.Cond = VisitExpr(v, stmt.Cond)
-	if stmt.Cond.Type().ID() != TBool {
-		v.c.error(stmt.Cond.FirstPos(), "while condition has type %s (expected %s)", stmt.Cond.Type(), TBool)
+	if stmt.Cond.Type().ID() != ir.TBool {
+		v.c.error(stmt.Cond.FirstPos(), "while condition has type %s (expected %s)", stmt.Cond.Type(), ir.TBool)
 	}
 	v.VisitBlockStmt(stmt.Body)
 }
 
-func (v *typeVisitor) VisitReturnStmt(stmt *ReturnStmt) {
+func (v *typeVisitor) VisitReturnStmt(stmt *ir.ReturnStmt) {
 	mismatch := false
 
-	funDecl, _ := v.c.topDecl.(*FuncDecl)
+	funDecl, _ := v.c.topDecl.(*ir.FuncDecl)
 	retType := funDecl.TReturn.Type()
-	if retType.ID() == TUntyped {
+	if retType.ID() == ir.TUntyped {
 		return
 	}
 
-	exprType := TVoid
+	exprType := ir.TVoid
 
 	if stmt.X == nil {
-		if retType.ID() != TVoid {
+		if retType.ID() != ir.TVoid {
 			mismatch = true
 		}
 	} else {
@@ -240,18 +241,18 @@ func (v *typeVisitor) VisitReturnStmt(stmt *ReturnStmt) {
 	}
 }
 
-func (v *typeVisitor) VisitAssignStmt(stmt *AssignStmt) {
+func (v *typeVisitor) VisitAssignStmt(stmt *ir.AssignStmt) {
 	stmt.Left = VisitExpr(v, stmt.Left)
-	if stmt.Left.Type().ID() == TUntyped {
+	if stmt.Left.Type().ID() == ir.TUntyped {
 		return
 	}
 
-	var name *Ident
+	var name *ir.Ident
 
 	switch id := stmt.Left.(type) {
-	case *Ident:
+	case *ir.Ident:
 		name = id
-	case *DotIdent:
+	case *ir.DotExpr:
 		name = id.Name
 	default:
 		v.c.error(stmt.Left.FirstPos(), "invalid assignment")
@@ -261,7 +262,7 @@ func (v *typeVisitor) VisitAssignStmt(stmt *AssignStmt) {
 	sym := name.Sym
 	if sym == nil {
 		return
-	} else if sym.ID != ValSymbol {
+	} else if sym.ID != ir.ValSymbol {
 		v.c.error(name.Pos(), "invalid assignment: '%s' is not a variable", name.Literal())
 		return
 	}
@@ -283,14 +284,14 @@ func (v *typeVisitor) VisitAssignStmt(stmt *AssignStmt) {
 	}
 
 	if stmt.Assign.ID != token.Assign {
-		if !IsNumericType(name.Type()) {
+		if !ir.IsNumericType(name.Type()) {
 			v.c.error(name.Pos(), "type mismatch: %s is not numeric (has type %s)",
 				stmt.Assign, name.Literal(), name.Type())
 		}
 	}
 }
 
-func (v *typeVisitor) VisitExprStmt(stmt *ExprStmt) {
+func (v *typeVisitor) VisitExprStmt(stmt *ir.ExprStmt) {
 	stmt.X = VisitExpr(v, stmt.X)
 	v.c.tryCoerceBigNumber(stmt.X)
 }

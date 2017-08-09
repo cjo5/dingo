@@ -1,4 +1,4 @@
-package semantics
+package ir
 
 import "github.com/jhnl/interpreter/token"
 import "fmt"
@@ -36,10 +36,10 @@ type TopDecl interface {
 	SetContext(*FileContext)
 	Context() *FileContext
 
-	addDependency(TopDecl)
-	dependencies() []TopDecl
-	setNodeColor(NodeColor)
-	nodeColor() NodeColor
+	AddDependency(TopDecl)
+	Dependencies() []TopDecl
+	SetNodeColor(NodeColor)
+	NodeColor() NodeColor
 }
 
 // Stmt is the main interface for statement nodes.
@@ -72,8 +72,8 @@ type baseTopDecl struct {
 	Sym *Symbol
 	Ctx *FileContext
 
-	deps  []TopDecl // Dependencies don't cross module boundaries
-	color NodeColor
+	Deps  []TopDecl // Dependencies don't cross module boundaries
+	Color NodeColor
 }
 
 func (d *baseTopDecl) Symbol() *Symbol {
@@ -88,20 +88,20 @@ func (d *baseTopDecl) Context() *FileContext {
 	return d.Ctx
 }
 
-func (d *baseTopDecl) addDependency(dep TopDecl) {
-	d.deps = append(d.deps, dep)
+func (d *baseTopDecl) AddDependency(dep TopDecl) {
+	d.Deps = append(d.Deps, dep)
 }
 
-func (d *baseTopDecl) dependencies() []TopDecl {
-	return d.deps
+func (d *baseTopDecl) Dependencies() []TopDecl {
+	return d.Deps
 }
 
-func (d *baseTopDecl) setNodeColor(color NodeColor) {
-	d.color = color
+func (d *baseTopDecl) SetNodeColor(color NodeColor) {
+	d.Color = color
 }
 
-func (d *baseTopDecl) nodeColor() NodeColor {
-	return d.color
+func (d *baseTopDecl) NodeColor() NodeColor {
+	return d.Color
 }
 
 type BadDecl struct {
@@ -112,13 +112,12 @@ type BadDecl struct {
 
 func (d *BadDecl) FirstPos() token.Position { return d.From.Pos }
 
-// TODO: Rename to ModuleSet
-type Program struct {
+type ModuleSet struct {
 	baseNode
 	Modules []*Module
 }
 
-func (d *Program) FirstPos() token.Position { return token.NoPosition }
+func (d *ModuleSet) FirstPos() token.Position { return token.NoPosition }
 
 // Module flags.
 const (
@@ -135,7 +134,7 @@ type Module struct {
 	Internal *Scope
 	Files    []*File
 	Decls    []TopDecl
-	color    NodeColor
+	Color    NodeColor
 }
 
 func (m *Module) FirstPos() token.Position { return token.NoPosition }
@@ -408,21 +407,21 @@ func (x *Ident) Pos() token.Position {
 	return x.Name.Pos
 }
 
-func (x *Ident) setSymbol(sym *Symbol) {
+func (x *Ident) SetSymbol(sym *Symbol) {
 	x.Sym = sym
 	if sym != nil {
 		x.T = sym.T
 	}
 }
 
-type DotIdent struct {
+type DotExpr struct {
 	baseExpr
 	X    Expr
 	Dot  token.Token
 	Name *Ident
 }
 
-func (x *DotIdent) FirstPos() token.Position { return x.X.FirstPos() }
+func (x *DotExpr) FirstPos() token.Position { return x.X.FirstPos() }
 
 type FuncCall struct {
 	baseExpr
@@ -438,7 +437,7 @@ func ExprToIdent(expr Expr) *Ident {
 	switch t := expr.(type) {
 	case *Ident:
 		return t
-	case *DotIdent:
+	case *DotExpr:
 		return t.Name
 	}
 	return nil
@@ -459,10 +458,10 @@ func CopyExpr(expr Expr, includePositions bool) Expr {
 		if !includePositions {
 			dst.Name.Pos = token.NoPosition
 		}
-		dst.setSymbol(src.Sym)
+		dst.SetSymbol(src.Sym)
 		return dst
-	case *DotIdent:
-		dst := &DotIdent{}
+	case *DotExpr:
+		dst := &DotExpr{}
 		dst.X = CopyExpr(src.X, includePositions)
 		dst.Name = CopyExpr(src.Name, includePositions).(*Ident)
 		dst.T = src.T

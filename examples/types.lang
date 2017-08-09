@@ -210,8 +210,22 @@ struct Foo<T> {
     a T;
 }
 
-Foo += (
-    fun sayHello<T, B, C>(a T, b B, c C) {
+pub protocol lifecycle() {
+    pub fun onCreate();
+    pub fun onDestroy();
+}
+
+Foo += fun hello() {
+
+}
+
+Foo += lifecycle {
+    fun onCreate() {
 
     }
-)
+
+    fun onDestroy() {
+
+    }
+}
+

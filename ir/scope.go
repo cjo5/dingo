@@ -1,4 +1,4 @@
-package semantics
+package ir
 
 import "bytes"
 import "fmt"
