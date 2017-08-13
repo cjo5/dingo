@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"io/ioutil"
 
-	"github.com/jhnl/interpreter/common"
-	"github.com/jhnl/interpreter/ir"
-	"github.com/jhnl/interpreter/token"
+	"github.com/jhnl/dingo/common"
+	"github.com/jhnl/dingo/ir"
+	"github.com/jhnl/dingo/token"
 )
 
 func ParseFile(filepath string) (*ir.File, []ir.TopDecl, error) {

@@ -1,7 +1,11 @@
 package ir
 
-import "github.com/jhnl/interpreter/token"
-import "fmt"
+import (
+	"fmt"
+	"math/big"
+
+	"github.com/jhnl/dingo/token"
+)
 
 // NodeColor is used to color nodes during dfs to sort dependencies.
 type NodeColor int
@@ -372,6 +376,21 @@ type BasicLit struct {
 }
 
 func (x *BasicLit) FirstPos() token.Position { return x.Value.Pos }
+
+func (x *BasicLit) AsString() string {
+	return x.Raw.(string)
+}
+
+func (x *BasicLit) AsU64() uint64 {
+	bigInt := x.Raw.(*big.Int)
+	return bigInt.Uint64()
+}
+
+func (x *BasicLit) AsF64() float64 {
+	bigFloat := x.Raw.(*big.Float)
+	val, _ := bigFloat.Float64()
+	return val
+}
 
 type KeyValue struct {
 	baseNode

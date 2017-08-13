@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"sort"
 
-	"github.com/jhnl/interpreter/token"
+	"github.com/jhnl/dingo/token"
 )
 
 // Cwd is the absolute path of the current working directory.

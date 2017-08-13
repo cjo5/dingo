@@ -5,12 +5,12 @@ import (
 
 	"fmt"
 
-	"github.com/jhnl/interpreter/ir"
-	"github.com/jhnl/interpreter/token"
+	"github.com/jhnl/dingo/ir"
+	"github.com/jhnl/dingo/token"
 )
 
 type exprPrinter struct {
-	BaseVisitor
+	ir.BaseVisitor
 	buffer bytes.Buffer
 }
 
@@ -22,7 +22,7 @@ func (p *exprPrinter) VisitBinaryExpr(expr *ir.BinaryExpr) ir.Expr {
 	if opPrec < leftPrec {
 		p.buffer.WriteString("(")
 	}
-	VisitExpr(p, expr.Left)
+	ir.VisitExpr(p, expr.Left)
 	if opPrec < leftPrec {
 		p.buffer.WriteString(")")
 	}
@@ -32,7 +32,7 @@ func (p *exprPrinter) VisitBinaryExpr(expr *ir.BinaryExpr) ir.Expr {
 	if opPrec < rightPrec {
 		p.buffer.WriteString("(")
 	}
-	VisitExpr(p, expr.Right)
+	ir.VisitExpr(p, expr.Right)
 	if opPrec < rightPrec {
 		p.buffer.WriteString(")")
 	}
@@ -48,7 +48,7 @@ func (p *exprPrinter) VisitUnaryExpr(expr *ir.UnaryExpr) ir.Expr {
 	if opPrec < xPrec {
 		p.buffer.WriteString("(")
 	}
-	VisitExpr(p, expr.X)
+	ir.VisitExpr(p, expr.X)
 	if opPrec < xPrec {
 		p.buffer.WriteString(")")
 	}
@@ -63,7 +63,7 @@ func (p *exprPrinter) VisitBasicLit(expr *ir.BasicLit) ir.Expr {
 
 func (p *exprPrinter) VisitStructLit(expr *ir.StructLit) ir.Expr {
 	p.buffer.WriteString("struct ")
-	VisitExpr(p, expr.Name)
+	ir.VisitExpr(p, expr.Name)
 	return expr
 }
 
@@ -73,18 +73,18 @@ func (p *exprPrinter) VisitIdent(expr *ir.Ident) ir.Expr {
 }
 
 func (p *exprPrinter) VisitDotExpr(expr *ir.DotExpr) ir.Expr {
-	VisitExpr(p, expr.X)
+	ir.VisitExpr(p, expr.X)
 	p.buffer.WriteString(".")
 	p.VisitIdent(expr.Name)
 	return expr
 }
 
 func (p *exprPrinter) VisitFuncCall(expr *ir.FuncCall) ir.Expr {
-	VisitExpr(p, expr)
+	ir.VisitExpr(p, expr)
 
 	p.buffer.WriteString("(")
 	for i, arg := range expr.Args {
-		VisitExpr(p, arg)
+		ir.VisitExpr(p, arg)
 		if (i + 1) < len(expr.Args) {
 			p.buffer.WriteString(", ")
 		}

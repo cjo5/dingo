@@ -1,0 +1,20 @@
+module
+
+ext fun mult(a: i32, b: i32) -> i32 {
+    return a*b;
+}
+
+ext fun factorial(n: i32) -> i32 {
+    if n <= 1 {
+        return 1;
+    }
+    return n * factorial(n-1);
+}
+
+fun foo1() {
+    foo2();
+}
+
+fun foo2() {
+    foo1();
+}

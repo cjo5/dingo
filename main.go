@@ -5,11 +5,10 @@ import (
 
 	"os"
 
-	"github.com/jhnl/interpreter/common"
-	"github.com/jhnl/interpreter/llvm"
-	"github.com/jhnl/interpreter/module"
-	"github.com/jhnl/interpreter/semantics"
-	"github.com/jhnl/interpreter/vm"
+	"github.com/jhnl/dingo/common"
+	"github.com/jhnl/dingo/llvm"
+	"github.com/jhnl/dingo/module"
+	"github.com/jhnl/dingo/semantics"
 )
 
 func showErrors(oldErrors common.ErrorList, newError error, onlyFatal bool) bool {
@@ -63,9 +62,11 @@ func exec(path string) {
 	// Test
 	llvm.Build(modules)
 
-	bytecode := vm.Compile(modules)
-	vm.Disasm(bytecode, os.Stdout)
-	vm.Run(bytecode, os.Stdout)
+	/*
+		bytecode := vm.Compile(modules)
+		vm.Disasm(bytecode, os.Stdout)
+		vm.Run(bytecode, os.Stdout)
+	*/
 }
 
 func main() {
@@ -76,5 +77,5 @@ func main() {
 	}
 	common.Cwd = dir
 
-	exec("examples/play.lang")
+	exec("examples/simple.dg")
 }

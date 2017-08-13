@@ -1,0 +1,40 @@
+module;
+
+fun fizzbuzz(n i32) {
+    var i = 1;
+    while i <= n {
+        var printed = false;
+        if (i%3) == 0 {
+            print "fizz";
+            printed = true;
+        }
+        if (i%5) == 0 {
+            if printed {
+                print " ";
+            }
+            print "buzz";
+            printed = true;
+        }
+
+        if !printed {
+            print i;
+        }
+
+        i += 1;
+        if i <= n {
+            print ", ";
+        }
+    }
+}
+
+fun main() {
+    /*
+    /*
+        Oh no
+    */
+    Hello
+    */
+    fizzbuzz(20);
+    print "\n";
+}
+

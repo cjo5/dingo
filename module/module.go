@@ -9,14 +9,14 @@ import (
 
 	"fmt"
 
-	"github.com/jhnl/interpreter/common"
-	"github.com/jhnl/interpreter/ir"
-	"github.com/jhnl/interpreter/parser"
-	"github.com/jhnl/interpreter/token"
+	"github.com/jhnl/dingo/common"
+	"github.com/jhnl/dingo/ir"
+	"github.com/jhnl/dingo/parser"
+	"github.com/jhnl/dingo/token"
 )
 
-const langExtension = ".lang"
-const packageFile = "package" + langExtension
+const fileExtension = ".dg"
+const packageFile = "package" + fileExtension
 
 type moduleImport struct {
 	imp  *ir.Import
@@ -45,8 +45,8 @@ type loader struct {
 // Load module and imports.
 //
 func Load(path string) (*ir.ModuleSet, error) {
-	if !strings.HasSuffix(path, langExtension) {
-		return nil, fmt.Errorf("not a lang file")
+	if !strings.HasSuffix(path, fileExtension) {
+		return nil, fmt.Errorf("%s is not a dingo file", path)
 	}
 
 	loader := &loader{moduleID: 1} // ID 0 is reserved
@@ -129,7 +129,7 @@ func (l *loader) loadModule(filename string) *loadedModule {
 	moduleName := filepath.Base(filename)
 
 	if moduleName != packageFile {
-		moduleName = strings.Replace(moduleName, langExtension, "", -1)
+		moduleName = strings.Replace(moduleName, fileExtension, "", -1)
 		mod.Name = token.Synthetic(token.Ident, moduleName)
 		mod.Path = filename
 		return loadedMod
@@ -148,7 +148,7 @@ func (l *loader) loadModule(filename string) *loadedModule {
 	var packageFiles []string
 
 	for _, f := range files {
-		if filepath.Ext(f.Name()) != langExtension || f.Name() == packageFile {
+		if filepath.Ext(f.Name()) != fileExtension || f.Name() == packageFile {
 			continue
 		}
 		packageFiles = append(packageFiles, filepath.Join(moduleDir, f.Name()))
@@ -262,7 +262,7 @@ func normalizePath(rel string, path string, appendExtension bool) (string, error
 	absPackagePath := absPath
 
 	if appendExtension {
-		absFilePath += langExtension
+		absFilePath += fileExtension
 		absPackagePath = filepath.Join(absPath, packageFile)
 	}
 

@@ -1,0 +1,231 @@
+import "@std/math"
+import "builtin"
+import "mylib" as lib2 [
+    Shape as x, 
+    PI, Code, man, x
+]
+
+
+/*
+    @std: standard library
+    @file: relative to file's parent directory
+
+    module IDENT defines a module. 
+    A module can be a single file: file name is same as module.
+    A module can be a directory: entry point for module is module.lang file.
+    A module defines build options.
+
+    3 levels of visibility:
+    - external: accessible outside module.
+    - internal: acccessible by other files in same module.
+    - restricted: only accessible inside file.
+*/
+
+/*
+
+Base types:
+- Unsigned / signed 64, 32, 16 and 8 bit integers
+- 64 and 32 bit floats
+- char
+- bool
+- function
+- struct
+- enum
+- array
+
+func main() {
+    // type annotations
+    var x1: geometry = geometry{}; // named struct
+    val x2: *{a: i32, b: i32} = {a = 5, b = 6}; // anonymous struct
+    var y: geometry = geometry::shape; // enum
+    var z: [5]geometry = []; // static array
+    val v1: *geometry = new geometry{}; // pointer
+    val v2: []geometry = new [5]geometry; // slice
+    var w: (i32, i32) -> bool = func (a: i32, b: i32) -> bool { // function
+        return a < 5;
+    };
+
+    // inference
+    var x1 = geometry{}; // named struct
+    var x2 = {a=5, b=6}; // anonymous struct
+    var y = geometry::shape; // enum
+    var z = [1, 2, 3]; // array
+    var v1 = new geometry{}; // pointer
+    var v2 = new [5]geometry // slice
+    var w = func(a: i32, b: i32) -> bool {
+        return < 5;
+    };
+
+    val ptr x: geometry = &x;
+    var ptr z
+}
+
+exp : (
+    :a i64 = 5;
+
+)
+
+const int a = 5;
+
+:a = 5;
+
+
+int a = 5;
+
+::a = 5;
+
+struct Point {
+    :value i32;
+    :y: i32;
+}
+
+exp struct A {
+    exp (
+        :a f32 = 5.0;
+        ::myVariable;
+    )
+
+    :a f32 = 6.0;
+
+    rst (
+        a i64 =a5;
+        a = i32 
+    )
+}
+
+exp fun (
+    Whatsup() -> bool {
+
+    }
+)
+
+A += fun (
+    Hello() {
+        print "hello";
+    }
+)
+
+var x: str = ""
+
+var x: u8
+var x: s8
+
+struct {
+    v: s32 = 99
+    w: s32
+} a;
+
+
+val f: (s32, u64) -> i32 = fun (a: s32, b: s32) -> i32 {
+
+};
+
+var f2: (a: str, b: str) -> i32;
+
+*/
+
+.a i32 = 5;
+
+struct a {
+    a i32 = 9;
+    a i32 = 5;
+}
+
+enum b {
+	
+}
+
+fun x(a i32, b i32) -> i32 {
+    :a = 9;
+    :a = 4;
+}
+
+.a (a i32, b i32) -> i32 = fun (a i32, b i32) i32 {
+	
+}
+
+.a:struct{.a i32, .b i32} = struct{.a=5, .b=9}; 
+
+.a = struct{a=9, b=6};
+
+:a {.a i32 = 5, .b i32 = 9} = [struct {a=9, b=9}, declt(5, b)];
+
+.a = [
+	struct {:a=9, :b=9},
+	struct {:a=5, :b=5}
+]
+
+.a = 5;
+
+import "a"
+import "b"
+
+embed "a"
+
+fun main() {
+    var c = 2;
+    val c: i32 = i32:(c+2341);
+    val c i32 = i32:(c+2341);
+    val c = i32:c;
+    val c = i32:c
+
+}
+
+embed "a";
+
+alias a b;
+
+pub struct a {
+	pub (
+		priv a i32;
+		int b i32;
+	)
+}
+
+fun b(i32, i32) bool;
+
+fun a(a i32, b i32) bool {
+	
+}
+
+
+
+struct Foo {
+    a i32;
+    b i32;
+}
+
+Foo += (
+    fun sayHello() {
+
+    }
+)
+
+var c Foo;
+
+c.sayHello()
+
+
+struct Foo<T> {
+    a T;
+}
+
+pub protocol lifecycle() {
+    pub fun onCreate();
+    pub fun onDestroy();
+}
+
+Foo += fun hello() {
+
+}
+
+Foo += lifecycle {
+    fun onCreate() {
+
+    }
+
+    fun onDestroy() {
+
+    }
+}
+

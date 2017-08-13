@@ -273,11 +273,27 @@ func IsUntyped(t Type) bool {
 	return t.ID() == TUntyped
 }
 
-func IsNumericType(t Type) bool {
+func IsIntegerType(t Type) bool {
 	switch t.ID() {
-	case TBigInt, TBigFloat, TUInt64, TInt64, TUInt32, TInt32, TUInt16, TInt16, TUInt8, TInt8, TFloat64, TFloat32:
+	case TBigInt, TUInt64, TInt64, TUInt32, TInt32, TUInt16, TInt16, TUInt8, TInt8:
 		return true
 	default:
 		return false
 	}
+}
+
+func IsFloatingType(t Type) bool {
+	switch t.ID() {
+	case TBigFloat, TFloat64, TFloat32:
+		return true
+	default:
+		return false
+	}
+}
+
+func IsNumericType(t Type) bool {
+	if IsIntegerType(t) || IsFloatingType(t) {
+		return true
+	}
+	return false
 }

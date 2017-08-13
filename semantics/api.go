@@ -1,6 +1,6 @@
 package semantics
 
-import "github.com/jhnl/interpreter/ir"
+import "github.com/jhnl/dingo/ir"
 
 // Check program.
 // Resolve identifiers, type check and look for cyclic dependencies between identifiers.
@@ -30,13 +30,13 @@ func Check(set *ir.ModuleSet) error {
 // PrintTree pre-order.
 func PrintTree(n ir.Node) string {
 	p := &treePrinter{}
-	StartWalk(p, n)
+	ir.StartWalk(p, n)
 	return p.buffer.String()
 }
 
 // PrintExpr in-order.
 func PrintExpr(expr ir.Expr) string {
 	p := &exprPrinter{}
-	VisitExpr(p, expr)
+	ir.VisitExpr(p, expr)
 	return p.buffer.String()
 }

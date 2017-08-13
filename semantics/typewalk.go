@@ -1,7 +1,7 @@
 package semantics
 
-import "github.com/jhnl/interpreter/token"
-import "github.com/jhnl/interpreter/ir"
+import "github.com/jhnl/dingo/token"
+import "github.com/jhnl/dingo/ir"
 
 const (
 	identModeNone = 0
@@ -10,7 +10,7 @@ const (
 )
 
 type typeVisitor struct {
-	BaseVisitor
+	ir.BaseVisitor
 	signature bool
 	identMode int
 	c         *checker
@@ -19,7 +19,7 @@ type typeVisitor struct {
 func typeWalk(c *checker) {
 	v := &typeVisitor{c: c}
 	c.resetWalkState()
-	VisitModuleSet(v, c.set)
+	ir.VisitModuleSet(v, c.set)
 }
 
 func (v *typeVisitor) Module(mod *ir.Module) {
@@ -32,7 +32,7 @@ func (v *typeVisitor) Module(mod *ir.Module) {
 			continue
 		}
 		v.c.setTopDecl(decl)
-		VisitDecl(v, decl)
+		ir.VisitDecl(v, decl)
 	}
 
 	v.signature = false
@@ -42,7 +42,7 @@ func (v *typeVisitor) Module(mod *ir.Module) {
 			continue
 		}
 		v.c.setTopDecl(decl)
-		VisitDecl(v, decl)
+		ir.VisitDecl(v, decl)
 	}
 }
 
@@ -70,7 +70,7 @@ func (v *typeVisitor) visitValDeclSpec(sym *ir.Symbol, decl *ir.ValDeclSpec, def
 
 	if decl.Type != nil {
 		v.identMode = identModeType
-		VisitExpr(v, decl.Type)
+		ir.VisitExpr(v, decl.Type)
 		v.identMode = identModeNone
 		sym.T = decl.Type.Type()
 
@@ -98,7 +98,7 @@ func (v *typeVisitor) visitValDeclSpec(sym *ir.Symbol, decl *ir.ValDeclSpec, def
 	}
 
 	if decl.Initializer != nil {
-		decl.Initializer = VisitExpr(v, decl.Initializer)
+		decl.Initializer = ir.VisitExpr(v, decl.Initializer)
 
 		if decl.Type == nil {
 			if !v.c.tryCoerceBigNumber(decl.Initializer) {
@@ -129,7 +129,7 @@ func (v *typeVisitor) VisitFuncDecl(decl *ir.FuncDecl) {
 			v.VisitValDecl(param)
 		}
 		v.identMode = identModeType
-		decl.TReturn = VisitExpr(v, decl.TReturn)
+		decl.TReturn = ir.VisitExpr(v, decl.TReturn)
 		v.identMode = identModeNone
 
 		decl.Sym.T = ir.NewFuncType(decl)
@@ -176,33 +176,33 @@ func (v *typeVisitor) VisitStructDecl(decl *ir.StructDecl) {
 
 func (v *typeVisitor) VisitBlockStmt(stmt *ir.BlockStmt) {
 	defer setScope(setScope(v.c, stmt.Scope))
-	VisitStmtList(v, stmt.Stmts)
+	ir.VisitStmtList(v, stmt.Stmts)
 }
 
 func (v *typeVisitor) VisitDeclStmt(stmt *ir.DeclStmt) {
-	VisitDecl(v, stmt.D)
+	ir.VisitDecl(v, stmt.D)
 }
 
 func (v *typeVisitor) VisitPrintStmt(stmt *ir.PrintStmt) {
 	for i, x := range stmt.Xs {
-		stmt.Xs[i] = VisitExpr(v, x)
+		stmt.Xs[i] = ir.VisitExpr(v, x)
 		v.c.tryCoerceBigNumber(stmt.Xs[i])
 	}
 }
 
 func (v *typeVisitor) VisitIfStmt(stmt *ir.IfStmt) {
-	stmt.Cond = VisitExpr(v, stmt.Cond)
+	stmt.Cond = ir.VisitExpr(v, stmt.Cond)
 	if stmt.Cond.Type().ID() != ir.TBool {
 		v.c.error(stmt.Cond.FirstPos(), "if condition has type %s (expected %s)", stmt.Cond.Type(), ir.TBool)
 	}
 
 	v.VisitBlockStmt(stmt.Body)
 	if stmt.Else != nil {
-		VisitStmt(v, stmt.Else)
+		ir.VisitStmt(v, stmt.Else)
 	}
 }
 func (v *typeVisitor) VisitWhileStmt(stmt *ir.WhileStmt) {
-	stmt.Cond = VisitExpr(v, stmt.Cond)
+	stmt.Cond = ir.VisitExpr(v, stmt.Cond)
 	if stmt.Cond.Type().ID() != ir.TBool {
 		v.c.error(stmt.Cond.FirstPos(), "while condition has type %s (expected %s)", stmt.Cond.Type(), ir.TBool)
 	}
@@ -225,7 +225,7 @@ func (v *typeVisitor) VisitReturnStmt(stmt *ir.ReturnStmt) {
 			mismatch = true
 		}
 	} else {
-		stmt.X = VisitExpr(v, stmt.X)
+		stmt.X = ir.VisitExpr(v, stmt.X)
 		if !v.c.tryCastLiteral(stmt.X, retType) {
 			exprType = stmt.X.Type().ID()
 			mismatch = true
@@ -242,7 +242,7 @@ func (v *typeVisitor) VisitReturnStmt(stmt *ir.ReturnStmt) {
 }
 
 func (v *typeVisitor) VisitAssignStmt(stmt *ir.AssignStmt) {
-	stmt.Left = VisitExpr(v, stmt.Left)
+	stmt.Left = ir.VisitExpr(v, stmt.Left)
 	if stmt.Left.Type().ID() == ir.TUntyped {
 		return
 	}
@@ -267,7 +267,7 @@ func (v *typeVisitor) VisitAssignStmt(stmt *ir.AssignStmt) {
 		return
 	}
 
-	stmt.Right = VisitExpr(v, stmt.Right)
+	stmt.Right = ir.VisitExpr(v, stmt.Right)
 
 	if constID := v.c.checkConstant(stmt.Left); constID != nil {
 		v.c.error(constID.Pos(), "'%s' was declared with %s and cannot be modified (constant)",
@@ -292,6 +292,6 @@ func (v *typeVisitor) VisitAssignStmt(stmt *ir.AssignStmt) {
 }
 
 func (v *typeVisitor) VisitExprStmt(stmt *ir.ExprStmt) {
-	stmt.X = VisitExpr(v, stmt.X)
+	stmt.X = ir.VisitExpr(v, stmt.X)
 	v.c.tryCoerceBigNumber(stmt.X)
 }

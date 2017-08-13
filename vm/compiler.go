@@ -4,10 +4,8 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/jhnl/interpreter/semantics"
-
-	"github.com/jhnl/interpreter/ir"
-	"github.com/jhnl/interpreter/token"
+	"github.com/jhnl/dingo/ir"
+	"github.com/jhnl/dingo/token"
 )
 
 // Compile to bytecode.
@@ -22,7 +20,7 @@ func Compile(set *ir.ModuleSet) *BytecodeProgram {
 	bootstrapMod.functions = append(bootstrapMod.functions, bootstrapFun)
 	c.compiledModules = append(c.compiledModules, bootstrapMod)
 
-	semantics.VisitModuleSet(c, set)
+	ir.VisitModuleSet(c, set)
 
 	mainModAddr := -1
 	for i := 1; i < len(c.compiledModules); i++ {
@@ -64,7 +62,7 @@ type functionUnit struct {
 }
 
 type compiler struct {
-	semantics.BaseVisitor
+	ir.BaseVisitor
 	module          *moduleUnit
 	compiledModules []*moduleUnit
 
@@ -298,12 +296,12 @@ func (c *compiler) Module(mod *ir.Module) {
 
 	for _, decl := range decls {
 		c.currBlock = nil
-		semantics.VisitDecl(c, decl)
+		ir.VisitDecl(c, decl)
 	}
 }
 
 func (c *compiler) VisitValTopDecl(decl *ir.ValTopDecl) {
-	semantics.VisitExpr(c, decl.Initializer)
+	ir.VisitExpr(c, decl.Initializer)
 
 	addr := c.module.globalAddress
 	c.module.globalAddress++
@@ -313,7 +311,7 @@ func (c *compiler) VisitValTopDecl(decl *ir.ValTopDecl) {
 }
 
 func (c *compiler) VisitValDecl(decl *ir.ValDecl) {
-	semantics.VisitExpr(c, decl.Initializer)
+	ir.VisitExpr(c, decl.Initializer)
 
 	addr := c.module.localAddress
 	c.module.localAddress++
@@ -357,7 +355,7 @@ func (c *compiler) VisitStructDecl(decl *ir.StructDecl) {
 func (c *compiler) VisitBlockStmt(stmt *ir.BlockStmt) {
 	outer := c.scope
 	c.scope = stmt.Scope
-	semantics.VisitStmtList(c, stmt.Stmts)
+	ir.VisitStmtList(c, stmt.Stmts)
 	c.scope = outer
 }
 
@@ -372,7 +370,7 @@ func (c *compiler) VisitDeclStmt(stmt *ir.DeclStmt) {
 
 func (c *compiler) VisitPrintStmt(stmt *ir.PrintStmt) {
 	for _, x := range stmt.Xs {
-		semantics.VisitExpr(c, x)
+		ir.VisitExpr(c, x)
 	}
 	c.currBlock.addInstr1(Print, int64(len(stmt.Xs)))
 }
@@ -381,7 +379,7 @@ func (c *compiler) VisitIfStmt(stmt *ir.IfStmt) {
 	jump := &basicBlock{}
 	seq := &basicBlock{}
 
-	semantics.VisitExpr(c, stmt.Cond)
+	ir.VisitExpr(c, stmt.Cond)
 	c.currBlock.addJumpInstr(NewInstr0(IfFalse), jump)
 	c.setNextBlock(seq)
 	c.VisitBlockStmt(stmt.Body)
@@ -398,7 +396,7 @@ func (c *compiler) VisitIfStmt(stmt *ir.IfStmt) {
 		jumpIndex := len(tmp.instructions)
 		tmp.addInstr0(Goto)
 		c.setNextBlock(jump)
-		semantics.VisitStmt(c, stmt.Else)
+		ir.VisitStmt(c, stmt.Else)
 
 		if _, ok := stmt.Else.(*ir.BlockStmt); ok {
 			c.setNextBlock(&basicBlock{})
@@ -419,7 +417,7 @@ func (c *compiler) VisitWhileStmt(stmt *ir.WhileStmt) {
 	c.setNextBlock(loop)
 	c.VisitBlockStmt(stmt.Body)
 	c.setNextBlock(cond)
-	semantics.VisitExpr(c, stmt.Cond)
+	ir.VisitExpr(c, stmt.Cond)
 	c.currBlock.addJumpInstr(NewInstr0(IfTrue), loop)
 	c.setNextBlock(join)
 	c.target0 = nil
@@ -428,7 +426,7 @@ func (c *compiler) VisitWhileStmt(stmt *ir.WhileStmt) {
 
 func (c *compiler) VisitReturnStmt(stmt *ir.ReturnStmt) {
 	if stmt.X != nil {
-		semantics.VisitExpr(c, stmt.X)
+		ir.VisitExpr(c, stmt.X)
 	}
 	c.currBlock.addInstr0(Ret)
 	c.setNextBlock(&basicBlock{})
@@ -449,9 +447,9 @@ func (c *compiler) VisitAssignStmt(stmt *ir.AssignStmt) {
 	if assign == token.AddAssign || assign == token.SubAssign ||
 		assign == token.MulAssign || assign == token.DivAssign ||
 		assign == token.ModAssign {
-		semantics.VisitExpr(c, stmt.Left)
+		ir.VisitExpr(c, stmt.Left)
 	}
-	semantics.VisitExpr(c, stmt.Right)
+	ir.VisitExpr(c, stmt.Right)
 	t := stmt.Left.Type().ID()
 	if assign == token.AddAssign {
 		c.currBlock.addInstr0(AddOp(t))
@@ -470,7 +468,7 @@ func (c *compiler) VisitAssignStmt(stmt *ir.AssignStmt) {
 	case *ir.Ident:
 		sym = t.Sym
 	case *ir.DotExpr:
-		semantics.VisitExpr(c, t.X)
+		ir.VisitExpr(c, t.X)
 		sym = t.Name.Sym
 	default:
 		panic(fmt.Sprintf("Unhandled assign expr %T", t))
@@ -493,7 +491,7 @@ func (c *compiler) VisitAssignStmt(stmt *ir.AssignStmt) {
 }
 
 func (c *compiler) VisitExprStmt(stmt *ir.ExprStmt) {
-	semantics.VisitExpr(c, stmt.X)
+	ir.VisitExpr(c, stmt.X)
 
 	typ := stmt.X.Type()
 	if typ.ID() != ir.TVoid {
@@ -517,22 +515,22 @@ func (c *compiler) VisitBinaryExpr(expr *ir.BinaryExpr) ir.Expr {
 		target1.addInstr1(BoolLoad, 1)
 		target1.next = join
 
-		semantics.VisitExpr(c, expr.Left)
+		ir.VisitExpr(c, expr.Left)
 		if expr.Op.ID == token.Lor {
 			c.currBlock.addJumpInstr0(IfTrue, target1)
 			c.setNextBlock(jump2)
-			semantics.VisitExpr(c, expr.Right)
+			ir.VisitExpr(c, expr.Right)
 			c.currBlock.addJumpInstr0(IfTrue, target1)
 		} else { // Land
 			c.currBlock.addJumpInstr0(IfFalse, target0)
 			c.setNextBlock(jump2)
-			semantics.VisitExpr(c, expr.Right)
+			ir.VisitExpr(c, expr.Right)
 			c.currBlock.addJumpInstr0(IfTrue, target1)
 		}
 		c.currBlock = join
 	} else {
-		semantics.VisitExpr(c, expr.Left)
-		semantics.VisitExpr(c, expr.Right)
+		ir.VisitExpr(c, expr.Left)
+		ir.VisitExpr(c, expr.Right)
 
 		t := expr.Type().ID()
 
@@ -581,7 +579,7 @@ func (c *compiler) VisitUnaryExpr(expr *ir.UnaryExpr) ir.Expr {
 		c.currBlock.addInstr1(loadop, int64(arg))
 	}
 
-	semantics.VisitExpr(c, expr.X)
+	ir.VisitExpr(c, expr.X)
 	if expr.Op.ID == token.Sub {
 		c.currBlock.addInstr0(binop)
 	} else {
@@ -648,14 +646,14 @@ func (c *compiler) VisitBasicLit(expr *ir.BasicLit) ir.Expr {
 
 func (c *compiler) VisitStructLit(expr *ir.StructLit) ir.Expr {
 	for _, init := range expr.Initializers {
-		semantics.VisitExpr(c, init.Value)
+		ir.VisitExpr(c, init.Value)
 	}
 	var sym *ir.Symbol
 	switch id := expr.Name.(type) {
 	case *ir.Ident:
 		sym = id.Sym
 	case *ir.DotExpr:
-		semantics.VisitExpr(c, id.X)
+		ir.VisitExpr(c, id.X)
 		sym = id.Name.Sym
 	default:
 		panic(fmt.Sprintf("Unhandled struct literal expr %T", id))
@@ -690,20 +688,20 @@ func (c *compiler) VisitIdent(expr *ir.Ident) ir.Expr {
 }
 
 func (c *compiler) VisitDotExpr(expr *ir.DotExpr) ir.Expr {
-	semantics.VisitExpr(c, expr.X)
+	ir.VisitExpr(c, expr.X)
 	c.VisitIdent(expr.Name)
 	return expr
 }
 
 func (c *compiler) VisitFuncCall(expr *ir.FuncCall) ir.Expr {
-	semantics.VisitExprList(c, expr.Args)
+	ir.VisitExprList(c, expr.Args)
 
 	var sym *ir.Symbol
 	switch id := expr.X.(type) {
 	case *ir.Ident:
 		sym = id.Sym
 	case *ir.DotExpr:
-		semantics.VisitExpr(c, id.X)
+		ir.VisitExpr(c, id.X)
 		sym = id.Name.Sym
 	default:
 		panic(fmt.Sprintf("Unhandled function expr %T", id))

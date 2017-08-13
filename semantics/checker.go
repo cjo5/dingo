@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/jhnl/interpreter/common"
-	"github.com/jhnl/interpreter/ir"
-	"github.com/jhnl/interpreter/token"
+	"github.com/jhnl/dingo/common"
+	"github.com/jhnl/dingo/ir"
+	"github.com/jhnl/dingo/token"
 )
 
 var builtinScope = ir.NewScope(ir.RootScope, nil)

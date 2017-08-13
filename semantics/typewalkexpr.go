@@ -5,15 +5,15 @@ import (
 	"math/big"
 	"strings"
 
-	"github.com/jhnl/interpreter/ir"
-	"github.com/jhnl/interpreter/token"
+	"github.com/jhnl/dingo/ir"
+	"github.com/jhnl/dingo/token"
 )
 
 // TODO: Evaluate constant boolean expressions
 
 func (v *typeVisitor) VisitBinaryExpr(expr *ir.BinaryExpr) ir.Expr {
-	expr.Left = VisitExpr(v, expr.Left)
-	expr.Right = VisitExpr(v, expr.Right)
+	expr.Left = ir.VisitExpr(v, expr.Left)
+	expr.Right = ir.VisitExpr(v, expr.Right)
 
 	leftType := expr.Left.Type()
 	rightType := expr.Right.Type()
@@ -44,6 +44,7 @@ func (v *typeVisitor) VisitBinaryExpr(expr *ir.BinaryExpr) ir.Expr {
 				leftBigInt, _ = leftLit.Raw.(*big.Int)
 				leftBigFloat, _ = leftLit.Raw.(*big.Float)
 			}
+
 			if rightLit != nil {
 				rightBigInt, _ = rightLit.Raw.(*big.Int)
 				rightBigFloat, _ = rightLit.Raw.(*big.Float)
@@ -196,7 +197,7 @@ func (v *typeVisitor) VisitBinaryExpr(expr *ir.BinaryExpr) ir.Expr {
 }
 
 func (v *typeVisitor) VisitUnaryExpr(expr *ir.UnaryExpr) ir.Expr {
-	expr.X = VisitExpr(v, expr.X)
+	expr.X = ir.VisitExpr(v, expr.X)
 	expr.T = expr.X.Type()
 	switch expr.Op.ID {
 	case token.Sub:
@@ -324,7 +325,7 @@ func (v *typeVisitor) VisitBasicLit(expr *ir.BasicLit) ir.Expr {
 func (v *typeVisitor) VisitStructLit(expr *ir.StructLit) ir.Expr {
 	prevMode := v.identMode
 	v.identMode = identModeType
-	expr.Name = VisitExpr(v, expr.Name)
+	expr.Name = ir.VisitExpr(v, expr.Name)
 	v.identMode = prevMode
 
 	t := expr.Name.Type()
@@ -357,7 +358,7 @@ func (v *typeVisitor) VisitStructLit(expr *ir.StructLit) ir.Expr {
 			continue
 		}
 
-		kv.Value = VisitExpr(v, kv.Value)
+		kv.Value = ir.VisitExpr(v, kv.Value)
 
 		if ir.IsUntyped(fieldSym.T) {
 			inits[kv.Key.Literal] = nil
@@ -464,7 +465,7 @@ func (v *typeVisitor) VisitIdent(expr *ir.Ident) ir.Expr {
 }
 
 func (v *typeVisitor) VisitDotExpr(expr *ir.DotExpr) ir.Expr {
-	expr.X = VisitExpr(v, expr.X)
+	expr.X = ir.VisitExpr(v, expr.X)
 	t := expr.X.Type()
 	if ir.IsUntyped(t) {
 		expr.T = ir.TBuiltinUntyped
@@ -500,7 +501,7 @@ func (v *typeVisitor) VisitDotExpr(expr *ir.DotExpr) ir.Expr {
 func (v *typeVisitor) VisitFuncCall(expr *ir.FuncCall) ir.Expr {
 	prevMode := v.identMode
 	v.identMode = identModeFunc
-	expr.X = VisitExpr(v, expr.X)
+	expr.X = ir.VisitExpr(v, expr.X)
 	v.identMode = prevMode
 
 	t := expr.X.Type()
@@ -526,7 +527,7 @@ func (v *typeVisitor) VisitFuncCall(expr *ir.FuncCall) ir.Expr {
 	}
 
 	for i, arg := range expr.Args {
-		expr.Args[i] = VisitExpr(v, arg)
+		expr.Args[i] = ir.VisitExpr(v, arg)
 	}
 
 	if typeCast {

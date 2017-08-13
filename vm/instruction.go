@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/jhnl/interpreter/ir"
+	"github.com/jhnl/dingo/ir"
 )
 
 type Opcode int
