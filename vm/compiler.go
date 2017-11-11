@@ -69,6 +69,9 @@ type compiler struct {
 	// Jump targets used when compiling if and while statements.
 	// If statement: target0 is branch taken and target1 is not taken.
 	// While statement: target0 is loop condition and target1 is block following the loop.
+	//
+	// TODO: Need to replace with stack of basicBlocks since this does not support nested loops
+	//
 	currBlock *basicBlock
 	target0   *basicBlock
 	target1   *basicBlock

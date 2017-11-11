@@ -1,5 +1,6 @@
 TODO (in no particular order):
 - Compile to LLVM
+    - Structs
 - Improve module system
     - Modules and partial modules
         - module a
@@ -24,9 +25,11 @@ TODO (in no particular order):
     - Non nullable pointers instead of c++ references
     - Explicit pointer semantics. move, share etc.
 - Add tests
+    - Go tests
+    - Dingo tests
 - Refactor semantics package. The use of AST, symbol and type is very confusing right now.
     - Remove Node from Symbol struct
-        - This will require a new way to handle decl dependencies
+        - This will require a new way to handle decl dependencies (use map instead?)
 - Add methods
 - Add characters
 - Add anonymous functions
@@ -39,13 +42,13 @@ TODO (in no particular order):
 - Type alias
 - Macros / preprocessor
 - VM improvements
+    - Fix issue with nested loops
     - Make it possible to call native (go) functions
     - Print vm state
     - Scoped variables should expand and shrink locals array
-- Change op + assign to assign + binary expr
 - Make it easier to merge tokens
 - Default function arguments + keyed arguments
-- Add cmd package for executable
+- Add cmd package for main/executable
 - Parse escape sequences in string literal
 - Rewrite expression grammar and parser to something simpler
 - Trailing commas 

@@ -273,6 +273,24 @@ func IsUntyped(t Type) bool {
 	return t.ID() == TUntyped
 }
 
+func IsSignedType(t Type) bool {
+	switch t.ID() {
+	case TBigInt, TInt64, TInt32, TInt16, TInt8:
+		return true
+	default:
+		return false
+	}
+}
+
+func IsUnsignedType(t Type) bool {
+	switch t.ID() {
+	case TBigInt, TUInt64, TUInt32, TUInt16, TUInt8:
+		return true
+	default:
+		return false
+	}
+}
+
 func IsIntegerType(t Type) bool {
 	switch t.ID() {
 	case TBigInt, TUInt64, TInt64, TUInt32, TInt32, TUInt16, TInt16, TUInt8, TInt8:
