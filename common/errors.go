@@ -4,14 +4,10 @@ import (
 	"fmt"
 
 	"bytes"
-	"path/filepath"
 	"sort"
 
 	"github.com/jhnl/dingo/token"
 )
-
-// Cwd is the absolute path of the current working directory.
-var Cwd = ""
 
 type Trace struct {
 	Title string
@@ -36,12 +32,6 @@ func NewTrace(title string, lines []string) Trace {
 }
 
 func NewError(filename string, pos token.Position, msg string, fatal bool) *Error {
-	if filepath.IsAbs(filename) && len(Cwd) > 0 {
-		rel, err := filepath.Rel(Cwd, filename)
-		if err == nil {
-			filename = rel
-		}
-	}
 	return &Error{Filename: filename, Pos: pos, Msg: msg, Fatal: fatal}
 }
 

@@ -48,7 +48,6 @@ TODO (in no particular order):
     - Scoped variables should expand and shrink locals array
 - Make it easier to merge tokens
 - Default function arguments + keyed arguments
-- Add cmd package for main/executable
 - Parse escape sequences in string literal
 - Rewrite expression grammar and parser to something simpler
 - Trailing commas 

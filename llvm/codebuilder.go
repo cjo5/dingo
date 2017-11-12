@@ -24,7 +24,7 @@ type codeBuilder struct {
 }
 
 // Build LLVM code.
-func Build(set *ir.ModuleSet) {
+func Build(set *ir.ModuleSet, outfile string) {
 	if err := llvm.InitializeNativeTarget(); err != nil {
 		panic(err)
 	}
@@ -55,16 +55,19 @@ func Build(set *ir.ModuleSet) {
 	cb.buildModule(mod)
 
 	ext := filepath.Ext(mod.Path)
-	filename := strings.TrimSuffix(mod.Path, ext)
-	outputfile := filename + ".o"
+	filename := outfile
+	if len(filename) == 0 {
+		filename = strings.TrimSuffix(mod.Path, ext)
+	}
+	objectfile := filename + ".o"
 	outputmode := llvm.ObjectFile
 
 	if code, err := targetMachine.EmitToMemoryBuffer(cb.mod, outputmode); err == nil {
-		if writeErr := ioutil.WriteFile(outputfile, code.Bytes(), 0644); writeErr != nil {
+		if writeErr := ioutil.WriteFile(objectfile, code.Bytes(), 0644); writeErr != nil {
 			panic(writeErr)
 		}
 
-		cmd := exec.Command("gcc", outputfile, "-o", filename)
+		cmd := exec.Command("gcc", objectfile, "-o", filename)
 		if linkOutput, linkErr := cmd.CombinedOutput(); linkErr != nil {
 			panic(fmt.Sprintf("Err: %s\nOutput: %s", linkErr, linkOutput))
 		}

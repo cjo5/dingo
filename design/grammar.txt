@@ -1,0 +1,51 @@
+# {..} : 0 or more
+# (..)*  : 0 or more
+# [..] : optional
+# a | b : a or b
+
+Module = ['module' ';'] Import* TopDecl*
+
+Import = 'import' STRING
+TopDecl = [Visibility] Decl
+Decl = ValDecl | FuncDecl | StructDecl
+ValDecl = ('val' | 'var') IDENT (Type | ([Type] '=' Expr)) ';'
+FuncDecl = 'func' IDENT Func
+StructDecl = 'struct' IDENT Struct
+
+Visibility = 'pub' | 'int' | 'priv'
+Type = IDENT ['.' IDENT] 
+Field = ['val' | 'var'] IDENT Type
+Struct= '{' {Field ';'} '}'
+FuncSignature = '(' [Field {',' Field}] ')' [ Type]
+Func = FuncSignature Block
+
+Block = '{' Stmt* '}'
+Stmt = Block | ValDeclStmt | PrintStmt | ExprStmt | AssignStmt | 'if' IfStmt | WhileStmt 
+        | ReturnStmt | 'break' ';' | 'continue' ';'
+ValDeclStmt = ValDecl ';'
+PrintStmt = 'print' Expr ';'
+AssignStmt = Expr ('=' | '+=' | '-=' | '*=' | '/=' | '%=' ) Expr ';'
+ExprStmt = Expr ';'
+IfStmt = Condition Block [('elif' IfStmt) | ('else' Block)]
+WhileStmt = 'while' Condition Block
+ReturnStmt = 'return' [Expr] ';'
+
+Expr = LogicalOr 
+Condition = LogicalOr
+LogicalOr = LogicalAnd {'||' LogicalAnd}
+LogicalAnd = Equality {'&&' Equality}
+Equality = Comparison {( '!=' | '==' ) Comparison}
+Comparison = Term {( '>' | '>=' | '<' | '<=' ) Term}
+Term = Factor {( '-' | '+' ) Factor}
+Factor = Unary {( '/' | '%' | '*' ) Unary}
+Unary = (( '!' | '-' ) Expr) | Operand
+# StructLit is not an operand when parsing condition
+Operand = Primary | BasicLit | StructLit | '(' Expr ')' 
+
+Primary = IDENT | DotIdent | FuncCall 
+FuncCall = Primary '(' [Expr {',' Expr} ] ')'
+DotIdent = Primary '.' IDENT
+
+BasicLit = INTEGER | FLOAT | STRING | 'false' | 'true'
+KeyValue = IDENT '=' Expr
+StructLit = Type '{' [KeyValue {',' KeyValue} [',]] '}'
