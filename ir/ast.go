@@ -123,49 +123,43 @@ type ModuleSet struct {
 
 func (d *ModuleSet) FirstPos() token.Position { return token.NoPosition }
 
-// Module flags.
-const (
-	ModFlagMain = 1 << 0
-)
-
 type Module struct {
 	baseDecl
-	ID       int
-	Flags    int
-	Path     string
-	Name     token.Token
-	Public   *Scope
-	Internal *Scope
-	Files    []*File
-	Decls    []TopDecl
-	Color    NodeColor
+	ID      int
+	Path    string
+	Name    token.Token
+	Public  *Scope
+	Private *Scope
+	Files   []*File
+	Decls   []TopDecl
 }
 
 func (m *Module) FirstPos() token.Position { return token.NoPosition }
 
-func (m *Module) Main() bool {
-	return (m.Flags & ModFlagMain) != 0
+type File struct {
+	Ctx      *FileContext
+	Includes []*Include
 }
 
-type File struct {
-	Ctx     *FileContext
-	Imports []*Import
+// Path returns the file path.
+func (f *File) Path() string {
+	return f.Ctx.Path
 }
 
 type FileContext struct {
-	Path  string
-	Decl  token.Token
-	Scope *Scope
+	Path   string
+	Decl   token.Token
+	Module token.Token
 }
 
-type Import struct {
+type Include struct {
 	baseDecl
-	Import  token.Token
+	Include token.Token
 	Literal token.Token
-	Mod     *Module
+	File    *File
 }
 
-func (i *Import) FirstPos() token.Position { return i.Import.Pos }
+func (i *Include) FirstPos() token.Position { return i.Include.Pos }
 
 type ValDeclSpec struct {
 	Decl        token.Token

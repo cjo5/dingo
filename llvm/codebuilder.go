@@ -139,10 +139,8 @@ func (cb *codeBuilder) buildValTopDecl(decl *ir.ValTopDecl) {
 	switch decl.Visibility.ID {
 	case token.Public:
 		loc.SetLinkage(llvm.ExternalLinkage)
-	case token.Internal:
-		loc.SetLinkage(llvm.InternalLinkage)
 	case token.Private:
-		loc.SetLinkage(llvm.PrivateLinkage)
+		loc.SetLinkage(llvm.InternalLinkage)
 	}
 
 	switch t := decl.Initializer.(type) {
@@ -187,10 +185,8 @@ func (cb *codeBuilder) buildFuncDecl(decl *ir.FuncDecl) {
 	switch decl.Visibility.ID {
 	case token.Public:
 		fun.SetLinkage(llvm.ExternalLinkage)
-	case token.Internal:
-		fun.SetLinkage(llvm.InternalLinkage)
 	case token.Private:
-		fun.SetLinkage(llvm.PrivateLinkage)
+		fun.SetLinkage(llvm.InternalLinkage)
 	}
 
 	cb.buildBlockStmt(decl.Body)

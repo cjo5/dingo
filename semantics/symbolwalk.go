@@ -18,29 +18,15 @@ func (v *symbolVisitor) Module(mod *ir.Module) {
 	v.c.openScope(ir.TopScope)
 	mod.Public = v.c.scope
 	v.c.openScope(ir.TopScope)
-	mod.Internal = v.c.scope
+	mod.Private = v.c.scope
 	v.c.mod = mod
-	for _, file := range mod.Files {
-		v.c.openScope(ir.TopScope)
-		file.Ctx.Scope = v.c.scope
-		v.c.fileCtx = file.Ctx
-		ir.VisitImportList(v, file.Imports)
-		v.c.closeScope()
-	}
 	for _, decl := range mod.Decls {
 		v.c.setTopDecl(decl)
 		ir.VisitDecl(v, decl)
 
 	}
-	v.c.closeScope() // Internal
-	v.c.closeScope() // External
-}
-
-func (v *symbolVisitor) VisitImport(decl *ir.Import) {
-	sym := v.c.insert(v.c.fileScope(), ir.ModuleSymbol, decl.Mod.Name.Literal, decl.Literal.Pos, decl)
-	if sym != nil {
-		sym.T = ir.NewModuleType(decl.Mod.ID, decl.Mod.Public)
-	}
+	v.c.closeScope() // Private
+	v.c.closeScope() // Public
 }
 
 func (v *symbolVisitor) isTypeName(name token.Token) bool {

@@ -16,7 +16,6 @@ const (
 	TVoid
 	TBool
 	TString
-	TModule
 	TStruct
 	TFunc
 
@@ -42,7 +41,6 @@ var types = [...]string{
 	TVoid:     "void",
 	TBool:     "bool",
 	TString:   "str",
-	TModule:   "module",
 	TStruct:   "struct",
 	TFunc:     "func",
 	TBigInt:   "integer",
@@ -134,26 +132,6 @@ func (t *BasicType) String() string {
 	return t.id.String()
 }
 
-type ModuleType struct {
-	ModuleID int
-	Scope    *Scope
-}
-
-func (t *ModuleType) ID() TypeID {
-	return TModule
-}
-
-func (t *ModuleType) IsEqual(other Type) bool {
-	if t2, ok := other.(*ModuleType); ok {
-		return t.ModuleID == t2.ModuleID
-	}
-	return false
-}
-
-func (t *ModuleType) String() string {
-	return fmt.Sprintf("module %d", t.ModuleID)
-}
-
 type Field struct {
 	Sym *Symbol
 	T   Type
@@ -237,10 +215,6 @@ func (t *FuncType) String() string {
 
 func NewBasicType(id TypeID) Type {
 	return &BasicType{id: id}
-}
-
-func NewModuleType(moduleID int, scope *Scope) Type {
-	return &ModuleType{ModuleID: moduleID, Scope: scope}
 }
 
 func NewStructType(decl *StructDecl) Type {

@@ -77,7 +77,7 @@ func (p *parser) error(tok token.Token, format string, args ...interface{}) {
 func (p *parser) syncDecl() {
 	for {
 		switch p.token.ID {
-		case token.Public, token.Internal, token.Private: // Visibility modifiers
+		case token.Public, token.Private: // Visibility modifiers
 			return
 		case token.Func, token.Struct, token.Var, token.Val: // Decls
 			return
@@ -160,14 +160,17 @@ func (p *parser) parseFile() (*ir.File, []ir.TopDecl) {
 	if p.token.Is(token.Module) {
 		file.Ctx.Decl = p.token
 		p.next()
+		file.Ctx.Module = p.token
+		p.expect(token.Ident)
 		p.expectSemi()
 	} else {
 		file.Ctx.Decl = token.Synthetic(token.Module, token.Module.String())
+		file.Ctx.Module = token.Synthetic(token.Ident, "")
 	}
-	for p.token.Is(token.Import) {
-		imp := p.parseImport()
-		if imp != nil {
-			file.Imports = append(file.Imports, imp)
+	for p.token.Is(token.Include) {
+		inc := p.parseInclude()
+		if inc != nil {
+			file.Includes = append(file.Includes, inc)
 		}
 	}
 	var decls []ir.TopDecl
@@ -181,14 +184,15 @@ func (p *parser) parseFile() (*ir.File, []ir.TopDecl) {
 	return file, decls
 }
 
-func (p *parser) parseImport() *ir.Import {
+func (p *parser) parseInclude() *ir.Include {
 	tok := p.token
 	p.next()
 	path := p.token
 	if !p.expect(token.String) {
 		return nil
 	}
-	return &ir.Import{Import: tok, Literal: path}
+	p.expectSemi()
+	return &ir.Include{Include: tok, Literal: path}
 }
 
 func (p *parser) parseTopDecl() (decl ir.TopDecl) {
@@ -203,8 +207,8 @@ func (p *parser) parseTopDecl() (decl ir.TopDecl) {
 		}
 	}()
 
-	visibility := token.Synthetic(token.Internal, token.Internal.String())
-	if p.token.OneOf(token.Public, token.Internal, token.Private) {
+	visibility := token.Synthetic(token.Private, token.Private.String())
+	if p.token.OneOf(token.Public, token.Private) {
 		visibility = p.token
 		p.next()
 	}

@@ -3,16 +3,16 @@
 # [..] : optional
 # a | b : a or b
 
-Module = ['module' ';'] Import* TopDecl*
+File = ['module' IDENT ';'] Include* TopDecl*
 
-Import = 'import' STRING
+Include = 'include' STRING ';'
 TopDecl = [Visibility] Decl
 Decl = ValDecl | FuncDecl | StructDecl
 ValDecl = ('val' | 'var') IDENT (Type | ([Type] '=' Expr)) ';'
 FuncDecl = 'func' IDENT Func
 StructDecl = 'struct' IDENT Struct
 
-Visibility = 'pub' | 'int' | 'priv'
+Visibility = 'pub' | 'priv' 
 Type = IDENT ['.' IDENT] 
 Field = ['val' | 'var'] IDENT Type
 Struct= '{' {Field ';'} '}'

@@ -480,10 +480,7 @@ func (v *typeVisitor) VisitDotExpr(expr *ir.DotExpr) ir.Expr {
 		}
 	}
 
-	if t.ID() == ir.TModule {
-		mod, _ := t.(*ir.ModuleType)
-		defer setScope(setScope(v.c, mod.Scope))
-	} else if t.ID() == ir.TStruct {
+	if t.ID() == ir.TStruct {
 		structt, _ := t.(*ir.StructType)
 		defer setScope(setScope(v.c, structt.Scope))
 	} else {

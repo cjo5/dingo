@@ -49,21 +49,22 @@ func (p *treePrinter) printToken(tok token.Token) {
 }
 
 func (p *treePrinter) Module(mod *ir.Module) {
-	defer dec(inc(p))
 	p.printf("[module %s]", mod.Name.Literal)
 	defer dec(inc(p))
 	for _, file := range mod.Files {
+		inc(p)
 		p.printf("[file %s]", file.Ctx.Path)
-		ir.VisitImportList(p, file.Imports)
+		ir.VisitIncludeList(p, file.Includes)
+		dec(p)
 	}
 	for _, decl := range mod.Decls {
 		ir.VisitDecl(p, decl)
 	}
 }
 
-func (p *treePrinter) VisitImport(decl *ir.Import) {
+func (p *treePrinter) VisitInclude(decl *ir.Include) {
 	defer dec(inc(p))
-	p.printToken(decl.Import)
+	p.printToken(decl.Include)
 	defer dec(inc(p))
 	p.printToken(decl.Literal)
 }

@@ -74,14 +74,13 @@ const (
 	Break
 	Print
 	Module
-	Import
+	Include
 	Var
 	Val
 	Static
 	Func
 	Struct
 	Public
-	Internal
 	Private
 
 	False
@@ -149,14 +148,13 @@ var tokens = [...]string{
 	Break:    "break",
 	Print:    "print",
 	Module:   "module",
-	Import:   "import",
+	Include:  "include",
 	Var:      "var",
 	Val:      "val",
 	Static:   "static",
 	Func:     "fun",
 	Struct:   "struct",
 	Public:   "pub",
-	Internal: "int",
 	Private:  "priv",
 
 	True:  "true",

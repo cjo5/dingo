@@ -1,9 +1,11 @@
-module;
+module simple;
+
+include "file1.dg";
 
 pub fun main() {
-    var a = 2;
-    var b = 4;
-    if (a == 2) || (b == 3) {
-        print "true!";
+    val res = factorial(5);
+
+    if res == 120 {
+        print "TRUE!\n";
     }
 }

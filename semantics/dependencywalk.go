@@ -15,6 +15,7 @@ func dependencyWalk(c *checker) {
 
 func (v *dependencyVisitor) Module(mod *ir.Module) {
 	v.c.mod = mod
+	v.c.scope = mod.Private
 	for _, decl := range mod.Decls {
 		v.c.setTopDecl(decl)
 		ir.VisitDecl(v, decl)

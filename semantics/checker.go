@@ -78,27 +78,17 @@ func (c *checker) visibilityScope(tok token.Token) *ir.Scope {
 	var scope *ir.Scope
 	if tok.Is(token.Public) {
 		scope = c.mod.Public
-	} else if tok.Is(token.Internal) {
-		scope = c.mod.Internal
 	} else if tok.Is(token.Private) {
-		scope = c.fileScope()
+		scope = c.mod.Private
 	} else {
 		panic(fmt.Sprintf("Unhandled visibility %s", tok))
 	}
 	return scope
 }
 
-func (c *checker) fileScope() *ir.Scope {
-	if c.fileCtx != nil {
-		return c.fileCtx.Scope
-	}
-	return nil
-}
-
 func (c *checker) setTopDecl(decl ir.TopDecl) {
 	c.topDecl = decl
 	c.fileCtx = decl.Context()
-	c.scope = c.fileCtx.Scope
 }
 
 func (c *checker) error(pos token.Position, format string, args ...interface{}) {
@@ -124,45 +114,6 @@ func (c *checker) lookup(name string) *ir.Symbol {
 		return existing
 	}
 	return nil
-}
-
-func (c *checker) sortModules() {
-	for _, mod := range c.set.Modules {
-		mod.Color = ir.NodeColorWhite
-	}
-
-	var sortedModules []*ir.Module
-
-	for _, mod := range c.set.Modules {
-		if mod.Color == ir.NodeColorWhite {
-			if !sortModuleDependencies(mod, &sortedModules) {
-				// This shouldn't actually happen since cycles are checked when loading imports
-				panic("Cycle detected")
-			}
-		}
-	}
-
-	c.set.Modules = sortedModules
-}
-
-// Returns false if cycle
-func sortModuleDependencies(mod *ir.Module, sortedModules *[]*ir.Module) bool {
-	if mod.Color == ir.NodeColorBlack {
-		return true
-	} else if mod.Color == ir.NodeColorGray {
-		return false
-	}
-	mod.Color = ir.NodeColorGray
-	for _, file := range mod.Files {
-		for _, imp := range file.Imports {
-			if !sortModuleDependencies(imp.Mod, sortedModules) {
-				return false
-			}
-		}
-	}
-	mod.Color = ir.NodeColorBlack
-	*sortedModules = append(*sortedModules, mod)
-	return true
 }
 
 func (c *checker) sortDecls() {

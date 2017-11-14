@@ -25,6 +25,7 @@ func typeWalk(c *checker) {
 func (v *typeVisitor) Module(mod *ir.Module) {
 	v.c.mod = mod
 
+	v.c.scope = mod.Private
 	v.signature = true
 	for _, decl := range mod.Decls {
 		if decl.Symbol() == nil {
@@ -35,6 +36,7 @@ func (v *typeVisitor) Module(mod *ir.Module) {
 		ir.VisitDecl(v, decl)
 	}
 
+	v.c.scope = mod.Private
 	v.signature = false
 	for _, decl := range mod.Decls {
 		if decl.Symbol() == nil {
