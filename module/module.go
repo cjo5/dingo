@@ -79,6 +79,7 @@ func (l *loader) loadModule(filename string) *ir.Module {
 	mod.Name = rootFile.Ctx.Module
 	mod.Path = filename
 	mod.Files = append(mod.Files, rootFile)
+	mod.Decls = append(mod.Decls, rootDecls...)
 
 	l.loadedFiles = append(l.loadedFiles, &file{file: rootFile})
 
@@ -113,7 +114,6 @@ func (l *loader) loadModule(filename string) *ir.Module {
 	}
 
 	mod.Decls = append(mod.Decls, allIncludeDecls...)
-	mod.Decls = append(mod.Decls, rootDecls...)
 
 	return mod
 }

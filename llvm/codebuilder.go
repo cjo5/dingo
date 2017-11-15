@@ -18,6 +18,8 @@ import (
 type codeBuilder struct {
 	b              llvm.Builder
 	mod            llvm.Module
+	inFunction     bool
+	signature      bool
 	values         map[*ir.Symbol]llvm.Value
 	loopConditions []llvm.BasicBlock
 	loopExits      []llvm.BasicBlock
@@ -105,7 +107,14 @@ func checkElseEndsWithBranchStmt(stmt *ir.IfStmt) bool {
 
 func (cb *codeBuilder) buildModule(mod *ir.Module) {
 	cb.mod = llvm.NewModule(mod.Name.Literal)
+	cb.inFunction = false
 
+	cb.signature = true
+	for _, decl := range mod.Decls {
+		cb.buildDecl(decl)
+	}
+
+	cb.signature = false
 	for _, decl := range mod.Decls {
 		cb.buildDecl(decl)
 	}
@@ -134,13 +143,18 @@ func (cb *codeBuilder) buildDecl(decl ir.Decl) {
 
 func (cb *codeBuilder) buildValTopDecl(decl *ir.ValTopDecl) {
 	sym := decl.Sym
-	loc := llvm.AddGlobal(cb.mod, toLLVMType(sym.T), sym.Name)
+	if cb.signature {
+		loc := llvm.AddGlobal(cb.mod, toLLVMType(sym.T), sym.Name)
 
-	switch decl.Visibility.ID {
-	case token.Public:
-		loc.SetLinkage(llvm.ExternalLinkage)
-	case token.Private:
-		loc.SetLinkage(llvm.InternalLinkage)
+		switch decl.Visibility.ID {
+		case token.Public:
+			loc.SetLinkage(llvm.ExternalLinkage)
+		case token.Private:
+			loc.SetLinkage(llvm.InternalLinkage)
+		}
+
+		cb.values[sym] = loc
+		return
 	}
 
 	switch t := decl.Initializer.(type) {
@@ -151,6 +165,7 @@ func (cb *codeBuilder) buildValTopDecl(decl *ir.ValTopDecl) {
 	}
 
 	init := cb.buildExpr(decl.Initializer)
+	loc := cb.values[sym]
 	loc.SetInitializer(init)
 }
 
@@ -164,14 +179,27 @@ func (cb *codeBuilder) buildValDecl(decl *ir.ValDecl) {
 }
 
 func (cb *codeBuilder) buildFuncDecl(decl *ir.FuncDecl) {
-	var paramTypes []llvm.Type
-	for _, p := range decl.Params {
-		paramTypes = append(paramTypes, toLLVMType(p.Type.Type()))
-	}
-	retType := toLLVMType(decl.TReturn.Type())
+	if cb.signature {
+		var paramTypes []llvm.Type
+		for _, p := range decl.Params {
+			paramTypes = append(paramTypes, toLLVMType(p.Type.Type()))
+		}
+		retType := toLLVMType(decl.TReturn.Type())
 
-	funType := llvm.FunctionType(retType, paramTypes, false)
-	fun := llvm.AddFunction(cb.mod, decl.Name.Literal, funType)
+		funType := llvm.FunctionType(retType, paramTypes, false)
+		fun := llvm.AddFunction(cb.mod, decl.Name.Literal, funType)
+
+		switch decl.Visibility.ID {
+		case token.Public:
+			fun.SetLinkage(llvm.ExternalLinkage)
+		case token.Private:
+			fun.SetLinkage(llvm.InternalLinkage)
+		}
+
+		return
+	}
+
+	fun := cb.mod.NamedFunction(decl.Name.Literal)
 	block := llvm.AddBasicBlock(fun, "entry")
 	cb.b.SetInsertPointAtEnd(block)
 
@@ -182,21 +210,16 @@ func (cb *codeBuilder) buildFuncDecl(decl *ir.FuncDecl) {
 		cb.values[sym] = loc
 	}
 
-	switch decl.Visibility.ID {
-	case token.Public:
-		fun.SetLinkage(llvm.ExternalLinkage)
-	case token.Private:
-		fun.SetLinkage(llvm.InternalLinkage)
-	}
-
+	cb.inFunction = true
 	cb.buildBlockStmt(decl.Body)
 	if checkEndsWithBranchStmt(decl.Body.Stmts) {
 		cb.b.GetInsertBlock().EraseFromParent() // Remove empty basic block created by last return statement
 	}
+	cb.inFunction = false
 }
 
 func (cb *codeBuilder) buildStructDecl(decl *ir.StructDecl) {
-
+	panic("buildStructDecl not implemented")
 }
 
 func (cb *codeBuilder) buildStmtList(stmts []ir.Stmt) {
@@ -569,9 +592,18 @@ func (cb *codeBuilder) buildUnaryExpr(expr *ir.UnaryExpr) llvm.Value {
 
 func (cb *codeBuilder) buildBasicLit(expr *ir.BasicLit) llvm.Value {
 	if expr.Value.ID == token.String {
-		val := cb.b.CreateGlobalString(expr.AsString(), "str")
-		idx := llvm.ConstInt(llvm.Int64Type(), 0, false)
-		return cb.b.CreateGEP(val, []llvm.Value{idx, idx}, "")
+		if cb.inFunction {
+			return cb.b.CreateGlobalStringPtr(expr.AsString(), "str")
+		}
+
+		typ := llvm.ArrayType(llvm.Int8Type(), len(expr.AsString())+1) // +1 is for null-terminator
+		arr := llvm.AddGlobal(cb.mod, typ, "str")
+		arr.SetLinkage(llvm.PrivateLinkage)
+		arr.SetUnnamedAddr(true)
+		arr.SetGlobalConstant(true)
+		arr.SetInitializer(llvm.ConstString(expr.AsString(), true))
+
+		return llvm.ConstBitCast(arr, llvm.PointerType(llvm.Int8Type(), 0))
 	}
 
 	llvmType := toLLVMType(expr.T)
@@ -589,7 +621,7 @@ func (cb *codeBuilder) buildBasicLit(expr *ir.BasicLit) llvm.Value {
 }
 
 func (cb *codeBuilder) buildStructLit(expr *ir.StructLit) llvm.Value {
-	return llvm.Value{}
+	panic("buildStructDecl not implemented")
 }
 
 func (cb *codeBuilder) buildIdent(expr *ir.Ident) llvm.Value {
@@ -600,7 +632,7 @@ func (cb *codeBuilder) buildIdent(expr *ir.Ident) llvm.Value {
 }
 
 func (cb *codeBuilder) buildDotExpr(expr *ir.DotExpr) llvm.Value {
-	return llvm.Value{}
+	panic("buildDotExpr not implemented")
 }
 
 func (cb *codeBuilder) buildFuncCall(expr *ir.FuncCall) llvm.Value {

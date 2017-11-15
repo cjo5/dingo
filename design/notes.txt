@@ -1,8 +1,8 @@
 TODO (in no particular order):
 - Compile to LLVM
-    - Declare functions before compiling
     - Structs
     - Name mangling
+    - Research on alignment
 - Improve module system
     - Use modules
         - use a, use a.b etc

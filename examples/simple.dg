@@ -2,10 +2,10 @@ module simple;
 
 include "file1.dg";
 
+val x = "hello";
+
 pub fun main() {
     val res = factorial(5);
 
-    if res == 120 {
-        print "TRUE!\n";
-    }
+    print x;
 }
