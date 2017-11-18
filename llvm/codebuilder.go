@@ -179,7 +179,13 @@ func (cb *codeBuilder) buildValDecl(decl *ir.ValDecl) {
 }
 
 func (cb *codeBuilder) buildFuncDecl(decl *ir.FuncDecl) {
+	fun := cb.mod.NamedFunction(decl.Name.Literal)
+
 	if cb.signature {
+		if !fun.IsNil() {
+			return
+		}
+
 		var paramTypes []llvm.Type
 		for _, p := range decl.Params {
 			paramTypes = append(paramTypes, toLLVMType(p.Type.Type()))
@@ -197,9 +203,10 @@ func (cb *codeBuilder) buildFuncDecl(decl *ir.FuncDecl) {
 		}
 
 		return
+	} else if decl.SignatureOnly() {
+		return
 	}
 
-	fun := cb.mod.NamedFunction(decl.Name.Literal)
 	block := llvm.AddBasicBlock(fun, "entry")
 	cb.b.SetInsertPointAtEnd(block)
 
@@ -234,8 +241,6 @@ func (cb *codeBuilder) buildStmt(stmt ir.Stmt) {
 		cb.buildBlockStmt(t)
 	case *ir.DeclStmt:
 		cb.buildDeclStmt(t)
-	case *ir.PrintStmt:
-		cb.buildPrintStmt(t)
 	case *ir.IfStmt:
 		cb.buildIfStmt(t)
 	case *ir.WhileStmt:
@@ -259,28 +264,6 @@ func (cb *codeBuilder) buildBlockStmt(stmt *ir.BlockStmt) {
 
 func (cb *codeBuilder) buildDeclStmt(stmt *ir.DeclStmt) {
 	cb.buildDecl(stmt.D)
-}
-
-func (cb *codeBuilder) buildPrintStmt(stmt *ir.PrintStmt) {
-	if len(stmt.Xs) != 1 || stmt.Xs[0].Type().ID() != ir.TString {
-		panic("LLVM backend only supports 1 string argument to print")
-	}
-
-	fun := cb.mod.NamedFunction("puts")
-	if fun.IsNil() {
-		retType := llvm.IntType(32)
-		paramType := llvm.PointerType(llvm.IntType(8), 0)
-
-		funType := llvm.FunctionType(retType, []llvm.Type{paramType}, false)
-		fun = llvm.AddFunction(cb.mod, "puts", funType)
-
-		fun.AddFunctionAttr(cb.llvmEnumAttribute("nounwind", 0))
-		fun.AddAttributeAtIndex(1, cb.llvmEnumAttribute("nocapture", 0))
-		fun.SetLinkage(llvm.ExternalLinkage)
-	}
-
-	arg := cb.buildExpr(stmt.Xs[0])
-	cb.b.CreateCall(fun, []llvm.Value{arg}, "")
 }
 
 func (cb *codeBuilder) buildIfStmt(stmt *ir.IfStmt) {

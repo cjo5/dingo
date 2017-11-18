@@ -17,13 +17,12 @@ Type = IDENT ['.' IDENT]
 Field = ['val' | 'var'] IDENT Type
 Struct= '{' {Field ';'} '}'
 FuncSignature = '(' [Field {',' Field}] ')' [ Type]
-Func = FuncSignature Block
+Func = FuncSignature (Block | ';')
 
 Block = '{' Stmt* '}'
-Stmt = Block | ValDeclStmt | PrintStmt | ExprStmt | AssignStmt | 'if' IfStmt | WhileStmt 
+Stmt = Block | ValDeclStmt | ExprStmt | AssignStmt | 'if' IfStmt | WhileStmt 
         | ReturnStmt | 'break' ';' | 'continue' ';'
 ValDeclStmt = ValDecl ';'
-PrintStmt = 'print' Expr ';'
 AssignStmt = Expr ('=' | '+=' | '-=' | '*=' | '/=' | '%=' ) Expr ';'
 ExprStmt = Expr ';'
 IfStmt = Condition Block [('elif' IfStmt) | ('else' Block)]

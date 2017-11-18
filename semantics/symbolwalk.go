@@ -1,7 +1,9 @@
 package semantics
 
-import "github.com/jhnl/dingo/token"
-import "github.com/jhnl/dingo/ir"
+import (
+	"github.com/jhnl/dingo/ir"
+	"github.com/jhnl/dingo/token"
+)
 
 type symbolVisitor struct {
 	ir.BaseVisitor
@@ -50,10 +52,15 @@ func (v *symbolVisitor) VisitValDecl(decl *ir.ValDecl) {
 }
 
 func (v *symbolVisitor) VisitFuncDecl(decl *ir.FuncDecl) {
-	if !v.isTypeName(decl.Name) {
-		scope := v.c.visibilityScope(decl.Visibility)
+	scope := v.c.visibilityScope(decl.Visibility)
+
+	sym := v.c.lookup(decl.Name.Literal)
+	if sym != nil && sym.ID == ir.FuncSymbol {
+		decl.Sym = sym
+	} else {
 		decl.Sym = v.c.insert(scope, ir.FuncSymbol, decl.Name.Literal, decl.Name.Pos, decl)
 	}
+
 	v.c.openScope(ir.LocalScope)
 	decl.Scope = v.c.scope
 
@@ -61,8 +68,17 @@ func (v *symbolVisitor) VisitFuncDecl(decl *ir.FuncDecl) {
 		v.VisitValDecl(param)
 	}
 
-	decl.Body.Scope = decl.Scope
-	ir.VisitStmtList(v, decl.Body.Stmts)
+	if !decl.SignatureOnly() {
+		if decl.Sym.Defined() {
+			v.c.error(decl.Name.Pos, "redefinition of '%s', previously defined at %s", decl.Name.Literal, decl.Sym.Src.FirstPos())
+		} else {
+			decl.Sym.Flags |= ir.SymFlagDefined
+		}
+
+		decl.Body.Scope = decl.Scope
+		ir.VisitStmtList(v, decl.Body.Stmts)
+	}
+
 	v.c.closeScope()
 }
 

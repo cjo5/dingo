@@ -31,7 +31,6 @@ const (
 	Comma
 	Semicolon
 	Colon
-	Arrow
 
 	And
 	Or
@@ -72,7 +71,6 @@ const (
 	Return
 	Continue
 	Break
-	Print
 	Cast
 	Module
 	Include
@@ -109,7 +107,6 @@ var tokens = [...]string{
 	Comma:     ",",
 	Semicolon: ";",
 	Colon:     ":",
-	Arrow:     "->",
 
 	Add: "+",
 	Sub: "-",
@@ -146,7 +143,6 @@ var tokens = [...]string{
 	Return:   "return",
 	Continue: "continue",
 	Break:    "break",
-	Print:    "print",
 	Cast:     "cast",
 	Module:   "module",
 	Include:  "include",

@@ -96,7 +96,7 @@ func (p *parser) syncStmt() {
 			return
 		case token.Var, token.Val:
 			return
-		case token.Print, token.Return, token.If, token.While, token.Break, token.Continue:
+		case token.Return, token.If, token.While, token.Break, token.Continue:
 			return
 		case token.EOF:
 			return
@@ -301,10 +301,15 @@ func (p *parser) parseFuncDecl(visibility token.Token) *ir.FuncDecl {
 	decl.Rparen = p.token
 	p.consume(token.Rparen)
 
-	if !p.token.Is(token.Lbrace) {
+	if !p.token.OneOf(token.Lbrace, token.Semicolon) {
 		decl.TReturn = p.parseTypeSpec(nil)
 	} else {
 		decl.TReturn = &ir.Ident{Name: token.Synthetic(token.Ident, ir.TVoid.String())}
+	}
+
+	if p.token.Is(token.Semicolon) {
+		p.next()
+		return decl
 	}
 
 	decl.Body = p.parseBlockStmt()
@@ -349,8 +354,6 @@ func (p *parser) parseStmt() (stmt ir.Stmt) {
 		stmt = p.parseBlockStmt()
 	} else if p.token.ID == token.Var || p.token.ID == token.Val {
 		stmt = p.parseValDeclStmt()
-	} else if p.token.ID == token.Print {
-		stmt = p.parsePrintStmt()
 	} else if p.token.ID == token.If {
 		stmt = p.parseIfStmt()
 	} else if p.token.ID == token.While {
@@ -389,22 +392,6 @@ func (p *parser) parseValDeclStmt() *ir.DeclStmt {
 	d := p.parseValDecl()
 	p.consumeSemi()
 	return &ir.DeclStmt{D: d}
-}
-
-func (p *parser) parsePrintStmt() *ir.PrintStmt {
-	s := &ir.PrintStmt{}
-	s.Print = p.token
-	p.consume(token.Print)
-	s.Xs = append(s.Xs, p.parseExpr())
-	for !p.token.OneOf(token.Semicolon, token.Invalid, token.EOF) {
-		p.consume(token.Comma)
-		if p.token.ID == token.Semicolon {
-			break
-		}
-		s.Xs = append(s.Xs, p.parseExpr())
-	}
-	p.consumeSemi()
-	return s
 }
 
 func (p *parser) parseIfStmt() *ir.IfStmt {

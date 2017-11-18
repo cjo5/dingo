@@ -18,7 +18,6 @@ type Visitor interface {
 	VisitBadStmt(stmt *BadStmt)
 	VisitBlockStmt(stmt *BlockStmt)
 	VisitDeclStmt(stmt *DeclStmt)
-	VisitPrintStmt(stmt *PrintStmt)
 	VisitIfStmt(stmt *IfStmt)
 	VisitWhileStmt(stmt *WhileStmt)
 	VisitReturnStmt(stmt *ReturnStmt)
@@ -67,7 +66,6 @@ func (v *BaseVisitor) VisitBlockStmt(stmt *BlockStmt) {}
 
 func (v *BaseVisitor) VisitDeclStmt(stmt *DeclStmt) {}
 
-func (v *BaseVisitor) VisitPrintStmt(stmt *PrintStmt)   {}
 func (v *BaseVisitor) VisitIfStmt(stmt *IfStmt)         {}
 func (v *BaseVisitor) VisitWhileStmt(stmt *WhileStmt)   {}
 func (v *BaseVisitor) VisitReturnStmt(stmt *ReturnStmt) {}
@@ -131,8 +129,6 @@ func VisitStmt(v Visitor, stmt Stmt) {
 		v.VisitBlockStmt(s)
 	case *DeclStmt:
 		v.VisitDeclStmt(s)
-	case *PrintStmt:
-		v.VisitPrintStmt(s)
 	case *IfStmt:
 		v.VisitIfStmt(s)
 	case *WhileStmt:

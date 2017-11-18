@@ -117,7 +117,9 @@ func (p *treePrinter) VisitFuncDecl(decl *ir.FuncDecl) {
 		ir.VisitExpr(p, decl.TReturn)
 	}
 	p.level--
-	p.VisitBlockStmt(decl.Body)
+	if decl.Body != nil {
+		p.VisitBlockStmt(decl.Body)
+	}
 }
 
 func (p *treePrinter) VisitStructDecl(decl *ir.StructDecl) {
@@ -129,14 +131,6 @@ func (p *treePrinter) VisitStructDecl(decl *ir.StructDecl) {
 	p.print("FIELDS")
 	for _, field := range decl.Fields {
 		p.VisitValDecl(field)
-	}
-}
-
-func (p *treePrinter) VisitPrintStmt(stmt *ir.PrintStmt) {
-	defer dec(inc(p))
-	p.printToken(stmt.Print)
-	for _, x := range stmt.Xs {
-		ir.VisitExpr(p, x)
 	}
 }
 

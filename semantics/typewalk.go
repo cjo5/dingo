@@ -134,7 +134,20 @@ func (v *typeVisitor) VisitFuncDecl(decl *ir.FuncDecl) {
 		decl.TReturn = ir.VisitExpr(v, decl.TReturn)
 		v.identMode = identModeNone
 
-		decl.Sym.T = ir.NewFuncType(decl)
+		typ := ir.NewFuncType(decl)
+
+		if decl.Sym.T != nil && !decl.Sym.T.IsEqual(typ) {
+			v.c.error(decl.Name.Pos, "'%s' was previously declared at %s with a different type signature", decl.Name.Literal, decl.Sym.Src.FirstPos())
+		} else if decl.Visibility.ID == token.Private && !decl.Sym.Defined() {
+			v.c.error(decl.Name.Pos, "'%s' is declared as private and there's no definition in this module", decl.Name.Literal)
+		}
+
+		if decl.Sym.T == nil {
+			decl.Sym.T = typ
+		}
+
+		return
+	} else if decl.SignatureOnly() {
 		return
 	}
 
@@ -183,13 +196,6 @@ func (v *typeVisitor) VisitBlockStmt(stmt *ir.BlockStmt) {
 
 func (v *typeVisitor) VisitDeclStmt(stmt *ir.DeclStmt) {
 	ir.VisitDecl(v, stmt.D)
-}
-
-func (v *typeVisitor) VisitPrintStmt(stmt *ir.PrintStmt) {
-	for i, x := range stmt.Xs {
-		stmt.Xs[i] = ir.VisitExpr(v, x)
-		v.c.tryCoerceBigNumber(stmt.Xs[i])
-	}
 }
 
 func (v *typeVisitor) VisitIfStmt(stmt *ir.IfStmt) {

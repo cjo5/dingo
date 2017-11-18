@@ -46,7 +46,9 @@ func (v *dependencyVisitor) VisitFuncDecl(decl *ir.FuncDecl) {
 		ir.VisitExpr(v, param.Type)
 	}
 	ir.VisitExpr(v, decl.TReturn)
-	ir.VisitStmtList(v, decl.Body.Stmts)
+	if decl.Body != nil {
+		ir.VisitStmtList(v, decl.Body.Stmts)
+	}
 }
 
 func (v *dependencyVisitor) VisitStructDecl(decl *ir.StructDecl) {
@@ -62,12 +64,6 @@ func (v *dependencyVisitor) VisitBlockStmt(stmt *ir.BlockStmt) {
 
 func (v *dependencyVisitor) VisitDeclStmt(stmt *ir.DeclStmt) {
 	ir.VisitDecl(v, stmt.D)
-}
-
-func (v *dependencyVisitor) VisitPrintStmt(stmt *ir.PrintStmt) {
-	for _, x := range stmt.Xs {
-		ir.VisitExpr(v, x)
-	}
 }
 
 func (v *dependencyVisitor) VisitIfStmt(stmt *ir.IfStmt) {

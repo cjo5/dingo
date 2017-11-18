@@ -216,6 +216,8 @@ type FuncDecl struct {
 
 func (d *FuncDecl) FirstPos() token.Position { return d.Decl.Pos }
 
+func (d *FuncDecl) SignatureOnly() bool { return d.Body == nil }
+
 type StructDecl struct {
 	baseTopDecl
 	Visibility token.Token
@@ -261,14 +263,6 @@ type DeclStmt struct {
 }
 
 func (s *DeclStmt) FirstPos() token.Position { return s.D.FirstPos() }
-
-type PrintStmt struct {
-	baseStmt
-	Print token.Token
-	Xs    []Expr
-}
-
-func (s *PrintStmt) FirstPos() token.Position { return s.Print.Pos }
 
 type IfStmt struct {
 	baseStmt

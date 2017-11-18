@@ -1,8 +1,8 @@
 module simple;
 
-include "file1.dg";
+include "libc.dg";
 
 pub fun main() {
-    var a i32 = 5;
-    var b = cast(u32, a);
+    puts("hello\nworld");
+    exit(0);
 }

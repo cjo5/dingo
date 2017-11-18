@@ -77,12 +77,7 @@ func (l *lexer) lex() token.Token {
 		case '+':
 			tok.ID = l.lexOptionalEqual(token.AddAssign, token.Add)
 		case '-':
-			if l.ch == '>' {
-				tok.ID = token.Arrow
-				l.next()
-			} else {
-				tok.ID = l.lexOptionalEqual(token.SubAssign, token.Sub)
-			}
+			tok.ID = l.lexOptionalEqual(token.SubAssign, token.Sub)
 		case '*':
 			tok.ID = l.lexOptionalEqual(token.MulAssign, token.Mul)
 		case '/':

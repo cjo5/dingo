@@ -19,6 +19,7 @@ const (
 	SymFlagDepCycle = 1 << 0
 	SymFlagConstant = 1 << 1
 	SymFlagCastable = 1 << 2
+	SymFlagDefined  = 1 << 3
 )
 
 type Symbol struct {
@@ -67,6 +68,10 @@ func (s *Symbol) Constant() bool {
 
 func (s *Symbol) Castable() bool {
 	return (s.Flags & SymFlagCastable) != 0
+}
+
+func (s *Symbol) Defined() bool {
+	return (s.Flags & SymFlagDefined) != 0
 }
 
 func (s *Symbol) Untyped() bool {
