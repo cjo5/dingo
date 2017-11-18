@@ -373,6 +373,11 @@ func (x *BasicLit) AsU64() uint64 {
 	return bigInt.Uint64()
 }
 
+func (x *BasicLit) NegatigeInteger() bool {
+	bigInt := x.Raw.(*big.Int)
+	return bigInt.Sign() < 0
+}
+
 func (x *BasicLit) AsF64() float64 {
 	bigFloat := x.Raw.(*big.Float)
 	val, _ := bigFloat.Float64()

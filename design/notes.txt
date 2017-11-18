@@ -4,16 +4,18 @@ TODO (in no particular order):
     - Research on alignment
 - Module system
     - Use modules
-    - Name mangling
-    - C linkage
         - use a, use a.b etc
     - Fix dotted module names: a.b.c etc
+    - Name mangling
+    - C linkage
     - Specify mappings between module names and paths
     - Apply visibility modifier to multiple vars/functions by using () (same as Go)
     - Declarations are private by default
     - Modules can be declared multiple times.
 - C lib
-    - Need separate primitive types for C?
+    - Separate primitive types for C
+- Optional semicolons
+- Nested functions
 - Conventions
     - File names are snake_case. If module is a.b, path should be a/b.lang, or a/b/module.lang if there are submodules.
     - File names of partial modules should be a/b_details_etc.lang

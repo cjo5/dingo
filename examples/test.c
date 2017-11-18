@@ -1,14 +1,5 @@
 int puts(const char* s);
 
-int foo(int a) {
-        return a+1;
-}
-
-int foo(int a) {
-        return a+2;
-}
-
-
 int puti(int i);
 
 int putsh(short i);
@@ -25,7 +16,7 @@ short getc();
 static char* x = "hello";
 
 int main() {
-        int a = foo(2);
-        unsigned short b = (unsigned short)a;
+        int a = -5;
+        puti(a);
         return 0;
 }

@@ -5,3 +5,4 @@ pub fun abs(_ i32) i32;
 
 // stdio
 pub fun puts(_ str) i32;
+pub fun putchar(_ i32) i32;

@@ -564,16 +564,15 @@ func (cb *codeBuilder) buildBinaryExpr(expr *ir.BinaryExpr) llvm.Value {
 }
 
 func (cb *codeBuilder) buildUnaryExpr(expr *ir.UnaryExpr) llvm.Value {
-	llvmType := toLLVMType(expr.T)
 	val := cb.buildExpr(expr.X)
 	if expr.Op.ID == token.Sub {
 		if ir.IsFloatingType(expr.T) {
-			return cb.b.CreateFSub(llvm.ConstFloat(llvmType, 0), val, "")
+			return cb.b.CreateFNeg(val, "")
 		}
-		return cb.b.CreateSub(llvm.ConstInt(llvmType, 0, false), val, "")
+		return cb.b.CreateNeg(val, "")
 	} else if expr.Op.ID == token.Lnot {
 		common.Assert(expr.T.ID() == ir.TBool, "Unary not is not of type bool")
-		return cb.b.CreateXor(val, llvm.ConstInt(llvm.Int1Type(), 1, false), "")
+		return cb.b.CreateNot(val, "")
 	}
 
 	panic(fmt.Sprintf("Unhandled unary op %s", expr.Op.ID))
@@ -596,9 +595,13 @@ func (cb *codeBuilder) buildBasicLit(expr *ir.BasicLit) llvm.Value {
 	}
 
 	llvmType := toLLVMType(expr.T)
-	if expr.Value.ID == token.Integer {
-		return llvm.ConstInt(llvmType, expr.AsU64(), false)
-	} else if expr.Value.ID == token.Float {
+	if ir.IsIntegerType(expr.T) {
+		val := llvm.ConstInt(llvmType, expr.AsU64(), false)
+		if expr.NegatigeInteger() {
+			return cb.b.CreateNeg(val, "")
+		}
+		return val
+	} else if ir.IsFloatingType(expr.T) {
 		return llvm.ConstFloat(llvmType, expr.AsF64())
 	} else if expr.Value.ID == token.True {
 		return llvm.ConstInt(llvmType, 1, false)
@@ -606,7 +609,7 @@ func (cb *codeBuilder) buildBasicLit(expr *ir.BasicLit) llvm.Value {
 		return llvm.ConstInt(llvmType, 0, false)
 	}
 
-	panic(fmt.Sprintf("Unhandled basic lit %s", expr.Value.ID))
+	panic(fmt.Sprintf("Unhandled basic lit %s, type %s", expr.Value.ID, expr.T))
 }
 
 func (cb *codeBuilder) buildStructLit(expr *ir.StructLit) llvm.Value {

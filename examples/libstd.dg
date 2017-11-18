@@ -1,0 +1,16 @@
+pub fun puti(i i32) {
+    putiRec(abs(i), i < 0);
+}
+
+priv fun putiRec(i i32, sign bool) {
+    if i < 10 {
+        if sign {
+            putchar(45);
+        }
+        putchar(48 + i);
+        return;
+    }
+    puti(i/10);
+    val digit = i % 10;
+    putchar(48 + digit);
+}
