@@ -75,15 +75,7 @@ func setScope(c *checker, scope *ir.Scope) (*checker, *ir.Scope) {
 }
 
 func (c *checker) visibilityScope(tok token.Token) *ir.Scope {
-	var scope *ir.Scope
-	if tok.Is(token.Public) {
-		scope = c.mod.Public
-	} else if tok.Is(token.Private) {
-		scope = c.mod.Private
-	} else {
-		panic(fmt.Sprintf("Unhandled visibility %s", tok))
-	}
-	return scope
+	return c.mod.Scope
 }
 
 func (c *checker) setTopDecl(decl ir.TopDecl) {

@@ -125,13 +125,12 @@ func (d *ModuleSet) FirstPos() token.Position { return token.NoPosition }
 
 type Module struct {
 	baseDecl
-	ID      int
-	Path    string
-	Name    token.Token
-	Public  *Scope
-	Private *Scope
-	Files   []*File
-	Decls   []TopDecl
+	ID    int
+	Path  string
+	Name  token.Token
+	Scope *Scope
+	Files []*File
+	Decls []TopDecl
 }
 
 func (m *Module) FirstPos() token.Position { return token.NoPosition }

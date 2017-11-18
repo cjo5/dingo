@@ -16,17 +16,14 @@ func symbolWalk(c *checker) {
 
 func (v *symbolVisitor) Module(mod *ir.Module) {
 	v.c.openScope(ir.TopScope)
-	mod.Public = v.c.scope
-	v.c.openScope(ir.TopScope)
-	mod.Private = v.c.scope
+	mod.Scope = v.c.scope
 	v.c.mod = mod
 	for _, decl := range mod.Decls {
 		v.c.setTopDecl(decl)
 		ir.VisitDecl(v, decl)
 
 	}
-	v.c.closeScope() // Private
-	v.c.closeScope() // Public
+	v.c.closeScope()
 }
 
 func (v *symbolVisitor) isTypeName(name token.Token) bool {
