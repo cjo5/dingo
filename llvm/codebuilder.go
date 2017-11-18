@@ -424,6 +424,10 @@ func toLLVMType(t ir.Type) llvm.Type {
 		return llvm.IntType(16)
 	case ir.TUInt8, ir.TInt8:
 		return llvm.IntType(8)
+	case ir.TFloat64:
+		return llvm.DoubleType()
+	case ir.TFloat32:
+		return llvm.FloatType()
 	default:
 		panic(fmt.Sprintf("Unhandled type %s", t.ID()))
 	}
@@ -443,6 +447,8 @@ func (cb *codeBuilder) buildExpr(expr ir.Expr) llvm.Value {
 		return cb.buildIdent(t)
 	case *ir.DotExpr:
 		return cb.buildDotExpr(t)
+	case *ir.Cast:
+		return cb.buildCast(t)
 	case *ir.FuncCall:
 		return cb.buildFuncCall(t)
 	default:
@@ -633,6 +639,67 @@ func (cb *codeBuilder) buildIdent(expr *ir.Ident) llvm.Value {
 
 func (cb *codeBuilder) buildDotExpr(expr *ir.DotExpr) llvm.Value {
 	panic("buildDotExpr not implemented")
+}
+
+func (cb *codeBuilder) buildCast(expr *ir.Cast) llvm.Value {
+	val := cb.buildExpr(expr.X)
+
+	to := expr.ToTyp.Type()
+	from := expr.X.Type()
+	if from.IsEqual(to) {
+		return val
+	}
+
+	cmpBitSize := ir.CompareBitSize(to, from)
+	toLLVM := toLLVMType(to)
+
+	var res llvm.Value
+	unhandled := false
+
+	switch {
+	case ir.IsFloatingType(from):
+		switch {
+		case ir.IsFloatingType(to):
+			if cmpBitSize > 0 {
+				res = cb.b.CreateFPExt(val, toLLVM, "")
+			} else {
+				res = cb.b.CreateFPTrunc(val, toLLVM, "")
+			}
+		case ir.IsIntegerType(to):
+			if ir.IsUnsignedType(to) {
+				res = cb.b.CreateFPToUI(val, toLLVM, "")
+			} else {
+				res = cb.b.CreateFPToSI(val, toLLVM, "")
+			}
+		default:
+			unhandled = true
+		}
+	case ir.IsIntegerType(from):
+		switch {
+		case ir.IsFloatingType(to):
+			if ir.IsUnsignedType(from) {
+				res = cb.b.CreateUIToFP(val, toLLVM, "")
+			} else {
+				res = cb.b.CreateSIToFP(val, toLLVM, "")
+			}
+		case ir.IsIntegerType(to):
+			if cmpBitSize > 0 {
+				res = cb.b.CreateSExt(val, toLLVM, "")
+			} else {
+				res = cb.b.CreateTrunc(val, toLLVM, "")
+			}
+		default:
+			unhandled = true
+		}
+	default:
+		unhandled = true
+	}
+
+	if unhandled {
+		panic(fmt.Sprintf("Failed to cast from %s to %s", from, to))
+	}
+
+	return res
 }
 
 func (cb *codeBuilder) buildFuncCall(expr *ir.FuncCall) llvm.Value {

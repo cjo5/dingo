@@ -2,10 +2,7 @@ module simple;
 
 include "file1.dg";
 
-val x = "hello";
-
 pub fun main() {
-    val res = factorial(5);
-
-    print x;
+    var a i32 = 5;
+    var b = cast(str, a);
 }

@@ -572,6 +572,8 @@ func (p *parser) parseOperand() ir.Expr {
 		x := p.parseExpr()
 		p.consume(token.Rparen)
 		return x
+	} else if p.token.Is(token.Cast) {
+		return p.parseCast()
 	} else if p.token.Is(token.Ident) {
 		ident := p.parseIdent()
 		var x ir.Expr = ident
@@ -584,6 +586,20 @@ func (p *parser) parseOperand() ir.Expr {
 		return p.parsePrimary(x)
 	}
 	return p.parseBasicLit()
+}
+
+func (p *parser) parseCast() *ir.Cast {
+	cast := &ir.Cast{}
+	cast.Cast = p.token
+	p.next()
+	cast.Lparen = p.token
+	p.expect(token.Lparen)
+	cast.ToTyp = p.parseExpr()
+	p.expect(token.Comma)
+	cast.X = p.parseExpr()
+	cast.Rparen = p.token
+	p.expect(token.Rparen)
+	return cast
 }
 
 func (p *parser) parsePrimary(expr ir.Expr) ir.Expr {

@@ -40,8 +40,9 @@ Term = Factor {( '-' | '+' ) Factor}
 Factor = Unary {( '/' | '%' | '*' ) Unary}
 Unary = (( '!' | '-' ) Expr) | Operand
 # StructLit is not an operand when parsing condition
-Operand = Primary | BasicLit | StructLit | '(' Expr ')' 
+Operand = Cast | Primary | BasicLit | StructLit | '(' Expr ')' 
 
+Cast = 'cast' '(' Expr ',' Expr ')'
 Primary = IDENT | DotIdent | FuncCall 
 FuncCall = Primary '(' [Expr {',' Expr} ] ')'
 DotIdent = Primary '.' IDENT

@@ -238,6 +238,14 @@ func (p *treePrinter) VisitDotExpr(expr *ir.DotExpr) ir.Expr {
 	return expr
 }
 
+func (p *treePrinter) VisitCast(expr *ir.Cast) ir.Expr {
+	defer dec(inc(p))
+	p.printToken(expr.Cast)
+	ir.VisitExpr(p, expr.ToTyp)
+	ir.VisitExpr(p, expr.X)
+	return expr
+}
+
 func (p *treePrinter) VisitFuncCall(expr *ir.FuncCall) ir.Expr {
 	defer dec(inc(p))
 	p.print("FUNCCALL")

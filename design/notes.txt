@@ -6,6 +6,7 @@ TODO (in no particular order):
 - Improve module system
     - Use modules
         - use a, use a.b etc
+    - Don't use separate scopes for private and public
     - Fix dotted module names: a.b.c etc
     - Specify mappings between module names and paths
     - Apply visibility modifier to multiple vars/functions by using () (same as Go)

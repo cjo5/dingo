@@ -73,11 +73,11 @@ const (
 	Continue
 	Break
 	Print
+	Cast
 	Module
 	Include
 	Var
 	Val
-	Static
 	Func
 	Struct
 	Public
@@ -147,11 +147,11 @@ var tokens = [...]string{
 	Continue: "continue",
 	Break:    "break",
 	Print:    "print",
+	Cast:     "cast",
 	Module:   "module",
 	Include:  "include",
 	Var:      "var",
 	Val:      "val",
-	Static:   "static",
 	Func:     "fun",
 	Struct:   "struct",
 	Public:   "pub",

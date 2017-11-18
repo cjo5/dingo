@@ -495,6 +495,43 @@ func (v *typeVisitor) VisitDotExpr(expr *ir.DotExpr) ir.Expr {
 	return expr
 }
 
+func (v *typeVisitor) VisitCast(expr *ir.Cast) ir.Expr {
+	prevMode := v.identMode
+	v.identMode = identModeType
+	expr.ToTyp = ir.VisitExpr(v, expr.ToTyp)
+	v.identMode = prevMode
+
+	ident := ir.ExprToIdent(expr.ToTyp)
+	err := true
+	if ident == nil {
+		v.c.error(expr.ToTyp.FirstPos(), "'%s' is not a valid type expression", PrintExpr(expr.ToTyp))
+	} else if ident.Sym != nil {
+		if ident.Sym.ID != ir.TypeSymbol {
+			v.c.error(expr.ToTyp.FirstPos(), "'%s' is not a type", PrintExpr(expr.ToTyp))
+		} else if !ident.Sym.Castable() {
+			v.c.error(expr.ToTyp.FirstPos(), "cannot cast to type '%s'", expr.ToTyp.Type())
+		} else {
+			err = false
+		}
+	}
+
+	expr.X = ir.VisitExpr(v, expr.X)
+
+	if !err {
+		if compatibleTypes(expr.X.Type(), expr.ToTyp.Type()) {
+			expr.T = expr.ToTyp.Type()
+		} else {
+			v.c.error(expr.X.FirstPos(), "type mismatch: %s cannot be converted to %s", expr.X.Type(), expr.ToTyp.Type())
+		}
+	}
+
+	if expr.T == nil {
+		expr.T = ir.TBuiltinUntyped
+	}
+
+	return expr
+}
+
 func (v *typeVisitor) VisitFuncCall(expr *ir.FuncCall) ir.Expr {
 	prevMode := v.identMode
 	v.identMode = identModeFunc
@@ -507,17 +544,7 @@ func (v *typeVisitor) VisitFuncCall(expr *ir.FuncCall) ir.Expr {
 		return expr
 	}
 
-	typeCast := false
-
-	// Check if type cast
-	switch id := expr.X.(type) {
-	case *ir.Ident:
-		if id.Sym.ID == ir.TypeSymbol && id.Sym.Castable() {
-			typeCast = true
-		}
-	}
-
-	if !typeCast && t.ID() != ir.TFunc {
+	if t.ID() != ir.TFunc {
 		v.c.error(expr.X.FirstPos(), "'%s' is not a function", PrintExpr(expr.X))
 		expr.T = ir.TBuiltinUntyped
 		return expr
@@ -527,34 +554,24 @@ func (v *typeVisitor) VisitFuncCall(expr *ir.FuncCall) ir.Expr {
 		expr.Args[i] = ir.VisitExpr(v, arg)
 	}
 
-	if typeCast {
-		if len(expr.Args) != 1 {
-			v.c.error(expr.X.FirstPos(), "type conversion takes exactly 1 argument")
-		} else if !compatibleTypes(expr.Args[0].Type(), t) {
-			v.c.error(expr.X.FirstPos(), "type mismatch: %s cannot be converted to %s", expr.Args[0].Type(), t)
-		} else if v.c.tryCastLiteral(expr.Args[0], t) {
-			expr.T = t
-		}
+	funcType, _ := t.(*ir.FuncType)
+	if len(funcType.Params) != len(expr.Args) {
+		v.c.error(expr.X.FirstPos(), "'%s' takes %d argument(s) but called with %d", PrintExpr(expr.X), len(funcType.Params), len(expr.Args))
 	} else {
-		funcType, _ := t.(*ir.FuncType)
-		if len(funcType.Params) != len(expr.Args) {
-			v.c.error(expr.X.FirstPos(), "'%s' takes %d argument(s) but called with %d", PrintExpr(expr.X), len(funcType.Params), len(expr.Args))
-		} else {
-			for i, arg := range expr.Args {
-				paramType := funcType.Params[i].T
+		for i, arg := range expr.Args {
+			paramType := funcType.Params[i].T
 
-				if !v.c.tryCastLiteral(arg, paramType) {
-					continue
-				}
-
-				argType := arg.Type()
-				if !argType.IsEqual(paramType) {
-					v.c.error(arg.FirstPos(), "type mismatch: argument %d of function '%s' expects type %s but got %s",
-						i, PrintExpr(expr.X), paramType, argType)
-				}
+			if !v.c.tryCastLiteral(arg, paramType) {
+				continue
 			}
-			expr.T = funcType.Return
+
+			argType := arg.Type()
+			if !argType.IsEqual(paramType) {
+				v.c.error(arg.FirstPos(), "type mismatch: argument %d of function '%s' expects type %s but got %s",
+					i, PrintExpr(expr.X), paramType, argType)
+			}
 		}
+		expr.T = funcType.Return
 	}
 
 	if expr.T == nil {

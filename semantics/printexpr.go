@@ -79,6 +79,16 @@ func (p *exprPrinter) VisitDotExpr(expr *ir.DotExpr) ir.Expr {
 	return expr
 }
 
+func (p *exprPrinter) VisitCast(expr *ir.Cast) ir.Expr {
+	p.buffer.WriteString(expr.Cast.Literal)
+	p.buffer.WriteString("(")
+	ir.VisitExpr(p, expr.ToTyp)
+	p.buffer.WriteString(",")
+	ir.VisitExpr(p, expr.X)
+	p.buffer.WriteString(")")
+	return expr
+}
+
 func (p *exprPrinter) VisitFuncCall(expr *ir.FuncCall) ir.Expr {
 	ir.VisitExpr(p, expr)
 
@@ -119,6 +129,8 @@ func prec(expr ir.Expr) int {
 	case *ir.BasicLit, *ir.StructLit, *ir.Ident:
 		return 0
 	case *ir.DotExpr:
+		return 1
+	case *ir.Cast:
 		return 1
 	case *ir.FuncCall:
 		return 1

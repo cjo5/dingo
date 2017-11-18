@@ -436,6 +436,17 @@ type DotExpr struct {
 
 func (x *DotExpr) FirstPos() token.Position { return x.X.FirstPos() }
 
+type Cast struct {
+	baseExpr
+	Cast   token.Token
+	Lparen token.Token
+	ToTyp  Expr
+	X      Expr
+	Rparen token.Token
+}
+
+func (x *Cast) FirstPos() token.Position { return x.Cast.Pos }
+
 type FuncCall struct {
 	baseExpr
 	X      Expr

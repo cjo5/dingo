@@ -15,25 +15,26 @@ const (
 	TUntyped TypeID = iota
 	TVoid
 	TBool
-	TString
-	TStruct
-	TFunc
+
+	TUInt8
+	TInt8
+	TUInt16
+	TInt16
+	TUInt32
+	TInt32
+	TUInt64
+	TInt64
+	TFloat32
+	TFloat64
 
 	// Only used as intermediary types when evaluating constant expressions.
 	TBigInt
 	TBigFloat
 	//
 
-	TUInt64
-	TInt64
-	TUInt32
-	TInt32
-	TUInt16
-	TInt16
-	TUInt8
-	TInt8
-	TFloat64
-	TFloat32
+	TString
+	TStruct
+	TFunc
 )
 
 var types = [...]string{
@@ -288,4 +289,9 @@ func IsNumericType(t Type) bool {
 		return true
 	}
 	return false
+}
+
+func CompareBitSize(t1 Type, t2 Type) int {
+	// TODO: Handle incompatible types
+	return int(t1.ID() - t1.ID())
 }

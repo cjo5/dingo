@@ -18,7 +18,7 @@ func main() {
 		flag.PrintDefaults()
 	}
 
-	out := flag.String("out", "", "Name of output file")
+	out := flag.String("exe", "", "Name of executable")
 	flag.Parse()
 
 	if len(os.Args) < 2 {
