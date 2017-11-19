@@ -173,6 +173,15 @@ func (t *StructType) Name() string {
 	return "<anon>"
 }
 
+func (t *StructType) FieldIndex(fieldName string) int {
+	for i, field := range t.Fields {
+		if field.Sym.Name == fieldName {
+			return i
+		}
+	}
+	return -1
+}
+
 type FuncType struct {
 	Sym    *Symbol
 	Params []*Field

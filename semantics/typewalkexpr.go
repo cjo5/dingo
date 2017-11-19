@@ -392,6 +392,7 @@ func createDefaultLiteral(t ir.Type, name ir.Expr) ir.Expr {
 	if t.ID() == ir.TStruct {
 		structt, _ := t.(*ir.StructType)
 		lit := &ir.StructLit{}
+		lit.T = t
 		lit.Name = ir.CopyExpr(name, false)
 		return createStructLit(structt, lit)
 	}

@@ -1,7 +1,7 @@
 TODO (in no particular order):
-- Compile to LLVM
-    - Structs
+- LLVM
     - Research on alignment
+    - Debug symbols
 - Module system
     - Use modules
         - use a, use a.b etc
@@ -14,15 +14,12 @@ TODO (in no particular order):
     - Modules can be declared multiple times.
 - C lib
     - Separate primitive types for C
+- Fix global initialization (currently non-constants are allowed, which doesn't work in LLVM)
 - Optional semicolons
 - Nested functions
-- Conventions
-    - File names are snake_case. If module is a.b, path should be a/b.lang, or a/b/module.lang if there are submodules.
-    - File names of partial modules should be a/b_details_etc.lang
-    - Modules are lowercase and preferably a single word
-    - Types are PascalCase
-    - Variables and functions are camelCase
-    - Static constants are UPPERCASE_AND_UNDERSCORE.
+- Improve error messages
+    - Show region of source code where error happened (e.g. line + 1 above and 1 below)
+    - Unique error code
 - Memory management and arrays
     - Non nullable pointers instead of c++ references
     - Explicit pointer semantics. move, share etc.
@@ -40,14 +37,11 @@ TODO (in no particular order):
 - Only allow subset of features when writing C/C++ module
 - Generics
 - Idiomatic error handling
-- Ad hoc polymorphism
+- Ad hoc polymorphism 
+- Operator overloading?
 - Type alias
 - Macros / preprocessor
-- VM improvements
-    - Fix issue with nested loops
-    - Make it possible to call native (go) functions
-    - Print vm state
-    - Scoped variables should expand and shrink locals array
+    - Conditional compilation
 - Make it easier to merge tokens
 - Default function arguments + keyed arguments
 - Parse escape sequences in string literal
