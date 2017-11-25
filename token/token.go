@@ -229,6 +229,12 @@ func (t Token) String() string {
 	return fmt.Sprintf("%s: %v", t.Pos, t.ID)
 }
 
+func (t Token) Quote() string {
+	s := strconv.Quote(t.Literal)
+	i := len(s) - 1
+	return s[1:i]
+}
+
 func (t Token) IsValid() bool {
 	return t.Pos.IsValid()
 }

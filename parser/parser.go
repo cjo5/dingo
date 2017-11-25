@@ -116,7 +116,7 @@ func (p *parser) match(id token.ID) bool {
 
 func (p *parser) expect(id token.ID) bool {
 	if !p.match(id) {
-		p.error(p.token, "got '%s', expected '%s'", p.token.Literal, id)
+		p.error(p.token, "got '%s', expected '%s'", p.token.Quote(), id)
 		p.next()
 		return false
 	}
@@ -124,8 +124,9 @@ func (p *parser) expect(id token.ID) bool {
 }
 
 func (p *parser) expectSemi() bool {
-	if !p.expect(token.Semicolon) {
-		return false
+	if !p.match(token.Semicolon) {
+		p.error(p.token, "got '%s', expected semicolon or newline", p.token.Quote())
+		p.next()
 	}
 	for p.token.Is(token.Semicolon) {
 		p.next()
@@ -158,6 +159,7 @@ func (p *parser) consumeSemi() bool {
 //
 func (p *parser) parseFile() (*ir.File, []ir.TopDecl) {
 	file := &ir.File{Ctx: &ir.FileContext{Path: p.lexer.filename}}
+
 	if p.token.Is(token.Module) {
 		file.Ctx.Decl = p.token
 		p.next()
@@ -168,12 +170,14 @@ func (p *parser) parseFile() (*ir.File, []ir.TopDecl) {
 		file.Ctx.Decl = token.Synthetic(token.Module, token.Module.String())
 		file.Ctx.Module = token.Synthetic(token.Ident, "")
 	}
+
 	for p.token.Is(token.Include) {
 		inc := p.parseInclude()
 		if inc != nil {
 			file.Includes = append(file.Includes, inc)
 		}
 	}
+
 	var decls []ir.TopDecl
 	for !p.token.Is(token.EOF) {
 		decl := p.parseTopDecl()
@@ -182,6 +186,7 @@ func (p *parser) parseFile() (*ir.File, []ir.TopDecl) {
 			decls = append(decls, decl)
 		}
 	}
+
 	return file, decls
 }
 
@@ -216,12 +221,15 @@ func (p *parser) parseTopDecl() (decl ir.TopDecl) {
 
 	if p.token.ID == token.Var || p.token.ID == token.Val {
 		decl = p.parseValTopDecl(visibility)
+		p.consumeSemi()
 	} else if p.token.ID == token.Func {
 		decl = p.parseFuncDecl(visibility)
+		p.consumeSemi()
 	} else if p.token.ID == token.Struct {
 		decl = p.parseStructDecl(visibility)
+		p.consumeSemi()
 	} else {
-		p.error(p.token, "got '%s', expected declaration", p.token.Literal)
+		p.error(p.token, "got '%s', expected declaration", p.token.Quote())
 		p.syncDecl()
 	}
 
@@ -232,7 +240,6 @@ func (p *parser) parseValTopDecl(visibility token.Token) *ir.ValTopDecl {
 	decl := &ir.ValTopDecl{}
 	decl.Visibility = visibility
 	decl.ValDeclSpec = p.parseValDeclSpec()
-	p.consumeSemi()
 	return decl
 }
 
@@ -296,6 +303,9 @@ func (p *parser) parseFuncDecl(visibility token.Token) *ir.FuncDecl {
 		decl.Params = append(decl.Params, p.parseField(flags, token.Val))
 		for !p.token.OneOf(token.EOF, token.Rparen) {
 			p.consume(token.Comma)
+			if p.token.Is(token.Rparen) {
+				break
+			}
 			decl.Params = append(decl.Params, p.parseField(flags, token.Val))
 		}
 	}
@@ -309,7 +319,6 @@ func (p *parser) parseFuncDecl(visibility token.Token) *ir.FuncDecl {
 	}
 
 	if p.token.Is(token.Semicolon) {
-		p.next()
 		return decl
 	}
 
@@ -351,7 +360,9 @@ func (p *parser) parseStmt() (stmt ir.Stmt) {
 		}
 	}()
 
-	if p.token.ID == token.Lbrace {
+	if p.token.ID == token.Semicolon {
+		stmt = nil
+	} else if p.token.ID == token.Lbrace {
 		stmt = p.parseBlockStmt()
 	} else if p.token.ID == token.Var || p.token.ID == token.Val {
 		stmt = p.parseValDeclStmt()
@@ -364,16 +375,16 @@ func (p *parser) parseStmt() (stmt ir.Stmt) {
 	} else if p.token.ID == token.Break || p.token.ID == token.Continue {
 		if !p.inLoop {
 			// TODO: This should be done in type checker
-			p.error(p.token, "%s can only be used in a loop", p.token.Literal)
+			p.error(p.token, "%s can only be used in a loop", p.token.Quote())
 		}
 
 		tok := p.token
 		p.next()
-		p.consumeSemi()
 		stmt = &ir.BranchStmt{Tok: tok}
 	} else {
 		stmt = p.parseExprOrAssignStmt()
 	}
+	p.consumeSemi()
 	return stmt
 }
 
@@ -382,7 +393,10 @@ func (p *parser) parseBlockStmt() *ir.BlockStmt {
 	block.Lbrace = p.token
 	p.consume(token.Lbrace)
 	for p.token.ID != token.Rbrace && p.token.ID != token.EOF {
-		block.Stmts = append(block.Stmts, p.parseStmt())
+		stmt := p.parseStmt()
+		if stmt != nil {
+			block.Stmts = append(block.Stmts, stmt)
+		}
 	}
 	block.Rbrace = p.token
 	p.consume(token.Rbrace)
@@ -391,7 +405,6 @@ func (p *parser) parseBlockStmt() *ir.BlockStmt {
 
 func (p *parser) parseValDeclStmt() *ir.DeclStmt {
 	d := p.parseValDecl()
-	p.consumeSemi()
 	return &ir.DeclStmt{D: d}
 }
 
@@ -432,7 +445,6 @@ func (p *parser) parseReturnStmt() *ir.ReturnStmt {
 	if p.token.ID != token.Semicolon {
 		s.X = p.parseExpr()
 	}
-	p.consumeSemi()
 	return s
 }
 
@@ -447,7 +459,6 @@ func (p *parser) parseExprOrAssignStmt() ir.Stmt {
 	} else {
 		stmt = &ir.ExprStmt{X: expr}
 	}
-	p.consumeSemi()
 	return stmt
 }
 
@@ -616,6 +627,9 @@ func (p *parser) parseFuncCall(expr ir.Expr) ir.Expr {
 		args = append(args, p.parseExpr())
 		for p.token.ID != token.EOF && p.token.ID != token.Rparen {
 			p.consume(token.Comma)
+			if p.token.Is(token.Rparen) {
+				break
+			}
 			args = append(args, p.parseExpr())
 		}
 	}
@@ -632,7 +646,7 @@ func (p *parser) parseBasicLit() ir.Expr {
 		return &ir.BasicLit{Value: tok}
 	default:
 		tok := p.token
-		p.error(tok, "got '%s', expected expression", tok.Literal)
+		p.error(tok, "got '%s', expected expression", tok.Quote())
 		p.next()
 		panic(parseError{tok})
 	}
@@ -655,6 +669,9 @@ func (p *parser) parseStructLit(name ir.Expr) ir.Expr {
 		inits = append(inits, p.parseKeyValue())
 		for p.token.ID != token.EOF && p.token.ID != token.Rbrace {
 			p.consume(token.Comma)
+			if p.token.Is(token.Rbrace) {
+				break
+			}
 			inits = append(inits, p.parseKeyValue())
 		}
 	}

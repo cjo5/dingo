@@ -60,16 +60,16 @@ func (d *driver) build() {
 		}
 	}
 
-	fmt.Println("Parse done")
-	fmt.Println(semantics.PrintTree(modules))
+	//fmt.Println("Parse done")
+	//fmt.Println(semantics.PrintTree(modules))
 
 	err = semantics.Check(modules)
 	if printErrors(errors, err, false) {
 		return
 	}
 
-	fmt.Println("Check done")
-	fmt.Println(semantics.PrintTree(modules))
+	//fmt.Println("Check done")
+	//fmt.Println(semantics.PrintTree(modules))
 
 	llvm.Build(modules, d.outfile)
 }

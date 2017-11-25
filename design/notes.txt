@@ -49,8 +49,6 @@ TODO (in no particular order):
 - Invalidate keyword? Any use after an identifier has been invalidated will cause an error.
 - C lib
     - Separate primitive types for C
-- Fix global initialization (currently non-constants are allowed, which doesn't work in LLVM)
-- Optional semicolons
 - Nested functions
 - Refactor semantics package. The use of AST, symbol and type is very confusing right now.
     - Remove Node from Symbol struct

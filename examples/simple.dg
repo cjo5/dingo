@@ -1,43 +1,46 @@
-module simple;
+module simple
 
-include "libc.dg";
-include "libstd.dg";
+
+include "libc.dg"
+include "libstd.dg"
 
 fun printVec3(v Vec3) {
-    puti(v.v.x);
-    puti(v.v.y);
-    puti(v.z);
+    puti(v.v.x)
+    puti(v.v.y)
+    puti(v.z)
 }
 
 struct Vec2 {
-    x i32;
-    y i32;
+    x i32
+    y i32
+
+
 }
 
 struct Vec3 {
-    v Vec2;
-    z i32;
+    v Vec2
+    z i32
 }
 
 fun foo() i32 {
-    return 5;
+    return 5
 }
 
 struct List {
-    item *Item;
+    item *Item
 }
 
 struct Item {
-    parent *List;
-    data i32;
+    parent *List
+    data i32
 }
 
 pub fun main() {
-    var i1 Item;
-    var l = List{item=&i1};
-    i1.parent = &l;
-    i1.data = 99;
+    var i1 Item
+    var l = List{item=&i1,}
+    i1.parent = &l
 
-    puti(l.item.data);
-    puti(i1.parent.item.data);
+    i1.data = 99
+
+    if i1.data == 99 { puts("true") }
 }

@@ -78,7 +78,6 @@ func (p *exprPrinter) VisitBasicLit(expr *ir.BasicLit) ir.Expr {
 }
 
 func (p *exprPrinter) VisitStructLit(expr *ir.StructLit) ir.Expr {
-	p.buffer.WriteString("struct ")
 	ir.VisitExpr(p, expr.Name)
 	return expr
 }

@@ -14,6 +14,7 @@ type lexer struct {
 	lineOffset int
 	lineCount  int
 	readOffset int
+	prev       token.ID
 }
 
 func (l *lexer) init(src []byte, filename string, errors *common.ErrorList) {
@@ -25,19 +26,50 @@ func (l *lexer) init(src []byte, filename string, errors *common.ErrorList) {
 	l.readOffset = 0
 	l.lineOffset = 0
 	l.lineCount = 1
+	l.prev = token.Invalid
 	l.next()
 }
 
 func (l *lexer) lex() token.Token {
 	l.skipWhitespace()
 
-	pos := l.newPos()
+	startOffset := 0
 	tok := token.Token{
-		Pos:     pos,
 		Literal: "",
+		ID:      token.Invalid,
 	}
 
-	startOffset := l.chOffset
+	// Insert semicolon if needed
+
+	switch l.ch {
+	case '\n':
+		if isLineTerminator(l.prev) {
+			tok.ID = token.Semicolon
+			tok.Pos = l.newPos()
+			startOffset = l.chOffset
+			l.next()
+			tok.Literal = string(l.src[startOffset:l.chOffset])
+			l.prev = tok.ID
+			return tok
+		}
+
+		for l.ch == '\n' {
+			l.next()
+			l.skipWhitespace()
+		}
+	case '}', -1:
+		if isLineTerminator(l.prev) {
+			tok.ID = token.Semicolon
+			tok.Pos = l.newPos()
+			tok.Literal = "\n"
+			l.prev = tok.ID
+			return tok
+		}
+	}
+
+	pos := l.newPos()
+	tok.Pos = pos
+	startOffset = l.chOffset
 
 	switch ch1 := l.ch; {
 	case isLetter(ch1):
@@ -134,7 +166,20 @@ func (l *lexer) lex() token.Token {
 		tok.Literal = string(l.src[startOffset:l.chOffset])
 	}
 
+	l.prev = tok.ID
 	return tok
+}
+
+func isLineTerminator(id token.ID) bool {
+	switch id {
+	case token.Ident,
+		token.Integer, token.Float, token.String, token.True, token.False, token.Null,
+		token.Rparen, token.Rbrace,
+		token.Continue, token.Break, token.Return:
+		return true
+	default:
+		return false
+	}
 }
 
 func isLetter(ch rune) bool {
@@ -167,10 +212,10 @@ func isDigit(ch rune, base int) bool {
 func (l *lexer) next() {
 	if l.readOffset < len(l.src) {
 		l.chOffset = l.readOffset
-		l.ch = rune(l.src[l.chOffset])
 		l.readOffset++
+		l.ch = rune(l.src[l.chOffset])
 		if l.ch == '\n' {
-			l.lineOffset = l.readOffset
+			l.lineOffset = l.chOffset
 			l.lineCount++
 		}
 	} else {
@@ -180,7 +225,8 @@ func (l *lexer) next() {
 }
 
 func (l *lexer) newPos() token.Position {
-	return token.Position{Line: l.lineCount, Column: (l.chOffset - l.lineOffset) + 1}
+	col := l.readOffset - l.lineOffset
+	return token.Position{Line: l.lineCount, Column: col}
 }
 
 func (l *lexer) error(pos token.Position, msg string) {
@@ -188,7 +234,7 @@ func (l *lexer) error(pos token.Position, msg string) {
 }
 
 func (l *lexer) skipWhitespace() {
-	for l.ch == ' ' || l.ch == '\t' || l.ch == '\n' {
+	for l.ch == ' ' || l.ch == '\t' {
 		l.next()
 	}
 }
