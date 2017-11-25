@@ -184,7 +184,7 @@ func (l *lexer) newPos() token.Position {
 }
 
 func (l *lexer) error(pos token.Position, msg string) {
-	l.errors.Add(l.filename, pos, msg)
+	l.errors.Add(l.filename, pos, common.SyntaxError, msg)
 }
 
 func (l *lexer) skipWhitespace() {

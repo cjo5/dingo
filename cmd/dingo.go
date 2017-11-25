@@ -46,7 +46,7 @@ func (d *driver) build() {
 	var errors common.ErrorList
 
 	modules, err := module.Load(d.infile)
-	if dumpErrors(errors, err, false) {
+	if printErrors(errors, err, false) {
 		return
 	}
 
@@ -64,7 +64,7 @@ func (d *driver) build() {
 	fmt.Println(semantics.PrintTree(modules))
 
 	err = semantics.Check(modules)
-	if dumpErrors(errors, err, false) {
+	if printErrors(errors, err, false) {
 		return
 	}
 
@@ -74,7 +74,7 @@ func (d *driver) build() {
 	llvm.Build(modules, d.outfile)
 }
 
-func dumpErrors(oldErrors common.ErrorList, newError error, onlyFatal bool) bool {
+func printErrors(oldErrors common.ErrorList, newError error, onlyFatal bool) bool {
 	if newError == nil {
 		return false
 	}
@@ -89,7 +89,7 @@ func dumpErrors(oldErrors common.ErrorList, newError error, onlyFatal bool) bool
 			fmt.Printf("%s\n", e)
 		}
 	} else {
-		fmt.Printf("[error] %s\n", newError)
+		fmt.Printf("%s\n", newError)
 	}
 
 	return true

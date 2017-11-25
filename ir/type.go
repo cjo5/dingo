@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+
+	"github.com/jhnl/dingo/common"
 )
 
 // TypeID identifies the base type.
@@ -249,8 +251,13 @@ func NewBasicType(id TypeID) Type {
 	return &BasicType{id: id}
 }
 
-func NewStructType(decl *StructDecl) Type {
+func NewIncompleteStructType(decl *StructDecl) Type {
 	t := &StructType{Sym: decl.Sym, Scope: decl.Scope}
+	return t
+}
+
+func (t *StructType) SetBody(decl *StructDecl) Type {
+	common.Assert(t.Sym == decl.Sym, "Different struct decl")
 	for _, field := range decl.Fields {
 		t.Fields = append(t.Fields, &Field{Sym: field.Sym, T: field.Type.Type()})
 	}

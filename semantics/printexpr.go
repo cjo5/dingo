@@ -106,7 +106,7 @@ func (p *exprPrinter) VisitCast(expr *ir.Cast) ir.Expr {
 }
 
 func (p *exprPrinter) VisitFuncCall(expr *ir.FuncCall) ir.Expr {
-	ir.VisitExpr(p, expr)
+	ir.VisitExpr(p, expr.X)
 
 	p.buffer.WriteString("(")
 	for i, arg := range expr.Args {

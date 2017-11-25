@@ -47,6 +47,14 @@ func (v *typeVisitor) VisitValTopDecl(decl *ir.ValTopDecl) {
 		return
 	}
 	v.visitValDeclSpec(decl.Sym, &decl.ValDeclSpec, true)
+
+	// TODO: Support assignment if it's a value
+	switch init := decl.Initializer.(type) {
+	case *ir.BasicLit:
+	case *ir.StructLit:
+	default:
+		v.c.error(decl.Initializer.FirstPos(), "'%s' is not a compile-time constant", PrintExpr(init))
+	}
 }
 
 func (v *typeVisitor) VisitValDecl(decl *ir.ValDecl) {
@@ -79,11 +87,7 @@ func (v *typeVisitor) visitValDeclSpec(sym *ir.Symbol, decl *ir.ValDeclSpec, def
 		}
 
 		if sym.T.ID() == ir.TVoid {
-			declType := "variable"
-			if sym.Constant() {
-				declType = "value"
-			}
-			v.c.error(decl.Type.FirstPos(), "cannot declare %s with type %s", declType, ir.TVoid)
+			v.c.error(decl.Type.FirstPos(), "%s cannot be used as a type specifier", sym.T)
 			sym.T = ir.TBuiltinUntyped
 			return
 		}
@@ -179,14 +183,16 @@ func (v *typeVisitor) VisitFuncDecl(decl *ir.FuncDecl) {
 }
 
 func (v *typeVisitor) VisitStructDecl(decl *ir.StructDecl) {
-	if !v.signature {
+	if v.signature {
+		decl.Sym.T = ir.NewIncompleteStructType(decl)
 		return
 	}
 
 	for _, field := range decl.Fields {
 		v.VisitValDecl(field)
 	}
-	decl.Sym.T = ir.NewStructType(decl)
+	structt := decl.Sym.T.(*ir.StructType)
+	structt.SetBody(decl)
 }
 
 func (v *typeVisitor) VisitBlockStmt(stmt *ir.BlockStmt) {

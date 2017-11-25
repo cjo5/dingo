@@ -228,12 +228,13 @@ func (cb *codeBuilder) buildFuncDecl(decl *ir.FuncDecl) {
 }
 
 func (cb *codeBuilder) buildStructDecl(decl *ir.StructDecl) {
-	if !cb.signature {
+	if cb.signature {
+		structt := cb.mod.Context().StructCreateNamed(decl.Name.Literal)
+		cb.typeDecls[decl.Sym] = structt
 		return
 	}
 
-	structt := cb.mod.Context().StructCreateNamed(decl.Name.Literal)
-	cb.typeDecls[decl.Sym] = structt
+	structt := cb.typeDecls[decl.Sym]
 
 	var types []llvm.Type
 	for _, field := range decl.Fields {

@@ -149,7 +149,7 @@ func (l *loader) createIncludeList(loadedFile *file) bool {
 		}
 
 		if len(unquoted) == 0 {
-			l.errors.AddTrace(loadedFile.path(), inc.Literal.Pos, l.getIncludedByTrace(loadedFile), "invalid path")
+			l.errors.AddTrace(loadedFile.path(), inc.Literal.Pos, common.GenericError, l.getIncludedByTrace(loadedFile), "invalid path")
 			continue
 		}
 
@@ -168,7 +168,7 @@ func (l *loader) createIncludeList(loadedFile *file) bool {
 				for i := len(traceLines) - 1; i >= 0; i-- {
 					trace.Lines = append(trace.Lines, traceLines[i])
 				}
-				l.errors.AddTrace(loadedFile.path(), inc.Literal.Pos, trace, "include cycle detected")
+				l.errors.AddTrace(loadedFile.path(), inc.Literal.Pos, common.GenericError, trace, "include cycle detected")
 				continue
 			}
 			inc.File = foundFile.file

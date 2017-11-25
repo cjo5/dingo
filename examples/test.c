@@ -36,11 +36,15 @@ struct List {
         struct Vec2* v;
 };
 
+const char* b = "hej";
+
+int a = b;
+
+
 //struct Vec3 globalVec3 = {.v.x = 5, .v.y = 13, .z = 9 };
 
 int main() {
-        struct Vec2** w;                
-        w->x;
+
 
         return 0;
 }

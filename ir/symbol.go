@@ -31,7 +31,6 @@ type Symbol struct {
 	Src      Decl // Node in ast that created this symbol. Nil if builtin symbol.
 	T        Type // The symbol's type.
 	Flags    int
-	Address  int
 }
 
 // NewSymbol creates a new symbol of a given ID and name.

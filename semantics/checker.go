@@ -94,7 +94,7 @@ func (c *checker) error(pos token.Position, format string, args ...interface{}) 
 	if c.fileCtx != nil {
 		filename = c.fileCtx.Path
 	}
-	c.errors.Add(filename, pos, format, args...)
+	c.errors.Add(filename, pos, common.GenericError, format, args...)
 }
 
 func (c *checker) insert(scope *ir.Scope, id ir.SymbolID, name string, pos token.Position, src ir.Decl) *ir.Symbol {
@@ -159,7 +159,7 @@ func (c *checker) sortDecls() {
 					errorMsg = "type cycle detected"
 				}
 
-				c.errors.AddTrace(decl.Context().Path, sym.Pos, trace, errorMsg)
+				c.errors.AddTrace(decl.Context().Path, sym.Pos, common.GenericError, trace, errorMsg)
 			}
 		}
 		mod.Decls = sortedDecls

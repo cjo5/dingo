@@ -2,10 +2,7 @@ TODO (in no particular order):
 - LLVM
     - Research on alignment
     - Debug symbols
-- Issues
-    - Change dependencywalk
-        - Don't allow initialize top decls with functions
-        - Issue with pointer to enclosing type (incorrect cycle detected)
+    - Fix scoping rules
 - Memory management and arrays
     - Array syntax:
         - static array: val a [u32; 5]

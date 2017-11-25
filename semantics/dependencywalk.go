@@ -4,7 +4,8 @@ import "github.com/jhnl/dingo/ir"
 
 type dependencyVisitor struct {
 	ir.BaseVisitor
-	c *checker
+	exprMode int
+	c        *checker
 }
 
 func dependencyWalk(c *checker) {
@@ -33,7 +34,9 @@ func (v *dependencyVisitor) VisitValTopDecl(decl *ir.ValTopDecl) {
 
 func (v *dependencyVisitor) VisitValDecl(decl *ir.ValDecl) {
 	if decl.Type != nil {
+		v.exprMode = exprModeType
 		ir.VisitExpr(v, decl.Type)
+		v.exprMode = exprModeNone
 	}
 	if decl.Initializer != nil {
 		ir.VisitExpr(v, decl.Initializer)
@@ -104,6 +107,10 @@ func (v *dependencyVisitor) VisitUnaryExpr(expr *ir.UnaryExpr) ir.Expr {
 }
 
 func (v *dependencyVisitor) VisitStarExpr(expr *ir.StarExpr) ir.Expr {
+	if v.exprMode == exprModeType {
+		return expr
+	}
+
 	ir.VisitExpr(v, expr.X)
 	return expr
 }

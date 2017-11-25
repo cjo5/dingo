@@ -14,12 +14,32 @@ type Trace struct {
 	Lines []string
 }
 
+type ErrorID int
+
+const (
+	GenericError ErrorID = iota
+	SyntaxError
+	GenericWarning
+)
+
+func (e ErrorID) String() string {
+	switch e {
+	case GenericError:
+		return "error"
+	case GenericWarning:
+		return "warning"
+	case SyntaxError:
+		return "syntax error"
+	}
+	return ""
+}
+
 type Error struct {
-	Pos      token.Position
 	Filename string
+	Pos      token.Position
+	ID       ErrorID
 	Msg      string
 	Trace    Trace
-	Fatal    bool
 }
 
 type ErrorList struct {
@@ -31,8 +51,8 @@ func NewTrace(title string, lines []string) Trace {
 	return Trace{Title: title, Lines: lines}
 }
 
-func NewError(filename string, pos token.Position, msg string, fatal bool) *Error {
-	return &Error{Filename: filename, Pos: pos, Msg: msg, Fatal: fatal}
+func NewError(filename string, pos token.Position, id ErrorID, msg string) *Error {
+	return &Error{Filename: filename, Pos: pos, ID: id, Msg: msg}
 }
 
 func (t Trace) write(buf *bytes.Buffer) {
@@ -52,19 +72,14 @@ func (t Trace) write(buf *bytes.Buffer) {
 }
 
 func (e Error) Error() string {
-	errType := "warning"
-	if e.Fatal {
-		errType = "error"
-	}
-
 	msg := ""
 
 	if e.Pos.IsValid() && len(e.Filename) > 0 {
-		msg = fmt.Sprintf("[%s] %s:%s: %s", errType, e.Filename, e.Pos, e.Msg)
+		msg = fmt.Sprintf("%s:%s: %s: %s", e.Filename, e.Pos, e.ID, e.Msg)
 	} else if len(e.Filename) > 0 {
-		msg = fmt.Sprintf("[%s] %s: %s", errType, e.Filename, e.Msg)
+		msg = fmt.Sprintf("%s: %s: %s", e.Filename, e.ID, e.Msg)
 	} else {
-		msg = fmt.Sprintf("[%s] %s", errType, e.Msg)
+		msg = fmt.Sprintf("%s: %s", e.ID, e.Msg)
 	}
 
 	if len(e.Trace.Lines) > 0 {
@@ -77,19 +92,14 @@ func (e Error) Error() string {
 	return msg
 }
 
-func (e *ErrorList) Add(filename string, pos token.Position, format string, args ...interface{}) {
-	err := NewError(filename, pos, fmt.Sprintf(format, args...), true)
+func (e *ErrorList) Add(filename string, pos token.Position, id ErrorID, format string, args ...interface{}) {
+	err := NewError(filename, pos, id, fmt.Sprintf(format, args...))
 	e.Errors = append(e.Errors, err)
 	e.isFatal = true
 }
 
-func (e *ErrorList) AddNonFatal(filename string, pos token.Position, format string, args ...interface{}) {
-	err := NewError(filename, pos, fmt.Sprintf(format, args...), false)
-	e.Errors = append(e.Errors, err)
-}
-
-func (e *ErrorList) AddTrace(filename string, pos token.Position, trace Trace, format string, args ...interface{}) {
-	err := NewError(filename, pos, fmt.Sprintf(format, args...), true)
+func (e *ErrorList) AddTrace(filename string, pos token.Position, id ErrorID, trace Trace, format string, args ...interface{}) {
+	err := NewError(filename, pos, id, fmt.Sprintf(format, args...))
 	err.Trace = trace
 	e.Errors = append(e.Errors, err)
 	e.isFatal = true
@@ -99,7 +109,7 @@ func (e *ErrorList) AddGeneric(filename string, pos token.Position, err error) {
 	if errList, ok := err.(*ErrorList); ok {
 		e.Merge(errList)
 	} else {
-		e.Add(filename, pos, err.Error())
+		e.Add(filename, pos, GenericError, err.Error())
 	}
 }
 

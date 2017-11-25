@@ -21,7 +21,7 @@ func (v *typeVisitor) VisitBinaryExpr(expr *ir.BinaryExpr) ir.Expr {
 	binType := ir.TUntyped
 	boolOp := expr.Op.OneOf(token.Eq, token.Neq, token.Gt, token.GtEq, token.Lt, token.LtEq)
 	arithOp := expr.Op.OneOf(token.Add, token.Sub, token.Star, token.Div, token.Mod)
-	typeNotSupported := ir.TUntyped
+	typeNotSupported := ir.TBuiltinUntyped
 
 	if expr.Op.OneOf(token.Land, token.Lor) {
 		if leftType.ID() != ir.TBool || rightType.ID() != ir.TBool {
@@ -55,7 +55,7 @@ func (v *typeVisitor) VisitBinaryExpr(expr *ir.BinaryExpr) ir.Expr {
 			if expr.Op.ID == token.Div || expr.Op.ID == token.Mod {
 				if (rightBigInt != nil && rightBigInt.Cmp(ir.BigIntZero) == 0) ||
 					(rightBigFloat != nil && rightBigFloat.Cmp(ir.BigFloatZero) == 0) {
-					v.c.error(rightLit.Value.Pos, "Division by zero")
+					v.c.error(rightLit.Value.Pos, "division by zero")
 					expr.T = ir.NewBasicType(ir.TUntyped)
 					return expr
 				}
@@ -133,14 +133,14 @@ func (v *typeVisitor) VisitBinaryExpr(expr *ir.BinaryExpr) ir.Expr {
 						case token.Div:
 							leftBigFloat.Quo(leftBigFloat, rightBigFloat)
 						case token.Mod:
-							typeNotSupported = leftType.ID()
+							typeNotSupported = leftType
 						default:
 							panic(fmt.Sprintf("Unhandled binop %s", expr.Op.ID))
 						}
 					}
 				}
 
-				if typeNotSupported == ir.TUntyped {
+				if ir.IsTypeID(typeNotSupported, ir.TUntyped) {
 					if boolOp {
 						if boolRes {
 							leftLit.Value.ID = token.True
@@ -170,39 +170,39 @@ func (v *typeVisitor) VisitBinaryExpr(expr *ir.BinaryExpr) ir.Expr {
 			}
 		} else if leftType.ID() == ir.TPointer && rightType.ID() == ir.TPointer {
 			if arithOp {
-				typeNotSupported = ir.TPointer
-			} else {
-				leftPtr := leftType.(*ir.PointerType)
-				rightPtr := rightType.(*ir.PointerType)
-				leftNull := leftLit != nil && leftLit.Value.Is(token.Null)
-				rightNull := rightLit != nil && rightLit.Value.Is(token.Null)
+				typeNotSupported = leftType
+			}
 
-				if leftNull && rightNull {
-					leftLit.T = ir.NewPointerType(ir.NewBasicType(ir.TUInt8))
-					leftType = leftLit.T
-					rightLit.T = ir.NewPointerType(ir.NewBasicType(ir.TUInt8))
-					rightType = rightLit.T
-				} else if leftNull {
-					leftLit.T = ir.NewPointerType(rightPtr.Underlying)
-					leftType = leftLit.T
-				} else if rightNull {
-					rightLit.T = ir.NewPointerType(leftPtr.Underlying)
-					rightType = rightLit.T
-				}
+			leftPtr := leftType.(*ir.PointerType)
+			rightPtr := rightType.(*ir.PointerType)
+			leftNull := leftLit != nil && leftLit.Value.Is(token.Null)
+			rightNull := rightLit != nil && rightLit.Value.Is(token.Null)
+
+			if leftNull && rightNull {
+				leftLit.T = ir.NewPointerType(ir.NewBasicType(ir.TUInt8))
+				leftType = leftLit.T
+				rightLit.T = ir.NewPointerType(ir.NewBasicType(ir.TUInt8))
+				rightType = rightLit.T
+			} else if leftNull {
+				leftLit.T = ir.NewPointerType(rightPtr.Underlying)
+				leftType = leftLit.T
+			} else if rightNull {
+				rightLit.T = ir.NewPointerType(leftPtr.Underlying)
+				rightType = rightLit.T
 			}
 		} else if leftType.ID() == ir.TBool && rightType.ID() == ir.TBool {
 			if arithOp || expr.Op.OneOf(token.Gt, token.GtEq, token.Lt, token.LtEq) {
-				typeNotSupported = ir.TBool
+				typeNotSupported = leftType
 			}
 		} else if leftType.ID() == ir.TString && rightType.ID() == ir.TString {
-			typeNotSupported = ir.TString
+			typeNotSupported = leftType
 		}
 
-		if typeNotSupported != ir.TUntyped {
-			v.c.error(expr.Op.Pos, "type mismatch: expression %s with type %s is not supported", PrintExpr(expr), typeNotSupported)
-		} else if !leftType.IsEqual(rightType) {
-			v.c.error(expr.Op.Pos, "type mismatch: expression %s have types %s and %s",
+		if !leftType.IsEqual(rightType) {
+			v.c.error(expr.Op.Pos, "type mismatch: '%s' have different types (%s and %s)",
 				PrintExpr(expr), leftType, rightType)
+		} else if !ir.IsTypeID(typeNotSupported, ir.TUntyped) {
+			v.c.error(expr.Op.Pos, "type mismatch: cannot perform '%s' with type %s", PrintExpr(expr), typeNotSupported)
 		} else {
 			if boolOp {
 				binType = ir.TBool
@@ -224,7 +224,7 @@ func (v *typeVisitor) VisitUnaryExpr(expr *ir.UnaryExpr) ir.Expr {
 	switch expr.Op.ID {
 	case token.Sub:
 		if !ir.IsNumericType(expr.T) {
-			v.c.error(expr.Op.Pos, "type mismatch: expression %s has type %s (expected integer or float)", PrintExpr(expr), expr.T)
+			v.c.error(expr.Op.Pos, "type mismatch: expression '%s' has type %s (expected integer or float)", PrintExpr(expr), expr.T)
 		} else if lit, ok := expr.X.(*ir.BasicLit); ok {
 			var raw interface{}
 
@@ -248,7 +248,7 @@ func (v *typeVisitor) VisitUnaryExpr(expr *ir.UnaryExpr) ir.Expr {
 		}
 	case token.Lnot:
 		if expr.T.ID() != ir.TBool {
-			v.c.error(expr.Op.Pos, "type mismatch: expression %s has type %s (expected %s)", PrintExpr(expr), expr.T, ir.TBuiltinBool)
+			v.c.error(expr.Op.Pos, "type mismatch: expression '%s' has type %s (expected %s)", PrintExpr(expr), expr.T, ir.TBuiltinBool)
 		}
 	case token.And:
 		if !expr.X.Lvalue() {
@@ -358,7 +358,7 @@ func (v *typeVisitor) VisitBasicLit(expr *ir.BasicLit) ir.Expr {
 			normalized := removeUnderscores(expr.Value.Literal)
 			_, ok := val.SetString(normalized, 0)
 			if !ok {
-				v.c.error(expr.Value.Pos, "unable to interpret integer literal %s", normalized)
+				v.c.error(expr.Value.Pos, "unable to interpret integer literal '%s'", normalized)
 			}
 			expr.T = ir.NewBasicType(ir.TBigInt)
 			expr.Raw = val
@@ -369,7 +369,7 @@ func (v *typeVisitor) VisitBasicLit(expr *ir.BasicLit) ir.Expr {
 			normalized := removeUnderscores(expr.Value.Literal)
 			_, ok := val.SetString(normalized)
 			if !ok {
-				v.c.error(expr.Value.Pos, "unable to interpret float literal %s", normalized)
+				v.c.error(expr.Value.Pos, "unable to interpret float literal '%s'", normalized)
 			}
 			expr.T = ir.NewBasicType(ir.TBigFloat)
 			expr.Raw = val
@@ -480,7 +480,7 @@ func createDefaultBasicLit(t ir.Type) *ir.BasicLit {
 		lit = &ir.BasicLit{Value: token.Synthetic(token.Null, token.Null.String())}
 		ptr := t.(*ir.PointerType)
 		lit.T = ir.NewPointerType(ptr.Underlying)
-	} else {
+	} else if !ir.IsTypeID(t, ir.TUntyped) {
 		panic(fmt.Sprintf("Unhandled init value for type %s", t.ID()))
 	}
 	return lit
@@ -560,7 +560,7 @@ func (v *typeVisitor) VisitDotExpr(expr *ir.DotExpr) ir.Expr {
 	}
 
 	if invalidAccess {
-		v.c.error(expr.X.FirstPos(), "invalid access '%s'; type %s does not support field access", PrintExpr(expr), expr.X.Type())
+		v.c.error(expr.X.FirstPos(), "invalid expression '%s'; type %s does not support field access", PrintExpr(expr), expr.X.Type())
 		expr.T = ir.TBuiltinUntyped
 		return expr
 	}
@@ -580,12 +580,12 @@ func (v *typeVisitor) VisitCast(expr *ir.Cast) ir.Expr {
 	ident := ir.ExprToIdent(expr.ToTyp)
 	err := true
 	if ident == nil {
-		v.c.error(expr.ToTyp.FirstPos(), "'%s' is not a valid type expression", PrintExpr(expr.ToTyp))
+		v.c.error(expr.ToTyp.FirstPos(), "'%s' is not a valid type specifier", PrintExpr(expr.ToTyp))
 	} else if ident.Sym != nil {
 		if ident.Sym.ID != ir.TypeSymbol {
 			v.c.error(expr.ToTyp.FirstPos(), "'%s' is not a type", PrintExpr(expr.ToTyp))
 		} else if !ident.Sym.Castable() {
-			v.c.error(expr.ToTyp.FirstPos(), "cannot cast to type '%s'", expr.ToTyp.Type())
+			v.c.error(expr.ToTyp.FirstPos(), "cannot cast to type %s", expr.ToTyp.Type())
 		} else {
 			err = false
 		}
