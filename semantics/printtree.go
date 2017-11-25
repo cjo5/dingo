@@ -198,6 +198,13 @@ func (p *treePrinter) VisitUnaryExpr(expr *ir.UnaryExpr) ir.Expr {
 	return expr
 }
 
+func (p *treePrinter) VisitStarExpr(expr *ir.StarExpr) ir.Expr {
+	defer dec(inc(p))
+	p.printToken(expr.Star)
+	ir.VisitExpr(p, expr.X)
+	return expr
+}
+
 func (p *treePrinter) VisitBasicLit(expr *ir.BasicLit) ir.Expr {
 	defer dec(inc(p))
 	p.printToken(expr.Value)

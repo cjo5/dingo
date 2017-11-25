@@ -13,7 +13,7 @@ FuncDecl = 'func' IDENT Func
 StructDecl = 'struct' IDENT Struct
 
 Visibility = 'pub' | 'priv' 
-Type = IDENT ['.' IDENT] 
+Type = ['*'] IDENT 
 Field = ['val' | 'var'] IDENT Type
 Struct= '{' {Field ';'} '}'
 FuncSignature = '(' [Field {',' Field}] ')' [ Type]
@@ -37,15 +37,16 @@ Equality = Comparison {( '!=' | '==' ) Comparison}
 Comparison = Term {( '>' | '>=' | '<' | '<=' ) Term}
 Term = Factor {( '-' | '+' ) Factor}
 Factor = Unary {( '/' | '%' | '*' ) Unary}
-Unary = (( '!' | '-' ) Expr) | Operand
+Unary = (( '!' | '-' | '&') Expr) | Operand
 # StructLit is not an operand when parsing condition
-Operand = Cast | Primary | BasicLit | StructLit | '(' Expr ')' 
+Operand = StarExpr | Cast | Primary | BasicLit | StructLit
 
+StarExpr = '*' Expr
 Cast = 'cast' '(' Expr ',' Expr ')'
-Primary = IDENT | DotIdent | FuncCall 
+Primary = IDENT | DotIdent | FuncCall  | '(' Expr ')'
 FuncCall = Primary '(' [Expr {',' Expr} ] ')'
 DotIdent = Primary '.' IDENT
 
-BasicLit = INTEGER | FLOAT | STRING | 'false' | 'true'
+BasicLit = INTEGER | FLOAT | STRING | 'true' | 'false' | 'null'
 KeyValue = IDENT '=' Expr
 StructLit = Type '{' [KeyValue {',' KeyValue} [',]] '}'

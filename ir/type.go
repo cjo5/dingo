@@ -34,6 +34,7 @@ const (
 
 	TString
 	TStruct
+	TPointer
 	TFunc
 )
 
@@ -41,21 +42,22 @@ var types = [...]string{
 	TUntyped:  "untyped",
 	TVoid:     "void",
 	TBool:     "bool",
-	TString:   "str",
-	TStruct:   "struct",
-	TFunc:     "func",
-	TBigInt:   "integer",
-	TBigFloat: "float",
-	TUInt64:   "u64",
-	TInt64:    "i64",
-	TUInt32:   "u32",
-	TInt32:    "i32",
-	TUInt16:   "u16",
-	TInt16:    "i16",
 	TUInt8:    "u8",
 	TInt8:     "i8",
-	TFloat64:  "f64",
+	TUInt16:   "u16",
+	TInt16:    "i16",
+	TUInt32:   "u32",
+	TInt32:    "i32",
+	TUInt64:   "u64",
+	TInt64:    "i64",
 	TFloat32:  "f32",
+	TFloat64:  "f64",
+	TBigInt:   "integer",
+	TBigFloat: "float",
+	TString:   "str",
+	TStruct:   "struct",
+	TPointer:  "pointer",
+	TFunc:     "fun",
 }
 
 func (id TypeID) String() string {
@@ -163,7 +165,7 @@ func (t *StructType) IsEqual(other Type) bool {
 }
 
 func (t *StructType) String() string {
-	return fmt.Sprintf("struct %s", t.Name())
+	return fmt.Sprintf("%s", t.Name())
 }
 
 func (t *StructType) Name() string {
@@ -180,6 +182,26 @@ func (t *StructType) FieldIndex(fieldName string) int {
 		}
 	}
 	return -1
+}
+
+type PointerType struct {
+	Underlying Type
+}
+
+func (t *PointerType) ID() TypeID {
+	return TPointer
+}
+
+func (t *PointerType) IsEqual(other Type) bool {
+	otherPointer, ok := other.(*PointerType)
+	if !ok {
+		return false
+	}
+	return t.Underlying.IsEqual(otherPointer.Underlying)
+}
+
+func (t *PointerType) String() string {
+	return "*" + t.Underlying.String()
 }
 
 type FuncType struct {
@@ -212,7 +234,7 @@ func (t *FuncType) IsEqual(other Type) bool {
 
 func (t *FuncType) String() string {
 	var buf bytes.Buffer
-	buf.WriteString("fun (")
+	buf.WriteString("(")
 	for i, p := range t.Params {
 		buf.WriteString(p.T.String())
 		if (i + 1) < len(t.Params) {
@@ -233,6 +255,10 @@ func NewStructType(decl *StructDecl) Type {
 		t.Fields = append(t.Fields, &Field{Sym: field.Sym, T: field.Type.Type()})
 	}
 	return t
+}
+
+func NewPointerType(Underlying Type) Type {
+	return &PointerType{Underlying: Underlying}
 }
 
 func NewFuncType(decl *FuncDecl) Type {

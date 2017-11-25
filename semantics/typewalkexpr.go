@@ -20,7 +20,7 @@ func (v *typeVisitor) VisitBinaryExpr(expr *ir.BinaryExpr) ir.Expr {
 
 	binType := ir.TUntyped
 	boolOp := expr.Op.OneOf(token.Eq, token.Neq, token.Gt, token.GtEq, token.Lt, token.LtEq)
-	arithOp := expr.Op.OneOf(token.Add, token.Sub, token.Mul, token.Div, token.Mod)
+	arithOp := expr.Op.OneOf(token.Add, token.Sub, token.Star, token.Div, token.Mod)
 	typeNotSupported := ir.TUntyped
 
 	if expr.Op.OneOf(token.Land, token.Lor) {
@@ -113,7 +113,7 @@ func (v *typeVisitor) VisitBinaryExpr(expr *ir.BinaryExpr) ir.Expr {
 							leftBigInt.Add(leftBigInt, rightBigInt)
 						case token.Sub:
 							leftBigInt.Sub(leftBigInt, rightBigInt)
-						case token.Mul:
+						case token.Star:
 							leftBigInt.Mul(leftBigInt, rightBigInt)
 						case token.Div:
 							leftBigInt.Div(leftBigInt, rightBigInt)
@@ -128,7 +128,7 @@ func (v *typeVisitor) VisitBinaryExpr(expr *ir.BinaryExpr) ir.Expr {
 							leftBigFloat.Add(leftBigFloat, rightBigFloat)
 						case token.Sub:
 							leftBigFloat.Sub(leftBigFloat, rightBigFloat)
-						case token.Mul:
+						case token.Star:
 							leftBigFloat.Mul(leftBigFloat, rightBigFloat)
 						case token.Div:
 							leftBigFloat.Quo(leftBigFloat, rightBigFloat)
@@ -167,6 +167,28 @@ func (v *typeVisitor) VisitBinaryExpr(expr *ir.BinaryExpr) ir.Expr {
 			} else if leftBigFloat == nil && rightBigFloat != nil {
 				typeCastNumericLiteral(rightLit, leftType)
 				rightType = rightLit.T
+			}
+		} else if leftType.ID() == ir.TPointer && rightType.ID() == ir.TPointer {
+			if arithOp {
+				typeNotSupported = ir.TPointer
+			} else {
+				leftPtr := leftType.(*ir.PointerType)
+				rightPtr := rightType.(*ir.PointerType)
+				leftNull := leftLit != nil && leftLit.Value.Is(token.Null)
+				rightNull := rightLit != nil && rightLit.Value.Is(token.Null)
+
+				if leftNull && rightNull {
+					leftLit.T = ir.NewPointerType(ir.NewBasicType(ir.TUInt8))
+					leftType = leftLit.T
+					rightLit.T = ir.NewPointerType(ir.NewBasicType(ir.TUInt8))
+					rightType = rightLit.T
+				} else if leftNull {
+					leftLit.T = ir.NewPointerType(rightPtr.Underlying)
+					leftType = leftLit.T
+				} else if rightNull {
+					rightLit.T = ir.NewPointerType(leftPtr.Underlying)
+					rightType = rightLit.T
+				}
 			}
 		} else if leftType.ID() == ir.TBool && rightType.ID() == ir.TBool {
 			if arithOp || expr.Op.OneOf(token.Gt, token.GtEq, token.Lt, token.LtEq) {
@@ -228,8 +250,44 @@ func (v *typeVisitor) VisitUnaryExpr(expr *ir.UnaryExpr) ir.Expr {
 		if expr.T.ID() != ir.TBool {
 			v.c.error(expr.Op.Pos, "type mismatch: expression %s has type %s (expected %s)", PrintExpr(expr), expr.T, ir.TBuiltinBool)
 		}
+	case token.And:
+		if !expr.X.Lvalue() {
+			expr.T = ir.TBuiltinUntyped
+			v.c.error(expr.X.FirstPos(), "cannot take address of '%s' (not an lvalue)", PrintExpr(expr.X))
+		} else {
+			expr.T = ir.NewPointerType(expr.X.Type())
+		}
 	default:
 		panic(fmt.Sprintf("Unhandled unary op %s", expr.Op.ID))
+	}
+	return expr
+}
+
+func (v *typeVisitor) VisitStarExpr(expr *ir.StarExpr) ir.Expr {
+	expr.X = ir.VisitExpr(v, expr.X)
+	typ := expr.X.Type()
+	if v.exprMode == exprModeType {
+		expr.T = ir.NewPointerType(typ)
+	} else {
+		lvalue := false
+
+		if deref, ok := expr.X.(*ir.UnaryExpr); ok {
+			if deref.Op.ID == token.And {
+				lvalue = deref.X.Lvalue()
+			}
+		} else {
+			lvalue = expr.X.Lvalue()
+		}
+
+		if !lvalue {
+			expr.T = ir.TBuiltinUntyped
+			v.c.error(expr.X.FirstPos(), "cannot dereference '%s' (not an lvalue)", PrintExpr(expr.X))
+		} else if ptrType, ok := typ.(*ir.PointerType); ok {
+			expr.T = ptrType.Underlying
+		} else {
+			expr.T = ir.TBuiltinUntyped
+			v.c.error(expr.X.FirstPos(), "cannot dereference '%s' (not a pointer)", PrintExpr(expr.X))
+		}
 	}
 	return expr
 }
@@ -316,6 +374,8 @@ func (v *typeVisitor) VisitBasicLit(expr *ir.BasicLit) ir.Expr {
 			expr.T = ir.NewBasicType(ir.TBigFloat)
 			expr.Raw = val
 		}
+	} else if expr.Value.ID == token.Null {
+		expr.T = ir.NewPointerType(ir.TBuiltinUntyped)
 	} else {
 		panic(fmt.Sprintf("Unhandled literal %s", expr.Value.ID))
 	}
@@ -323,10 +383,10 @@ func (v *typeVisitor) VisitBasicLit(expr *ir.BasicLit) ir.Expr {
 }
 
 func (v *typeVisitor) VisitStructLit(expr *ir.StructLit) ir.Expr {
-	prevMode := v.identMode
-	v.identMode = identModeType
+	prevMode := v.exprMode
+	v.exprMode = exprModeType
 	expr.Name = ir.VisitExpr(v, expr.Name)
-	v.identMode = prevMode
+	v.exprMode = prevMode
 
 	t := expr.Name.Type()
 	if ir.IsUntyped(t) {
@@ -416,6 +476,10 @@ func createDefaultBasicLit(t ir.Type) *ir.BasicLit {
 		lit = &ir.BasicLit{Value: token.Synthetic(token.Float, "0")}
 		lit.Raw = ir.BigFloatZero
 		lit.T = ir.NewBasicType(t.ID())
+	} else if ir.IsTypeID(t, ir.TPointer) {
+		lit = &ir.BasicLit{Value: token.Synthetic(token.Null, token.Null.String())}
+		ptr := t.(*ir.PointerType)
+		lit.T = ir.NewPointerType(ptr.Underlying)
 	} else {
 		panic(fmt.Sprintf("Unhandled init value for type %s", t.ID()))
 	}
@@ -453,10 +517,10 @@ func (v *typeVisitor) VisitIdent(expr *ir.Ident) ir.Expr {
 	if sym == nil || sym.Untyped() {
 		v.c.error(expr.Pos(), "'%s' undefined", expr.Name.Literal)
 		expr.T = ir.TBuiltinUntyped
-	} else if v.identMode != identModeType && v.identMode != identModeFunc && sym.ID == ir.TypeSymbol {
+	} else if v.exprMode != exprModeType && v.exprMode != exprModeFunc && sym.ID == ir.TypeSymbol {
 		v.c.error(expr.Pos(), "type %s cannot be used in an expression", sym.T)
 		expr.T = ir.TBuiltinUntyped
-	} else if v.identMode == identModeNone && sym.ID == ir.FuncSymbol {
+	} else if v.exprMode == exprModeNone && sym.ID == ir.FuncSymbol {
 		v.c.error(expr.Pos(), "invalid function call to '%s' (missing argument list)", expr.Literal())
 		expr.T = ir.TBuiltinUntyped
 	} else {
@@ -467,25 +531,36 @@ func (v *typeVisitor) VisitIdent(expr *ir.Ident) ir.Expr {
 
 func (v *typeVisitor) VisitDotExpr(expr *ir.DotExpr) ir.Expr {
 	expr.X = ir.VisitExpr(v, expr.X)
-	t := expr.X.Type()
-	if ir.IsUntyped(t) {
+	if ir.IsUntyped(expr.X.Type()) {
 		expr.T = ir.TBuiltinUntyped
 		return expr
 	}
 
-	if id := ir.ExprToIdent(expr.X); id != nil {
-		sym := id.Sym
-		if sym != nil && sym.ID == ir.TypeSymbol {
-			v.c.error(id.Pos(), "static field access is not supported")
-			expr.T = ir.TBuiltinUntyped
+	invalidAccess := false
+
+	switch t := expr.X.Type().(type) {
+	case *ir.StructType:
+		defer setScope(setScope(v.c, t.Scope))
+	case *ir.PointerType:
+		switch t2 := t.Underlying.(type) {
+		case *ir.StructType:
+			// Automatically deref pointers.
+			// In C, the syntax for this would be foo->bar.
+			star := token.Synthetic(token.Star, token.Star.String())
+			starX := &ir.StarExpr{Star: star, X: expr.X}
+			starX.T = t2
+			expr.X = starX
+
+			defer setScope(setScope(v.c, t2.Scope))
+		default:
+			invalidAccess = true
 		}
+	default:
+		invalidAccess = true
 	}
 
-	if t.ID() == ir.TStruct {
-		structt, _ := t.(*ir.StructType)
-		defer setScope(setScope(v.c, structt.Scope))
-	} else {
-		v.c.error(expr.X.FirstPos(), "type %s does not support field access", t)
+	if invalidAccess {
+		v.c.error(expr.X.FirstPos(), "invalid access '%s'; type %s does not support field access", PrintExpr(expr), expr.X.Type())
 		expr.T = ir.TBuiltinUntyped
 		return expr
 	}
@@ -497,10 +572,10 @@ func (v *typeVisitor) VisitDotExpr(expr *ir.DotExpr) ir.Expr {
 }
 
 func (v *typeVisitor) VisitCast(expr *ir.Cast) ir.Expr {
-	prevMode := v.identMode
-	v.identMode = identModeType
+	prevMode := v.exprMode
+	v.exprMode = exprModeType
 	expr.ToTyp = ir.VisitExpr(v, expr.ToTyp)
-	v.identMode = prevMode
+	v.exprMode = prevMode
 
 	ident := ir.ExprToIdent(expr.ToTyp)
 	err := true
@@ -534,10 +609,10 @@ func (v *typeVisitor) VisitCast(expr *ir.Cast) ir.Expr {
 }
 
 func (v *typeVisitor) VisitFuncCall(expr *ir.FuncCall) ir.Expr {
-	prevMode := v.identMode
-	v.identMode = identModeFunc
+	prevMode := v.exprMode
+	v.exprMode = exprModeFunc
 	expr.X = ir.VisitExpr(v, expr.X)
-	v.identMode = prevMode
+	v.exprMode = prevMode
 
 	t := expr.X.Type()
 	if ir.IsUntyped(t) {

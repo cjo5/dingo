@@ -29,6 +29,7 @@ type Visitor interface {
 	VisitBadExpr(expr *BadExpr) Expr
 	VisitBinaryExpr(expr *BinaryExpr) Expr
 	VisitUnaryExpr(expr *UnaryExpr) Expr
+	VisitStarExpr(expr *StarExpr) Expr
 	VisitBasicLit(expr *BasicLit) Expr
 	VisitStructLit(expr *StructLit) Expr
 	VisitIdent(expr *Ident) Expr
@@ -79,6 +80,7 @@ func (v *BaseVisitor) VisitBadExpr(decl *BadExpr) Expr {
 
 func (v *BaseVisitor) VisitBinaryExpr(expr *BinaryExpr) Expr { return expr }
 func (v *BaseVisitor) VisitUnaryExpr(expr *UnaryExpr) Expr   { return expr }
+func (v *BaseVisitor) VisitStarExpr(expr *StarExpr) Expr     { return expr }
 func (v *BaseVisitor) VisitBasicLit(expr *BasicLit) Expr     { return expr }
 func (v *BaseVisitor) VisitStructLit(expr *StructLit) Expr   { return expr }
 func (v *BaseVisitor) VisitIdent(expr *Ident) Expr           { return expr }
@@ -155,6 +157,8 @@ func VisitExpr(v Visitor, expr Expr) Expr {
 		return v.VisitBinaryExpr(e)
 	case *UnaryExpr:
 		return v.VisitUnaryExpr(e)
+	case *StarExpr:
+		return v.VisitStarExpr(e)
 	case *BasicLit:
 		return v.VisitBasicLit(e)
 	case *StructLit:

@@ -381,14 +381,25 @@ func (cb *codeBuilder) buildBranchStmt(stmt *ir.BranchStmt) {
 }
 
 func (cb *codeBuilder) buildAssignStmt(stmt *ir.AssignStmt) {
+	var loc llvm.Value
+
+	switch left := stmt.Left.(type) {
+	case *ir.StarExpr:
+		loc = cb.buildExpr(left.X)
+	case *ir.DotExpr:
+		loc = cb.buildDotExpr(left, false)
+	case *ir.Ident:
+		loc = cb.values[left.Sym]
+	default:
+		panic(fmt.Sprintf("Unhandled left side %T of assignment", left))
+	}
+
 	val := cb.buildExpr(stmt.Right)
-	sym := ir.ExprSymbol(stmt.Left)
-	loc := cb.values[sym]
 
 	switch stmt.Assign.ID {
 	case token.AddAssign, token.SubAssign, token.MulAssign, token.DivAssign, token.ModAssign:
 		left := cb.b.CreateLoad(loc, "")
-		val = cb.createArithmeticOp(stmt.Assign.ID, sym.T, left, val)
+		val = cb.createArithmeticOp(stmt.Assign.ID, stmt.Left.Type(), left, val)
 	}
 
 	cb.b.CreateStore(val, loc)
@@ -431,6 +442,10 @@ func (cb *codeBuilder) toLLVMType(t ir.Type) llvm.Type {
 			return res
 		}
 		panic(fmt.Sprintf("Failed to find named type %s", t))
+	case ir.TPointer:
+		pointer := t.(*ir.PointerType)
+		underlying := cb.toLLVMType(pointer.Underlying)
+		return llvm.PointerType(underlying, 0)
 	default:
 		panic(fmt.Sprintf("Unhandled type %s", t.ID()))
 	}
@@ -442,6 +457,8 @@ func (cb *codeBuilder) buildExpr(expr ir.Expr) llvm.Value {
 		return cb.buildBinaryExpr(t)
 	case *ir.UnaryExpr:
 		return cb.buildUnaryExpr(t)
+	case *ir.StarExpr:
+		return cb.buildStarExpr(t)
 	case *ir.BasicLit:
 		return cb.buildBasicLit(t)
 	case *ir.StructLit:
@@ -471,7 +488,7 @@ func (cb *codeBuilder) createArithmeticOp(op token.ID, t ir.Type, left llvm.Valu
 			return cb.b.CreateFSub(left, right, "")
 		}
 		return cb.b.CreateSub(left, right, "")
-	case token.Mul, token.MulAssign:
+	case token.Star, token.MulAssign:
 		if ir.IsFloatingType(t) {
 			return cb.b.CreateFMul(left, right, "")
 		}
@@ -546,7 +563,7 @@ func (cb *codeBuilder) buildBinaryExpr(expr *ir.BinaryExpr) llvm.Value {
 	left := cb.buildExpr(expr.Left)
 
 	switch expr.Op.ID {
-	case token.Add, token.Sub, token.Mul, token.Div, token.Mod:
+	case token.Add, token.Sub, token.Star, token.Div, token.Mod:
 		right := cb.buildExpr(expr.Right)
 		return cb.createArithmeticOp(expr.Op.ID, expr.T, left, right)
 	case token.Eq, token.Neq, token.Gt, token.GtEq, token.Lt, token.LtEq:
@@ -584,18 +601,31 @@ func (cb *codeBuilder) buildBinaryExpr(expr *ir.BinaryExpr) llvm.Value {
 }
 
 func (cb *codeBuilder) buildUnaryExpr(expr *ir.UnaryExpr) llvm.Value {
-	val := cb.buildExpr(expr.X)
 	if expr.Op.ID == token.Sub {
+		val := cb.buildExpr(expr.X)
 		if ir.IsFloatingType(expr.T) {
 			return cb.b.CreateFNeg(val, "")
 		}
 		return cb.b.CreateNeg(val, "")
 	} else if expr.Op.ID == token.Lnot {
-		common.Assert(expr.T.ID() == ir.TBool, "Unary not is not of type bool")
+		val := cb.buildExpr(expr.X)
 		return cb.b.CreateNot(val, "")
+	} else if expr.Op.ID == token.And {
+		if dot, ok := expr.X.(*ir.DotExpr); ok {
+			return cb.buildDotExpr(dot, false)
+		}
+		ident := ir.ExprToIdent(expr.X)
+		val, ok := cb.values[ident.Sym]
+		common.Assert(ok, "nil value")
+		return val
 	}
 
 	panic(fmt.Sprintf("Unhandled unary op %s", expr.Op.ID))
+}
+
+func (cb *codeBuilder) buildStarExpr(expr *ir.StarExpr) llvm.Value {
+	val := cb.buildExpr(expr.X)
+	return cb.b.CreateLoad(val, val.Name())
 }
 
 func (cb *codeBuilder) buildBasicLit(expr *ir.BasicLit) llvm.Value {
@@ -627,6 +657,8 @@ func (cb *codeBuilder) buildBasicLit(expr *ir.BasicLit) llvm.Value {
 		return llvm.ConstInt(llvmType, 1, false)
 	} else if expr.Value.ID == token.False {
 		return llvm.ConstInt(llvmType, 0, false)
+	} else if expr.Value.ID == token.Null {
+		return llvm.ConstPointerNull(llvmType)
 	}
 
 	panic(fmt.Sprintf("Unhandled basic lit %s, type %s", expr.Value.ID, expr.T))
@@ -661,6 +693,8 @@ func (cb *codeBuilder) buildDotExpr(expr *ir.DotExpr, load bool) llvm.Value {
 		val = cb.values[t.Sym]
 	case *ir.DotExpr:
 		val = cb.buildDotExpr(t, false)
+	case *ir.StarExpr:
+		val = cb.buildExpr(t.X)
 	default:
 		panic(fmt.Sprintf("Unhandled DotExpr %T", t))
 	}

@@ -251,7 +251,7 @@ func (p *parser) parseValDeclSpec() ir.ValDeclSpec {
 	p.consume(token.Ident)
 
 	if !p.token.Is(token.Assign) {
-		decl.Type = p.parseTypeSpec(nil)
+		decl.Type = p.parseTypeSpec()
 	}
 
 	if p.token.Is(token.Assign) {
@@ -276,7 +276,7 @@ func (p *parser) parseField(flags int, defaultDecl token.ID) *ir.ValDecl {
 	decl.Name = p.token
 	p.consume(token.Ident)
 
-	decl.Type = p.parseTypeSpec(nil)
+	decl.Type = p.parseTypeSpec()
 	return decl
 }
 
@@ -302,7 +302,7 @@ func (p *parser) parseFuncDecl(visibility token.Token) *ir.FuncDecl {
 	p.consume(token.Rparen)
 
 	if !p.token.OneOf(token.Lbrace, token.Semicolon) {
-		decl.TReturn = p.parseTypeSpec(nil)
+		decl.TReturn = p.parseTypeSpec()
 	} else {
 		decl.TReturn = &ir.Ident{Name: token.Synthetic(token.Ident, ir.TVoid.String())}
 	}
@@ -450,26 +450,13 @@ func (p *parser) parseExprOrAssignStmt() ir.Stmt {
 	return stmt
 }
 
-func (p *parser) parseTypeSpec(name1 *ir.Ident) ir.Expr {
-	if name1 == nil {
-		if p.token.ID == token.Ident {
-			name1 = &ir.Ident{Name: p.token}
-			p.next()
-		}
-	}
-	if p.token.ID == token.Dot {
-		dot := p.token
-		p.next()
-		name2Tok := p.token
-		p.consume(token.Ident)
-		return &ir.DotExpr{X: name1, Dot: dot, Name: &ir.Ident{Name: name2Tok}}
-	} else if name1 != nil {
-		return name1
+func (p *parser) parseTypeSpec() ir.Expr {
+	if p.token.Is(token.Star) {
+		return p.parseStarExpr()
 	}
 	tok := p.token
-	p.next()
-	p.error(tok, "got '%s', expected type specifier", tok.Literal)
-	panic(parseError{tok})
+	p.expect(token.Ident)
+	return &ir.Ident{Name: tok}
 }
 
 func (p *parser) parseExpr() ir.Expr {
@@ -534,7 +521,7 @@ func (p *parser) parseTerm() ir.Expr {
 
 func (p *parser) parseFactor() ir.Expr {
 	expr := p.parseUnary()
-	for p.token.ID == token.Mul || p.token.ID == token.Div || p.token.ID == token.Mod {
+	for p.token.OneOf(token.Star, token.Div, token.Mod) {
 		op := p.token
 		p.next()
 		right := p.parseUnary()
@@ -544,7 +531,7 @@ func (p *parser) parseFactor() ir.Expr {
 }
 
 func (p *parser) parseUnary() ir.Expr {
-	if p.token.ID == token.Sub || p.token.ID == token.Lnot {
+	if p.token.OneOf(token.Sub, token.Lnot, token.And) {
 		op := p.token
 		p.next()
 		x := p.parseExpr()
@@ -554,13 +541,15 @@ func (p *parser) parseUnary() ir.Expr {
 }
 
 func (p *parser) parseOperand() ir.Expr {
-	if p.token.Is(token.Lparen) {
+	if p.token.Is(token.Star) {
+		return p.parseStarExpr()
+	} else if p.token.Is(token.Cast) {
+		return p.parseCast()
+	} else if p.token.Is(token.Lparen) {
 		p.next()
 		x := p.parseExpr()
 		p.consume(token.Rparen)
-		return x
-	} else if p.token.Is(token.Cast) {
-		return p.parseCast()
+		return p.parsePrimary(x)
 	} else if p.token.Is(token.Ident) {
 		ident := p.parseIdent()
 		var x ir.Expr = ident
@@ -573,6 +562,13 @@ func (p *parser) parseOperand() ir.Expr {
 		return p.parsePrimary(x)
 	}
 	return p.parseBasicLit()
+}
+
+func (p *parser) parseStarExpr() ir.Expr {
+	star := p.token
+	p.expect(token.Star)
+	x := p.parseExpr()
+	return &ir.StarExpr{Star: star, X: x}
 }
 
 func (p *parser) parseCast() *ir.Cast {
@@ -629,7 +625,7 @@ func (p *parser) parseFuncCall(expr ir.Expr) ir.Expr {
 
 func (p *parser) parseBasicLit() ir.Expr {
 	switch p.token.ID {
-	case token.Integer, token.Float, token.String, token.True, token.False:
+	case token.Integer, token.Float, token.String, token.True, token.False, token.Null:
 		tok := p.token
 		p.next()
 		return &ir.BasicLit{Value: tok}

@@ -2,6 +2,42 @@ TODO (in no particular order):
 - LLVM
     - Research on alignment
     - Debug symbols
+- Issues
+    - Change dependencywalk
+        - Don't allow initialize top decls with functions
+        - Issue with pointer to enclosing type (incorrect cycle detected)
+- Memory management and arrays
+    - Array syntax:
+        - static array: val a [u32; 5]
+        - initialize array [0..9;2], [9..0;-1]
+        - immutable members: val a [val u32; 5]
+        - slices:
+            - val a [u32];
+            - a[0:32]; lower bound included, upper bound excluded
+            - a[:]; convert to slice
+            - a[3:]; index 3 and onwards
+            - a[:9]; index 0 to 8
+            - a[:3]; 0 to length - 3
+        - inference: val a = [1, 2, 3, 4, 5];
+    - Non nullable pointers 
+    - Explicit pointer semantics. move, share etc.
+- for loops
+    - for i u32 = 0; i < 5; i++ {}
+    - for i in [0..9] {}
+    - for x in a {}; iterate a slice / array
+    - for x* in a{}; iterate a slice / array with pointer to element
+    - for i, x in a {};; iterate a slice / array with index
+- Improve error messages
+    - Start messages with capital letter
+    - Show region of source code where error happened (e.g. line + 1 above and 1 below)
+    - Unique error code
+- Add tests
+    - Go tests
+    - Dingo tests
+- Change struct initialization
+    - With keys foo{a: 2}
+    - Without keys foo{2}
+- Integer suffixes: 1u8, 1u16, 1u32, 1f32, 1f64 etc.
 - Module system
     - Use modules
         - use a, use a.b etc
@@ -12,20 +48,13 @@ TODO (in no particular order):
     - Apply visibility modifier to multiple vars/functions by using () (same as Go)
     - Declarations are private by default
     - Modules can be declared multiple times.
+- Const types?
+- Invalidate keyword? Any use after an identifier has been invalidated will cause an error.
 - C lib
     - Separate primitive types for C
 - Fix global initialization (currently non-constants are allowed, which doesn't work in LLVM)
 - Optional semicolons
 - Nested functions
-- Improve error messages
-    - Show region of source code where error happened (e.g. line + 1 above and 1 below)
-    - Unique error code
-- Memory management and arrays
-    - Non nullable pointers instead of c++ references
-    - Explicit pointer semantics. move, share etc.
-- Add tests
-    - Go tests
-    - Dingo tests
 - Refactor semantics package. The use of AST, symbol and type is very confusing right now.
     - Remove Node from Symbol struct
         - This will require a new way to handle decl dependencies (use map instead?)

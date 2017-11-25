@@ -3,16 +3,10 @@ package semantics
 import "github.com/jhnl/dingo/token"
 import "github.com/jhnl/dingo/ir"
 
-const (
-	identModeNone = 0
-	identModeType = 1
-	identModeFunc = 2
-)
-
 type typeVisitor struct {
 	ir.BaseVisitor
 	signature bool
-	identMode int
+	exprMode  int
 	c         *checker
 }
 
@@ -71,9 +65,9 @@ func (v *typeVisitor) visitValDeclSpec(sym *ir.Symbol, decl *ir.ValDeclSpec, def
 	}
 
 	if decl.Type != nil {
-		v.identMode = identModeType
+		v.exprMode = exprModeType
 		ir.VisitExpr(v, decl.Type)
-		v.identMode = identModeNone
+		v.exprMode = exprModeNone
 		sym.T = decl.Type.Type()
 
 		if typeSym := ir.ExprSymbol(decl.Type); typeSym != nil {
@@ -103,10 +97,16 @@ func (v *typeVisitor) visitValDeclSpec(sym *ir.Symbol, decl *ir.ValDeclSpec, def
 		decl.Initializer = ir.VisitExpr(v, decl.Initializer)
 
 		if decl.Type == nil {
-			if !v.c.tryCoerceBigNumber(decl.Initializer) {
+			if !v.c.tryCastBigNumber(decl.Initializer) {
 				return
 			}
+
 			sym.T = decl.Initializer.Type()
+			if ptr, ok := sym.T.(*ir.PointerType); ok {
+				if ir.IsTypeID(ptr.Underlying, ir.TUntyped) {
+					v.c.error(decl.Initializer.FirstPos(), "type specifier required; impossible to infer type from '%s'", PrintExpr(decl.Initializer))
+				}
+			}
 		} else {
 			if !v.c.tryCastLiteral(decl.Initializer, sym.T) {
 				return
@@ -130,9 +130,9 @@ func (v *typeVisitor) VisitFuncDecl(decl *ir.FuncDecl) {
 		for _, param := range decl.Params {
 			v.VisitValDecl(param)
 		}
-		v.identMode = identModeType
+		v.exprMode = exprModeType
 		decl.TReturn = ir.VisitExpr(v, decl.TReturn)
-		v.identMode = identModeNone
+		v.exprMode = exprModeNone
 
 		typ := ir.NewFuncType(decl)
 
@@ -255,23 +255,9 @@ func (v *typeVisitor) VisitAssignStmt(stmt *ir.AssignStmt) {
 		return
 	}
 
-	var name *ir.Ident
-
-	switch id := stmt.Left.(type) {
-	case *ir.Ident:
-		name = id
-	case *ir.DotExpr:
-		name = id.Name
-	default:
-		v.c.error(stmt.Left.FirstPos(), "invalid assignment")
-		return
-	}
-
-	sym := name.Sym
-	if sym == nil {
-		return
-	} else if sym.ID != ir.ValSymbol {
-		v.c.error(name.Pos(), "invalid assignment: '%s' is not a variable", name.Literal())
+	left := stmt.Left
+	if !left.Lvalue() {
+		v.c.error(stmt.Left.FirstPos(), "cannot assign to '%s' (not an lvalue)", PrintExpr(left))
 		return
 	}
 
@@ -282,24 +268,24 @@ func (v *typeVisitor) VisitAssignStmt(stmt *ir.AssignStmt) {
 			constID.Literal(), token.Val)
 	}
 
-	if !v.c.tryCastLiteral(stmt.Right, name.Type()) {
+	if !v.c.tryCastLiteral(stmt.Right, left.Type()) {
 		return
 	}
 
-	if !name.Type().IsEqual(stmt.Right.Type()) {
-		v.c.error(name.Pos(), "type mismatch: '%s' is of type %s and is not compatible with %s",
-			name.Literal(), name.Type(), stmt.Right.Type())
+	if !left.Type().IsEqual(stmt.Right.Type()) {
+		v.c.error(left.FirstPos(), "type mismatch: '%s' is of type %s and is not compatible with %s",
+			PrintExpr(left), left.Type(), stmt.Right.Type())
 	}
 
 	if stmt.Assign.ID != token.Assign {
-		if !ir.IsNumericType(name.Type()) {
-			v.c.error(name.Pos(), "type mismatch: %s is not numeric (has type %s)",
-				stmt.Assign, name.Literal(), name.Type())
+		if !ir.IsNumericType(left.Type()) {
+			v.c.error(left.FirstPos(), "type mismatch: %s is not numeric (has type %s)",
+				stmt.Assign, PrintExpr(left), left.Type())
 		}
 	}
 }
 
 func (v *typeVisitor) VisitExprStmt(stmt *ir.ExprStmt) {
 	stmt.X = ir.VisitExpr(v, stmt.X)
-	v.c.tryCoerceBigNumber(stmt.X)
+	v.c.tryCastBigNumber(stmt.X)
 }

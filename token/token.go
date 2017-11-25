@@ -37,7 +37,7 @@ const (
 
 	Add
 	Sub
-	Mul
+	Star
 	Div
 	Mod
 
@@ -81,8 +81,9 @@ const (
 	Public
 	Private
 
-	False
 	True
+	False
+	Null
 
 	keywordEnd
 )
@@ -108,11 +109,11 @@ var tokens = [...]string{
 	Semicolon: ";",
 	Colon:     ":",
 
-	Add: "+",
-	Sub: "-",
-	Mul: "*",
-	Div: "/",
-	Mod: "%",
+	Add:  "+",
+	Sub:  "-",
+	Star: "*",
+	Div:  "/",
+	Mod:  "%",
 
 	Assign:    "=",
 	AddAssign: "+=",
@@ -155,6 +156,7 @@ var tokens = [...]string{
 
 	True:  "true",
 	False: "false",
+	Null:  "null",
 }
 
 var keywords map[string]ID

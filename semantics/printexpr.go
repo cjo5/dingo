@@ -56,6 +56,22 @@ func (p *exprPrinter) VisitUnaryExpr(expr *ir.UnaryExpr) ir.Expr {
 	return expr
 }
 
+func (p *exprPrinter) VisitStarExpr(expr *ir.StarExpr) ir.Expr {
+	xPrec := prec(expr.X)
+	opPrec := prec(expr)
+
+	p.buffer.WriteString(expr.Star.Literal)
+	if opPrec < xPrec {
+		p.buffer.WriteString("(")
+	}
+	ir.VisitExpr(p, expr.X)
+	if opPrec < xPrec {
+		p.buffer.WriteString(")")
+	}
+
+	return expr
+}
+
 func (p *exprPrinter) VisitBasicLit(expr *ir.BasicLit) ir.Expr {
 	p.buffer.WriteString(expr.Value.Literal)
 	return expr
@@ -109,7 +125,7 @@ func prec(expr ir.Expr) int {
 	switch t := expr.(type) {
 	case *ir.BinaryExpr:
 		switch t.Op.ID {
-		case token.Mul, token.Div, token.Mod:
+		case token.Star, token.Div, token.Mod:
 			return 3
 		case token.Add, token.Sub:
 			return 4
@@ -126,6 +142,8 @@ func prec(expr ir.Expr) int {
 		}
 	case *ir.UnaryExpr:
 		return 2
+	case *ir.StarExpr:
+		return 1
 	case *ir.BasicLit, *ir.StructLit, *ir.Ident:
 		return 0
 	case *ir.DotExpr:

@@ -9,6 +9,12 @@ import (
 	"github.com/jhnl/dingo/token"
 )
 
+const (
+	exprModeNone = 0
+	exprModeType = 1
+	exprModeFunc = 2
+)
+
 var builtinScope = ir.NewScope(ir.RootScope, nil)
 
 func addBuiltinType(t ir.Type) {
@@ -147,7 +153,13 @@ func (c *checker) sortDecls() {
 					line := cycleTrace[i].Context().Path + ":" + s.Name
 					trace.Lines = append(trace.Lines, line)
 				}
-				c.errors.AddTrace(decl.Context().Path, sym.Pos, trace, "initializer cycle detected")
+
+				errorMsg := "initializer cycle detected"
+				if sym.ID == ir.TypeSymbol {
+					errorMsg = "type cycle detected"
+				}
+
+				c.errors.AddTrace(decl.Context().Path, sym.Pos, trace, errorMsg)
 			}
 		}
 		mod.Decls = sortedDecls
@@ -198,12 +210,21 @@ func (c *checker) tryCastLiteral(expr ir.Expr, target ir.Type) bool {
 
 			return false
 		}
+	} else if ir.IsTypeID(expr.Type(), ir.TPointer) && ir.IsTypeID(target, ir.TPointer) {
+		lit, _ := expr.(*ir.BasicLit)
+		if lit != nil {
+			ptr := expr.Type().(*ir.PointerType)
+			targetPtr := target.(*ir.PointerType)
+			if ir.IsTypeID(ptr.Underlying, ir.TUntyped) {
+				lit.T = ir.NewPointerType(targetPtr.Underlying)
+			}
+		}
 	}
 	return true
 }
 
 // Returns false if error
-func (c *checker) tryCoerceBigNumber(expr ir.Expr) bool {
+func (c *checker) tryCastBigNumber(expr ir.Expr) bool {
 	t := expr.Type()
 	if t.ID() == ir.TBigInt {
 		return c.tryCastLiteral(expr, ir.TBuiltinInt32)

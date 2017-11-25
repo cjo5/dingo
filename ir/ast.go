@@ -56,6 +56,7 @@ type Stmt interface {
 type Expr interface {
 	Node
 	Type() Type
+	Lvalue() bool
 	exprNode()
 }
 
@@ -330,6 +331,10 @@ func (x *baseExpr) Type() Type {
 	return x.T
 }
 
+func (x *baseExpr) Lvalue() bool {
+	return false
+}
+
 type BadExpr struct {
 	baseExpr
 	From token.Token
@@ -354,6 +359,18 @@ type UnaryExpr struct {
 }
 
 func (x *UnaryExpr) FirstPos() token.Position { return x.Op.Pos }
+
+type StarExpr struct {
+	baseExpr
+	Star token.Token
+	X    Expr
+}
+
+func (x *StarExpr) FirstPos() token.Position { return x.Star.Pos }
+
+func (x *StarExpr) Lvalue() bool {
+	return x.X.Lvalue()
+}
 
 type BasicLit struct {
 	baseExpr
@@ -411,6 +428,13 @@ type Ident struct {
 
 func (x *Ident) FirstPos() token.Position { return x.Name.Pos }
 
+func (x *Ident) Lvalue() bool {
+	if x.Sym != nil && x.Sym.ID == ValSymbol {
+		return true
+	}
+	return false
+}
+
 func (x *Ident) Literal() string {
 	return x.Name.Literal
 }
@@ -433,6 +457,10 @@ type DotExpr struct {
 }
 
 func (x *DotExpr) FirstPos() token.Position { return x.X.FirstPos() }
+
+func (x *DotExpr) Lvalue() bool {
+	return x.Name.Lvalue()
+}
 
 type Cast struct {
 	baseExpr

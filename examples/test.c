@@ -5,6 +5,8 @@ int puti(int i);
 int putsh(short i);
 int putf(float i);
 
+int putptr(int*);
+
 int getf();
 
 int geta();
@@ -29,11 +31,16 @@ void printVec(struct Vec3 v) {
         puti(v.v.x + v.v.y + v.z);
 }
 
+
+struct List {
+        struct Vec2* v;
+};
+
 //struct Vec3 globalVec3 = {.v.x = 5, .v.y = 13, .z = 9 };
 
 int main() {
-        struct Vec3 localVec3 = {.v.x = 1, .v.y = 3, .z = 2 };
-        int a = localVec3.v.y * 3;
-        puti(a);
+        struct Vec2** w;                
+        w->x;
+
         return 0;
 }
