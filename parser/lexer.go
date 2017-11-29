@@ -31,7 +31,7 @@ func (l *lexer) init(src []byte, filename string, errors *common.ErrorList) {
 }
 
 func (l *lexer) lex() token.Token {
-	l.skipWhitespace()
+	l.skipWhitespace(false)
 
 	startOffset := 0
 	tok := token.Token{
@@ -41,8 +41,7 @@ func (l *lexer) lex() token.Token {
 
 	// Insert semicolon if needed
 
-	switch l.ch {
-	case '\n':
+	if l.ch == '\n' {
 		if isLineTerminator(l.prev) {
 			tok.ID = token.Semicolon
 			tok.Pos = l.newPos()
@@ -53,18 +52,7 @@ func (l *lexer) lex() token.Token {
 			return tok
 		}
 
-		for l.ch == '\n' {
-			l.next()
-			l.skipWhitespace()
-		}
-	case '}', -1:
-		if isLineTerminator(l.prev) {
-			tok.ID = token.Semicolon
-			tok.Pos = l.newPos()
-			tok.Literal = "\n"
-			l.prev = tok.ID
-			return tok
-		}
+		l.skipWhitespace(true)
 	}
 
 	pos := l.newPos()
@@ -91,7 +79,12 @@ func (l *lexer) lex() token.Token {
 
 		switch ch1 {
 		case -1:
-			tok.ID = token.EOF
+			if isLineTerminator(l.prev) {
+				tok.ID = token.Semicolon
+				tok.Literal = "\n"
+			} else {
+				tok.ID = token.EOF
+			}
 		case '(':
 			tok.ID = token.Lparen
 		case ')':
@@ -233,8 +226,8 @@ func (l *lexer) error(pos token.Position, msg string) {
 	l.errors.Add(l.filename, pos, common.SyntaxError, msg)
 }
 
-func (l *lexer) skipWhitespace() {
-	for l.ch == ' ' || l.ch == '\t' {
+func (l *lexer) skipWhitespace(newline bool) {
+	for l.ch == ' ' || l.ch == '\t' || (newline && l.ch == '\n') {
 		l.next()
 	}
 }

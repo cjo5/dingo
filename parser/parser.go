@@ -124,12 +124,14 @@ func (p *parser) expect(id token.ID) bool {
 }
 
 func (p *parser) expectSemi() bool {
-	if !p.match(token.Semicolon) {
-		p.error(p.token, "got '%s', expected semicolon or newline", p.token.Quote())
-		p.next()
-	}
-	for p.token.Is(token.Semicolon) {
-		p.next()
+	if !p.token.Is(token.Rbrace) {
+		if !p.match(token.Semicolon) {
+			p.error(p.token, "got '%s', expected semicolon or newline", p.token.Quote())
+			p.next()
+		}
+		for p.token.Is(token.Semicolon) {
+			p.next()
+		}
 	}
 	return true
 }
@@ -464,11 +466,24 @@ func (p *parser) parseExprOrAssignStmt() ir.Stmt {
 
 func (p *parser) parseTypeSpec() ir.Expr {
 	if p.token.Is(token.Star) {
-		return p.parseStarExpr()
+		return p.parsePointerType()
+	} else if p.token.Is(token.Lbrack) {
+		return p.parseArrayType()
 	}
 	tok := p.token
 	p.expect(token.Ident)
 	return &ir.Ident{Name: tok}
+}
+
+func (p *parser) parsePointerType() ir.Expr {
+	tok := p.token
+	p.expect(token.Star)
+	x := p.parseTypeSpec()
+	return &ir.StarExpr{Star: tok, X: x}
+}
+
+func (p *parser) parseArrayType() ir.Expr {
+	panic("parseArrayType not implemented")
 }
 
 func (p *parser) parseExpr() ir.Expr {
