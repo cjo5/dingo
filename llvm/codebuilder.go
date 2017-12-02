@@ -468,8 +468,8 @@ func (cb *codeBuilder) buildExpr(expr ir.Expr) llvm.Value {
 		return cb.buildIdent(t)
 	case *ir.DotExpr:
 		return cb.buildDotExpr(t, true)
-	case *ir.Cast:
-		return cb.buildCast(t)
+	case *ir.CastExpr:
+		return cb.buildCastExpr(t)
 	case *ir.FuncCall:
 		return cb.buildFuncCall(t)
 	default:
@@ -489,7 +489,7 @@ func (cb *codeBuilder) createArithmeticOp(op token.ID, t ir.Type, left llvm.Valu
 			return cb.b.CreateFSub(left, right, "")
 		}
 		return cb.b.CreateSub(left, right, "")
-	case token.Star, token.MulAssign:
+	case token.Mul, token.MulAssign:
 		if ir.IsFloatingType(t) {
 			return cb.b.CreateFMul(left, right, "")
 		}
@@ -564,7 +564,7 @@ func (cb *codeBuilder) buildBinaryExpr(expr *ir.BinaryExpr) llvm.Value {
 	left := cb.buildExpr(expr.Left)
 
 	switch expr.Op.ID {
-	case token.Add, token.Sub, token.Star, token.Div, token.Mod:
+	case token.Add, token.Sub, token.Mul, token.Div, token.Mod:
 		right := cb.buildExpr(expr.Right)
 		return cb.createArithmeticOp(expr.Op.ID, expr.T, left, right)
 	case token.Eq, token.Neq, token.Gt, token.GtEq, token.Lt, token.LtEq:
@@ -710,7 +710,7 @@ func (cb *codeBuilder) buildDotExpr(expr *ir.DotExpr, load bool) llvm.Value {
 	return gep
 }
 
-func (cb *codeBuilder) buildCast(expr *ir.Cast) llvm.Value {
+func (cb *codeBuilder) buildCastExpr(expr *ir.CastExpr) llvm.Value {
 	val := cb.buildExpr(expr.X)
 
 	to := expr.ToTyp.Type()

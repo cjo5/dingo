@@ -34,7 +34,7 @@ type Visitor interface {
 	VisitStructLit(expr *StructLit) Expr
 	VisitIdent(expr *Ident) Expr
 	VisitDotExpr(expr *DotExpr) Expr
-	VisitCast(expr *Cast) Expr
+	VisitCastExpr(expr *CastExpr) Expr
 	VisitFuncCall(expr *FuncCall) Expr
 }
 
@@ -85,7 +85,7 @@ func (v *BaseVisitor) VisitBasicLit(expr *BasicLit) Expr     { return expr }
 func (v *BaseVisitor) VisitStructLit(expr *StructLit) Expr   { return expr }
 func (v *BaseVisitor) VisitIdent(expr *Ident) Expr           { return expr }
 func (v *BaseVisitor) VisitDotExpr(expr *DotExpr) Expr       { return expr }
-func (v *BaseVisitor) VisitCast(expr *Cast) Expr             { return expr }
+func (v *BaseVisitor) VisitCastExpr(expr *CastExpr) Expr     { return expr }
 func (v *BaseVisitor) VisitFuncCall(expr *FuncCall) Expr     { return expr }
 
 // VisitNode switches on node type and invokes corresponding Visit function.
@@ -167,8 +167,8 @@ func VisitExpr(v Visitor, expr Expr) Expr {
 		return v.VisitIdent(e)
 	case *DotExpr:
 		return v.VisitDotExpr(e)
-	case *Cast:
-		return v.VisitCast(e)
+	case *CastExpr:
+		return v.VisitCastExpr(e)
 	case *FuncCall:
 		return v.VisitFuncCall(e)
 	default:

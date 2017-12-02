@@ -239,7 +239,7 @@ func (p *treePrinter) VisitDotExpr(expr *ir.DotExpr) ir.Expr {
 	return expr
 }
 
-func (p *treePrinter) VisitCast(expr *ir.Cast) ir.Expr {
+func (p *treePrinter) VisitCastExpr(expr *ir.CastExpr) ir.Expr {
 	defer dec(inc(p))
 	p.printToken(expr.Cast)
 	ir.VisitExpr(p, expr.ToTyp)

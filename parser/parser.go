@@ -300,7 +300,7 @@ func (p *parser) parseFuncDecl(visibility token.Token) *ir.FuncDecl {
 
 	decl.Lparen = p.token
 	p.consume(token.Lparen)
-	flags := ir.ValFlagNoInit
+	flags := ir.AstFlagNoInit
 	if !p.token.Is(token.Rparen) {
 		decl.Params = append(decl.Params, p.parseField(flags, token.Val))
 		for !p.token.OneOf(token.EOF, token.Rparen) {
@@ -338,7 +338,7 @@ func (p *parser) parseStructDecl(visibility token.Token) *ir.StructDecl {
 
 	decl.Lbrace = p.token
 	p.consume(token.Lbrace)
-	flags := ir.ValFlagNoInit
+	flags := ir.AstFlagNoInit
 	for !p.token.OneOf(token.EOF, token.Rbrace) {
 		decl.Fields = append(decl.Fields, p.parseField(flags, token.Var))
 		p.consumeSemi()
@@ -465,7 +465,7 @@ func (p *parser) parseExprOrAssignStmt() ir.Stmt {
 }
 
 func (p *parser) parseTypeSpec() ir.Expr {
-	if p.token.Is(token.Star) {
+	if p.token.Is(token.Mul) {
 		return p.parsePointerType()
 	} else if p.token.Is(token.Lbrack) {
 		return p.parseArrayType()
@@ -477,7 +477,7 @@ func (p *parser) parseTypeSpec() ir.Expr {
 
 func (p *parser) parsePointerType() ir.Expr {
 	tok := p.token
-	p.expect(token.Star)
+	p.expect(token.Mul)
 	x := p.parseTypeSpec()
 	return &ir.StarExpr{Star: tok, X: x}
 }
@@ -548,7 +548,7 @@ func (p *parser) parseTerm() ir.Expr {
 
 func (p *parser) parseFactor() ir.Expr {
 	expr := p.parseUnary()
-	for p.token.OneOf(token.Star, token.Div, token.Mod) {
+	for p.token.OneOf(token.Mul, token.Div, token.Mod) {
 		op := p.token
 		p.next()
 		right := p.parseUnary()
@@ -568,10 +568,10 @@ func (p *parser) parseUnary() ir.Expr {
 }
 
 func (p *parser) parseOperand() ir.Expr {
-	if p.token.Is(token.Star) {
+	if p.token.Is(token.Mul) {
 		return p.parseStarExpr()
 	} else if p.token.Is(token.Cast) {
-		return p.parseCast()
+		return p.parseCastExpr()
 	} else if p.token.Is(token.Lparen) {
 		p.next()
 		x := p.parseExpr()
@@ -593,13 +593,13 @@ func (p *parser) parseOperand() ir.Expr {
 
 func (p *parser) parseStarExpr() ir.Expr {
 	star := p.token
-	p.expect(token.Star)
+	p.expect(token.Mul)
 	x := p.parseExpr()
 	return &ir.StarExpr{Star: star, X: x}
 }
 
-func (p *parser) parseCast() *ir.Cast {
-	cast := &ir.Cast{}
+func (p *parser) parseCastExpr() *ir.CastExpr {
+	cast := &ir.CastExpr{}
 	cast.Cast = p.token
 	p.next()
 	cast.Lparen = p.token

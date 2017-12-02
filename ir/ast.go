@@ -7,7 +7,7 @@ import (
 	"github.com/jhnl/dingo/token"
 )
 
-// NodeColor is used to color nodes during dfs to sort dependencies.
+// NodeColor is used to color nodes during dfs when sorting dependencies.
 type NodeColor int
 
 // The node colors.
@@ -19,6 +19,12 @@ const (
 	NodeColorWhite NodeColor = iota
 	NodeColorGray
 	NodeColorBlack
+)
+
+// AST flags.
+const (
+	AstFlagNoInit   = 1 << 0
+	AstFlagTypeExpr = 1 << 1
 )
 
 // Node interface.
@@ -33,6 +39,7 @@ type Decl interface {
 	declNode()
 }
 
+// TopDecl represents a top-level declaration.
 type TopDecl interface {
 	Decl
 	Symbol() *Symbol
@@ -64,7 +71,7 @@ type baseNode struct{}
 
 func (n *baseNode) node() {}
 
-// Decl nodes.
+// Declaration nodes.
 
 type baseDecl struct {
 	baseNode
@@ -117,6 +124,7 @@ type BadDecl struct {
 
 func (d *BadDecl) FirstPos() token.Position { return d.From.Pos }
 
+// A ModuleSet is a collection of modules that make up the program.
 type ModuleSet struct {
 	baseNode
 	Modules []*Module
@@ -124,6 +132,7 @@ type ModuleSet struct {
 
 func (d *ModuleSet) FirstPos() token.Position { return token.NoPosition }
 
+// A Module is a collection of files sharing the same namespace.
 type Module struct {
 	baseDecl
 	ID    int
@@ -182,11 +191,6 @@ func (d *ValTopDecl) FirstPos() token.Position {
 	return d.Decl.Pos
 }
 
-// Val decl flags.
-const (
-	ValFlagNoInit = 1 << 0
-)
-
 type ValDecl struct {
 	baseDecl
 	ValDeclSpec
@@ -199,9 +203,10 @@ func (d *ValDecl) FirstPos() token.Position {
 }
 
 func (d *ValDecl) Init() bool {
-	return (d.Flags & ValFlagNoInit) == 0
+	return (d.Flags & AstFlagNoInit) == 0
 }
 
+// FuncDecl represents a function (with body) or a function signature.
 type FuncDecl struct {
 	baseTopDecl
 	Visibility token.Token
@@ -219,6 +224,7 @@ func (d *FuncDecl) FirstPos() token.Position { return d.Decl.Pos }
 
 func (d *FuncDecl) SignatureOnly() bool { return d.Body == nil }
 
+// StructDecl represents a struct declaration.
 type StructDecl struct {
 	baseTopDecl
 	Visibility token.Token
@@ -232,7 +238,7 @@ type StructDecl struct {
 
 func (d *StructDecl) FirstPos() token.Position { return d.Decl.Pos }
 
-// Stmt nodes.
+// Statement nodes.
 
 type baseStmt struct {
 	baseNode
@@ -240,6 +246,7 @@ type baseStmt struct {
 
 func (s *baseStmt) stmtNode() {}
 
+// BadStmt is a placeholder node for a statement that failed parsing.
 type BadStmt struct {
 	baseStmt
 	From token.Token
@@ -265,6 +272,7 @@ type DeclStmt struct {
 
 func (s *DeclStmt) FirstPos() token.Position { return s.D.FirstPos() }
 
+// IfStmt represents a chain of if/elif/else statements.
 type IfStmt struct {
 	baseStmt
 	If   token.Token
@@ -315,7 +323,7 @@ type ExprStmt struct {
 
 func (s *ExprStmt) FirstPos() token.Position { return s.X.FirstPos() }
 
-// Expr nodes
+// Expression nodes.
 
 type baseExpr struct {
 	baseNode
@@ -370,6 +378,13 @@ func (x *StarExpr) FirstPos() token.Position { return x.Star.Pos }
 
 func (x *StarExpr) Lvalue() bool {
 	return x.X.Lvalue()
+}
+
+type IndexExpr struct {
+	baseExpr
+	X      Expr
+	Lbrack token.Token
+	Rbrack token.Token
 }
 
 type BasicLit struct {
@@ -462,7 +477,7 @@ func (x *DotExpr) Lvalue() bool {
 	return x.Name.Lvalue()
 }
 
-type Cast struct {
+type CastExpr struct {
 	baseExpr
 	Cast   token.Token
 	Lparen token.Token
@@ -471,7 +486,7 @@ type Cast struct {
 	Rparen token.Token
 }
 
-func (x *Cast) FirstPos() token.Position { return x.Cast.Pos }
+func (x *CastExpr) FirstPos() token.Position { return x.Cast.Pos }
 
 type FuncCall struct {
 	baseExpr

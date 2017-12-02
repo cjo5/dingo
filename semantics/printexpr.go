@@ -94,7 +94,7 @@ func (p *exprPrinter) VisitDotExpr(expr *ir.DotExpr) ir.Expr {
 	return expr
 }
 
-func (p *exprPrinter) VisitCast(expr *ir.Cast) ir.Expr {
+func (p *exprPrinter) VisitCastExpr(expr *ir.CastExpr) ir.Expr {
 	p.buffer.WriteString(expr.Cast.Literal)
 	p.buffer.WriteString("(")
 	ir.VisitExpr(p, expr.ToTyp)
@@ -124,7 +124,7 @@ func prec(expr ir.Expr) int {
 	switch t := expr.(type) {
 	case *ir.BinaryExpr:
 		switch t.Op.ID {
-		case token.Star, token.Div, token.Mod:
+		case token.Mul, token.Div, token.Mod:
 			return 3
 		case token.Add, token.Sub:
 			return 4
@@ -147,7 +147,7 @@ func prec(expr ir.Expr) int {
 		return 0
 	case *ir.DotExpr:
 		return 1
-	case *ir.Cast:
+	case *ir.CastExpr:
 		return 1
 	case *ir.FuncCall:
 		return 1

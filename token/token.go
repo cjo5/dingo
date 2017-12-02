@@ -37,7 +37,7 @@ const (
 
 	Add
 	Sub
-	Star
+	Mul
 	Div
 	Mod
 
@@ -109,11 +109,11 @@ var tokens = [...]string{
 	Semicolon: ";",
 	Colon:     ":",
 
-	Add:  "+",
-	Sub:  "-",
-	Star: "*",
-	Div:  "/",
-	Mod:  "%",
+	Add: "+",
+	Sub: "-",
+	Mul: "*",
+	Div: "/",
+	Mod: "%",
 
 	Assign:    "=",
 	AddAssign: "+=",

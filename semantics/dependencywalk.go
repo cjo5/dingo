@@ -145,7 +145,7 @@ func (v *dependencyVisitor) VisitDotExpr(expr *ir.DotExpr) ir.Expr {
 	return expr
 }
 
-func (v *dependencyVisitor) VisitCast(expr *ir.Cast) ir.Expr {
+func (v *dependencyVisitor) VisitCastExpr(expr *ir.CastExpr) ir.Expr {
 	ir.VisitExpr(v, expr.ToTyp)
 	ir.VisitExpr(v, expr.X)
 	return expr

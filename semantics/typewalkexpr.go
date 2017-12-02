@@ -20,7 +20,7 @@ func (v *typeVisitor) VisitBinaryExpr(expr *ir.BinaryExpr) ir.Expr {
 
 	binType := ir.TUntyped
 	boolOp := expr.Op.OneOf(token.Eq, token.Neq, token.Gt, token.GtEq, token.Lt, token.LtEq)
-	arithOp := expr.Op.OneOf(token.Add, token.Sub, token.Star, token.Div, token.Mod)
+	arithOp := expr.Op.OneOf(token.Add, token.Sub, token.Mul, token.Div, token.Mod)
 	typeNotSupported := ir.TBuiltinUntyped
 
 	if expr.Op.OneOf(token.Land, token.Lor) {
@@ -113,7 +113,7 @@ func (v *typeVisitor) VisitBinaryExpr(expr *ir.BinaryExpr) ir.Expr {
 							leftBigInt.Add(leftBigInt, rightBigInt)
 						case token.Sub:
 							leftBigInt.Sub(leftBigInt, rightBigInt)
-						case token.Star:
+						case token.Mul:
 							leftBigInt.Mul(leftBigInt, rightBigInt)
 						case token.Div:
 							leftBigInt.Div(leftBigInt, rightBigInt)
@@ -128,7 +128,7 @@ func (v *typeVisitor) VisitBinaryExpr(expr *ir.BinaryExpr) ir.Expr {
 							leftBigFloat.Add(leftBigFloat, rightBigFloat)
 						case token.Sub:
 							leftBigFloat.Sub(leftBigFloat, rightBigFloat)
-						case token.Star:
+						case token.Mul:
 							leftBigFloat.Mul(leftBigFloat, rightBigFloat)
 						case token.Div:
 							leftBigFloat.Quo(leftBigFloat, rightBigFloat)
@@ -546,7 +546,7 @@ func (v *typeVisitor) VisitDotExpr(expr *ir.DotExpr) ir.Expr {
 		case *ir.StructType:
 			// Automatically deref pointers.
 			// In C, the syntax for this would be foo->bar.
-			star := token.Synthetic(token.Star, token.Star.String())
+			star := token.Synthetic(token.Mul, token.Mul.String())
 			starX := &ir.StarExpr{Star: star, X: expr.X}
 			starX.T = t2
 			expr.X = starX
@@ -571,7 +571,7 @@ func (v *typeVisitor) VisitDotExpr(expr *ir.DotExpr) ir.Expr {
 	return expr
 }
 
-func (v *typeVisitor) VisitCast(expr *ir.Cast) ir.Expr {
+func (v *typeVisitor) VisitCastExpr(expr *ir.CastExpr) ir.Expr {
 	prevMode := v.exprMode
 	v.exprMode = exprModeType
 	expr.ToTyp = ir.VisitExpr(v, expr.ToTyp)
