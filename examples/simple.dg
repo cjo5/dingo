@@ -1,6 +1,5 @@
 module simple
 
-
 include "libc.dg"
 include "libstd.dg"
 
@@ -13,8 +12,6 @@ fun printVec3(v Vec3) {
 struct Vec2 {
     x i32
     y i32
-
-
 }
 
 struct Vec3 {
@@ -36,11 +33,9 @@ struct Item {
 }
 
 pub fun main() {
-    var i1 Item
-    var l = List{item=&i1,}
-    i1.parent = &l
+    val x *Bar
+}
 
-    i1.data = 99
-
-    if i1.data == 99 { puts("true") }
+struct Bar {
+    a i32
 }

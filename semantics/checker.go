@@ -189,57 +189,8 @@ func sortDeclDependencies(decl ir.TopDecl, trace *[]ir.TopDecl, sortedDecls *[]i
 	return sortOK
 }
 
-// Returns false if error
-func (c *checker) tryCastLiteral(expr ir.Expr, target ir.Type) bool {
-	if ir.IsNumericType(expr.Type()) && ir.IsNumericType(target) {
-		lit, _ := expr.(*ir.BasicLit)
-		if lit != nil {
-			castResult := typeCastNumericLiteral(lit, target)
-
-			if castResult == numericCastOK {
-				return true
-			}
-
-			if castResult == numericCastOverflows {
-				c.error(lit.Value.Pos, "constant expression %s overflows %s", lit.Value.Literal, target)
-			} else if castResult == numericCastTruncated {
-				c.error(lit.Value.Pos, "type mismatch: constant float expression %s not compatible with %s", lit.Value.Literal, target)
-			} else {
-				panic(fmt.Sprintf("Unhandled numeric cast result %d", castResult))
-			}
-
-			return false
-		}
-	} else if ir.IsTypeID(expr.Type(), ir.TPointer) && ir.IsTypeID(target, ir.TPointer) {
-		lit, _ := expr.(*ir.BasicLit)
-		if lit != nil {
-			ptr := expr.Type().(*ir.PointerType)
-			targetPtr := target.(*ir.PointerType)
-			if ir.IsTypeID(ptr.Underlying, ir.TUntyped) {
-				lit.T = ir.NewPointerType(targetPtr.Underlying)
-			}
-		}
-	}
-	return true
-}
-
-// Returns false if error
-func (c *checker) tryCastBigNumber(expr ir.Expr) bool {
-	t := expr.Type()
-	if t.ID() == ir.TBigInt {
-		return c.tryCastLiteral(expr, ir.TBuiltinInt32)
-	} else if t.ID() == ir.TBigFloat {
-		return c.tryCastLiteral(expr, ir.TBuiltinFloat64)
-	}
-	return true
-}
-
 // Returns Ident that was declared as const. Nil otherwise.
 func (c *checker) checkConstant(expr ir.Expr) *ir.Ident {
-	return checkConstantRecursively(expr)
-}
-
-func checkConstantRecursively(expr ir.Expr) *ir.Ident {
 	switch t := expr.(type) {
 	case *ir.Ident:
 		if t.Sym != nil && t.Sym.Constant() {
@@ -253,25 +204,9 @@ func checkConstantRecursively(expr ir.Expr) *ir.Ident {
 		} else {
 			return nil
 		}
-		return checkConstantRecursively(t.X)
+		return c.checkConstant(t.X)
 	}
 	return nil
-}
-
-func compatibleTypes(from ir.Type, to ir.Type) bool {
-	switch {
-	case from.IsEqual(to):
-		return true
-	case ir.IsNumericType(from):
-		switch {
-		case ir.IsNumericType(to):
-			return true
-		default:
-			return false
-		}
-	default:
-		return false
-	}
 }
 
 type numericCastResult int
@@ -340,7 +275,7 @@ func floatOverflows(val *big.Float, t ir.TypeID) bool {
 	return !fits
 }
 
-func typeCastNumericLiteral(lit *ir.BasicLit, target ir.Type) numericCastResult {
+func typeCastNumericLit(lit *ir.BasicLit, target ir.Type) numericCastResult {
 	res := numericCastOK
 	id := target.ID()
 

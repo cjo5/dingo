@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/jhnl/dingo/common"
-
 	"io/ioutil"
 	"os/exec"
 	"path/filepath"
@@ -162,11 +160,12 @@ func (cb *codeBuilder) buildValTopDecl(decl *ir.ValTopDecl) {
 	switch t := decl.Initializer.(type) {
 	case *ir.BasicLit:
 	case *ir.StructLit:
+	case *ir.ArrayLit:
 	default:
 		panic(fmt.Sprintf("%T cannot be used as global initializer in LLVM", t))
 	}
 
-	init := cb.buildExpr(decl.Initializer)
+	init := cb.buildExprVal(decl.Initializer)
 	loc := cb.values[sym]
 	loc.SetInitializer(init)
 }
@@ -176,7 +175,7 @@ func (cb *codeBuilder) buildValDecl(decl *ir.ValDecl) {
 	loc := cb.b.CreateAlloca(cb.toLLVMType(sym.T), sym.Name)
 	cb.values[decl.Sym] = loc
 
-	init := cb.buildExpr(decl.Initializer)
+	init := cb.buildExprVal(decl.Initializer)
 	cb.b.CreateStore(init, loc)
 }
 
@@ -282,7 +281,7 @@ func (cb *codeBuilder) buildDeclStmt(stmt *ir.DeclStmt) {
 }
 
 func (cb *codeBuilder) buildIfStmt(stmt *ir.IfStmt) {
-	cond := cb.buildExpr(stmt.Cond)
+	cond := cb.buildExprVal(stmt.Cond)
 
 	fun := cb.b.GetInsertBlock().Parent()
 	iftrue := llvm.AddBasicBlock(fun, "if_true")
@@ -337,7 +336,7 @@ func (cb *codeBuilder) buildWhileStmt(stmt *ir.WhileStmt) {
 	cb.b.CreateBr(cond)
 
 	cb.b.SetInsertPointAtEnd(cond)
-	loopCond := cb.buildExpr(stmt.Cond)
+	loopCond := cb.buildExprVal(stmt.Cond)
 	cb.b.CreateCondBr(loopCond, loop, exit)
 
 	last = fun.LastBasicBlock()
@@ -356,7 +355,7 @@ func (cb *codeBuilder) buildWhileStmt(stmt *ir.WhileStmt) {
 
 func (cb *codeBuilder) buildReturnStmt(stmt *ir.ReturnStmt) {
 	if stmt.X != nil {
-		val := cb.buildExpr(stmt.X)
+		val := cb.buildExprVal(stmt.X)
 		cb.b.CreateRet(val)
 	} else {
 		cb.b.CreateRetVoid()
@@ -382,20 +381,8 @@ func (cb *codeBuilder) buildBranchStmt(stmt *ir.BranchStmt) {
 }
 
 func (cb *codeBuilder) buildAssignStmt(stmt *ir.AssignStmt) {
-	var loc llvm.Value
-
-	switch left := stmt.Left.(type) {
-	case *ir.StarExpr:
-		loc = cb.buildExpr(left.X)
-	case *ir.DotExpr:
-		loc = cb.buildDotExpr(left, false)
-	case *ir.Ident:
-		loc = cb.values[left.Sym]
-	default:
-		panic(fmt.Sprintf("Unhandled left side %T of assignment", left))
-	}
-
-	val := cb.buildExpr(stmt.Right)
+	loc := cb.buildExprPtr(stmt.Left)
+	val := cb.buildExprVal(stmt.Right)
 
 	switch stmt.Assign.ID {
 	case token.AddAssign, token.SubAssign, token.MulAssign, token.DivAssign, token.ModAssign:
@@ -407,7 +394,7 @@ func (cb *codeBuilder) buildAssignStmt(stmt *ir.AssignStmt) {
 }
 
 func (cb *codeBuilder) buildExprStmt(stmt *ir.ExprStmt) {
-	cb.buildExpr(stmt.X)
+	cb.buildExprVal(stmt.X)
 }
 
 func (cb *codeBuilder) llvmEnumAttribute(name string, val uint64) llvm.Attribute {
@@ -438,40 +425,56 @@ func (cb *codeBuilder) toLLVMType(t ir.Type) llvm.Type {
 	case ir.TString:
 		return llvm.PointerType(llvm.Int8Type(), 0)
 	case ir.TStruct:
-		structt := t.(*ir.StructType)
-		if res, ok := cb.typeDecls[structt.Sym]; ok {
+		tstruct := t.(*ir.StructType)
+		if res, ok := cb.typeDecls[tstruct.Sym]; ok {
 			return res
 		}
 		panic(fmt.Sprintf("Failed to find named type %s", t))
+	case ir.TArray:
+		tarray := t.(*ir.ArrayType)
+		telem := cb.toLLVMType(tarray.Elem)
+		return llvm.ArrayType(telem, tarray.Size)
 	case ir.TPointer:
-		pointer := t.(*ir.PointerType)
-		underlying := cb.toLLVMType(pointer.Underlying)
-		return llvm.PointerType(underlying, 0)
+		tpointer := t.(*ir.PointerType)
+		tunderlying := cb.toLLVMType(tpointer.Underlying)
+		return llvm.PointerType(tunderlying, 0)
 	default:
 		panic(fmt.Sprintf("Unhandled type %s", t.ID()))
 	}
 }
 
-func (cb *codeBuilder) buildExpr(expr ir.Expr) llvm.Value {
+func (cb *codeBuilder) buildExprVal(expr ir.Expr) llvm.Value {
+	return cb.buildExpr(expr, true)
+}
+
+func (cb *codeBuilder) buildExprPtr(expr ir.Expr) llvm.Value {
+	return cb.buildExpr(expr, false)
+}
+
+func (cb *codeBuilder) buildExpr(expr ir.Expr, load bool) llvm.Value {
 	switch t := expr.(type) {
 	case *ir.BinaryExpr:
 		return cb.buildBinaryExpr(t)
 	case *ir.UnaryExpr:
 		return cb.buildUnaryExpr(t)
 	case *ir.StarExpr:
-		return cb.buildStarExpr(t)
+		return cb.buildStarExpr(t, load)
 	case *ir.BasicLit:
 		return cb.buildBasicLit(t)
 	case *ir.StructLit:
 		return cb.buildStructLit(t)
+	case *ir.ArrayLit:
+		return cb.buildArrayLit(t)
 	case *ir.Ident:
-		return cb.buildIdent(t)
+		return cb.buildIdent(t, load)
 	case *ir.DotExpr:
-		return cb.buildDotExpr(t, true)
+		return cb.buildDotExpr(t, load)
 	case *ir.CastExpr:
 		return cb.buildCastExpr(t)
 	case *ir.FuncCall:
 		return cb.buildFuncCall(t)
+	case *ir.IndexExpr:
+		return cb.buildIndexExpr(t, load)
 	default:
 		panic(fmt.Sprintf("Unhandled expr %T", t))
 	}
@@ -561,14 +564,14 @@ func intPredicate(op token.ID, t ir.Type) llvm.IntPredicate {
 }
 
 func (cb *codeBuilder) buildBinaryExpr(expr *ir.BinaryExpr) llvm.Value {
-	left := cb.buildExpr(expr.Left)
+	left := cb.buildExprVal(expr.Left)
 
 	switch expr.Op.ID {
 	case token.Add, token.Sub, token.Mul, token.Div, token.Mod:
-		right := cb.buildExpr(expr.Right)
+		right := cb.buildExprVal(expr.Right)
 		return cb.createArithmeticOp(expr.Op.ID, expr.T, left, right)
 	case token.Eq, token.Neq, token.Gt, token.GtEq, token.Lt, token.LtEq:
-		right := cb.buildExpr(expr.Right)
+		right := cb.buildExprVal(expr.Right)
 		if ir.IsFloatingType(expr.T) {
 			return cb.b.CreateFCmp(floatPredicate(expr.Op.ID), left, right, "")
 		}
@@ -589,7 +592,7 @@ func (cb *codeBuilder) buildBinaryExpr(expr *ir.BinaryExpr) llvm.Value {
 		}
 
 		cb.b.SetInsertPointAtEnd(rightBlock)
-		right := cb.buildExpr(expr.Right)
+		right := cb.buildExprVal(expr.Right)
 		cb.b.CreateBr(join)
 
 		cb.b.SetInsertPointAtEnd(join)
@@ -603,30 +606,27 @@ func (cb *codeBuilder) buildBinaryExpr(expr *ir.BinaryExpr) llvm.Value {
 
 func (cb *codeBuilder) buildUnaryExpr(expr *ir.UnaryExpr) llvm.Value {
 	if expr.Op.ID == token.Sub {
-		val := cb.buildExpr(expr.X)
+		val := cb.buildExprVal(expr.X)
 		if ir.IsFloatingType(expr.T) {
 			return cb.b.CreateFNeg(val, "")
 		}
 		return cb.b.CreateNeg(val, "")
 	} else if expr.Op.ID == token.Lnot {
-		val := cb.buildExpr(expr.X)
+		val := cb.buildExprVal(expr.X)
 		return cb.b.CreateNot(val, "")
 	} else if expr.Op.ID == token.And {
-		if dot, ok := expr.X.(*ir.DotExpr); ok {
-			return cb.buildDotExpr(dot, false)
-		}
-		ident := ir.ExprToIdent(expr.X)
-		val, ok := cb.values[ident.Sym]
-		common.Assert(ok, "nil value")
-		return val
+		return cb.buildExprPtr(expr.X)
 	}
 
 	panic(fmt.Sprintf("Unhandled unary op %s", expr.Op.ID))
 }
 
-func (cb *codeBuilder) buildStarExpr(expr *ir.StarExpr) llvm.Value {
-	val := cb.buildExpr(expr.X)
-	return cb.b.CreateLoad(val, val.Name())
+func (cb *codeBuilder) buildStarExpr(expr *ir.StarExpr, load bool) llvm.Value {
+	val := cb.buildExprVal(expr.X)
+	if load {
+		return cb.b.CreateLoad(val, val.Name())
+	}
+	return val
 }
 
 func (cb *codeBuilder) buildBasicLit(expr *ir.BasicLit) llvm.Value {
@@ -666,40 +666,43 @@ func (cb *codeBuilder) buildBasicLit(expr *ir.BasicLit) llvm.Value {
 }
 
 func (cb *codeBuilder) buildStructLit(expr *ir.StructLit) llvm.Value {
-	structt := expr.T.(*ir.StructType)
-	llvmType := cb.typeDecls[structt.Sym]
+	tstruct := expr.T.(*ir.StructType)
+	llvmType := cb.typeDecls[tstruct.Sym]
 	structLit := llvm.Undef(llvmType)
 
 	for _, field := range expr.Initializers {
-		index := structt.FieldIndex(field.Key.Literal)
-		init := cb.buildExpr(field.Value)
+		index := tstruct.FieldIndex(field.Key.Literal)
+		init := cb.buildExprVal(field.Value)
 		structLit = cb.b.CreateInsertValue(structLit, init, index, "")
 	}
 
 	return structLit
 }
 
-func (cb *codeBuilder) buildIdent(expr *ir.Ident) llvm.Value {
+func (cb *codeBuilder) buildArrayLit(expr *ir.ArrayLit) llvm.Value {
+	llvmType := cb.toLLVMType(expr.T)
+	arrayLit := llvm.Undef(llvmType)
+
+	for index, elem := range expr.Initializers {
+		init := cb.buildExprVal(elem)
+		arrayLit = cb.b.CreateInsertValue(arrayLit, init, index, "")
+	}
+
+	return arrayLit
+}
+
+func (cb *codeBuilder) buildIdent(expr *ir.Ident, load bool) llvm.Value {
 	if val, ok := cb.values[expr.Sym]; ok {
-		return cb.b.CreateLoad(val, expr.Sym.Name)
+		if load {
+			return cb.b.CreateLoad(val, expr.Sym.Name)
+		}
+		return val
 	}
 	panic(fmt.Sprintf("%s not found", expr.Sym))
 }
 
 func (cb *codeBuilder) buildDotExpr(expr *ir.DotExpr, load bool) llvm.Value {
-	var val llvm.Value
-
-	switch t := expr.X.(type) {
-	case *ir.Ident:
-		val = cb.values[t.Sym]
-	case *ir.DotExpr:
-		val = cb.buildDotExpr(t, false)
-	case *ir.StarExpr:
-		val = cb.buildExpr(t.X)
-	default:
-		panic(fmt.Sprintf("Unhandled DotExpr %T", t))
-	}
-
+	val := cb.buildExprPtr(expr.X)
 	structt := expr.X.Type().(*ir.StructType)
 	index := structt.FieldIndex(expr.Name.Literal())
 
@@ -711,7 +714,7 @@ func (cb *codeBuilder) buildDotExpr(expr *ir.DotExpr, load bool) llvm.Value {
 }
 
 func (cb *codeBuilder) buildCastExpr(expr *ir.CastExpr) llvm.Value {
-	val := cb.buildExpr(expr.X)
+	val := cb.buildExprVal(expr.X)
 
 	to := expr.ToTyp.Type()
 	from := expr.X.Type()
@@ -774,9 +777,19 @@ func (cb *codeBuilder) buildCastExpr(expr *ir.CastExpr) llvm.Value {
 func (cb *codeBuilder) buildFuncCall(expr *ir.FuncCall) llvm.Value {
 	var args []llvm.Value
 	for _, arg := range expr.Args {
-		args = append(args, cb.buildExpr(arg))
+		args = append(args, cb.buildExprVal(arg))
 	}
 	sym := ir.ExprSymbol(expr.X)
 	fun := cb.mod.NamedFunction(sym.Name)
 	return cb.b.CreateCall(fun, args, "")
+}
+
+func (cb *codeBuilder) buildIndexExpr(expr *ir.IndexExpr, load bool) llvm.Value {
+	val := cb.buildExprPtr(expr.X)
+	index := cb.buildExprVal(expr.Index)
+	gep := cb.b.CreateInBoundsGEP(val, []llvm.Value{llvm.ConstInt(llvm.Int64Type(), 0, false), index}, "")
+	if load {
+		return cb.b.CreateLoad(gep, "")
+	}
+	return gep
 }

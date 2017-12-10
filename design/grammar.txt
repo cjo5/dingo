@@ -1,6 +1,7 @@
 # {..} : 0 or more
 # (..)*  : 0 or more
 # [..] : optional
+# ?: optional
 # a | b : a or b
 
 File = ['module' IDENT ';'] Include* TopDecl*
@@ -13,10 +14,12 @@ FuncDecl = 'func' IDENT Func
 StructDecl = 'struct' IDENT Struct
 
 Visibility = 'pub' | 'priv' 
-Type = ['*'] IDENT 
+Type = PointerType | ArrayType | IDENT
+PointerType = '*' Type
+ArrayType = '[' INTEGER? ']' Type
 Field = ['val' | 'var'] IDENT Type
 Struct= '{' {Field ';'} '}'
-FuncSignature = '(' [Field {',' Field}] [','] ')' [ Type]
+FuncSignature = '(' [Field {',' Field} ','?] ')' Type?
 Func = FuncSignature (Block | ';')
 
 Block = '{' Stmt* '}'
@@ -36,15 +39,17 @@ Comparison = Term {( '>' | '>=' | '<' | '<=' ) Term}
 Term = Factor {( '-' | '+' ) Factor}
 Factor = Unary {( '/' | '%' | '*' ) Unary}
 Unary = (( '!' | '-' | '&') Expr) | Operand
-# StructLit is not an operand when parsing condition
-Operand = StarExpr | Cast | Primary | BasicLit | StructLit
+# StructLit is ignored when parsing Condition
+Operand = StarExpr | CastExpr | Primary | BasicLit | StructLit | ArrayLit
 
 StarExpr = '*' Expr
-Cast = 'cast' '(' Expr ',' Expr ')'
-Primary = IDENT | DotIdent | FuncCall  | '(' Expr ')'
-FuncCall = Primary '(' [Expr {',' Expr} [','] ] ')'
-DotIdent = Primary '.' IDENT
+CastExpr = 'cast' '(' Expr ',' Expr ')'
+Primary = IDENT | IndexExpr | FuncCall | DotExpr | '(' Expr ')'
+IndexExpr = Primary '[' INTEGER? (':' | ':' INTEGER)?  ']'
+FuncCall = Primary '(' [Expr {',' Expr} ','?] ')'
+DotExpr = Primary '.' IDENT
 
 BasicLit = INTEGER | FLOAT | STRING | 'true' | 'false' | 'null'
 KeyValue = IDENT '=' Expr
-StructLit = Type '{' [KeyValue {',' KeyValue} [',] ] '}'
+StructLit = IDENT '{' [KeyValue {',' KeyValue} ','?] '}'
+ArrayLit  = '[' [Expr {',' Expr} ','?] ']'

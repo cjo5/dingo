@@ -5,9 +5,132 @@ import (
 	"math/big"
 	"strings"
 
+	"github.com/jhnl/dingo/common"
 	"github.com/jhnl/dingo/ir"
 	"github.com/jhnl/dingo/token"
 )
+
+func (v *typeVisitor) makeTypedExpr(expr ir.Expr, t ir.Type) ir.Expr {
+	expr = ir.VisitExpr(v, expr)
+	if ir.IsActualType(expr.Type()) || ir.IsUntyped(expr.Type()) {
+		return expr
+	}
+
+	if t != nil {
+		v.tryMakeTypedLit(expr, t)
+	} else {
+		v.tryMakeDefaultTypedLit(expr)
+	}
+
+	return expr
+}
+
+func (v *typeVisitor) tryMakeTypedLit(expr ir.Expr, target ir.Type) bool {
+	switch lit := expr.(type) {
+	case *ir.BasicLit:
+		if ir.IsTypeID(lit.T, ir.TBigInt, ir.TBigFloat) && ir.IsNumericType(target) {
+			castResult := typeCastNumericLit(lit, target)
+
+			if castResult == numericCastOK {
+				return true
+			}
+
+			if castResult == numericCastOverflows {
+				v.c.error(lit.Value.Pos, "constant expression %s overflows %s", lit.Value.Literal, target)
+			} else if castResult == numericCastTruncated {
+				v.c.error(lit.Value.Pos, "type mismatch: constant float expression %s not compatible with %s", lit.Value.Literal, target)
+			} else {
+				panic(fmt.Sprintf("Unhandled numeric cast result %d", castResult))
+			}
+
+			return false
+		} else if ir.IsTypeID(expr.Type(), ir.TPointer) && ir.IsTypeID(target, ir.TPointer) {
+			common.Assert(lit.Value.ID == token.Null, "pointer literal should be null")
+			tpointer := expr.Type().(*ir.PointerType)
+			targetTpointer := target.(*ir.PointerType)
+			if ir.IsUntyped(tpointer.Underlying) {
+				lit.T = ir.NewPointerType(targetTpointer.Underlying)
+			}
+		}
+	case *ir.ArrayLit:
+		if ir.IsTypeID(expr.Type(), ir.TArray) && ir.IsTypeID(target, ir.TArray) {
+			tarray := expr.Type().(*ir.ArrayType)
+			targetTarray := target.(*ir.ArrayType)
+			err := false
+			for _, init := range lit.Initializers {
+				if !v.tryMakeTypedLit(init, targetTarray.Elem) {
+					err = true
+					break
+				}
+			}
+			if !err && len(lit.Initializers) > 0 {
+				tarray.Elem = lit.Initializers[0].Type()
+			}
+		}
+	}
+
+	return true
+}
+
+func (v *typeVisitor) tryMakeDefaultTypedLit(expr ir.Expr) bool {
+	t := expr.Type()
+	if t.ID() == ir.TBigInt {
+		return v.tryMakeTypedLit(expr, ir.TBuiltinInt32)
+	} else if t.ID() == ir.TBigFloat {
+		return v.tryMakeTypedLit(expr, ir.TBuiltinFloat64)
+	} else if t.ID() == ir.TArray {
+		if lit, ok := expr.(*ir.ArrayLit); ok {
+			err := false
+			for _, init := range lit.Initializers {
+				if !v.tryMakeDefaultTypedLit(init) {
+					err = true
+					break
+				}
+			}
+			size := len(lit.Initializers)
+			if !err && size > 0 {
+				telem := lit.Initializers[0].Type()
+				lit.T = ir.NewArrayType(size, telem)
+			}
+		}
+	}
+	return true
+}
+
+func (v *typeVisitor) VisitArrayTypeExpr(expr *ir.ArrayTypeExpr) ir.Expr {
+	expr.Size = v.makeTypedExpr(expr.Size, ir.TBuiltinInt32)
+	sizeType := expr.Size.Type()
+	err := false
+
+	size := 0
+
+	if sizeType.ID() != ir.TInt32 {
+		v.c.error(expr.Size.FirstPos(), "array size must be of type %s (got %s)", ir.TInt32, sizeType)
+		err = true
+	} else if lit, ok := expr.Size.(*ir.BasicLit); !ok {
+		v.c.error(expr.Size.FirstPos(), "array size '%s' is not a constant expression", PrintExpr(expr.Size))
+		err = true
+	} else if lit.NegatigeInteger() {
+		v.c.error(expr.Size.FirstPos(), "array size cannot be negative")
+		err = true
+	} else {
+		size = int(lit.AsU64())
+	}
+
+	if err {
+		expr.T = ir.TBuiltinUntyped
+		return expr
+	}
+
+	expr.X = ir.VisitExpr(v, expr.X)
+	if expr.X.Type().IsEqual(ir.TBuiltinUntyped) {
+		expr.T = ir.TBuiltinUntyped
+	} else {
+		expr.T = ir.NewArrayType(size, expr.X.Type())
+	}
+
+	return expr
+}
 
 // TODO: Evaluate constant boolean expressions
 
@@ -156,16 +279,16 @@ func (v *typeVisitor) VisitBinaryExpr(expr *ir.BinaryExpr) ir.Expr {
 					return leftLit
 				}
 			} else if leftBigInt != nil && rightBigInt == nil {
-				typeCastNumericLiteral(leftLit, rightType)
+				typeCastNumericLit(leftLit, rightType)
 				leftType = leftLit.T
 			} else if leftBigInt == nil && rightBigInt != nil {
-				typeCastNumericLiteral(rightLit, leftType)
+				typeCastNumericLit(rightLit, leftType)
 				rightType = rightLit.T
 			} else if leftBigFloat != nil && rightBigFloat == nil {
-				typeCastNumericLiteral(leftLit, rightType)
+				typeCastNumericLit(leftLit, rightType)
 				leftType = leftLit.T
 			} else if leftBigFloat == nil && rightBigFloat != nil {
-				typeCastNumericLiteral(rightLit, leftType)
+				typeCastNumericLit(rightLit, leftType)
 				rightType = rightLit.T
 			}
 		} else if leftType.ID() == ir.TPointer && rightType.ID() == ir.TPointer {
@@ -418,14 +541,9 @@ func (v *typeVisitor) VisitStructLit(expr *ir.StructLit) ir.Expr {
 			continue
 		}
 
-		kv.Value = ir.VisitExpr(v, kv.Value)
+		kv.Value = v.makeTypedExpr(kv.Value, fieldSym.T)
 
 		if ir.IsUntyped(fieldSym.T) {
-			inits[kv.Key.Literal] = nil
-			continue
-		}
-
-		if !v.c.tryCastLiteral(kv.Value, fieldSym.T) {
 			inits[kv.Key.Literal] = nil
 			continue
 		}
@@ -448,13 +566,68 @@ func (v *typeVisitor) VisitStructLit(expr *ir.StructLit) ir.Expr {
 	return createStructLit(structt, expr)
 }
 
-func createDefaultLiteral(t ir.Type, name ir.Expr) ir.Expr {
+func (v *typeVisitor) VisitArrayLit(expr *ir.ArrayLit) ir.Expr {
+	t := ir.TBuiltinUntyped
+	backup := ir.TBuiltinUntyped
+
+	for i, init := range expr.Initializers {
+		init = ir.VisitExpr(v, init)
+		expr.Initializers[i] = init
+
+		if t == ir.TBuiltinUntyped && ir.IsActualType(init.Type()) {
+			t = init.Type()
+		}
+		if backup == ir.TBuiltinUntyped && !ir.IsUntyped(init.Type()) {
+			backup = init.Type()
+		}
+	}
+
+	if t != ir.TBuiltinUntyped {
+		for _, init := range expr.Initializers {
+			if !v.tryMakeTypedLit(init, t) {
+				break
+			}
+		}
+	} else {
+		t = backup
+	}
+
+	if t != ir.TBuiltinUntyped {
+		for _, init := range expr.Initializers {
+			if !t.IsEqual(init.Type()) {
+				v.c.error(init.FirstPos(), "type mismatch: array elements must be of the same type (expected %s, got %s)", t, init.Type())
+				break
+			}
+		}
+	}
+
+	if len(expr.Initializers) == 0 {
+		v.c.error(expr.Lbrack.Pos, "array literal cannot have 0 elements")
+	}
+
+	if t == ir.TBuiltinUntyped {
+		expr.T = t
+	} else {
+		expr.T = ir.NewArrayType(len(expr.Initializers), t)
+	}
+	return expr
+}
+
+func createDefaultLit(t ir.Type) ir.Expr {
 	if t.ID() == ir.TStruct {
-		structt, _ := t.(*ir.StructType)
+		tstruct := t.(*ir.StructType)
 		lit := &ir.StructLit{}
 		lit.T = t
-		lit.Name = ir.CopyExpr(name, false)
-		return createStructLit(structt, lit)
+		return createStructLit(tstruct, lit)
+	} else if t.ID() == ir.TArray {
+		tarray := t.(*ir.ArrayType)
+		lit := &ir.ArrayLit{}
+		lit.T = tarray
+		for i := 0; i < tarray.Size; i++ {
+			init := createDefaultLit(tarray.Elem)
+			lit.Initializers = append(lit.Initializers, init)
+		}
+		return lit
 	}
 	return createDefaultBasicLit(t)
 }
@@ -504,8 +677,7 @@ func createStructLit(structt *ir.StructType, lit *ir.StructLit) *ir.StructLit {
 		kv := &ir.KeyValue{}
 		kv.Key = token.Synthetic(token.Ident, key)
 
-		decl := f.Sym.Src.(*ir.ValDecl)
-		kv.Value = createDefaultLiteral(f.T, decl.Type)
+		kv.Value = createDefaultLit(f.T)
 		initializers = append(initializers, kv)
 	}
 	lit.Initializers = initializers
@@ -544,8 +716,7 @@ func (v *typeVisitor) VisitDotExpr(expr *ir.DotExpr) ir.Expr {
 	case *ir.PointerType:
 		switch t2 := t.Underlying.(type) {
 		case *ir.StructType:
-			// Automatically deref pointers.
-			// In C, the syntax for this would be foo->bar.
+			// Automatically pointer deref
 			star := token.Synthetic(token.Mul, token.Mul.String())
 			starX := &ir.StarExpr{Star: star, X: expr.X}
 			starX.T = t2
@@ -594,7 +765,7 @@ func (v *typeVisitor) VisitCastExpr(expr *ir.CastExpr) ir.Expr {
 	expr.X = ir.VisitExpr(v, expr.X)
 
 	if !err {
-		if compatibleTypes(expr.X.Type(), expr.ToTyp.Type()) {
+		if ir.CompatibleTypes(expr.X.Type(), expr.ToTyp.Type()) {
 			expr.T = expr.ToTyp.Type()
 		} else {
 			v.c.error(expr.X.FirstPos(), "type mismatch: %s cannot be converted to %s", expr.X.Type(), expr.ToTyp.Type())
@@ -626,20 +797,17 @@ func (v *typeVisitor) VisitFuncCall(expr *ir.FuncCall) ir.Expr {
 		return expr
 	}
 
+	funcType, _ := t.(*ir.FuncType)
+
 	for i, arg := range expr.Args {
-		expr.Args[i] = ir.VisitExpr(v, arg)
+		expr.Args[i] = v.makeTypedExpr(arg, funcType.Params[i].T)
 	}
 
-	funcType, _ := t.(*ir.FuncType)
 	if len(funcType.Params) != len(expr.Args) {
 		v.c.error(expr.X.FirstPos(), "'%s' takes %d argument(s) but called with %d", PrintExpr(expr.X), len(funcType.Params), len(expr.Args))
 	} else {
 		for i, arg := range expr.Args {
 			paramType := funcType.Params[i].T
-
-			if !v.c.tryCastLiteral(arg, paramType) {
-				continue
-			}
 
 			argType := arg.Type()
 			if !argType.IsEqual(paramType) {
@@ -648,6 +816,44 @@ func (v *typeVisitor) VisitFuncCall(expr *ir.FuncCall) ir.Expr {
 			}
 		}
 		expr.T = funcType.Return
+	}
+
+	if expr.T == nil {
+		expr.T = ir.TBuiltinUntyped
+	}
+
+	return expr
+}
+
+func (v *typeVisitor) VisitIndexExpr(expr *ir.IndexExpr) ir.Expr {
+	expr.X = v.makeTypedExpr(expr.X, nil)
+	expr.Index = v.makeTypedExpr(expr.Index, nil)
+
+	var tarray *ir.ArrayType
+
+	switch t := expr.X.Type().(type) {
+	case *ir.ArrayType:
+		tarray = t
+	case *ir.PointerType:
+		switch t2 := t.Underlying.(type) {
+		case *ir.ArrayType:
+			// Automatic pointer deref
+			star := token.Synthetic(token.Mul, token.Mul.String())
+			starX := &ir.StarExpr{Star: star, X: expr.X}
+			starX.T = t2
+			expr.X = starX
+			tarray = t2
+		}
+	}
+
+	if tarray != nil {
+		if !ir.IsIntegerType(expr.Index.Type()) {
+			v.c.error(expr.Index.FirstPos(), "'%' is not an integer (has type %s)", PrintExpr(expr.Index), expr.Index.Type())
+		} else {
+			expr.T = tarray.Elem
+		}
+	} else {
+		v.c.error(expr.Index.FirstPos(), "'%s' is of type %s and cannot be indexed", PrintExpr(expr.X), expr.X.Type())
 	}
 
 	if expr.T == nil {

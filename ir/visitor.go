@@ -27,15 +27,18 @@ type Visitor interface {
 
 	// Exprs
 	VisitBadExpr(expr *BadExpr) Expr
+	VisitArrayTypeExpr(expr *ArrayTypeExpr) Expr
 	VisitBinaryExpr(expr *BinaryExpr) Expr
 	VisitUnaryExpr(expr *UnaryExpr) Expr
 	VisitStarExpr(expr *StarExpr) Expr
 	VisitBasicLit(expr *BasicLit) Expr
 	VisitStructLit(expr *StructLit) Expr
+	VisitArrayLit(expr *ArrayLit) Expr
 	VisitIdent(expr *Ident) Expr
 	VisitDotExpr(expr *DotExpr) Expr
 	VisitCastExpr(expr *CastExpr) Expr
 	VisitFuncCall(expr *FuncCall) Expr
+	VisitIndexExpr(expr *IndexExpr) Expr
 }
 
 // BaseVisitor provides default implementations for Visitor functions.
@@ -78,15 +81,18 @@ func (v *BaseVisitor) VisitBadExpr(decl *BadExpr) Expr {
 	panic("VisitBadExpr")
 }
 
-func (v *BaseVisitor) VisitBinaryExpr(expr *BinaryExpr) Expr { return expr }
-func (v *BaseVisitor) VisitUnaryExpr(expr *UnaryExpr) Expr   { return expr }
-func (v *BaseVisitor) VisitStarExpr(expr *StarExpr) Expr     { return expr }
-func (v *BaseVisitor) VisitBasicLit(expr *BasicLit) Expr     { return expr }
-func (v *BaseVisitor) VisitStructLit(expr *StructLit) Expr   { return expr }
-func (v *BaseVisitor) VisitIdent(expr *Ident) Expr           { return expr }
-func (v *BaseVisitor) VisitDotExpr(expr *DotExpr) Expr       { return expr }
-func (v *BaseVisitor) VisitCastExpr(expr *CastExpr) Expr     { return expr }
-func (v *BaseVisitor) VisitFuncCall(expr *FuncCall) Expr     { return expr }
+func (v *BaseVisitor) VisitArrayTypeExpr(expr *ArrayTypeExpr) Expr { return expr }
+func (v *BaseVisitor) VisitBinaryExpr(expr *BinaryExpr) Expr       { return expr }
+func (v *BaseVisitor) VisitUnaryExpr(expr *UnaryExpr) Expr         { return expr }
+func (v *BaseVisitor) VisitStarExpr(expr *StarExpr) Expr           { return expr }
+func (v *BaseVisitor) VisitBasicLit(expr *BasicLit) Expr           { return expr }
+func (v *BaseVisitor) VisitStructLit(expr *StructLit) Expr         { return expr }
+func (v *BaseVisitor) VisitArrayLit(expr *ArrayLit) Expr           { return expr }
+func (v *BaseVisitor) VisitIdent(expr *Ident) Expr                 { return expr }
+func (v *BaseVisitor) VisitDotExpr(expr *DotExpr) Expr             { return expr }
+func (v *BaseVisitor) VisitCastExpr(expr *CastExpr) Expr           { return expr }
+func (v *BaseVisitor) VisitFuncCall(expr *FuncCall) Expr           { return expr }
+func (v *BaseVisitor) VisitIndexExpr(expr *IndexExpr) Expr         { return expr }
 
 // VisitNode switches on node type and invokes corresponding Visit function.
 func VisitNode(v Visitor, node Node) {
@@ -153,6 +159,8 @@ func VisitExpr(v Visitor, expr Expr) Expr {
 	switch e := expr.(type) {
 	case *BadExpr:
 		return v.VisitBadExpr(e)
+	case *ArrayTypeExpr:
+		return v.VisitArrayTypeExpr(e)
 	case *BinaryExpr:
 		return v.VisitBinaryExpr(e)
 	case *UnaryExpr:
@@ -163,6 +171,8 @@ func VisitExpr(v Visitor, expr Expr) Expr {
 		return v.VisitBasicLit(e)
 	case *StructLit:
 		return v.VisitStructLit(e)
+	case *ArrayLit:
+		return v.VisitArrayLit(e)
 	case *Ident:
 		return v.VisitIdent(e)
 	case *DotExpr:
@@ -171,6 +181,8 @@ func VisitExpr(v Visitor, expr Expr) Expr {
 		return v.VisitCastExpr(e)
 	case *FuncCall:
 		return v.VisitFuncCall(e)
+	case *IndexExpr:
+		return v.VisitIndexExpr(e)
 	default:
 		panic(fmt.Sprintf("Unhandled expr %T", e))
 	}

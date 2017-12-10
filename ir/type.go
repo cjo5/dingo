@@ -36,6 +36,7 @@ const (
 
 	TString
 	TStruct
+	TArray
 	TPointer
 	TFunc
 )
@@ -54,10 +55,11 @@ var types = [...]string{
 	TInt64:    "i64",
 	TFloat32:  "f32",
 	TFloat64:  "f64",
-	TBigInt:   "integer",
+	TBigInt:   "int",
 	TBigFloat: "float",
 	TString:   "str",
 	TStruct:   "struct",
+	TArray:    "array",
 	TPointer:  "pointer",
 	TFunc:     "fun",
 }
@@ -186,6 +188,31 @@ func (t *StructType) FieldIndex(fieldName string) int {
 	return -1
 }
 
+type ArrayType struct {
+	Size int
+	Elem Type
+}
+
+func (t *ArrayType) ID() TypeID {
+	return TArray
+}
+
+func (t *ArrayType) IsEqual(other Type) bool {
+	otherArray, ok := other.(*ArrayType)
+	if !ok {
+		return false
+	}
+	if t.Size != otherArray.Size {
+		return false
+	}
+
+	return t.Elem.IsEqual(otherArray.Elem)
+}
+
+func (t *ArrayType) String() string {
+	return fmt.Sprintf("[%d]%s", t.Size, t.Elem.String())
+}
+
 type PointerType struct {
 	Underlying Type
 }
@@ -264,6 +291,10 @@ func (t *StructType) SetBody(decl *StructDecl) Type {
 	return t
 }
 
+func NewArrayType(size int, elem Type) Type {
+	return &ArrayType{Size: size, Elem: elem}
+}
+
 func NewPointerType(Underlying Type) Type {
 	return &PointerType{Underlying: Underlying}
 }
@@ -284,6 +315,19 @@ func IsTypeID(t Type, ids ...TypeID) bool {
 		}
 	}
 	return false
+}
+
+func IsActualType(t1 Type) bool {
+	switch t2 := t1.(type) {
+	case *PointerType:
+		return IsActualType(t2.Underlying)
+	case *ArrayType:
+		return IsActualType(t2.Elem)
+	case *BasicType:
+		return !IsTypeID(t2, TUntyped, TBigInt, TBigFloat)
+	default:
+		return true
+	}
 }
 
 func IsUntyped(t Type) bool {
@@ -331,6 +375,22 @@ func IsNumericType(t Type) bool {
 		return true
 	}
 	return false
+}
+
+func CompatibleTypes(from Type, to Type) bool {
+	switch {
+	case from.IsEqual(to):
+		return true
+	case IsNumericType(from):
+		switch {
+		case IsNumericType(to):
+			return true
+		default:
+			return false
+		}
+	default:
+		return false
+	}
 }
 
 func CompareBitSize(t1 Type, t2 Type) int {

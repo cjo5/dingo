@@ -48,13 +48,29 @@ func (v *typeVisitor) VisitValTopDecl(decl *ir.ValTopDecl) {
 	}
 	v.visitValDeclSpec(decl.Sym, &decl.ValDeclSpec, true)
 
-	// TODO: Support assignment if it's a value
-	switch init := decl.Initializer.(type) {
+	v.checkCompileTimeContant(decl.Initializer)
+}
+
+func (v *typeVisitor) checkCompileTimeContant(expr ir.Expr) bool {
+	switch init := expr.(type) {
 	case *ir.BasicLit:
 	case *ir.StructLit:
+		for _, field := range init.Initializers {
+			if !v.checkCompileTimeContant(field.Value) {
+				return false
+			}
+		}
+	case *ir.ArrayLit:
+		for _, elem := range init.Initializers {
+			if !v.checkCompileTimeContant(elem) {
+				return false
+			}
+		}
 	default:
-		v.c.error(decl.Initializer.FirstPos(), "'%s' is not a compile-time constant", PrintExpr(init))
+		v.c.error(expr.FirstPos(), "'%s' is not a compile-time constant", PrintExpr(init))
+		return false
 	}
+	return true
 }
 
 func (v *typeVisitor) VisitValDecl(decl *ir.ValDecl) {
@@ -98,13 +114,9 @@ func (v *typeVisitor) visitValDeclSpec(sym *ir.Symbol, decl *ir.ValDeclSpec, def
 	}
 
 	if decl.Initializer != nil {
-		decl.Initializer = ir.VisitExpr(v, decl.Initializer)
+		decl.Initializer = v.makeTypedExpr(decl.Initializer, sym.T)
 
 		if decl.Type == nil {
-			if !v.c.tryCastBigNumber(decl.Initializer) {
-				return
-			}
-
 			sym.T = decl.Initializer.Type()
 			if ptr, ok := sym.T.(*ir.PointerType); ok {
 				if ir.IsTypeID(ptr.Underlying, ir.TUntyped) {
@@ -112,9 +124,6 @@ func (v *typeVisitor) visitValDeclSpec(sym *ir.Symbol, decl *ir.ValDeclSpec, def
 				}
 			}
 		} else {
-			if !v.c.tryCastLiteral(decl.Initializer, sym.T) {
-				return
-			}
 			if !sym.T.IsEqual(decl.Initializer.Type()) {
 				v.c.error(decl.Initializer.FirstPos(), "type mismatch: '%s' has type %s and is not compatible with %s",
 					decl.Name.Literal, sym.T, decl.Initializer.Type())
@@ -123,7 +132,7 @@ func (v *typeVisitor) visitValDeclSpec(sym *ir.Symbol, decl *ir.ValDeclSpec, def
 	} else if decl.Type == nil {
 		v.c.error(decl.Name.Pos, "missing type specifier or initializer")
 	} else if defaultInit {
-		decl.Initializer = createDefaultLiteral(sym.T, decl.Type)
+		decl.Initializer = createDefaultLit(sym.T)
 	}
 }
 
@@ -239,11 +248,9 @@ func (v *typeVisitor) VisitReturnStmt(stmt *ir.ReturnStmt) {
 			mismatch = true
 		}
 	} else {
-		stmt.X = ir.VisitExpr(v, stmt.X)
-		if !v.c.tryCastLiteral(stmt.X, retType) {
-			exprType = stmt.X.Type().ID()
-			mismatch = true
-		} else if !stmt.X.Type().IsEqual(retType) {
+		stmt.X = v.makeTypedExpr(stmt.X, retType)
+
+		if !stmt.X.Type().IsEqual(retType) {
 			exprType = stmt.X.Type().ID()
 			mismatch = true
 		}
@@ -267,15 +274,11 @@ func (v *typeVisitor) VisitAssignStmt(stmt *ir.AssignStmt) {
 		return
 	}
 
-	stmt.Right = ir.VisitExpr(v, stmt.Right)
+	stmt.Right = v.makeTypedExpr(stmt.Right, left.Type())
 
 	if constID := v.c.checkConstant(stmt.Left); constID != nil {
 		v.c.error(constID.Pos(), "'%s' was declared with %s and cannot be modified (constant)",
 			constID.Literal(), token.Val)
-	}
-
-	if !v.c.tryCastLiteral(stmt.Right, left.Type()) {
-		return
 	}
 
 	if !left.Type().IsEqual(stmt.Right.Type()) {
@@ -292,6 +295,5 @@ func (v *typeVisitor) VisitAssignStmt(stmt *ir.AssignStmt) {
 }
 
 func (v *typeVisitor) VisitExprStmt(stmt *ir.ExprStmt) {
-	stmt.X = ir.VisitExpr(v, stmt.X)
-	v.c.tryCastBigNumber(stmt.X)
+	stmt.X = v.makeTypedExpr(stmt.X, nil)
 }

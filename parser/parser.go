@@ -124,7 +124,7 @@ func (p *parser) expect(id token.ID) bool {
 }
 
 func (p *parser) expectSemi() bool {
-	if !p.token.Is(token.Rbrace) {
+	if !p.token.OneOf(token.Rbrace, token.Rbrack) {
 		if !p.match(token.Semicolon) {
 			p.error(p.token, "got '%s', expected semicolon or newline", p.token.Quote())
 			p.next()
@@ -483,7 +483,14 @@ func (p *parser) parsePointerType() ir.Expr {
 }
 
 func (p *parser) parseArrayType() ir.Expr {
-	panic("parseArrayType not implemented")
+	expr := &ir.ArrayTypeExpr{}
+	expr.Lbrack = p.token
+	p.expect(token.Lbrack)
+	expr.Size = p.parseExpr()
+	expr.Rbrack = p.token
+	p.expect(token.Rbrack)
+	expr.X = p.parseTypeSpec()
+	return expr
 }
 
 func (p *parser) parseExpr() ir.Expr {
@@ -577,6 +584,8 @@ func (p *parser) parseOperand() ir.Expr {
 		x := p.parseExpr()
 		p.consume(token.Rparen)
 		return p.parsePrimary(x)
+	} else if p.token.Is(token.Lbrack) {
+		return p.parseArrayLit()
 	} else if p.token.Is(token.Ident) {
 		ident := p.parseIdent()
 		var x ir.Expr = ident
@@ -613,12 +622,23 @@ func (p *parser) parseCastExpr() *ir.CastExpr {
 }
 
 func (p *parser) parsePrimary(expr ir.Expr) ir.Expr {
-	if p.token.Is(token.Lparen) {
+	if p.token.Is(token.Lbrack) {
+		return p.parsePrimary(p.parseIndexExpr(expr))
+	} else if p.token.Is(token.Lparen) {
 		return p.parsePrimary(p.parseFuncCall(expr))
 	} else if p.token.Is(token.Dot) {
 		return p.parsePrimary(p.parseDotExpr(expr))
 	}
 	return expr
+}
+
+func (p *parser) parseIndexExpr(expr ir.Expr) ir.Expr {
+	lbrack := p.token
+	p.consume(token.Lbrack)
+	index := p.parseExpr()
+	rbrack := p.token
+	p.expect(token.Rbrack)
+	return &ir.IndexExpr{X: expr, Index: index, Lbrack: lbrack, Rbrack: rbrack}
 }
 
 func (p *parser) parseIdent() *ir.Ident {
@@ -678,12 +698,12 @@ func (p *parser) parseKeyValue() *ir.KeyValue {
 
 func (p *parser) parseStructLit(name ir.Expr) ir.Expr {
 	lbrace := p.token
-	p.consume(token.Lbrace)
+	p.expect(token.Lbrace)
 	var inits []*ir.KeyValue
-	if p.token.Is(token.Ident) {
+	if !p.token.Is(token.Rbrace) {
 		inits = append(inits, p.parseKeyValue())
 		for p.token.ID != token.EOF && p.token.ID != token.Rbrace {
-			p.consume(token.Comma)
+			p.expect(token.Comma)
 			if p.token.Is(token.Rbrace) {
 				break
 			}
@@ -691,6 +711,25 @@ func (p *parser) parseStructLit(name ir.Expr) ir.Expr {
 		}
 	}
 	rbrace := p.token
-	p.consume(token.Rbrace)
+	p.expect(token.Rbrace)
 	return &ir.StructLit{Name: name, Lbrace: lbrace, Initializers: inits, Rbrace: rbrace}
+}
+
+func (p *parser) parseArrayLit() ir.Expr {
+	lbrack := p.token
+	p.expect(token.Lbrack)
+	var inits []ir.Expr
+	if !p.token.Is(token.Rbrack) {
+		inits = append(inits, p.parseExpr())
+		for p.token.ID != token.EOF && p.token.ID != token.Rbrack {
+			p.expect(token.Comma)
+			if p.token.Is(token.Rbrack) {
+				break
+			}
+			inits = append(inits, p.parseExpr())
+		}
+	}
+	rbrack := p.token
+	p.expect(token.Rbrack)
+	return &ir.ArrayLit{Lbrack: lbrack, Initializers: inits, Rbrack: rbrack}
 }

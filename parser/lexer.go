@@ -93,6 +93,10 @@ func (l *lexer) lex() token.Token {
 			tok.ID = token.Lbrace
 		case '}':
 			tok.ID = token.Rbrace
+		case '[':
+			tok.ID = token.Lbrack
+		case ']':
+			tok.ID = token.Rbrack
 		case ',':
 			tok.ID = token.Comma
 		case ';':
@@ -167,7 +171,7 @@ func isLineTerminator(id token.ID) bool {
 	switch id {
 	case token.Ident,
 		token.Integer, token.Float, token.String, token.True, token.False, token.Null,
-		token.Rparen, token.Rbrace,
+		token.Rparen, token.Rbrace, token.Rbrack,
 		token.Continue, token.Break, token.Return:
 		return true
 	default:
@@ -218,7 +222,10 @@ func (l *lexer) next() {
 }
 
 func (l *lexer) newPos() token.Position {
-	col := l.readOffset - l.lineOffset
+	col := l.chOffset - l.lineOffset
+	if col <= 0 {
+		col = 1
+	}
 	return token.Position{Line: l.lineCount, Column: col}
 }
 

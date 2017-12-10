@@ -36,15 +36,13 @@ struct List {
         struct Vec2* v;
 };
 
-const char* b = "hej";
-
-int a = b;
-
 
 //struct Vec3 globalVec3 = {.v.x = 5, .v.y = 13, .z = 9 };
 
 int main() {
-
-
+        int a[] = {1, 2, 3, 4};
+        int b = a[1];
+        puti(b);
+        
         return 0;
 }

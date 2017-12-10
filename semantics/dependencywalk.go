@@ -95,6 +95,12 @@ func (v *dependencyVisitor) VisitExprStmt(stmt *ir.ExprStmt) {
 	ir.VisitExpr(v, stmt.X)
 }
 
+func (v *dependencyVisitor) VisitArrayTypeExpr(expr *ir.ArrayTypeExpr) ir.Expr {
+	ir.VisitExpr(v, expr.Size)
+	ir.VisitExpr(v, expr.X)
+	return expr
+}
+
 func (v *dependencyVisitor) VisitBinaryExpr(expr *ir.BinaryExpr) ir.Expr {
 	ir.VisitExpr(v, expr.Left)
 	ir.VisitExpr(v, expr.Right)
@@ -108,6 +114,7 @@ func (v *dependencyVisitor) VisitUnaryExpr(expr *ir.UnaryExpr) ir.Expr {
 
 func (v *dependencyVisitor) VisitStarExpr(expr *ir.StarExpr) ir.Expr {
 	if v.exprMode == exprModeType {
+		// Don't check dependencies for pointers
 		return expr
 	}
 
@@ -119,6 +126,13 @@ func (v *dependencyVisitor) VisitStructLit(expr *ir.StructLit) ir.Expr {
 	ir.VisitExpr(v, expr.Name)
 	for _, kv := range expr.Initializers {
 		ir.VisitExpr(v, kv.Value)
+	}
+	return expr
+}
+
+func (v *dependencyVisitor) VisitArrayLit(expr *ir.ArrayLit) ir.Expr {
+	for _, init := range expr.Initializers {
+		ir.VisitExpr(v, init)
 	}
 	return expr
 }
@@ -154,5 +168,11 @@ func (v *dependencyVisitor) VisitCastExpr(expr *ir.CastExpr) ir.Expr {
 func (v *dependencyVisitor) VisitFuncCall(expr *ir.FuncCall) ir.Expr {
 	ir.VisitExpr(v, expr.X)
 	ir.VisitExprList(v, expr.Args)
+	return expr
+}
+
+func (v *dependencyVisitor) VisitIndexExpr(expr *ir.IndexExpr) ir.Expr {
+	ir.VisitExpr(v, expr.X)
+	ir.VisitExpr(v, expr.Index)
 	return expr
 }

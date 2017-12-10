@@ -23,8 +23,7 @@ const (
 
 // AST flags.
 const (
-	AstFlagNoInit   = 1 << 0
-	AstFlagTypeExpr = 1 << 1
+	AstFlagNoInit = 1 << 0
 )
 
 // Node interface.
@@ -351,6 +350,20 @@ type BadExpr struct {
 
 func (x *BadExpr) FirstPos() token.Position { return x.From.Pos }
 
+type ArrayTypeExpr struct {
+	baseExpr
+	X      Expr
+	Size   Expr
+	Lbrack token.Token
+	Rbrack token.Token
+}
+
+func (x *ArrayTypeExpr) FirstPos() token.Position { return x.Lbrack.Pos }
+
+func (x *ArrayTypeExpr) Lvalue() bool {
+	return false
+}
+
 type BinaryExpr struct {
 	baseExpr
 	Left  Expr
@@ -383,8 +396,15 @@ func (x *StarExpr) Lvalue() bool {
 type IndexExpr struct {
 	baseExpr
 	X      Expr
+	Index  Expr
 	Lbrack token.Token
 	Rbrack token.Token
+}
+
+func (x *IndexExpr) FirstPos() token.Position { return x.X.FirstPos() }
+
+func (x *IndexExpr) Lvalue() bool {
+	return x.X.Lvalue()
 }
 
 type BasicLit struct {
@@ -434,6 +454,15 @@ type StructLit struct {
 }
 
 func (x *StructLit) FirstPos() token.Position { return x.Name.FirstPos() }
+
+type ArrayLit struct {
+	baseExpr
+	Lbrack       token.Token
+	Initializers []Expr
+	Rbrack       token.Token
+}
+
+func (x *ArrayLit) FirstPos() token.Position { return x.Lbrack.Pos }
 
 type Ident struct {
 	baseExpr
