@@ -19,6 +19,7 @@ TODO (in no particular order):
     - Non nullable pointers 
     - Explicit pointer semantics. move, share etc.
 - sizeof operator
+- Change pointer type syntax to & instead of *
 - Remove type check errors if type is untyped; this means an error should already have been reported.
 - for loops
     - for i u32 = 0; i < 5; i++ {}

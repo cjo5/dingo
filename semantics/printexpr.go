@@ -56,11 +56,10 @@ func (p *exprPrinter) VisitUnaryExpr(expr *ir.UnaryExpr) ir.Expr {
 	return expr
 }
 
-func (p *exprPrinter) VisitStarExpr(expr *ir.StarExpr) ir.Expr {
+func (p *exprPrinter) VisitIndexExpr(expr *ir.IndexExpr) ir.Expr {
 	xPrec := prec(expr.X)
 	opPrec := prec(expr)
 
-	p.buffer.WriteString(expr.Star.Literal)
 	if opPrec < xPrec {
 		p.buffer.WriteString("(")
 	}
@@ -69,7 +68,12 @@ func (p *exprPrinter) VisitStarExpr(expr *ir.StarExpr) ir.Expr {
 		p.buffer.WriteString(")")
 	}
 
+	p.buffer.WriteString(expr.Lbrack.Literal)
+	ir.VisitExpr(p, expr.Index)
+	p.buffer.WriteString(expr.Rbrack.Literal)
+
 	return expr
+
 }
 
 func (p *exprPrinter) VisitBasicLit(expr *ir.BasicLit) ir.Expr {
@@ -79,6 +83,12 @@ func (p *exprPrinter) VisitBasicLit(expr *ir.BasicLit) ir.Expr {
 
 func (p *exprPrinter) VisitStructLit(expr *ir.StructLit) ir.Expr {
 	ir.VisitExpr(p, expr.Name)
+	// TODO
+	return expr
+}
+
+func (p *exprPrinter) VisitArrayLit(expr *ir.ArrayLit) ir.Expr {
+	// TODO
 	return expr
 }
 
@@ -141,7 +151,7 @@ func prec(expr ir.Expr) int {
 		}
 	case *ir.UnaryExpr:
 		return 2
-	case *ir.StarExpr:
+	case *ir.IndexExpr:
 		return 1
 	case *ir.BasicLit, *ir.StructLit, *ir.Ident:
 		return 0

@@ -3,7 +3,7 @@ include "libstd.dg"
 
 pub fun main() {
     var a = [1, 2, 3, 4, 5]
-    var b = &a[2]
+    var b *i32 = &a[2]
     *b = 9
     puti(a[2])
 }

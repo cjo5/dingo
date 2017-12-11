@@ -350,6 +350,14 @@ type BadExpr struct {
 
 func (x *BadExpr) FirstPos() token.Position { return x.From.Pos }
 
+type PointerTypeExpr struct {
+	baseExpr
+	Pointer token.Token
+	X       Expr
+}
+
+func (x *PointerTypeExpr) FirstPos() token.Position { return x.Pointer.Pos }
+
 type ArrayTypeExpr struct {
 	baseExpr
 	X      Expr
@@ -359,10 +367,6 @@ type ArrayTypeExpr struct {
 }
 
 func (x *ArrayTypeExpr) FirstPos() token.Position { return x.Lbrack.Pos }
-
-func (x *ArrayTypeExpr) Lvalue() bool {
-	return false
-}
 
 type BinaryExpr struct {
 	baseExpr
@@ -381,16 +385,13 @@ type UnaryExpr struct {
 
 func (x *UnaryExpr) FirstPos() token.Position { return x.Op.Pos }
 
-type StarExpr struct {
-	baseExpr
-	Star token.Token
-	X    Expr
-}
-
-func (x *StarExpr) FirstPos() token.Position { return x.Star.Pos }
-
-func (x *StarExpr) Lvalue() bool {
-	return x.X.Lvalue()
+func (x *UnaryExpr) Lvalue() bool {
+	switch x.Op.ID {
+	case token.Mul:
+		return x.X.Lvalue()
+	default:
+		return false
+	}
 }
 
 type IndexExpr struct {

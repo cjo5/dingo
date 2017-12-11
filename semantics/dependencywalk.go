@@ -112,16 +112,6 @@ func (v *dependencyVisitor) VisitUnaryExpr(expr *ir.UnaryExpr) ir.Expr {
 	return expr
 }
 
-func (v *dependencyVisitor) VisitStarExpr(expr *ir.StarExpr) ir.Expr {
-	if v.exprMode == exprModeType {
-		// Don't check dependencies for pointers
-		return expr
-	}
-
-	ir.VisitExpr(v, expr.X)
-	return expr
-}
-
 func (v *dependencyVisitor) VisitStructLit(expr *ir.StructLit) ir.Expr {
 	ir.VisitExpr(v, expr.Name)
 	for _, kv := range expr.Initializers {

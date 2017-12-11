@@ -479,7 +479,7 @@ func (p *parser) parsePointerType() ir.Expr {
 	tok := p.token
 	p.expect(token.Mul)
 	x := p.parseTypeSpec()
-	return &ir.StarExpr{Star: tok, X: x}
+	return &ir.PointerTypeExpr{Pointer: tok, X: x}
 }
 
 func (p *parser) parseArrayType() ir.Expr {
@@ -565,7 +565,7 @@ func (p *parser) parseFactor() ir.Expr {
 }
 
 func (p *parser) parseUnary() ir.Expr {
-	if p.token.OneOf(token.Sub, token.Lnot, token.And) {
+	if p.token.OneOf(token.Sub, token.Lnot, token.And, token.Mul) {
 		op := p.token
 		p.next()
 		x := p.parseExpr()
@@ -575,9 +575,7 @@ func (p *parser) parseUnary() ir.Expr {
 }
 
 func (p *parser) parseOperand() ir.Expr {
-	if p.token.Is(token.Mul) {
-		return p.parseStarExpr()
-	} else if p.token.Is(token.Cast) {
+	if p.token.Is(token.Cast) {
 		return p.parseCastExpr()
 	} else if p.token.Is(token.Lparen) {
 		p.next()
@@ -598,13 +596,6 @@ func (p *parser) parseOperand() ir.Expr {
 		return p.parsePrimary(x)
 	}
 	return p.parseBasicLit()
-}
-
-func (p *parser) parseStarExpr() ir.Expr {
-	star := p.token
-	p.expect(token.Mul)
-	x := p.parseExpr()
-	return &ir.StarExpr{Star: star, X: x}
 }
 
 func (p *parser) parseCastExpr() *ir.CastExpr {

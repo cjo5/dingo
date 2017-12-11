@@ -97,6 +97,17 @@ func (v *typeVisitor) tryMakeDefaultTypedLit(expr ir.Expr) bool {
 	return true
 }
 
+func (v *typeVisitor) VisitPointerTypeExpr(expr *ir.PointerTypeExpr) ir.Expr {
+	expr.X = ir.VisitExpr(v, expr.X)
+	typ := expr.X.Type()
+	if ir.IsUntyped(typ) {
+		expr.T = ir.TBuiltinUntyped
+	} else {
+		expr.T = ir.NewPointerType(typ)
+	}
+	return expr
+}
+
 func (v *typeVisitor) VisitArrayTypeExpr(expr *ir.ArrayTypeExpr) ir.Expr {
 	expr.Size = v.makeTypedExpr(expr.Size, ir.TBuiltinInt32)
 	sizeType := expr.Size.Type()
@@ -380,22 +391,12 @@ func (v *typeVisitor) VisitUnaryExpr(expr *ir.UnaryExpr) ir.Expr {
 		} else {
 			expr.T = ir.NewPointerType(expr.X.Type())
 		}
-	default:
-		panic(fmt.Sprintf("Unhandled unary op %s", expr.Op.ID))
-	}
-	return expr
-}
-
-func (v *typeVisitor) VisitStarExpr(expr *ir.StarExpr) ir.Expr {
-	expr.X = ir.VisitExpr(v, expr.X)
-	typ := expr.X.Type()
-	if v.exprMode == exprModeType {
-		expr.T = ir.NewPointerType(typ)
-	} else {
+	case token.Mul:
 		lvalue := false
 
 		if deref, ok := expr.X.(*ir.UnaryExpr); ok {
 			if deref.Op.ID == token.And {
+				// Inverse
 				lvalue = deref.X.Lvalue()
 			}
 		} else {
@@ -405,12 +406,14 @@ func (v *typeVisitor) VisitStarExpr(expr *ir.StarExpr) ir.Expr {
 		if !lvalue {
 			expr.T = ir.TBuiltinUntyped
 			v.c.error(expr.X.FirstPos(), "cannot dereference '%s' (not an lvalue)", PrintExpr(expr.X))
-		} else if ptrType, ok := typ.(*ir.PointerType); ok {
+		} else if ptrType, ok := expr.T.(*ir.PointerType); ok {
 			expr.T = ptrType.Underlying
 		} else {
 			expr.T = ir.TBuiltinUntyped
 			v.c.error(expr.X.FirstPos(), "cannot dereference '%s' (not a pointer)", PrintExpr(expr.X))
 		}
+	default:
+		panic(fmt.Sprintf("Unhandled unary op %s", expr.Op.ID))
 	}
 	return expr
 }
@@ -718,7 +721,7 @@ func (v *typeVisitor) VisitDotExpr(expr *ir.DotExpr) ir.Expr {
 		case *ir.StructType:
 			// Automatically pointer deref
 			star := token.Synthetic(token.Mul, token.Mul.String())
-			starX := &ir.StarExpr{Star: star, X: expr.X}
+			starX := &ir.UnaryExpr{Op: star, X: expr.X}
 			starX.T = t2
 			expr.X = starX
 
@@ -839,7 +842,7 @@ func (v *typeVisitor) VisitIndexExpr(expr *ir.IndexExpr) ir.Expr {
 		case *ir.ArrayType:
 			// Automatic pointer deref
 			star := token.Synthetic(token.Mul, token.Mul.String())
-			starX := &ir.StarExpr{Star: star, X: expr.X}
+			starX := &ir.UnaryExpr{Op: star, X: expr.X}
 			starX.T = t2
 			expr.X = starX
 			tarray = t2

@@ -38,11 +38,10 @@ Equality = Comparison {( '!=' | '==' ) Comparison}
 Comparison = Term {( '>' | '>=' | '<' | '<=' ) Term}
 Term = Factor {( '-' | '+' ) Factor}
 Factor = Unary {( '/' | '%' | '*' ) Unary}
-Unary = (( '!' | '-' | '&') Expr) | Operand
+Unary = (( '!' | '-' | '&' | '*') Expr) | Operand
 # StructLit is ignored when parsing Condition
-Operand = StarExpr | CastExpr | Primary | BasicLit | StructLit | ArrayLit
+Operand = CastExpr | Primary | BasicLit | StructLit | ArrayLit
 
-StarExpr = '*' Expr
 CastExpr = 'cast' '(' Expr ',' Expr ')'
 Primary = IDENT | IndexExpr | FuncCall | DotExpr | '(' Expr ')'
 IndexExpr = Primary '[' INTEGER? (':' | ':' INTEGER)?  ']'

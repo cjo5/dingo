@@ -456,9 +456,7 @@ func (cb *codeBuilder) buildExpr(expr ir.Expr, load bool) llvm.Value {
 	case *ir.BinaryExpr:
 		return cb.buildBinaryExpr(t)
 	case *ir.UnaryExpr:
-		return cb.buildUnaryExpr(t)
-	case *ir.StarExpr:
-		return cb.buildStarExpr(t, load)
+		return cb.buildUnaryExpr(t, load)
 	case *ir.BasicLit:
 		return cb.buildBasicLit(t)
 	case *ir.StructLit:
@@ -604,29 +602,28 @@ func (cb *codeBuilder) buildBinaryExpr(expr *ir.BinaryExpr) llvm.Value {
 	panic(fmt.Sprintf("Unhandled binary op %s", expr.Op.ID))
 }
 
-func (cb *codeBuilder) buildUnaryExpr(expr *ir.UnaryExpr) llvm.Value {
-	if expr.Op.ID == token.Sub {
+func (cb *codeBuilder) buildUnaryExpr(expr *ir.UnaryExpr, load bool) llvm.Value {
+	switch expr.Op.ID {
+	case token.Sub:
 		val := cb.buildExprVal(expr.X)
 		if ir.IsFloatingType(expr.T) {
 			return cb.b.CreateFNeg(val, "")
 		}
 		return cb.b.CreateNeg(val, "")
-	} else if expr.Op.ID == token.Lnot {
+	case token.Lnot:
 		val := cb.buildExprVal(expr.X)
 		return cb.b.CreateNot(val, "")
-	} else if expr.Op.ID == token.And {
+	case token.And:
 		return cb.buildExprPtr(expr.X)
+	case token.Mul:
+		val := cb.buildExprVal(expr.X)
+		if load {
+			return cb.b.CreateLoad(val, val.Name())
+		}
+		return val
+	default:
+		panic(fmt.Sprintf("Unhandled unary op %s", expr.Op.ID))
 	}
-
-	panic(fmt.Sprintf("Unhandled unary op %s", expr.Op.ID))
-}
-
-func (cb *codeBuilder) buildStarExpr(expr *ir.StarExpr, load bool) llvm.Value {
-	val := cb.buildExprVal(expr.X)
-	if load {
-		return cb.b.CreateLoad(val, val.Name())
-	}
-	return val
 }
 
 func (cb *codeBuilder) buildBasicLit(expr *ir.BasicLit) llvm.Value {
