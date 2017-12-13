@@ -699,15 +699,23 @@ func (cb *codeBuilder) buildIdent(expr *ir.Ident, load bool) llvm.Value {
 }
 
 func (cb *codeBuilder) buildDotExpr(expr *ir.DotExpr, load bool) llvm.Value {
-	val := cb.buildExprPtr(expr.X)
-	structt := expr.X.Type().(*ir.StructType)
-	index := structt.FieldIndex(expr.Name.Literal())
-
-	gep := cb.b.CreateStructGEP(val, index, "")
-	if load {
-		return cb.b.CreateLoad(gep, "")
+	switch t := expr.X.Type().(type) {
+	case *ir.StructType:
+		val := cb.buildExprPtr(expr.X)
+		index := t.FieldIndex(expr.Name.Literal())
+		gep := cb.b.CreateStructGEP(val, index, "")
+		if load {
+			return cb.b.CreateLoad(gep, "")
+		}
+		return gep
+	case *ir.ArrayType:
+		if expr.Name.Sym.Name == "len" {
+			return llvm.ConstInt(llvm.Int32Type(), uint64(t.Size), false)
+		}
+		panic(fmt.Sprintf("array field %s not handled", expr.Name.Sym.Name))
+	default:
+		panic(fmt.Sprintf("%T not handled", t))
 	}
-	return gep
 }
 
 func (cb *codeBuilder) buildCastExpr(expr *ir.CastExpr) llvm.Value {

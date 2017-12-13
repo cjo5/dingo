@@ -7,6 +7,7 @@ import (
 	"math/big"
 
 	"github.com/jhnl/dingo/common"
+	"github.com/jhnl/dingo/token"
 )
 
 // TypeID identifies the base type.
@@ -189,8 +190,9 @@ func (t *StructType) FieldIndex(fieldName string) int {
 }
 
 type ArrayType struct {
-	Size int
-	Elem Type
+	Size  int
+	Elem  Type
+	Scope *Scope
 }
 
 func (t *ArrayType) ID() TypeID {
@@ -292,7 +294,13 @@ func (t *StructType) SetBody(decl *StructDecl) Type {
 }
 
 func NewArrayType(size int, elem Type) Type {
-	return &ArrayType{Size: size, Elem: elem}
+	scope := NewScope(FieldScope, nil)
+	len := NewSymbol(ValSymbol, FieldScope, "len", token.NoPosition, nil)
+	len.Flags |= SymFlagConstant
+	len.T = NewBasicType(TInt32)
+	scope.Insert(len)
+
+	return &ArrayType{Size: size, Elem: elem, Scope: scope}
 }
 
 func NewPointerType(Underlying Type) Type {

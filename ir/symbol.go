@@ -23,19 +23,18 @@ const (
 )
 
 type Symbol struct {
-	ID       SymbolID
-	ScopeID  ScopeID
-	ModuleID int // ID of module where symbol was defined.
-	Name     string
-	Pos      token.Position
-	Src      Decl // Node in ast that created this symbol. Nil if builtin symbol.
-	T        Type // The symbol's type.
-	Flags    int
+	ID      SymbolID
+	ScopeID ScopeID
+	Name    string
+	Pos     token.Position
+	Src     Decl // Node in ast that created this symbol. Nil if builtin symbol.
+	T       Type // The symbol's type.
+	Flags   int
 }
 
 // NewSymbol creates a new symbol of a given ID and name.
-func NewSymbol(id SymbolID, scopeID ScopeID, moduleID int, name string, pos token.Position, src Decl) *Symbol {
-	return &Symbol{ID: id, ScopeID: scopeID, ModuleID: moduleID, Name: name, Pos: pos, Src: src, Flags: 0}
+func NewSymbol(id SymbolID, scopeID ScopeID, name string, pos token.Position, src Decl) *Symbol {
+	return &Symbol{ID: id, ScopeID: scopeID, Name: name, Pos: pos, Src: src, Flags: 0}
 }
 
 func (s SymbolID) String() string {

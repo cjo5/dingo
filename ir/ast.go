@@ -134,7 +134,6 @@ func (d *ModuleSet) FirstPos() token.Position { return token.NoPosition }
 // A Module is a collection of files sharing the same namespace.
 type Module struct {
 	baseDecl
-	ID    int
 	Path  string
 	Name  token.Token
 	Scope *Scope

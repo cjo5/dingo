@@ -75,7 +75,7 @@ func (l *loader) loadModule(filename string) *ir.Module {
 		return nil
 	}
 
-	mod := &ir.Module{ID: 1}
+	mod := &ir.Module{}
 	mod.Name = rootFile.Ctx.Module
 	mod.Path = filename
 	mod.Files = append(mod.Files, rootFile)

@@ -718,15 +718,21 @@ func (v *typeVisitor) VisitDotExpr(expr *ir.DotExpr) ir.Expr {
 	switch t := expr.X.Type().(type) {
 	case *ir.StructType:
 		defer setScope(setScope(v.c, t.Scope))
+	case *ir.ArrayType:
+		defer setScope(setScope(v.c, t.Scope))
 	case *ir.PointerType:
+		// Automatically deref pointer
+
+		star := token.Synthetic(token.Mul, token.Mul.String())
+		starX := &ir.UnaryExpr{Op: star, X: expr.X}
 		switch t2 := t.Underlying.(type) {
 		case *ir.StructType:
-			// Automatically pointer deref
-			star := token.Synthetic(token.Mul, token.Mul.String())
-			starX := &ir.UnaryExpr{Op: star, X: expr.X}
 			starX.T = t2
 			expr.X = starX
-
+			defer setScope(setScope(v.c, t2.Scope))
+		case *ir.ArrayType:
+			starX.T = t2
+			expr.X = starX
 			defer setScope(setScope(v.c, t2.Scope))
 		default:
 			invalidAccess = true
@@ -842,7 +848,7 @@ func (v *typeVisitor) VisitIndexExpr(expr *ir.IndexExpr) ir.Expr {
 	case *ir.PointerType:
 		switch t2 := t.Underlying.(type) {
 		case *ir.ArrayType:
-			// Automatic pointer deref
+			// Automatic deref pointer
 			star := token.Synthetic(token.Mul, token.Mul.String())
 			starX := &ir.UnaryExpr{Op: star, X: expr.X}
 			starX.T = t2

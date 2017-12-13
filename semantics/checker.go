@@ -98,7 +98,7 @@ func (c *checker) error(pos token.Position, format string, args ...interface{}) 
 }
 
 func (c *checker) insert(scope *ir.Scope, id ir.SymbolID, name string, pos token.Position, src ir.Decl) *ir.Symbol {
-	sym := ir.NewSymbol(id, scope.ID, c.mod.ID, name, pos, src)
+	sym := ir.NewSymbol(id, scope.ID, name, pos, src)
 	if existing := scope.Insert(sym); existing != nil {
 		msg := fmt.Sprintf("redeclaration of '%s', previously declared at %s", name, existing.Pos)
 		c.error(pos, msg)
@@ -189,24 +189,23 @@ func sortDeclDependencies(decl ir.TopDecl, trace *[]ir.TopDecl, sortedDecls *[]i
 	return sortOK
 }
 
-// Returns Ident that was declared as const. Nil otherwise.
-func (c *checker) checkConstant(expr ir.Expr) *ir.Ident {
+func (c *checker) checkConstant(expr ir.Expr) bool {
 	switch t := expr.(type) {
 	case *ir.Ident:
 		if t.Sym != nil && t.Sym.Constant() {
-			return t
+			return true
 		}
 	case *ir.DotExpr:
 		if t.Name.Sym != nil {
 			if t.Name.Sym.Constant() {
-				return t.Name
+				return true
 			}
 		} else {
-			return nil
+			return false
 		}
 		return c.checkConstant(t.X)
 	}
-	return nil
+	return false
 }
 
 // Returns false if an error should be reported

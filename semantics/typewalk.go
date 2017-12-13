@@ -276,9 +276,8 @@ func (v *typeVisitor) VisitAssignStmt(stmt *ir.AssignStmt) {
 
 	stmt.Right = v.makeTypedExpr(stmt.Right, left.Type())
 
-	if constID := v.c.checkConstant(stmt.Left); constID != nil {
-		v.c.error(constID.Pos(), "'%s' was declared with %s and cannot be modified (constant)",
-			constID.Literal(), token.Val)
+	if v.c.checkConstant(stmt.Left) {
+		v.c.error(stmt.Left.FirstPos(), "'%s' cannot be modified (constant)", PrintExpr(stmt.Left))
 	}
 
 	if !v.c.checkTypes(left.Type(), stmt.Right.Type()) {
