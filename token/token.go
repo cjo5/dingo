@@ -41,6 +41,9 @@ const (
 	Div
 	Mod
 
+	Inc
+	Dec
+
 	assignBeg
 	Assign
 	AddAssign
@@ -114,6 +117,9 @@ var tokens = [...]string{
 	Mul: "*",
 	Div: "/",
 	Mod: "%",
+
+	Inc: "++",
+	Dec: "--",
 
 	Assign:    "=",
 	AddAssign: "+=",

@@ -458,6 +458,18 @@ func (p *parser) parseExprOrAssignStmt() ir.Stmt {
 		p.next()
 		right := p.parseExpr()
 		stmt = &ir.AssignStmt{Left: expr, Assign: assign, Right: right}
+	} else if p.token.OneOf(token.Inc, token.Dec) {
+		assign := p.token
+
+		if p.token.Is(token.Inc) {
+			assign.ID = token.AddAssign
+		} else {
+			assign.ID = token.SubAssign
+		}
+
+		p.next()
+		right := &ir.BasicLit{Value: token.Synthetic(token.Integer, "1")}
+		stmt = &ir.AssignStmt{Left: expr, Assign: assign, Right: right}
 	} else {
 		stmt = &ir.ExprStmt{X: expr}
 	}

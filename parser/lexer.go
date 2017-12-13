@@ -104,11 +104,11 @@ func (l *lexer) lex() token.Token {
 		case ':':
 			tok.ID = token.Colon
 		case '+':
-			tok.ID = l.lexOptionalEqual(token.AddAssign, token.Add)
+			tok.ID = l.lexAlt3('=', token.AddAssign, '+', token.Inc, token.Add)
 		case '-':
-			tok.ID = l.lexOptionalEqual(token.SubAssign, token.Sub)
+			tok.ID = l.lexAlt3('=', token.SubAssign, '-', token.Dec, token.Sub)
 		case '*':
-			tok.ID = l.lexOptionalEqual(token.MulAssign, token.Mul)
+			tok.ID = l.lexAltEqual(token.MulAssign, token.Mul)
 		case '/':
 			if l.ch == '/' {
 				// Single-line comment
@@ -138,22 +138,22 @@ func (l *lexer) lex() token.Token {
 				}
 				tok.ID = token.MultiComment
 			} else {
-				tok.ID = l.lexOptionalEqual(token.DivAssign, token.Div)
+				tok.ID = l.lexAltEqual(token.DivAssign, token.Div)
 			}
 		case '%':
-			tok.ID = l.lexOptionalEqual(token.ModAssign, token.Mod)
+			tok.ID = l.lexAltEqual(token.ModAssign, token.Mod)
 		case '=':
-			tok.ID = l.lexOptionalEqual(token.Eq, token.Assign)
+			tok.ID = l.lexAltEqual(token.Eq, token.Assign)
 		case '&':
-			tok.ID = l.lexOptional('&', token.Land, token.And)
+			tok.ID = l.lexAlt2('&', token.Land, token.And)
 		case '|':
-			tok.ID = l.lexOptional('|', token.Lor, token.Or)
+			tok.ID = l.lexAlt2('|', token.Lor, token.Or)
 		case '!':
-			tok.ID = l.lexOptionalEqual(token.Neq, token.Lnot)
+			tok.ID = l.lexAltEqual(token.Neq, token.Lnot)
 		case '>':
-			tok.ID = l.lexOptionalEqual(token.GtEq, token.Gt)
+			tok.ID = l.lexAltEqual(token.GtEq, token.Gt)
 		case '<':
-			tok.ID = l.lexOptionalEqual(token.LtEq, token.Lt)
+			tok.ID = l.lexAltEqual(token.LtEq, token.Lt)
 		default:
 			tok.ID = token.Invalid
 		}
@@ -172,7 +172,8 @@ func isLineTerminator(id token.ID) bool {
 	case token.Ident,
 		token.Integer, token.Float, token.String, token.True, token.False, token.Null,
 		token.Rparen, token.Rbrace, token.Rbrack,
-		token.Continue, token.Break, token.Return:
+		token.Continue, token.Break, token.Return,
+		token.Inc, token.Dec:
 		return true
 	default:
 		return false
@@ -239,16 +240,27 @@ func (l *lexer) skipWhitespace(newline bool) {
 	}
 }
 
-func (l *lexer) lexOptional(ch rune, tok0 token.ID, tok1 token.ID) token.ID {
-	if l.ch == ch {
+func (l *lexer) lexAlt3(ch0 rune, tok0 token.ID, ch1 rune, tok1 token.ID, tok2 token.ID) token.ID {
+	if l.ch == ch0 {
+		l.next()
+		return tok0
+	} else if l.ch == ch1 {
+		l.next()
+		return tok1
+	}
+	return tok2
+}
+
+func (l *lexer) lexAlt2(ch0 rune, tok0 token.ID, tok1 token.ID) token.ID {
+	if l.ch == ch0 {
 		l.next()
 		return tok0
 	}
 	return tok1
 }
 
-func (l *lexer) lexOptionalEqual(tok0 token.ID, tok1 token.ID) token.ID {
-	return l.lexOptional('=', tok0, tok1)
+func (l *lexer) lexAltEqual(tok0 token.ID, tok1 token.ID) token.ID {
+	return l.lexAlt2('=', tok0, tok1)
 }
 
 func (l *lexer) lexIdent() (token.ID, string) {

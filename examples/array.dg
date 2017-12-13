@@ -6,6 +6,6 @@ pub fun main() {
     var i = 0
     while i < a.len {
         puti(a[i])
-        i += 1
+        i++
     }
 }
