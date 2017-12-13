@@ -124,7 +124,7 @@ func (v *typeVisitor) visitValDeclSpec(sym *ir.Symbol, decl *ir.ValDeclSpec, def
 				}
 			}
 		} else {
-			if !sym.T.IsEqual(decl.Initializer.Type()) {
+			if !v.c.checkTypes(sym.T, decl.Initializer.Type()) {
 				v.c.error(decl.Initializer.FirstPos(), "type mismatch: '%s' has type %s and is not compatible with %s",
 					decl.Name.Literal, sym.T, decl.Initializer.Type())
 			}
@@ -149,7 +149,7 @@ func (v *typeVisitor) VisitFuncDecl(decl *ir.FuncDecl) {
 
 		typ := ir.NewFuncType(decl)
 
-		if decl.Sym.T != nil && !decl.Sym.T.IsEqual(typ) {
+		if decl.Sym.T != nil && !v.c.checkTypes(decl.Sym.T, typ) {
 			v.c.error(decl.Name.Pos, "'%s' was previously declared at %s with a different type signature", decl.Name.Literal, decl.Sym.Src.FirstPos())
 		} else if decl.Visibility.ID == token.Private && !decl.Sym.Defined() {
 			v.c.error(decl.Name.Pos, "'%s' is declared as private and there's no definition in this module", decl.Name.Literal)
@@ -250,7 +250,7 @@ func (v *typeVisitor) VisitReturnStmt(stmt *ir.ReturnStmt) {
 	} else {
 		stmt.X = v.makeTypedExpr(stmt.X, retType)
 
-		if !stmt.X.Type().IsEqual(retType) {
+		if !v.c.checkTypes(stmt.X.Type(), retType) {
 			exprType = stmt.X.Type().ID()
 			mismatch = true
 		}
@@ -281,7 +281,7 @@ func (v *typeVisitor) VisitAssignStmt(stmt *ir.AssignStmt) {
 			constID.Literal(), token.Val)
 	}
 
-	if !left.Type().IsEqual(stmt.Right.Type()) {
+	if !v.c.checkTypes(left.Type(), stmt.Right.Type()) {
 		v.c.error(left.FirstPos(), "type mismatch: '%s' is of type %s and is not compatible with %s",
 			PrintExpr(left), left.Type(), stmt.Right.Type())
 	}

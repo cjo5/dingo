@@ -134,7 +134,7 @@ func (v *typeVisitor) VisitArrayTypeExpr(expr *ir.ArrayTypeExpr) ir.Expr {
 	}
 
 	expr.X = ir.VisitExpr(v, expr.X)
-	if expr.X.Type().IsEqual(ir.TBuiltinUntyped) {
+	if expr.X.Type().Equals(ir.TBuiltinUntyped) {
 		expr.T = ir.TBuiltinUntyped
 	} else {
 		expr.T = ir.NewArrayType(size, expr.X.Type())
@@ -332,16 +332,18 @@ func (v *typeVisitor) VisitBinaryExpr(expr *ir.BinaryExpr) ir.Expr {
 			typeNotSupported = leftType
 		}
 
-		if !leftType.IsEqual(rightType) {
+		if !v.c.checkTypes(leftType, rightType) {
 			v.c.error(expr.Op.Pos, "type mismatch: '%s' have different types (%s and %s)",
 				PrintExpr(expr), leftType, rightType)
-		} else if !ir.IsTypeID(typeNotSupported, ir.TUntyped) {
-			v.c.error(expr.Op.Pos, "type mismatch: cannot perform '%s' with type %s", PrintExpr(expr), typeNotSupported)
-		} else {
-			if boolOp {
-				binType = ir.TBool
+		} else if !ir.IsUntyped(leftType) && !ir.IsUntyped(rightType) {
+			if !ir.IsTypeID(typeNotSupported, ir.TUntyped) {
+				v.c.error(expr.Op.Pos, "type mismatch: cannot perform '%s' with type %s", PrintExpr(expr), typeNotSupported)
 			} else {
-				binType = leftType.ID()
+				if boolOp {
+					binType = ir.TBool
+				} else {
+					binType = leftType.ID()
+				}
 			}
 		}
 	} else {
@@ -551,7 +553,7 @@ func (v *typeVisitor) VisitStructLit(expr *ir.StructLit) ir.Expr {
 			continue
 		}
 
-		if !fieldSym.T.IsEqual(kv.Value.Type()) {
+		if !v.c.checkTypes(fieldSym.T, kv.Value.Type()) {
 			v.c.error(kv.Key.Pos, "type mismatch: field '%s' expects type %s but got %s",
 				kv.Key.Literal, fieldSym.T, kv.Value.Type())
 			inits[kv.Key.Literal] = nil
@@ -597,7 +599,7 @@ func (v *typeVisitor) VisitArrayLit(expr *ir.ArrayLit) ir.Expr {
 
 	if t != ir.TBuiltinUntyped {
 		for _, init := range expr.Initializers {
-			if !t.IsEqual(init.Type()) {
+			if !v.c.checkTypes(t, init.Type()) {
 				v.c.error(init.FirstPos(), "type mismatch: array elements must be of the same type (expected %s, got %s)", t, init.Type())
 				break
 			}
@@ -813,7 +815,7 @@ func (v *typeVisitor) VisitFuncCall(expr *ir.FuncCall) ir.Expr {
 			paramType := funcType.Params[i].T
 
 			argType := arg.Type()
-			if !argType.IsEqual(paramType) {
+			if !v.c.checkTypes(argType, paramType) {
 				v.c.error(arg.FirstPos(), "type mismatch: argument %d of function '%s' expects type %s but got %s",
 					i, PrintExpr(expr.X), paramType, argType)
 			}

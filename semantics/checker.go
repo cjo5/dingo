@@ -209,6 +209,16 @@ func (c *checker) checkConstant(expr ir.Expr) *ir.Ident {
 	return nil
 }
 
+// Returns false if an error should be reported
+func (c *checker) checkTypes(t1 ir.Type, t2 ir.Type) bool {
+	if ir.IsUntyped(t1) || ir.IsUntyped(t2) {
+		// TODO: Improve assert to check that an actual type error was reported for t1 and/or t2
+		common.Assert(c.errors.Count() > 0, "t1 or t2 are untyped and no error was reported")
+		return true
+	}
+	return t1.Equals(t2)
+}
+
 type numericCastResult int
 
 const (

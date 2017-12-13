@@ -119,7 +119,7 @@ var (
 
 type Type interface {
 	ID() TypeID
-	IsEqual(Type) bool
+	Equals(Type) bool
 	String() string
 }
 
@@ -131,7 +131,7 @@ func (t *BasicType) ID() TypeID {
 	return t.id
 }
 
-func (t *BasicType) IsEqual(other Type) bool {
+func (t *BasicType) Equals(other Type) bool {
 	return t.id == other.ID()
 }
 
@@ -161,7 +161,7 @@ func (t *StructType) ID() TypeID {
 	return TStruct
 }
 
-func (t *StructType) IsEqual(other Type) bool {
+func (t *StructType) Equals(other Type) bool {
 	if t2, ok := other.(*StructType); ok {
 		return t.Sym == t2.Sym
 	}
@@ -197,7 +197,7 @@ func (t *ArrayType) ID() TypeID {
 	return TArray
 }
 
-func (t *ArrayType) IsEqual(other Type) bool {
+func (t *ArrayType) Equals(other Type) bool {
 	otherArray, ok := other.(*ArrayType)
 	if !ok {
 		return false
@@ -206,7 +206,7 @@ func (t *ArrayType) IsEqual(other Type) bool {
 		return false
 	}
 
-	return t.Elem.IsEqual(otherArray.Elem)
+	return t.Elem.Equals(otherArray.Elem)
 }
 
 func (t *ArrayType) String() string {
@@ -221,12 +221,12 @@ func (t *PointerType) ID() TypeID {
 	return TPointer
 }
 
-func (t *PointerType) IsEqual(other Type) bool {
+func (t *PointerType) Equals(other Type) bool {
 	otherPointer, ok := other.(*PointerType)
 	if !ok {
 		return false
 	}
-	return t.Underlying.IsEqual(otherPointer.Underlying)
+	return t.Underlying.Equals(otherPointer.Underlying)
 }
 
 func (t *PointerType) String() string {
@@ -243,16 +243,16 @@ func (t *FuncType) ID() TypeID {
 	return TFunc
 }
 
-func (t *FuncType) IsEqual(other Type) bool {
+func (t *FuncType) Equals(other Type) bool {
 	if t2, ok := other.(*FuncType); ok {
 		if len(t.Params) != len(t2.Params) {
 			return false
 		}
-		if !t.Return.IsEqual(t2.Return) {
+		if !t.Return.Equals(t2.Return) {
 			return false
 		}
 		for i := 0; i < len(t.Params); i++ {
-			if !t.Params[i].T.IsEqual(t2.Params[i].T) {
+			if !t.Params[i].T.Equals(t2.Params[i].T) {
 				return false
 			}
 		}
@@ -379,7 +379,7 @@ func IsNumericType(t Type) bool {
 
 func CompatibleTypes(from Type, to Type) bool {
 	switch {
-	case from.IsEqual(to):
+	case from.Equals(to):
 		return true
 	case IsNumericType(from):
 		switch {
