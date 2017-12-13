@@ -85,14 +85,12 @@ func (v *symbolVisitor) VisitFuncDecl(decl *ir.FuncDecl) {
 func (v *symbolVisitor) VisitStructDecl(decl *ir.StructDecl) {
 	scope := v.c.visibilityScope(decl.Visibility)
 	decl.Sym = v.c.insert(scope, ir.TypeSymbol, decl.Name.Literal, decl.Name.Pos, decl)
-	v.c.openScope(ir.FieldScope)
-	decl.Scope = v.c.scope
+	decl.Scope = ir.NewScope(ir.FieldScope, nil)
 
+	defer setScope(setScope(v.c, decl.Scope))
 	for _, field := range decl.Fields {
 		v.VisitValDecl(field)
 	}
-
-	v.c.closeScope()
 }
 
 func (v *symbolVisitor) VisitBlockStmt(stmt *ir.BlockStmt) {
