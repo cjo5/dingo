@@ -97,7 +97,7 @@ func (p *parser) syncStmt() {
 			return
 		case token.Var, token.Val:
 			return
-		case token.Return, token.If, token.While, token.Break, token.Continue:
+		case token.Return, token.If, token.While, token.For, token.Break, token.Continue:
 			return
 		case token.EOF:
 			return
@@ -372,6 +372,8 @@ func (p *parser) parseStmt() (stmt ir.Stmt) {
 		stmt = p.parseIfStmt()
 	} else if p.token.ID == token.While {
 		stmt = p.parseWhileStmt()
+	} else if p.token.ID == token.For {
+		stmt = p.parseForStmt()
 	} else if p.token.ID == token.Return {
 		stmt = p.parseReturnStmt()
 	} else if p.token.ID == token.Break || p.token.ID == token.Continue {
@@ -427,16 +429,57 @@ func (p *parser) parseIfStmt() *ir.IfStmt {
 	return s
 }
 
-func (p *parser) parseWhileStmt() *ir.WhileStmt {
-	s := &ir.WhileStmt{}
-	p.inLoop = true
-	s.While = p.token
+func (p *parser) parseWhileStmt() *ir.ForStmt {
+	s := &ir.ForStmt{}
+	s.For = p.token
 	p.next()
 	p.inCondition = true
 	s.Cond = p.parseExpr()
 	p.inCondition = false
+	p.inLoop = true
 	s.Body = p.parseBlockStmt()
 	p.inLoop = false
+	return s
+}
+
+func (p *parser) parseForStmt() *ir.ForStmt {
+	s := &ir.ForStmt{}
+	s.For = p.token
+	p.next()
+
+	if p.token.ID != token.Semicolon {
+		s.Init = &ir.ValDecl{}
+		s.Init.Decl = token.Synthetic(token.Var, token.Var.String())
+
+		s.Init.Name = p.token
+		p.expect(token.Ident)
+
+		if !p.token.Is(token.Assign) {
+			s.Init.Type = p.parseTypeSpec()
+		}
+
+		p.expect(token.Assign)
+		s.Init.Initializer = p.parseExpr()
+	}
+
+	p.expect(token.Semicolon)
+
+	if p.token.ID != token.Semicolon {
+		p.inCondition = true
+		s.Cond = p.parseExpr()
+		p.inCondition = false
+	}
+
+	p.expect(token.Semicolon)
+
+	if p.token.ID != token.Lbrace {
+		s.Inc = p.parseExprOrAssignStmt()
+	}
+
+	p.inLoop = true
+	s.Body = p.parseBlockStmt()
+	p.inLoop = false
+
 	return s
 }
 
@@ -453,22 +496,22 @@ func (p *parser) parseReturnStmt() *ir.ReturnStmt {
 func (p *parser) parseExprOrAssignStmt() ir.Stmt {
 	var stmt ir.Stmt
 	expr := p.parseExpr()
-	if p.token.IsAssignOperator() {
+	if p.token.IsAssignOperator() || p.token.OneOf(token.Inc, token.Dec) {
 		assign := p.token
 		p.next()
-		right := p.parseExpr()
-		stmt = &ir.AssignStmt{Left: expr, Assign: assign, Right: right}
-	} else if p.token.OneOf(token.Inc, token.Dec) {
-		assign := p.token
 
-		if p.token.Is(token.Inc) {
+		var right ir.Expr
+
+		if assign.Is(token.Inc) {
+			right = &ir.BasicLit{Value: token.Synthetic(token.Integer, "1")}
 			assign.ID = token.AddAssign
-		} else {
+		} else if assign.Is(token.Dec) {
+			right = &ir.BasicLit{Value: token.Synthetic(token.Integer, "1")}
 			assign.ID = token.SubAssign
+		} else {
+			right = p.parseExpr()
 		}
 
-		p.next()
-		right := &ir.BasicLit{Value: token.Synthetic(token.Integer, "1")}
 		stmt = &ir.AssignStmt{Left: expr, Assign: assign, Right: right}
 	} else {
 		stmt = &ir.ExprStmt{X: expr}

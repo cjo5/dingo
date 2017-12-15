@@ -23,7 +23,7 @@ TODO (in no particular order):
 - Change pointer type syntax to & instead of *
 - Remove type check errors if type is untyped; this means an error should already have been reported.
 - for loops
-    - for i u32 = 0; i < 5; i++ {}
+    * for i u32 = 0; i < 5; i++ {}
     - for i in [0..9] {}
     - for x in a {}; iterate a slice / array
     - for x* in a{}; iterate a slice / array with pointer to element

@@ -1,11 +1,8 @@
-include "libc.dg"
 include "libstd.dg"
 
 pub fun main() {
     var a = [1, 2, 3, 4, 5]
-    var i = 0
-    while i < a.len {
+    for i = 0; i < a.len; i++ {
         puti(a[i])
-        i++
     }
 }

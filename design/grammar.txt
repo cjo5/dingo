@@ -23,11 +23,12 @@ FuncSignature = '(' [Field {',' Field} ','?] ')' Type?
 Func = FuncSignature (Block | ';')
 
 Block = '{' Stmt* '}'
-Stmt = [Block | ValDecl | Expr | AssignStmt | 'if' IfStmt | WhileStmt 
-        | ReturnStmt | 'break' | 'continue'] ';'
-AssignStmt = Expr ('=' | '+=' | '-=' | '*=' | '/=' | '%=' ) Expr
+Stmt = [Block | ValDecl | Expr | AssignStmt | 'if' IfStmt | WhileStmt |
+        ForStmt | ReturnStmt | 'break' | 'continue'] ';'
+AssignStmt = Expr ('++' | '--' | ('=' | '+=' | '-=' | '*=' | '/=' | '%=' ) Expr)
 IfStmt = Condition Block [('elif' IfStmt) | ('else' Block)]
 WhileStmt = 'while' Condition Block
+ForStmt 'for' [IDENT Type? '=' Expr] ';' Condition? ';' [AssignStmt | Expr] Block
 ReturnStmt = 'return' [Expr]
 
 Expr = LogicalOr 

@@ -40,9 +40,10 @@ struct List {
 //struct Vec3 globalVec3 = {.v.x = 5, .v.y = 13, .z = 9 };
 
 int main() {
-        int a[] = {1, 2, 3, 4};
-        int b = a[1];
-        puti(b);
+        for (int i = 0; i < 5; i++) {
+                puti(i);
+        }
+        puts("done");
         
         return 0;
 }

@@ -257,8 +257,8 @@ func (cb *codeBuilder) buildStmt(stmt ir.Stmt) {
 		cb.buildDeclStmt(t)
 	case *ir.IfStmt:
 		cb.buildIfStmt(t)
-	case *ir.WhileStmt:
-		cb.buildWhileStmt(t)
+	case *ir.ForStmt:
+		cb.buildForStmt(t)
 	case *ir.ReturnStmt:
 		cb.buildReturnStmt(t)
 	case *ir.BranchStmt:
@@ -323,27 +323,62 @@ func (cb *codeBuilder) buildIfStmt(stmt *ir.IfStmt) {
 	cb.b.SetInsertPointAtEnd(join)
 }
 
-func (cb *codeBuilder) buildWhileStmt(stmt *ir.WhileStmt) {
+func (cb *codeBuilder) buildForStmt(stmt *ir.ForStmt) {
+	if stmt.Init != nil {
+		cb.buildValDecl(stmt.Init)
+	}
+
 	fun := cb.b.GetInsertBlock().Parent()
 	loop := llvm.AddBasicBlock(fun, "loop")
-	cond := llvm.AddBasicBlock(fun, "loop_cond")
 	exit := llvm.AddBasicBlock(fun, "loop_exit")
-	var last llvm.BasicBlock
 
-	cb.loopConditions = append(cb.loopConditions, cond)
+	var inc llvm.BasicBlock
+	if stmt.Inc != nil {
+		inc = llvm.AddBasicBlock(fun, "loop_inc")
+	}
+
+	var cond llvm.BasicBlock
+	if stmt.Cond != nil {
+		cond = llvm.AddBasicBlock(fun, "loop_cond")
+	}
+
+	if stmt.Inc != nil {
+		cb.loopConditions = append(cb.loopConditions, inc)
+	} else if stmt.Cond != nil {
+		cb.loopConditions = append(cb.loopConditions, cond)
+	} else {
+		cb.loopConditions = append(cb.loopConditions, loop)
+	}
+
 	cb.loopExits = append(cb.loopExits, exit)
 
-	cb.b.CreateBr(cond)
+	if stmt.Cond != nil {
+		cb.b.CreateBr(cond)
+		cb.b.SetInsertPointAtEnd(cond)
+		loopCond := cb.buildExprVal(stmt.Cond)
+		cb.b.CreateCondBr(loopCond, loop, exit)
+	} else {
+		cb.b.CreateBr(loop)
+	}
 
-	cb.b.SetInsertPointAtEnd(cond)
-	loopCond := cb.buildExprVal(stmt.Cond)
-	cb.b.CreateCondBr(loopCond, loop, exit)
-
-	last = fun.LastBasicBlock()
+	last := fun.LastBasicBlock()
 	loop.MoveAfter(last)
 	cb.b.SetInsertPointAtEnd(loop)
 	cb.buildBlockStmt(stmt.Body)
-	cb.b.CreateBr(cond)
+
+	if stmt.Inc != nil {
+		cb.b.CreateBr(inc)
+		last = fun.LastBasicBlock()
+		inc.MoveAfter(last)
+		cb.b.SetInsertPointAtEnd(inc)
+		cb.buildStmt(stmt.Inc)
+	}
+
+	if stmt.Cond != nil {
+		cb.b.CreateBr(cond)
+	} else {
+		cb.b.CreateBr(loop)
+	}
 
 	last = fun.LastBasicBlock()
 	exit.MoveAfter(last)

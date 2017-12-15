@@ -1,3 +1,5 @@
+include "libc.dg"
+
 pub fun puti(i i32) {
     putiRec(abs(i), i < 0)
     putchar(10)

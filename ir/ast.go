@@ -281,14 +281,17 @@ type IfStmt struct {
 
 func (s *IfStmt) FirstPos() token.Position { return s.If.Pos }
 
-type WhileStmt struct {
+type ForStmt struct {
 	baseStmt
-	While token.Token
+	For   token.Token
+	Scope *Scope
+	Init  *ValDecl
+	Inc   Stmt
 	Cond  Expr
 	Body  *BlockStmt
 }
 
-func (s *WhileStmt) FirstPos() token.Position { return s.While.Pos }
+func (s *ForStmt) FirstPos() token.Position { return s.For.Pos }
 
 type ReturnStmt struct {
 	baseStmt

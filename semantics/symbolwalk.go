@@ -111,6 +111,14 @@ func (v *symbolVisitor) VisitIfStmt(stmt *ir.IfStmt) {
 	}
 }
 
-func (v *symbolVisitor) VisitWhileStmt(stmt *ir.WhileStmt) {
+func (v *symbolVisitor) VisitForStmt(stmt *ir.ForStmt) {
+	v.c.openScope(ir.LocalScope)
+	stmt.Scope = v.c.scope
+
+	if stmt.Init != nil {
+		ir.VisitDecl(v, stmt.Init)
+	}
+
 	v.VisitBlockStmt(stmt.Body)
+	v.c.closeScope()
 }

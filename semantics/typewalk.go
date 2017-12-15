@@ -216,7 +216,7 @@ func (v *typeVisitor) VisitDeclStmt(stmt *ir.DeclStmt) {
 func (v *typeVisitor) VisitIfStmt(stmt *ir.IfStmt) {
 	stmt.Cond = ir.VisitExpr(v, stmt.Cond)
 	if !v.c.checkTypes(stmt.Cond.Type(), ir.TBuiltinBool) {
-		v.c.error(stmt.Cond.FirstPos(), "if condition has type %s (expected %s)", stmt.Cond.Type(), ir.TBool)
+		v.c.error(stmt.Cond.FirstPos(), "condition has type %s (expected %s)", stmt.Cond.Type(), ir.TBool)
 	}
 
 	v.VisitBlockStmt(stmt.Body)
@@ -224,11 +224,24 @@ func (v *typeVisitor) VisitIfStmt(stmt *ir.IfStmt) {
 		ir.VisitStmt(v, stmt.Else)
 	}
 }
-func (v *typeVisitor) VisitWhileStmt(stmt *ir.WhileStmt) {
-	stmt.Cond = ir.VisitExpr(v, stmt.Cond)
-	if !v.c.checkTypes(stmt.Cond.Type(), ir.TBuiltinBool) {
-		v.c.error(stmt.Cond.FirstPos(), "while condition has type %s (expected %s)", stmt.Cond.Type(), ir.TBool)
+func (v *typeVisitor) VisitForStmt(stmt *ir.ForStmt) {
+	defer setScope(setScope(v.c, stmt.Scope))
+
+	if stmt.Init != nil {
+		v.VisitValDecl(stmt.Init)
 	}
+
+	if stmt.Cond != nil {
+		stmt.Cond = ir.VisitExpr(v, stmt.Cond)
+		if !v.c.checkTypes(stmt.Cond.Type(), ir.TBuiltinBool) {
+			v.c.error(stmt.Cond.FirstPos(), "condition has type %s (expected %s)", stmt.Cond.Type(), ir.TBool)
+		}
+	}
+
+	if stmt.Inc != nil {
+		ir.VisitStmt(v, stmt.Inc)
+	}
+
 	v.VisitBlockStmt(stmt.Body)
 }
 

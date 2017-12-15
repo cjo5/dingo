@@ -841,6 +841,7 @@ func (v *typeVisitor) VisitIndexExpr(expr *ir.IndexExpr) ir.Expr {
 	expr.Index = v.makeTypedExpr(expr.Index, nil)
 
 	var tarray *ir.ArrayType
+	untyped := false
 
 	switch t := expr.X.Type().(type) {
 	case *ir.ArrayType:
@@ -855,15 +856,21 @@ func (v *typeVisitor) VisitIndexExpr(expr *ir.IndexExpr) ir.Expr {
 			expr.X = starX
 			tarray = t2
 		}
+	case *ir.BasicType:
+		if t.ID() == ir.TUntyped {
+			untyped = true
+		}
 	}
 
 	if tarray != nil {
-		if !ir.IsIntegerType(expr.Index.Type()) {
-			v.c.error(expr.Index.FirstPos(), "'%' is not an integer (has type %s)", PrintExpr(expr.Index), expr.Index.Type())
-		} else {
-			expr.T = tarray.Elem
+		if !ir.IsUntyped(expr.Index.Type()) {
+			if !ir.IsIntegerType(expr.Index.Type()) {
+				v.c.error(expr.Index.FirstPos(), "'%s' is not an integer (has type %s)", PrintExpr(expr.Index), expr.Index.Type())
+			} else {
+				expr.T = tarray.Elem
+			}
 		}
-	} else {
+	} else if !untyped {
 		v.c.error(expr.Index.FirstPos(), "'%s' is of type %s and cannot be indexed", PrintExpr(expr.X), expr.X.Type())
 	}
 

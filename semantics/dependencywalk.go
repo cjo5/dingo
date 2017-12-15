@@ -76,7 +76,19 @@ func (v *dependencyVisitor) VisitIfStmt(stmt *ir.IfStmt) {
 	}
 }
 
-func (v *dependencyVisitor) VisitWhileStmt(stmt *ir.WhileStmt) {
+func (v *dependencyVisitor) VisitForStmt(stmt *ir.ForStmt) {
+	if stmt.Init != nil {
+		v.VisitValDecl(stmt.Init)
+	}
+
+	if stmt.Cond != nil {
+		ir.VisitExpr(v, stmt.Cond)
+	}
+
+	if stmt.Inc != nil {
+		ir.VisitStmt(v, stmt.Inc)
+	}
+
 	v.VisitBlockStmt(stmt.Body)
 }
 
