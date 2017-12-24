@@ -12,14 +12,26 @@ import (
 
 func (v *typeVisitor) makeTypedExpr(expr ir.Expr, t ir.Type) ir.Expr {
 	expr = ir.VisitExpr(v, expr)
-	if ir.IsActualType(expr.Type()) || ir.IsUntyped(expr.Type()) {
+	if ir.IsUntyped(expr.Type()) || (t != nil && ir.IsUntyped(t)) {
 		return expr
 	}
 
+	if !ir.IsActualType(expr.Type()) {
+		if t != nil {
+			v.tryMakeTypedLit(expr, t)
+		} else {
+			v.tryMakeDefaultTypedLit(expr)
+		}
+	}
+
 	if t != nil {
-		v.tryMakeTypedLit(expr, t)
-	} else {
-		v.tryMakeDefaultTypedLit(expr)
+		t2 := expr.Type()
+		if !t2.Equals(t) && t2.ImplicitCastOK(t) {
+			cast := &ir.CastExpr{}
+			cast.X = expr
+			cast.T = t
+			return cast
+		}
 	}
 
 	return expr
@@ -775,10 +787,12 @@ func (v *typeVisitor) VisitCastExpr(expr *ir.CastExpr) ir.Expr {
 	expr.X = ir.VisitExpr(v, expr.X)
 
 	if !err {
-		if ir.CompatibleTypes(expr.X.Type(), expr.ToTyp.Type()) {
-			expr.T = expr.ToTyp.Type()
+		t1 := expr.ToTyp.Type()
+		t2 := expr.X.Type()
+		if t2.ExplicitCastOK(t1) {
+			expr.T = t1
 		} else {
-			v.c.error(expr.X.FirstPos(), "type mismatch: %s cannot be converted to %s", expr.X.Type(), expr.ToTyp.Type())
+			v.c.error(expr.X.FirstPos(), "type mismatch: %s cannot be converted to %s", t2, t1)
 		}
 	}
 

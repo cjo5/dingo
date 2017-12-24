@@ -756,7 +756,7 @@ func (cb *codeBuilder) buildDotExpr(expr *ir.DotExpr, load bool) llvm.Value {
 func (cb *codeBuilder) buildCastExpr(expr *ir.CastExpr) llvm.Value {
 	val := cb.buildExprVal(expr.X)
 
-	to := expr.ToTyp.Type()
+	to := expr.Type()
 	from := expr.X.Type()
 	if from.Equals(to) || (from.ID() == ir.TPointer && to.ID() == ir.TPointer) {
 		return val

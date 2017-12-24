@@ -121,10 +121,25 @@ var (
 type Type interface {
 	ID() TypeID
 	Equals(Type) bool
+	ImplicitCastOK(Type) bool
+	ExplicitCastOK(Type) bool
 	String() string
 }
 
+type baseType struct {
+	Type
+}
+
+func (t *baseType) ImplicitCastOK(other Type) bool {
+	return t.Equals(other)
+}
+
+func (t *baseType) ExplicitCastOK(other Type) bool {
+	return t.Equals(other)
+}
+
 type BasicType struct {
+	baseType
 	id TypeID
 }
 
@@ -134,6 +149,42 @@ func (t *BasicType) ID() TypeID {
 
 func (t *BasicType) Equals(other Type) bool {
 	return t.id == other.ID()
+}
+
+func (t *BasicType) ImplicitCastOK(other Type) bool {
+	cmp := CompareBitSize(t, other)
+
+	switch {
+	case t.Equals(other):
+		return true
+	case IsSignedType(t):
+		if IsSignedType(other) && cmp <= 0 {
+			return true
+		}
+	case IsUnsignedType(t):
+		if IsUnsignedType(other) && cmp <= 0 {
+			return true
+		}
+	case IsFloatingType(t):
+		if IsFloatingType(other) && cmp <= 0 {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (t *BasicType) ExplicitCastOK(other Type) bool {
+	switch {
+	case t.Equals(other):
+		return true
+	case IsNumericType(t):
+		if IsNumericType(other) {
+			return true
+		}
+	}
+
+	return false
 }
 
 func (t *BasicType) String() string {
@@ -153,6 +204,7 @@ func (f *Field) Name() string {
 }
 
 type StructType struct {
+	baseType
 	Sym    *Symbol
 	Scope  *Scope
 	Fields []*Field
@@ -190,6 +242,7 @@ func (t *StructType) FieldIndex(fieldName string) int {
 }
 
 type ArrayType struct {
+	baseType
 	Size  int
 	Elem  Type
 	Scope *Scope
@@ -216,6 +269,7 @@ func (t *ArrayType) String() string {
 }
 
 type PointerType struct {
+	baseType
 	Underlying Type
 	ReadOnly   bool // Applies to the Underlying type
 }
@@ -225,11 +279,34 @@ func (t *PointerType) ID() TypeID {
 }
 
 func (t *PointerType) Equals(other Type) bool {
-	otherPointer, ok := other.(*PointerType)
-	if !ok {
-		return false
+	if otherPtr, ok := other.(*PointerType); ok {
+		return t.ReadOnly == otherPtr.ReadOnly && t.Underlying.Equals(otherPtr.Underlying)
 	}
-	return t.ReadOnly == otherPointer.ReadOnly && t.Underlying.Equals(otherPointer.Underlying)
+	return false
+}
+
+func (t *PointerType) ImplicitCastOK(other Type) bool {
+	if otherPtr, ok := other.(*PointerType); ok {
+		switch {
+		case t.Equals(otherPtr):
+			return true
+		case !t.ReadOnly && t.Underlying.Equals(otherPtr.Underlying):
+			return true
+		}
+	}
+	return false
+}
+
+func (t *PointerType) ExplicitCastOK(other Type) bool {
+	if otherPtr, ok := other.(*PointerType); ok {
+		switch {
+		case t.Equals(otherPtr):
+			return true
+		case t.Underlying.Equals(otherPtr.Underlying):
+			return true
+		}
+	}
+	return false
 }
 
 func (t *PointerType) String() string {
@@ -241,6 +318,7 @@ func (t *PointerType) String() string {
 }
 
 type FuncType struct {
+	baseType
 	Sym    *Symbol
 	Params []*Field
 	Return Type
@@ -390,27 +468,7 @@ func IsNumericType(t Type) bool {
 	return false
 }
 
-func CompatibleTypes(from Type, to Type) bool {
-	switch {
-	case from.Equals(to):
-		return true
-	case from.ID() == TPointer && to.ID() == TPointer:
-		t1 := from.(*PointerType)
-		t2 := to.(*PointerType)
-		return t1.Underlying.Equals(t2.Underlying)
-	case IsNumericType(from):
-		switch {
-		case IsNumericType(to):
-			return true
-		default:
-			return false
-		}
-	default:
-		return false
-	}
-}
-
 func CompareBitSize(t1 Type, t2 Type) int {
 	// TODO: Handle incompatible types
-	return int(t1.ID() - t1.ID())
+	return int(t1.ID() - t2.ID())
 }

@@ -294,8 +294,8 @@ func (v *typeVisitor) VisitAssignStmt(stmt *ir.AssignStmt) {
 	}
 
 	if !v.c.checkTypes(left.Type(), stmt.Right.Type()) {
-		v.c.error(left.FirstPos(), "type mismatch: '%s' is of type %s and is not compatible with %s",
-			PrintExpr(left), left.Type(), stmt.Right.Type())
+		v.c.error(left.FirstPos(), "type mismatch: '%s' with type %s is different from '%s' with type %s",
+			PrintExpr(left), left.Type(), PrintExpr(stmt.Right), stmt.Right.Type())
 	}
 
 	if stmt.Assign.ID != token.Assign {
