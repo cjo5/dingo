@@ -533,8 +533,14 @@ func (p *parser) parseTypeSpec() ir.Expr {
 func (p *parser) parsePointerType() ir.Expr {
 	tok := p.token
 	p.expect(token.Mul)
+	decl := p.token
+	if p.token.OneOf(token.Var, token.Val) {
+		p.next()
+	} else {
+		decl = token.Synthetic(token.Var, token.Var.String())
+	}
 	x := p.parseTypeSpec()
-	return &ir.PointerTypeExpr{Pointer: tok, X: x}
+	return &ir.PointerTypeExpr{Pointer: tok, Decl: decl, X: x}
 }
 
 func (p *parser) parseArrayType() ir.Expr {
@@ -659,7 +665,7 @@ func (p *parser) parseCastExpr() *ir.CastExpr {
 	p.next()
 	cast.Lparen = p.token
 	p.expect(token.Lparen)
-	cast.ToTyp = p.parseExpr()
+	cast.ToTyp = p.parseTypeSpec()
 	p.expect(token.Comma)
 	cast.X = p.parseExpr()
 	cast.Rparen = p.token

@@ -36,14 +36,19 @@ struct List {
         struct Vec2* v;
 };
 
+struct foo {
+        const int x;
+        int y;
+};
+
 
 //struct Vec3 globalVec3 = {.v.x = 5, .v.y = 13, .z = 9 };
 
 int main() {
-        for (int i = 0; i < 5; i++) {
-                puti(i);
-        }
-        puts("done");
+        int* const a[5]; 
+        int b = 2;
+        a[1] = &b;
+
         
         return 0;
 }

@@ -49,7 +49,7 @@ func (v *typeVisitor) tryMakeTypedLit(expr ir.Expr, target ir.Type) bool {
 			tpointer := expr.Type().(*ir.PointerType)
 			targetTpointer := target.(*ir.PointerType)
 			if ir.IsUntyped(tpointer.Underlying) {
-				lit.T = ir.NewPointerType(targetTpointer.Underlying)
+				lit.T = ir.NewPointerType(targetTpointer.Underlying, false)
 			}
 		}
 	case *ir.ArrayLit:
@@ -103,7 +103,8 @@ func (v *typeVisitor) VisitPointerTypeExpr(expr *ir.PointerTypeExpr) ir.Expr {
 	if ir.IsUntyped(typ) {
 		expr.T = ir.TBuiltinUntyped
 	} else {
-		expr.T = ir.NewPointerType(typ)
+		ro := expr.Decl.Is(token.Val)
+		expr.T = ir.NewPointerType(typ, ro)
 	}
 	return expr
 }
@@ -313,15 +314,15 @@ func (v *typeVisitor) VisitBinaryExpr(expr *ir.BinaryExpr) ir.Expr {
 			rightNull := rightLit != nil && rightLit.Value.Is(token.Null)
 
 			if leftNull && rightNull {
-				leftLit.T = ir.NewPointerType(ir.NewBasicType(ir.TUInt8))
+				leftLit.T = ir.NewPointerType(ir.NewBasicType(ir.TUInt8), false)
 				leftType = leftLit.T
-				rightLit.T = ir.NewPointerType(ir.NewBasicType(ir.TUInt8))
+				rightLit.T = ir.NewPointerType(ir.NewBasicType(ir.TUInt8), false)
 				rightType = rightLit.T
 			} else if leftNull {
-				leftLit.T = ir.NewPointerType(rightPtr.Underlying)
+				leftLit.T = ir.NewPointerType(rightPtr.Underlying, false)
 				leftType = leftLit.T
 			} else if rightNull {
-				rightLit.T = ir.NewPointerType(leftPtr.Underlying)
+				rightLit.T = ir.NewPointerType(leftPtr.Underlying, false)
 				rightType = rightLit.T
 			}
 		} else if leftType.ID() == ir.TBool && rightType.ID() == ir.TBool {
@@ -391,7 +392,7 @@ func (v *typeVisitor) VisitUnaryExpr(expr *ir.UnaryExpr) ir.Expr {
 			expr.T = ir.TBuiltinUntyped
 			v.c.error(expr.X.FirstPos(), "cannot take address of '%s' (not an lvalue)", PrintExpr(expr.X))
 		} else {
-			expr.T = ir.NewPointerType(expr.X.Type())
+			expr.T = ir.NewPointerType(expr.X.Type(), expr.X.ReadOnly())
 		}
 	case token.Mul:
 		lvalue := false
@@ -503,7 +504,7 @@ func (v *typeVisitor) VisitBasicLit(expr *ir.BasicLit) ir.Expr {
 			expr.Raw = val
 		}
 	} else if expr.Value.ID == token.Null {
-		expr.T = ir.NewPointerType(ir.TBuiltinUntyped)
+		expr.T = ir.NewPointerType(ir.TBuiltinUntyped, false)
 	} else {
 		panic(fmt.Sprintf("Unhandled literal %s", expr.Value.ID))
 	}
@@ -657,7 +658,7 @@ func createDefaultBasicLit(t ir.Type) *ir.BasicLit {
 	} else if ir.IsTypeID(t, ir.TPointer) {
 		lit = &ir.BasicLit{Value: token.Synthetic(token.Null, token.Null.String())}
 		ptr := t.(*ir.PointerType)
-		lit.T = ir.NewPointerType(ptr.Underlying)
+		lit.T = ir.NewPointerType(ptr.Underlying, false)
 	} else if !ir.IsTypeID(t, ir.TUntyped) {
 		panic(fmt.Sprintf("Unhandled init value for type %s", t.ID()))
 	}
@@ -759,15 +760,13 @@ func (v *typeVisitor) VisitCastExpr(expr *ir.CastExpr) ir.Expr {
 	expr.ToTyp = ir.VisitExpr(v, expr.ToTyp)
 	v.exprMode = prevMode
 
-	ident := ir.ExprToIdent(expr.ToTyp)
+	ident := ir.TypeExprToIdent(expr.ToTyp)
 	err := true
 	if ident == nil {
 		v.c.error(expr.ToTyp.FirstPos(), "'%s' is not a valid type specifier", PrintExpr(expr.ToTyp))
 	} else if ident.Sym != nil {
 		if ident.Sym.ID != ir.TypeSymbol {
 			v.c.error(expr.ToTyp.FirstPos(), "'%s' is not a type", PrintExpr(expr.ToTyp))
-		} else if !ident.Sym.Castable() {
-			v.c.error(expr.ToTyp.FirstPos(), "cannot cast to type %s", expr.ToTyp.Type())
 		} else {
 			err = false
 		}

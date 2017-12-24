@@ -1,8 +1,8 @@
 include "libstd.dg"
 
 pub fun main() {
-    var a = [1, 2, 3, 4, 5]
+    val a = ["one", "two", "three", "four", "five"]
     for i = 0; i < a.len; i++ {
-        puti(a[i])
+        puts(a[i])
     }
 }

@@ -63,6 +63,7 @@ type Expr interface {
 	Node
 	Type() Type
 	Lvalue() bool
+	ReadOnly() bool
 	exprNode()
 }
 
@@ -344,6 +345,10 @@ func (x *baseExpr) Lvalue() bool {
 	return false
 }
 
+func (x *baseExpr) ReadOnly() bool {
+	return false
+}
+
 type BadExpr struct {
 	baseExpr
 	From token.Token
@@ -355,6 +360,7 @@ func (x *BadExpr) FirstPos() token.Position { return x.From.Pos }
 type PointerTypeExpr struct {
 	baseExpr
 	Pointer token.Token
+	Decl    token.Token
 	X       Expr
 }
 
@@ -391,9 +397,21 @@ func (x *UnaryExpr) Lvalue() bool {
 	switch x.Op.ID {
 	case token.Mul:
 		return x.X.Lvalue()
-	default:
-		return false
 	}
+	return false
+}
+
+func (x *UnaryExpr) ReadOnly() bool {
+	switch x.Op.ID {
+	case token.Mul:
+		t := x.X.Type()
+		if t != nil {
+			if tptr, ok := t.(*PointerType); ok {
+				return tptr.ReadOnly
+			}
+		}
+	}
+	return false
 }
 
 type IndexExpr struct {
@@ -408,6 +426,10 @@ func (x *IndexExpr) FirstPos() token.Position { return x.X.FirstPos() }
 
 func (x *IndexExpr) Lvalue() bool {
 	return x.X.Lvalue()
+}
+
+func (x *IndexExpr) ReadOnly() bool {
+	return x.X.ReadOnly()
 }
 
 type BasicLit struct {
@@ -482,6 +504,13 @@ func (x *Ident) Lvalue() bool {
 	return false
 }
 
+func (x *Ident) ReadOnly() bool {
+	if x.Sym != nil {
+		return x.Sym.ReadOnly()
+	}
+	return false
+}
+
 func (x *Ident) Literal() string {
 	return x.Name.Literal
 }
@@ -509,6 +538,10 @@ func (x *DotExpr) Lvalue() bool {
 	return x.Name.Lvalue()
 }
 
+func (x *DotExpr) ReadOnly() bool {
+	return x.Name.ReadOnly() || x.X.ReadOnly()
+}
+
 type CastExpr struct {
 	baseExpr
 	Cast   token.Token
@@ -530,19 +563,24 @@ type FuncCall struct {
 
 func (x *FuncCall) FirstPos() token.Position { return x.X.FirstPos() }
 
-func ExprToIdent(expr Expr) *Ident {
+func TypeExprToIdent(expr Expr) *Ident {
 	switch t := expr.(type) {
 	case *Ident:
 		return t
-	case *DotExpr:
-		return t.Name
+	case *PointerTypeExpr:
+		return TypeExprToIdent(t.X)
+	case *ArrayTypeExpr:
+		return TypeExprToIdent(t.X)
 	}
 	return nil
 }
 
 func ExprSymbol(expr Expr) *Symbol {
-	if id := ExprToIdent(expr); id != nil {
-		return id.Sym
+	switch t := expr.(type) {
+	case *Ident:
+		return t.Sym
+	case *DotExpr:
+		return t.Name.Sym
 	}
 	return nil
 }

@@ -758,7 +758,7 @@ func (cb *codeBuilder) buildCastExpr(expr *ir.CastExpr) llvm.Value {
 
 	to := expr.ToTyp.Type()
 	from := expr.X.Type()
-	if from.Equals(to) {
+	if from.Equals(to) || (from.ID() == ir.TPointer && to.ID() == ir.TPointer) {
 		return val
 	}
 

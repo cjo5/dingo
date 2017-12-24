@@ -15,7 +15,7 @@ StructDecl = 'struct' IDENT Struct
 
 Visibility = 'pub' | 'priv' 
 Type = PointerType | ArrayType | IDENT
-PointerType = '*' Type
+PointerType = '*' ['val' | 'var'] Type
 ArrayType = '[' INTEGER? ']' Type
 Field = ['val' | 'var'] IDENT Type
 Struct= '{' {Field ';'} '}'
@@ -43,7 +43,7 @@ Unary = (( '!' | '-' | '&' | '*') Expr) | Operand
 # StructLit is ignored when parsing Condition
 Operand = CastExpr | Primary | BasicLit | StructLit | ArrayLit
 
-CastExpr = 'cast' '(' Expr ',' Expr ')'
+CastExpr = 'cast' '(' Type ',' Expr ')'
 Primary = IDENT | IndexExpr | FuncCall | DotExpr | '(' Expr ')'
 IndexExpr = Primary '[' INTEGER? (':' | ':' INTEGER)?  ']'
 FuncCall = Primary '(' [Expr {',' Expr} ','?] ')'

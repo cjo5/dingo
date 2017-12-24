@@ -81,7 +81,7 @@ func (v *typeVisitor) VisitValDecl(decl *ir.ValDecl) {
 
 func (v *typeVisitor) visitValDeclSpec(sym *ir.Symbol, decl *ir.ValDeclSpec, defaultInit bool) {
 	if decl.Decl.Is(token.Val) {
-		sym.Flags |= ir.SymFlagConstant
+		sym.Flags |= ir.SymFlagReadOnly
 	}
 
 	if sym.DepCycle() {
@@ -289,8 +289,8 @@ func (v *typeVisitor) VisitAssignStmt(stmt *ir.AssignStmt) {
 
 	stmt.Right = v.makeTypedExpr(stmt.Right, left.Type())
 
-	if v.c.checkConstant(stmt.Left) {
-		v.c.error(stmt.Left.FirstPos(), "'%s' cannot be modified (constant)", PrintExpr(stmt.Left))
+	if stmt.Left.ReadOnly() {
+		v.c.error(stmt.Left.FirstPos(), "'%s' is read-only", PrintExpr(stmt.Left))
 	}
 
 	if !v.c.checkTypes(left.Type(), stmt.Right.Type()) {

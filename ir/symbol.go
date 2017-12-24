@@ -17,9 +17,8 @@ const (
 // Symbol flags.
 const (
 	SymFlagDepCycle = 1 << 0
-	SymFlagConstant = 1 << 1
-	SymFlagCastable = 1 << 2
-	SymFlagDefined  = 1 << 3
+	SymFlagReadOnly = 1 << 1
+	SymFlagDefined  = 1 << 2
 )
 
 type Symbol struct {
@@ -60,12 +59,8 @@ func (s *Symbol) DepCycle() bool {
 	return (s.Flags & SymFlagDepCycle) != 0
 }
 
-func (s *Symbol) Constant() bool {
-	return (s.Flags & SymFlagConstant) != 0
-}
-
-func (s *Symbol) Castable() bool {
-	return (s.Flags & SymFlagCastable) != 0
+func (s *Symbol) ReadOnly() bool {
+	return (s.Flags & SymFlagReadOnly) != 0
 }
 
 func (s *Symbol) Defined() bool {

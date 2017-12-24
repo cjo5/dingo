@@ -217,6 +217,7 @@ func (t *ArrayType) String() string {
 
 type PointerType struct {
 	Underlying Type
+	ReadOnly   bool // Applies to the Underlying type
 }
 
 func (t *PointerType) ID() TypeID {
@@ -228,11 +229,15 @@ func (t *PointerType) Equals(other Type) bool {
 	if !ok {
 		return false
 	}
-	return t.Underlying.Equals(otherPointer.Underlying)
+	return t.ReadOnly == otherPointer.ReadOnly && t.Underlying.Equals(otherPointer.Underlying)
 }
 
 func (t *PointerType) String() string {
-	return "*" + t.Underlying.String()
+	ro := ""
+	if t.ReadOnly {
+		ro = token.Val.String() + " "
+	}
+	return "*" + ro + t.Underlying.String()
 }
 
 type FuncType struct {
@@ -296,15 +301,15 @@ func (t *StructType) SetBody(decl *StructDecl) Type {
 func NewArrayType(size int, elem Type) Type {
 	scope := NewScope(FieldScope, nil)
 	len := NewSymbol(ValSymbol, FieldScope, "len", token.NoPosition, nil)
-	len.Flags |= SymFlagConstant
+	len.Flags |= SymFlagReadOnly
 	len.T = NewBasicType(TInt32)
 	scope.Insert(len)
 
 	return &ArrayType{Size: size, Elem: elem, Scope: scope}
 }
 
-func NewPointerType(Underlying Type) Type {
-	return &PointerType{Underlying: Underlying}
+func NewPointerType(Underlying Type, readOnly bool) Type {
+	return &PointerType{Underlying: Underlying, ReadOnly: readOnly}
 }
 
 func NewFuncType(decl *FuncDecl) Type {
@@ -389,6 +394,10 @@ func CompatibleTypes(from Type, to Type) bool {
 	switch {
 	case from.Equals(to):
 		return true
+	case from.ID() == TPointer && to.ID() == TPointer:
+		t1 := from.(*PointerType)
+		t2 := to.(*PointerType)
+		return t1.Underlying.Equals(t2.Underlying)
 	case IsNumericType(from):
 		switch {
 		case IsNumericType(to):

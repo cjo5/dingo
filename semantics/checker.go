@@ -21,7 +21,6 @@ func addBuiltinType(t ir.Type) {
 	sym := &ir.Symbol{}
 	sym.ID = ir.TypeSymbol
 	sym.T = t
-	sym.Flags = ir.SymFlagCastable
 	sym.Name = t.ID().String()
 	sym.Pos = token.NoPosition
 	builtinScope.Insert(sym)
@@ -187,25 +186,6 @@ func sortDeclDependencies(decl ir.TopDecl, trace *[]ir.TopDecl, sortedDecls *[]i
 	decl.SetNodeColor(ir.NodeColorBlack)
 	*sortedDecls = append(*sortedDecls, decl)
 	return sortOK
-}
-
-func (c *checker) checkConstant(expr ir.Expr) bool {
-	switch t := expr.(type) {
-	case *ir.Ident:
-		if t.Sym != nil && t.Sym.Constant() {
-			return true
-		}
-	case *ir.DotExpr:
-		if t.Name.Sym != nil {
-			if t.Name.Sym.Constant() {
-				return true
-			}
-		} else {
-			return false
-		}
-		return c.checkConstant(t.X)
-	}
-	return false
 }
 
 // Returns false if an error should be reported
