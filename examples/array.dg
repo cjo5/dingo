@@ -1,8 +1,17 @@
-include "libstd.dg"
+include "std/io.dg"
 
 pub fun main() {
+    puts("original:")
     val a = ["one", "two", "three", "four", "five"]
     for i = 0; i < a.len; i++ {
         puts(a[i])
     }
+
+    puts("\ncopy of [0]:")
+
+    var copy = a
+    copy[0] = "new"
+
+    puts(copy[0])
+    puts(a[0])
 }
