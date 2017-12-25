@@ -26,7 +26,7 @@ func (v *typeVisitor) makeTypedExpr(expr ir.Expr, t ir.Type) ir.Expr {
 
 	if t != nil {
 		t2 := expr.Type()
-		if !t2.Equals(t) && t2.ImplicitCastOK(t) {
+		if t2.ImplicitCastOK(t) {
 			cast := &ir.CastExpr{}
 			cast.X = expr
 			cast.T = t

@@ -9,10 +9,10 @@ TODO:
     - Ownership system
     - Immutable and mutable address of operator
 - Pointer comparison
-- Implicit casting in binary operations
 - Create slice from pointer
 - sizeof operator
 - Dedicated size type (size_t in C)
+- Don't print synthetic expressions in error messages
 - C lib
     - Separate primitive types for C
 - Change pointer type syntax to & instead of *

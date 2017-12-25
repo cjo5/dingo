@@ -140,7 +140,7 @@ func (t *baseType) ID() TypeID {
 }
 
 func (t *baseType) ImplicitCastOK(other Type) bool {
-	return t.Equals(other)
+	return false
 }
 
 func (t *baseType) ExplicitCastOK(other Type) bool {
@@ -153,29 +153,6 @@ type BasicType struct {
 
 func (t *BasicType) Equals(other Type) bool {
 	return t.id == other.ID()
-}
-
-func (t *BasicType) ImplicitCastOK(other Type) bool {
-	cmp := CompareBitSize(t, other)
-
-	switch {
-	case t.Equals(other):
-		return true
-	case IsSignedType(t):
-		if IsSignedType(other) && cmp <= 0 {
-			return true
-		}
-	case IsUnsignedType(t):
-		if IsUnsignedType(other) && cmp <= 0 {
-			return true
-		}
-	case IsFloatingType(t):
-		if IsFloatingType(other) && cmp <= 0 {
-			return true
-		}
-	}
-
-	return false
 }
 
 func (t *BasicType) ExplicitCastOK(other Type) bool {

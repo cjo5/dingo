@@ -125,8 +125,8 @@ func (v *typeVisitor) visitValDeclSpec(sym *ir.Symbol, decl *ir.ValDeclSpec, def
 			}
 		} else {
 			if !v.c.checkTypes(sym.T, decl.Initializer.Type()) {
-				v.c.error(decl.Initializer.FirstPos(), "type mismatch: '%s' has type %s and is not compatible with %s",
-					decl.Name.Literal, sym.T, decl.Initializer.Type())
+				v.c.error(decl.Initializer.FirstPos(), "type mismatch: '%s' with type %s is different from '%s' with type %s",
+					decl.Name.Literal, sym.T, PrintExpr(decl.Initializer), decl.Initializer.Type())
 			}
 		}
 	} else if decl.Type == nil {

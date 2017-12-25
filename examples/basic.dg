@@ -1,13 +1,11 @@
 include "std/io.dg"
 
-var foo = [1, 2, 3, 4]
-
 pub fun main() {
     var a [5]i32
     for i = 0; i < a.len; i++ {
         a[i] = i
     }
-    val b = a[2:4]
+    var b = a[2:4]
     b[0] = 99
     for i = 0; i < a.len; i++ {
         puti(a[i])
