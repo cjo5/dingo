@@ -469,6 +469,12 @@ func (cb *codeBuilder) toLLVMType(t ir.Type) llvm.Type {
 		tarray := t.(*ir.ArrayType)
 		telem := cb.toLLVMType(tarray.Elem)
 		return llvm.ArrayType(telem, tarray.Size)
+	case ir.TSlice:
+		tslice := t.(*ir.SliceType)
+		telem := cb.toLLVMType(tslice.Elem)
+		tptr := llvm.PointerType(telem, 0)
+		tsize := cb.toLLVMType(ir.TBuiltinInt32)
+		return llvm.StructType([]llvm.Type{tptr, tsize}, false)
 	case ir.TPointer:
 		tpointer := t.(*ir.PointerType)
 		tunderlying := cb.toLLVMType(tpointer.Underlying)
@@ -508,6 +514,8 @@ func (cb *codeBuilder) buildExpr(expr ir.Expr, load bool) llvm.Value {
 		return cb.buildFuncCall(t)
 	case *ir.IndexExpr:
 		return cb.buildIndexExpr(t, load)
+	case *ir.SliceExpr:
+		return cb.buildSliceExpr(t, load)
 	default:
 		panic(fmt.Sprintf("Unhandled expr %T", t))
 	}
@@ -744,10 +752,20 @@ func (cb *codeBuilder) buildDotExpr(expr *ir.DotExpr, load bool) llvm.Value {
 		}
 		return gep
 	case *ir.ArrayType:
-		if expr.Name.Sym.Name == "len" {
+		if expr.Name.Sym.Name == ir.LenField {
 			return llvm.ConstInt(llvm.Int32Type(), uint64(t.Size), false)
 		}
 		panic(fmt.Sprintf("array field %s not handled", expr.Name.Sym.Name))
+	case *ir.SliceType:
+		if expr.Name.Sym.Name == ir.LenField {
+			val := cb.buildExprPtr(expr.X)
+			gep := cb.b.CreateStructGEP(val, 1, "")
+			if load {
+				return cb.b.CreateLoad(gep, "")
+			}
+			return gep
+		}
+		panic(fmt.Sprintf("slice field %s not handled", expr.Name.Sym.Name))
 	default:
 		panic(fmt.Sprintf("%T not handled", t))
 	}
@@ -827,9 +845,44 @@ func (cb *codeBuilder) buildFuncCall(expr *ir.FuncCall) llvm.Value {
 func (cb *codeBuilder) buildIndexExpr(expr *ir.IndexExpr, load bool) llvm.Value {
 	val := cb.buildExprPtr(expr.X)
 	index := cb.buildExprVal(expr.Index)
-	gep := cb.b.CreateInBoundsGEP(val, []llvm.Value{llvm.ConstInt(llvm.Int64Type(), 0, false), index}, "")
+
+	var gep llvm.Value
+	if expr.X.Type().ID() == ir.TSlice {
+		slicePtr := cb.b.CreateStructGEP(val, 0, "")
+		slicePtr = cb.b.CreateLoad(slicePtr, "")
+		gep = cb.b.CreateInBoundsGEP(slicePtr, []llvm.Value{index}, "")
+	} else {
+		gep = cb.b.CreateInBoundsGEP(val, []llvm.Value{llvm.ConstInt(llvm.Int64Type(), 0, false), index}, "")
+	}
+
 	if load {
 		return cb.b.CreateLoad(gep, "")
 	}
+
 	return gep
+}
+
+func (cb *codeBuilder) buildSliceExpr(expr *ir.SliceExpr, load bool) llvm.Value {
+	val := cb.buildExprPtr(expr.X)
+	start := cb.buildExprVal(expr.Start)
+	end := cb.buildExprVal(expr.End)
+
+	tslice := expr.T.(*ir.SliceType)
+	tptr := llvm.PointerType(cb.toLLVMType(tslice.Elem), 0)
+	gep := cb.b.CreateInBoundsGEP(val, []llvm.Value{llvm.ConstInt(llvm.Int64Type(), 0, false), start}, "")
+	ptr := cb.b.CreateBitCast(gep, tptr, "")
+
+	var size llvm.Value
+	if lit, ok := expr.Start.(*ir.BasicLit); !ok || !lit.Zero() {
+		size = cb.b.CreateSub(end, start, "")
+	} else {
+		size = end
+	}
+
+	llvmType := cb.toLLVMType(expr.Type())
+	sliceStruct := llvm.Undef(llvmType)
+	sliceStruct = cb.b.CreateInsertValue(sliceStruct, ptr, 0, "")
+	sliceStruct = cb.b.CreateInsertValue(sliceStruct, size, 1, "")
+
+	return sliceStruct
 }

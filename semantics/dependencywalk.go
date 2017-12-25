@@ -178,3 +178,14 @@ func (v *dependencyVisitor) VisitIndexExpr(expr *ir.IndexExpr) ir.Expr {
 	ir.VisitExpr(v, expr.Index)
 	return expr
 }
+
+func (v *dependencyVisitor) VisitSliceExpr(expr *ir.SliceExpr) ir.Expr {
+	ir.VisitExpr(v, expr.X)
+	if expr.Start != nil {
+		ir.VisitExpr(v, expr.Start)
+	}
+	if expr.End != nil {
+		ir.VisitExpr(v, expr.End)
+	}
+	return expr
+}

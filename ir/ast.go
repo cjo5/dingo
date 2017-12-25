@@ -432,6 +432,26 @@ func (x *IndexExpr) ReadOnly() bool {
 	return x.X.ReadOnly()
 }
 
+type SliceExpr struct {
+	baseExpr
+	X      Expr
+	Start  Expr
+	End    Expr
+	Colon  token.Token
+	Lbrack token.Token
+	Rbrack token.Token
+}
+
+func (x *SliceExpr) FirstPos() token.Position { return x.X.FirstPos() }
+
+func (x *SliceExpr) Lvalue() bool {
+	return x.X.Lvalue()
+}
+
+func (x *SliceExpr) ReadOnly() bool {
+	return x.X.ReadOnly()
+}
+
 type BasicLit struct {
 	baseExpr
 	Value   token.Token
@@ -453,6 +473,17 @@ func (x *BasicLit) AsU64() uint64 {
 func (x *BasicLit) NegatigeInteger() bool {
 	bigInt := x.Raw.(*big.Int)
 	return bigInt.Sign() < 0
+}
+
+func (x *BasicLit) Zero() bool {
+	switch t := x.Raw.(type) {
+	case *big.Int:
+		return t.Uint64() == 0
+	case *big.Float:
+		val, _ := t.Float64()
+		return val == 0
+	}
+	return false
 }
 
 func (x *BasicLit) AsF64() float64 {

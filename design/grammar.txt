@@ -45,7 +45,7 @@ Operand = CastExpr | Primary | BasicLit | StructLit | ArrayLit
 
 CastExpr = 'cast' '(' Type ',' Expr ')'
 Primary = IDENT | IndexExpr | FuncCall | DotExpr | '(' Expr ')'
-IndexExpr = Primary '[' INTEGER? (':' | ':' INTEGER)?  ']'
+IndexExpr Primary '[' (INTEGER | (INTEGER? ':' INTEGER?))  ']'
 FuncCall = Primary '(' [Expr {',' Expr} ','?] ')'
 DotExpr = Primary '.' IDENT
 

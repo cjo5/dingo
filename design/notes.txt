@@ -1,33 +1,28 @@
-TODO (in no particular order):
+TODO:
 - LLVM
-    - Research on alignment
+    - Struct alignment and padding
     - Debug symbols
     - Fix scoping rules
 - Memory management and arrays
-    - Array syntax:
-        - static array: val a [u32; 5]
-        - initialize array [0..9;2], [9..0;-1]
-        - immutable members: val a [val u32; 5]
-        - slices:
-            - val a [u32];
-            - a[0:32]; lower bound included, upper bound excluded
-            - a[:]; convert to slice
-            - a[3:]; index 3 and onwards
-            - a[:9]; index 0 to 8
-            - a[:3]; 0 to length - 3
-        - inference: val a = [1, 2, 3, 4, 5];
+    - Run time bounds check
     - Non nullable pointers 
-    - Explicit pointer semantics. move, share etc.
+    - Ownership system
+    - Immutable and mutable address of operator
+- Pointer comparison
+- Implicit casting in binary operations
+- Create slice from pointer
 - sizeof operator
 - Dedicated size type (size_t in C)
+- C lib
+    - Separate primitive types for C
 - Change pointer type syntax to & instead of *
-- Remove type check errors if type is untyped; this means an error should already have been reported.
 - for loops
     * for i u32 = 0; i < 5; i++ {}
     - for i in [0..9] {}
     - for x in a {}; iterate a slice / array
-    - for x* in a{}; iterate a slice / array with pointer to element
+    - for *x in a{}; iterate a slice / array with pointer to element
     - for i, x in a {};; iterate a slice / array with index
+- Initializer list
 - Improve error messages
     - Start messages with capital letter
     - Show region of source code where error happened (e.g. line + 1 above and 1 below)
@@ -50,10 +45,8 @@ TODO (in no particular order):
     - Declarations are private by default
     - Modules can be declared multiple times.
 - Bit operations
-- Change printtree output format and write to file instead of stdout
+- Concurrent compilation
 - Invalidate keyword? Any use after an identifier has been invalidated will cause an error.
-- C lib
-    - Separate primitive types for C
 - Nested functions
 - Refactor semantics package. The use of AST, symbol and type is very confusing right now.
     - Remove Node from Symbol struct
@@ -64,15 +57,12 @@ TODO (in no particular order):
 - Add anonymous structs
 - Add enums
 - Only allow subset of features when writing C/C++ module
-- Generics
+- Generics / templates
 - Idiomatic error handling
-- Ad hoc polymorphism 
 - Operator overloading?
 - Type alias
 - Macros / preprocessor
     - Conditional compilation
-- Make it easier to merge tokens
 - Default function arguments + keyed arguments
 - Parse escape sequences in string literal
-- Rewrite expression grammar and parser to something simpler
-- Trailing commas 
+- Rewrite expression grammar 

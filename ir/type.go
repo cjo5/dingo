@@ -38,6 +38,7 @@ const (
 	TString
 	TStruct
 	TArray
+	TSlice
 	TPointer
 	TFunc
 )
@@ -118,6 +119,9 @@ var (
 	BigFloatZero = big.NewFloat(0)
 )
 
+// LenField is the name of length field in arrays and slices
+const LenField = "len"
+
 type Type interface {
 	ID() TypeID
 	Equals(Type) bool
@@ -128,6 +132,11 @@ type Type interface {
 
 type baseType struct {
 	Type
+	id TypeID
+}
+
+func (t *baseType) ID() TypeID {
+	return t.id
 }
 
 func (t *baseType) ImplicitCastOK(other Type) bool {
@@ -140,11 +149,6 @@ func (t *baseType) ExplicitCastOK(other Type) bool {
 
 type BasicType struct {
 	baseType
-	id TypeID
-}
-
-func (t *BasicType) ID() TypeID {
-	return t.id
 }
 
 func (t *BasicType) Equals(other Type) bool {
@@ -210,10 +214,6 @@ type StructType struct {
 	Fields []*Field
 }
 
-func (t *StructType) ID() TypeID {
-	return TStruct
-}
-
 func (t *StructType) Equals(other Type) bool {
 	if t2, ok := other.(*StructType); ok {
 		return t.Sym == t2.Sym
@@ -248,10 +248,6 @@ type ArrayType struct {
 	Scope *Scope
 }
 
-func (t *ArrayType) ID() TypeID {
-	return TArray
-}
-
 func (t *ArrayType) Equals(other Type) bool {
 	otherArray, ok := other.(*ArrayType)
 	if !ok {
@@ -268,14 +264,28 @@ func (t *ArrayType) String() string {
 	return fmt.Sprintf("[%d]%s", t.Size, t.Elem.String())
 }
 
+type SliceType struct {
+	baseType
+	Elem  Type
+	Scope *Scope
+}
+
+func (t *SliceType) Equals(other Type) bool {
+	otherSlice, ok := other.(*SliceType)
+	if !ok {
+		return false
+	}
+	return t.Elem.Equals(otherSlice.Elem)
+}
+
+func (t *SliceType) String() string {
+	return fmt.Sprintf("[]%s", t.Elem.String())
+}
+
 type PointerType struct {
 	baseType
 	Underlying Type
 	ReadOnly   bool // Applies to the Underlying type
-}
-
-func (t *PointerType) ID() TypeID {
-	return TPointer
 }
 
 func (t *PointerType) Equals(other Type) bool {
@@ -324,10 +334,6 @@ type FuncType struct {
 	Return Type
 }
 
-func (t *FuncType) ID() TypeID {
-	return TFunc
-}
-
 func (t *FuncType) Equals(other Type) bool {
 	if t2, ok := other.(*FuncType); ok {
 		if len(t.Params) != len(t2.Params) {
@@ -360,11 +366,14 @@ func (t *FuncType) String() string {
 }
 
 func NewBasicType(id TypeID) Type {
-	return &BasicType{id: id}
+	t := &BasicType{}
+	t.id = id
+	return t
 }
 
 func NewIncompleteStructType(decl *StructDecl) Type {
 	t := &StructType{Sym: decl.Sym, Scope: decl.Scope}
+	t.id = TStruct
 	return t
 }
 
@@ -378,16 +387,32 @@ func (t *StructType) SetBody(decl *StructDecl) Type {
 
 func NewArrayType(size int, elem Type) Type {
 	scope := NewScope(FieldScope, nil)
-	len := NewSymbol(ValSymbol, FieldScope, "len", token.NoPosition, nil)
+	len := NewSymbol(ValSymbol, FieldScope, LenField, token.NoPosition, nil)
 	len.Flags |= SymFlagReadOnly
-	len.T = NewBasicType(TInt32)
+	len.T = TBuiltinInt32
 	scope.Insert(len)
 
-	return &ArrayType{Size: size, Elem: elem, Scope: scope}
+	t := &ArrayType{Size: size, Elem: elem, Scope: scope}
+	t.id = TArray
+	return t
+}
+
+func NewSliceType(elem Type) Type {
+	scope := NewScope(FieldScope, nil)
+	len := NewSymbol(ValSymbol, FieldScope, LenField, token.NoPosition, nil)
+	len.Flags |= SymFlagReadOnly
+	len.T = TBuiltinInt32
+	scope.Insert(len)
+
+	t := &SliceType{Elem: elem, Scope: scope}
+	t.id = TSlice
+	return t
 }
 
 func NewPointerType(Underlying Type, readOnly bool) Type {
-	return &PointerType{Underlying: Underlying, ReadOnly: readOnly}
+	t := &PointerType{Underlying: Underlying, ReadOnly: readOnly}
+	t.id = TPointer
+	return t
 }
 
 func NewFuncType(decl *FuncDecl) Type {
@@ -396,6 +421,7 @@ func NewFuncType(decl *FuncDecl) Type {
 		t.Params = append(t.Params, &Field{Sym: param.Sym, T: param.Type.Type()})
 	}
 	t.Return = decl.TReturn.Type()
+	t.id = TFunc
 	return t
 }
 

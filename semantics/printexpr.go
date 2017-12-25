@@ -73,7 +73,35 @@ func (p *exprPrinter) VisitIndexExpr(expr *ir.IndexExpr) ir.Expr {
 	p.buffer.WriteString(expr.Rbrack.Literal)
 
 	return expr
+}
 
+func (p *exprPrinter) VisitSliceExpr(expr *ir.SliceExpr) ir.Expr {
+	xPrec := prec(expr.X)
+	opPrec := prec(expr)
+
+	if opPrec < xPrec {
+		p.buffer.WriteString("(")
+	}
+	ir.VisitExpr(p, expr.X)
+	if opPrec < xPrec {
+		p.buffer.WriteString(")")
+	}
+
+	p.buffer.WriteString(expr.Lbrack.Literal)
+
+	if expr.Start != nil {
+		ir.VisitExpr(p, expr.Start)
+	}
+
+	p.buffer.WriteString(expr.Colon.Literal)
+
+	if expr.End != nil {
+		ir.VisitExpr(p, expr.End)
+	}
+
+	p.buffer.WriteString(expr.Rbrack.Literal)
+
+	return expr
 }
 
 func (p *exprPrinter) VisitBasicLit(expr *ir.BasicLit) ir.Expr {
@@ -152,6 +180,8 @@ func prec(expr ir.Expr) int {
 	case *ir.UnaryExpr:
 		return 2
 	case *ir.IndexExpr:
+		return 1
+	case *ir.SliceExpr:
 		return 1
 	case *ir.BasicLit, *ir.StructLit, *ir.Ident:
 		return 0

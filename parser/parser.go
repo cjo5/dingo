@@ -547,7 +547,9 @@ func (p *parser) parseArrayType() ir.Expr {
 	expr := &ir.ArrayTypeExpr{}
 	expr.Lbrack = p.token
 	p.expect(token.Lbrack)
-	expr.Size = p.parseExpr()
+	if p.token.ID != token.Rbrack {
+		expr.Size = p.parseExpr()
+	}
 	expr.Rbrack = p.token
 	p.expect(token.Rbrack)
 	expr.X = p.parseTypeSpec()
@@ -685,12 +687,34 @@ func (p *parser) parsePrimary(expr ir.Expr) ir.Expr {
 }
 
 func (p *parser) parseIndexExpr(expr ir.Expr) ir.Expr {
+	var index1 ir.Expr
+	var index2 ir.Expr
+	colon := token.Synthetic(token.Invalid, token.Invalid.String())
+
 	lbrack := p.token
 	p.consume(token.Lbrack)
-	index := p.parseExpr()
+
+	if !p.token.Is(token.Colon) {
+		index1 = p.parseExpr()
+	}
+
+	if p.token.Is(token.Colon) {
+		colon = p.token
+		p.next()
+
+		if !p.token.Is(token.Rbrack) {
+			index2 = p.parseExpr()
+		}
+	}
+
 	rbrack := p.token
 	p.expect(token.Rbrack)
-	return &ir.IndexExpr{X: expr, Index: index, Lbrack: lbrack, Rbrack: rbrack}
+
+	if colon.IsValid() {
+		return &ir.SliceExpr{X: expr, Start: index1, End: index2, Colon: colon, Lbrack: lbrack, Rbrack: rbrack}
+	}
+
+	return &ir.IndexExpr{X: expr, Index: index1, Lbrack: lbrack, Rbrack: rbrack}
 }
 
 func (p *parser) parseIdent() *ir.Ident {

@@ -39,6 +39,7 @@ type Visitor interface {
 	VisitCastExpr(expr *CastExpr) Expr
 	VisitFuncCall(expr *FuncCall) Expr
 	VisitIndexExpr(expr *IndexExpr) Expr
+	VisitSliceExpr(expr *SliceExpr) Expr
 }
 
 // BaseVisitor provides default implementations for Visitor functions.
@@ -93,6 +94,7 @@ func (v *BaseVisitor) VisitDotExpr(expr *DotExpr) Expr                 { return 
 func (v *BaseVisitor) VisitCastExpr(expr *CastExpr) Expr               { return expr }
 func (v *BaseVisitor) VisitFuncCall(expr *FuncCall) Expr               { return expr }
 func (v *BaseVisitor) VisitIndexExpr(expr *IndexExpr) Expr             { return expr }
+func (v *BaseVisitor) VisitSliceExpr(expr *SliceExpr) Expr             { return expr }
 
 // VisitNode switches on node type and invokes corresponding Visit function.
 func VisitNode(v Visitor, node Node) {
@@ -183,6 +185,8 @@ func VisitExpr(v Visitor, expr Expr) Expr {
 		return v.VisitFuncCall(e)
 	case *IndexExpr:
 		return v.VisitIndexExpr(e)
+	case *SliceExpr:
+		return v.VisitSliceExpr(e)
 	default:
 		panic(fmt.Sprintf("Unhandled expr %T", e))
 	}

@@ -109,6 +109,28 @@ func (v *typeVisitor) tryMakeDefaultTypedLit(expr ir.Expr) bool {
 	return true
 }
 
+func tryDeref(expr ir.Expr) ir.Expr {
+	switch t1 := expr.Type().(type) {
+	case *ir.PointerType:
+		var tres ir.Type
+		switch t2 := t1.Underlying.(type) {
+		case *ir.StructType:
+			tres = t2
+		case *ir.ArrayType:
+			tres = t2
+		case *ir.SliceType:
+			tres = t2
+		}
+		if tres != nil {
+			star := token.Synthetic(token.Mul, token.Mul.String())
+			starX := &ir.UnaryExpr{Op: star, X: expr}
+			starX.T = tres
+			return starX
+		}
+	}
+	return expr
+}
+
 func (v *typeVisitor) VisitPointerTypeExpr(expr *ir.PointerTypeExpr) ir.Expr {
 	expr.X = ir.VisitExpr(v, expr.X)
 	typ := expr.X.Type()
@@ -122,35 +144,42 @@ func (v *typeVisitor) VisitPointerTypeExpr(expr *ir.PointerTypeExpr) ir.Expr {
 }
 
 func (v *typeVisitor) VisitArrayTypeExpr(expr *ir.ArrayTypeExpr) ir.Expr {
-	expr.Size = v.makeTypedExpr(expr.Size, ir.TBuiltinInt32)
-	sizeType := expr.Size.Type()
-	err := false
-
 	size := 0
 
-	if sizeType.ID() != ir.TInt32 {
-		v.c.error(expr.Size.FirstPos(), "array size must be of type %s (got %s)", ir.TInt32, sizeType)
-		err = true
-	} else if lit, ok := expr.Size.(*ir.BasicLit); !ok {
-		v.c.error(expr.Size.FirstPos(), "array size '%s' is not a constant expression", PrintExpr(expr.Size))
-		err = true
-	} else if lit.NegatigeInteger() {
-		v.c.error(expr.Size.FirstPos(), "array size cannot be negative")
-		err = true
-	} else {
-		size = int(lit.AsU64())
-	}
+	if expr.Size != nil {
+		expr.Size = v.makeTypedExpr(expr.Size, ir.TBuiltinInt32)
+		sizeType := expr.Size.Type()
+		err := false
 
-	if err {
-		expr.T = ir.TBuiltinUntyped
-		return expr
+		if sizeType.ID() != ir.TInt32 {
+			v.c.error(expr.Size.FirstPos(), "array size must be of type %s (got %s)", ir.TInt32, sizeType)
+			err = true
+		} else if lit, ok := expr.Size.(*ir.BasicLit); !ok {
+			v.c.error(expr.Size.FirstPos(), "array size '%s' is not a constant expression", PrintExpr(expr.Size))
+			err = true
+		} else if lit.NegatigeInteger() {
+			v.c.error(expr.Size.FirstPos(), "array size cannot be negative")
+			err = true
+		} else if lit.Zero() {
+			v.c.error(expr.Size.FirstPos(), "array size cannot be zero")
+			err = true
+		} else {
+			size = int(lit.AsU64())
+		}
+
+		if err {
+			expr.T = ir.TBuiltinUntyped
+			return expr
+		}
 	}
 
 	expr.X = ir.VisitExpr(v, expr.X)
 	if expr.X.Type().Equals(ir.TBuiltinUntyped) {
 		expr.T = ir.TBuiltinUntyped
-	} else {
+	} else if expr.Size != nil {
 		expr.T = ir.NewArrayType(size, expr.X.Type())
+	} else {
+		expr.T = ir.NewSliceType(expr.X.Type())
 	}
 
 	return expr
@@ -726,42 +755,34 @@ func (v *typeVisitor) VisitDotExpr(expr *ir.DotExpr) ir.Expr {
 		return expr
 	}
 
-	invalidAccess := false
+	var scope *ir.Scope
+	untyped := false
 
+	expr.X = tryDeref(expr.X)
 	switch t := expr.X.Type().(type) {
 	case *ir.StructType:
-		defer setScope(setScope(v.c, t.Scope))
+		scope = t.Scope
 	case *ir.ArrayType:
-		defer setScope(setScope(v.c, t.Scope))
-	case *ir.PointerType:
-		// Automatically deref pointer
-
-		star := token.Synthetic(token.Mul, token.Mul.String())
-		starX := &ir.UnaryExpr{Op: star, X: expr.X}
-		switch t2 := t.Underlying.(type) {
-		case *ir.StructType:
-			starX.T = t2
-			expr.X = starX
-			defer setScope(setScope(v.c, t2.Scope))
-		case *ir.ArrayType:
-			starX.T = t2
-			expr.X = starX
-			defer setScope(setScope(v.c, t2.Scope))
-		default:
-			invalidAccess = true
+		scope = t.Scope
+	case *ir.SliceType:
+		scope = t.Scope
+	case *ir.BasicType:
+		if t.ID() == ir.TUntyped {
+			untyped = true
 		}
-	default:
-		invalidAccess = true
 	}
 
-	if invalidAccess {
-		v.c.error(expr.X.FirstPos(), "invalid expression '%s'; type %s does not support field access", PrintExpr(expr), expr.X.Type())
+	if scope != nil {
+		defer setScope(setScope(v.c, scope))
+		v.VisitIdent(expr.Name)
+		expr.T = expr.Name.Type()
+	} else if !untyped {
+		v.c.error(expr.X.FirstPos(), "%s' does not support field access (has type %s)", PrintExpr(expr), expr.X.Type())
+	}
+
+	if expr.T == nil {
 		expr.T = ir.TBuiltinUntyped
-		return expr
 	}
-
-	v.VisitIdent(expr.Name)
-	expr.T = expr.Name.Type()
 
 	return expr
 }
@@ -853,38 +874,119 @@ func (v *typeVisitor) VisitIndexExpr(expr *ir.IndexExpr) ir.Expr {
 	expr.X = v.makeTypedExpr(expr.X, nil)
 	expr.Index = v.makeTypedExpr(expr.Index, nil)
 
-	var tarray *ir.ArrayType
+	var telem ir.Type
 	untyped := false
 
+	expr.X = tryDeref(expr.X)
 	switch t := expr.X.Type().(type) {
 	case *ir.ArrayType:
-		tarray = t
-	case *ir.PointerType:
-		switch t2 := t.Underlying.(type) {
-		case *ir.ArrayType:
-			// Automatic deref pointer
-			star := token.Synthetic(token.Mul, token.Mul.String())
-			starX := &ir.UnaryExpr{Op: star, X: expr.X}
-			starX.T = t2
-			expr.X = starX
-			tarray = t2
-		}
+		telem = t.Elem
+	case *ir.SliceType:
+		telem = t.Elem
 	case *ir.BasicType:
 		if t.ID() == ir.TUntyped {
 			untyped = true
 		}
 	}
 
-	if tarray != nil {
+	if telem != nil {
 		if !ir.IsUntyped(expr.Index.Type()) {
 			if !ir.IsIntegerType(expr.Index.Type()) {
-				v.c.error(expr.Index.FirstPos(), "'%s' is not an integer (has type %s)", PrintExpr(expr.Index), expr.Index.Type())
+				v.c.error(expr.Index.FirstPos(), "'%s' cannot be used as an index (has type %s)", PrintExpr(expr.Index), expr.Index.Type())
 			} else {
-				expr.T = tarray.Elem
+				expr.T = telem
 			}
 		}
 	} else if !untyped {
-		v.c.error(expr.Index.FirstPos(), "'%s' is of type %s and cannot be indexed", PrintExpr(expr.X), expr.X.Type())
+		v.c.error(expr.X.FirstPos(), "'%s' cannot be indexed (has type %s)", PrintExpr(expr.X), expr.X.Type())
+	}
+
+	if expr.T == nil {
+		expr.T = ir.TBuiltinUntyped
+	}
+
+	return expr
+}
+
+func (v *typeVisitor) VisitSliceExpr(expr *ir.SliceExpr) ir.Expr {
+	expr.X = v.makeTypedExpr(expr.X, nil)
+
+	if expr.Start != nil {
+		expr.Start = v.makeTypedExpr(expr.Start, nil)
+	}
+
+	if expr.End != nil {
+		expr.End = v.makeTypedExpr(expr.End, nil)
+	}
+
+	var telem ir.Type
+	var lenSym *ir.Symbol
+	untyped := false
+
+	expr.X = tryDeref(expr.X)
+	switch t := expr.X.Type().(type) {
+	case *ir.ArrayType:
+		telem = t.Elem
+		lenSym = t.Scope.Lookup(ir.LenField)
+	case *ir.SliceType:
+		telem = t.Elem
+		lenSym = t.Scope.Lookup(ir.LenField)
+	case *ir.BasicType:
+		if t.ID() == ir.TUntyped {
+			untyped = true
+		}
+	}
+
+	if telem != nil {
+		err := false
+
+		if expr.Start != nil {
+			if !ir.IsUntyped(expr.Start.Type()) && !ir.IsIntegerType(expr.Start.Type()) {
+				v.c.error(expr.Start.FirstPos(), "'%s' cannot be used as slice index (has type %s)", PrintExpr(expr.Start), expr.Start.Type())
+				err = true
+			}
+		}
+
+		if expr.End != nil {
+			if !ir.IsUntyped(expr.End.Type()) && !ir.IsIntegerType(expr.End.Type()) {
+				v.c.error(expr.End.FirstPos(), "'%s' cannot be used as slice index (has type %s)", PrintExpr(expr.End), expr.End.Type())
+				err = true
+			}
+		}
+
+		if !err {
+			if expr.Start == nil {
+				tstart := ir.TBuiltinInt32
+				if expr.End != nil {
+					tstart = expr.End.Type()
+				}
+				expr.Start = createDefaultBasicLit(tstart)
+			} else if expr.Start.Type().ID() != ir.TInt32 {
+				cast := &ir.CastExpr{X: expr.Start}
+				cast.T = ir.TBuiltinInt32
+				expr.Start = cast
+			}
+
+			if expr.End == nil {
+				name := &ir.Ident{Name: token.Synthetic(token.Ident, lenSym.Name)}
+				name.Sym = lenSym
+				len := &ir.DotExpr{
+					X:    expr.X,
+					Dot:  token.Synthetic(token.Dot, token.Dot.String()),
+					Name: name,
+				}
+				len.T = lenSym.T
+				expr.End = len
+			} else if expr.End.Type().ID() != ir.TInt32 {
+				cast := &ir.CastExpr{X: expr.End}
+				cast.T = ir.TBuiltinInt32
+				expr.End = cast
+			}
+
+			expr.T = ir.NewSliceType(telem)
+		}
+	} else if !untyped {
+		v.c.error(expr.X.FirstPos(), "'%s' cannot be sliced (has type %s)", PrintExpr(expr.X), expr.X.Type())
 	}
 
 	if expr.T == nil {
