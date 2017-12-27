@@ -6,6 +6,7 @@ import "github.com/jhnl/dingo/ir"
 type typeVisitor struct {
 	ir.BaseVisitor
 	signature bool
+	pointer   bool
 	exprMode  int
 	c         *checker
 }

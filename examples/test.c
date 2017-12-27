@@ -45,9 +45,9 @@ struct foo {
 //struct Vec3 globalVec3 = {.v.x = 5, .v.y = 13, .z = 9 };
 
 int main() {
-        int* const a[5]; 
-        int b = 2;
-        a[1] = &b;
+        struct foo f;
+
+        &f.y;
 
         
         return 0;

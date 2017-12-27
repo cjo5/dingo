@@ -6,13 +6,11 @@ TODO:
 - Memory management and arrays
     - Run time bounds check
     - Non nullable pointers 
-    - Ownership system
-    - Immutable and mutable address of operator
+    - Ownership system / smart pointers
 - Pointer comparison
 - Create slice from pointer
 - sizeof operator
 - Dedicated size type (size_t in C)
-- Don't print synthetic expressions in error messages
 - C lib
     - Separate primitive types for C
 - Change pointer type syntax to & instead of *
@@ -24,9 +22,8 @@ TODO:
     - for i, x in a {};; iterate a slice / array with index
 - Initializer list
 - Improve error messages
-    - Start messages with capital letter
+    - Don't print synthetic expressions 
     - Show region of source code where error happened (e.g. line + 1 above and 1 below)
-    - Unique error code
 - Add tests
     - Go tests
     - Dingo tests

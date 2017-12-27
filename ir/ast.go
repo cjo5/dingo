@@ -414,11 +414,20 @@ func (x *UnaryExpr) ReadOnly() bool {
 	return false
 }
 
+type AddressExpr struct {
+	baseExpr
+	And  token.Token
+	Decl token.Token
+	X    Expr
+}
+
+func (x *AddressExpr) FirstPos() token.Position { return x.And.Pos }
+
 type IndexExpr struct {
 	baseExpr
 	X      Expr
-	Index  Expr
 	Lbrack token.Token
+	Index  Expr
 	Rbrack token.Token
 }
 
@@ -435,10 +444,10 @@ func (x *IndexExpr) ReadOnly() bool {
 type SliceExpr struct {
 	baseExpr
 	X      Expr
-	Start  Expr
-	End    Expr
-	Colon  token.Token
 	Lbrack token.Token
+	Start  Expr
+	Colon  token.Token
+	End    Expr
 	Rbrack token.Token
 }
 

@@ -9,17 +9,17 @@ File = ['module' IDENT ';'] Include* TopDecl*
 Include = 'include' STRING ';'
 TopDecl = [Visibility] Decl ';'
 Decl = ValDecl | FuncDecl | StructDecl
-ValDecl = ('val' | 'var') IDENT (Type | ([Type] '=' Expr))
+ValDecl = ('val' | 'var') IDENT (TypeSpec | (TypeSpec? '=' Expr))
 FuncDecl = 'func' IDENT Func
 StructDecl = 'struct' IDENT Struct
 
 Visibility = 'pub' | 'priv' 
-Type = PointerType | ArrayType | IDENT
-PointerType = '*' ['val' | 'var'] Type
-ArrayType = '[' INTEGER? ']' Type
-Field = ['val' | 'var'] IDENT Type
+TypeSpec = PointerType | ArrayType | IDENT
+PointerType = '*' ['val' | 'var'] TypeSpec
+ArrayType = '[' INTEGER? ']' TypeSpec
+Field = ['val' | 'var'] IDENT TypeSpec
 Struct= '{' {Field ';'} '}'
-FuncSignature = '(' [Field {',' Field} ','?] ')' Type?
+FuncSignature = '(' [Field {',' Field} ','?] ')' TypeSpec?
 Func = FuncSignature (Block | ';')
 
 Block = '{' Stmt* '}'
@@ -28,7 +28,7 @@ Stmt = [Block | ValDecl | Expr | AssignStmt | 'if' IfStmt | WhileStmt |
 AssignStmt = Expr ('++' | '--' | ('=' | '+=' | '-=' | '*=' | '/=' | '%=' ) Expr)
 IfStmt = Condition Block [('elif' IfStmt) | ('else' Block)]
 WhileStmt = 'while' Condition Block
-ForStmt 'for' [IDENT Type? '=' Expr] ';' Condition? ';' [AssignStmt | Expr] Block
+ForStmt 'for' [IDENT TypeSpec? '=' Expr] ';' Condition? ';' [AssignStmt | Expr] Block
 ReturnStmt = 'return' [Expr]
 
 Expr = LogicalOr 
@@ -39,16 +39,22 @@ Equality = Comparison {( '!=' | '==' ) Comparison}
 Comparison = Term {( '>' | '>=' | '<' | '<=' ) Term}
 Term = Factor {( '-' | '+' ) Factor}
 Factor = Unary {( '/' | '%' | '*' ) Unary}
-Unary = (( '!' | '-' | '&' | '*') Expr) | Operand
+Unary = (( '!' | '-') Expr) | Operand
+
 # StructLit is ignored when parsing Condition
-Operand = CastExpr | Primary | BasicLit | StructLit | ArrayLit
+Operand = CastExpr | AddressExpr | DerefExpr | Literal | InitPrimary
+CastExpr = 'cast' '(' TypeSpec ',' Expr ')'
+AddressExpr = '&' ['val' | 'var'] Expr
+DerefExpr = '*' Expr
 
-CastExpr = 'cast' '(' Type ',' Expr ')'
-Primary = IDENT | IndexExpr | FuncCall | DotExpr | '(' Expr ')'
-IndexExpr Primary '[' (INTEGER | (INTEGER? ':' INTEGER?))  ']'
-FuncCall = Primary '(' [Expr {',' Expr} ','?] ')'
-DotExpr = Primary '.' IDENT
+InitPrimary = (IDENT | '(' Expr ')') Primary
+Primary = [SliceExpr | IndexExpr | FuncCall | DotExpr]
+SliceExpr = '[' Expr? ':' Expr? ']'
+IndexExpr = '[' Expr ']' Primary
+FuncCall = '(' [Expr {',' Expr} ','?] ')' Primary
+DotExpr = '.' IDENT Primary
 
+Literal = BasicLit | StructLit | ArrayLit
 BasicLit = INTEGER | FLOAT | STRING | 'true' | 'false' | 'null'
 KeyValue = IDENT '=' Expr
 StructLit = IDENT '{' [KeyValue {',' KeyValue} ','?] '}'

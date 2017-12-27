@@ -38,7 +38,6 @@ const (
 	TString
 	TStruct
 	TArray
-	TSlice
 	TPointer
 	TFunc
 )
@@ -238,25 +237,15 @@ func (t *ArrayType) Equals(other Type) bool {
 }
 
 func (t *ArrayType) String() string {
-	return fmt.Sprintf("[%d]%s", t.Size, t.Elem.String())
-}
-
-type SliceType struct {
-	baseType
-	Elem  Type
-	Scope *Scope
-}
-
-func (t *SliceType) Equals(other Type) bool {
-	otherSlice, ok := other.(*SliceType)
-	if !ok {
-		return false
+	size := ""
+	if !t.Slice() {
+		size = fmt.Sprintf("%d", t.Size)
 	}
-	return t.Elem.Equals(otherSlice.Elem)
+	return fmt.Sprintf("[%s]%s", size, t.Elem.String())
 }
 
-func (t *SliceType) String() string {
-	return fmt.Sprintf("[]%s", t.Elem.String())
+func (t *ArrayType) Slice() bool {
+	return t.Size == 0
 }
 
 type PointerType struct {
@@ -297,11 +286,19 @@ func (t *PointerType) ExplicitCastOK(other Type) bool {
 }
 
 func (t *PointerType) String() string {
-	ro := ""
-	if t.ReadOnly {
-		ro = token.Val.String() + " "
+	extra := ""
+	if !t.ReadOnly {
+		extra = token.Var.String() + " "
 	}
-	return "*" + ro + t.Underlying.String()
+	return fmt.Sprintf("*%s%s", extra, t.Underlying)
+}
+
+func (t *PointerType) SlicePtr() bool {
+	switch t := t.Underlying.(type) {
+	case *ArrayType:
+		return t.Slice()
+	}
+	return false
 }
 
 type FuncType struct {
@@ -371,18 +368,6 @@ func NewArrayType(size int, elem Type) Type {
 
 	t := &ArrayType{Size: size, Elem: elem, Scope: scope}
 	t.id = TArray
-	return t
-}
-
-func NewSliceType(elem Type) Type {
-	scope := NewScope(FieldScope, nil)
-	len := NewSymbol(ValSymbol, FieldScope, LenField, token.NoPosition, nil)
-	len.Flags |= SymFlagReadOnly
-	len.T = TBuiltinInt32
-	scope.Insert(len)
-
-	t := &SliceType{Elem: elem, Scope: scope}
-	t.id = TSlice
 	return t
 }
 

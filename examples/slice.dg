@@ -1,0 +1,28 @@
+include "std/io.dg"
+
+struct Foo {
+    f i32
+}
+
+fun geta() [5]i32 {
+    return [1, 2, 3, 4, 5]
+}
+
+fun getb() Foo {
+    var f Foo
+    return f
+}
+
+fun init(a *var []i32) {
+    for i = 0; i < a.len; i++ {
+        a[i] = i * 2
+    }
+}
+
+pub fun main() {
+    var a [5]i32
+    init(&var a[:])
+    for i = 0; i < a.len; i++ {
+        puti(a[i])
+    }
+}

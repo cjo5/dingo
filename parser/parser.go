@@ -537,23 +537,25 @@ func (p *parser) parsePointerType() ir.Expr {
 	if p.token.OneOf(token.Var, token.Val) {
 		p.next()
 	} else {
-		decl = token.Synthetic(token.Var, token.Var.String())
+		decl = token.Synthetic(token.Val, token.Val.String())
 	}
 	x := p.parseTypeSpec()
 	return &ir.PointerTypeExpr{Pointer: tok, Decl: decl, X: x}
 }
 
 func (p *parser) parseArrayType() ir.Expr {
-	expr := &ir.ArrayTypeExpr{}
-	expr.Lbrack = p.token
+	array := &ir.ArrayTypeExpr{}
+	array.Lbrack = p.token
 	p.expect(token.Lbrack)
-	if p.token.ID != token.Rbrack {
-		expr.Size = p.parseExpr()
+
+	if !p.token.Is(token.Rbrack) {
+		array.Size = p.parseExpr()
 	}
-	expr.Rbrack = p.token
+
+	array.Rbrack = p.token
 	p.expect(token.Rbrack)
-	expr.X = p.parseTypeSpec()
-	return expr
+	array.X = p.parseTypeSpec()
+	return array
 }
 
 func (p *parser) parseExpr() ir.Expr {
@@ -628,7 +630,7 @@ func (p *parser) parseFactor() ir.Expr {
 }
 
 func (p *parser) parseUnary() ir.Expr {
-	if p.token.OneOf(token.Sub, token.Lnot, token.And, token.Mul) {
+	if p.token.OneOf(token.Sub, token.Lnot) {
 		op := p.token
 		p.next()
 		x := p.parseExpr()
@@ -638,27 +640,31 @@ func (p *parser) parseUnary() ir.Expr {
 }
 
 func (p *parser) parseOperand() ir.Expr {
+	var x ir.Expr
 	if p.token.Is(token.Cast) {
-		return p.parseCastExpr()
+		x = p.parseCastExpr()
+	} else if p.token.Is(token.Mul) {
+		x = p.parseDerefExpr()
+	} else if p.token.Is(token.And) {
+		x = p.parseAddressExpr()
 	} else if p.token.Is(token.Lparen) {
 		p.next()
-		x := p.parseExpr()
-		p.consume(token.Rparen)
-		return p.parsePrimary(x)
+		x = p.parseExpr()
+		p.expect(token.Rparen)
+		x = p.parsePrimary(x)
 	} else if p.token.Is(token.Lbrack) {
-		return p.parseArrayLit()
+		x = p.parseArrayLit()
 	} else if p.token.Is(token.Ident) {
-		ident := p.parseIdent()
-		var x ir.Expr = ident
-		if p.token.Is(token.Dot) {
-			x = p.parseDotExpr(ident)
-		}
+		x = p.parseIdent()
 		if !p.inCondition && p.token.Is(token.Lbrace) {
-			return p.parseStructLit(x)
+			x = p.parseStructLit(x)
+		} else {
+			x = p.parsePrimary(x)
 		}
-		return p.parsePrimary(x)
+	} else {
+		x = p.parseBasicLit()
 	}
-	return p.parseBasicLit()
+	return x
 }
 
 func (p *parser) parseCastExpr() *ir.CastExpr {
@@ -675,9 +681,31 @@ func (p *parser) parseCastExpr() *ir.CastExpr {
 	return cast
 }
 
+func (p *parser) parseDerefExpr() ir.Expr {
+	op := p.token
+	p.expect(token.Mul)
+	x := p.parseExpr()
+	return &ir.UnaryExpr{Op: op, X: x}
+}
+
+func (p *parser) parseAddressExpr() ir.Expr {
+	and := p.token
+	p.expect(token.And)
+
+	decl := p.token
+	if p.token.OneOf(token.Var, token.Val) {
+		p.next()
+	} else {
+		decl = token.Synthetic(token.Val, token.Val.String())
+	}
+
+	x := p.parseExpr()
+	return &ir.AddressExpr{And: and, Decl: decl, X: x}
+}
+
 func (p *parser) parsePrimary(expr ir.Expr) ir.Expr {
 	if p.token.Is(token.Lbrack) {
-		return p.parsePrimary(p.parseIndexExpr(expr))
+		return p.parseSliceOrIndexExpr(expr)
 	} else if p.token.Is(token.Lparen) {
 		return p.parsePrimary(p.parseFuncCall(expr))
 	} else if p.token.Is(token.Dot) {
@@ -686,13 +714,13 @@ func (p *parser) parsePrimary(expr ir.Expr) ir.Expr {
 	return expr
 }
 
-func (p *parser) parseIndexExpr(expr ir.Expr) ir.Expr {
+func (p *parser) parseSliceOrIndexExpr(expr ir.Expr) ir.Expr {
 	var index1 ir.Expr
 	var index2 ir.Expr
 	colon := token.Synthetic(token.Invalid, token.Invalid.String())
 
 	lbrack := p.token
-	p.consume(token.Lbrack)
+	p.expect(token.Lbrack)
 
 	if !p.token.Is(token.Colon) {
 		index1 = p.parseExpr()
@@ -701,7 +729,6 @@ func (p *parser) parseIndexExpr(expr ir.Expr) ir.Expr {
 	if p.token.Is(token.Colon) {
 		colon = p.token
 		p.next()
-
 		if !p.token.Is(token.Rbrack) {
 			index2 = p.parseExpr()
 		}
@@ -711,10 +738,11 @@ func (p *parser) parseIndexExpr(expr ir.Expr) ir.Expr {
 	p.expect(token.Rbrack)
 
 	if colon.IsValid() {
-		return &ir.SliceExpr{X: expr, Start: index1, End: index2, Colon: colon, Lbrack: lbrack, Rbrack: rbrack}
+		return &ir.SliceExpr{X: expr, Lbrack: lbrack, Start: index1, Colon: colon, End: index2, Rbrack: rbrack}
 	}
 
-	return &ir.IndexExpr{X: expr, Index: index1, Lbrack: lbrack, Rbrack: rbrack}
+	res := &ir.IndexExpr{X: expr, Lbrack: lbrack, Index: index1, Rbrack: rbrack}
+	return p.parsePrimary(res)
 }
 
 func (p *parser) parseIdent() *ir.Ident {

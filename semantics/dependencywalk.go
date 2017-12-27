@@ -107,8 +107,15 @@ func (v *dependencyVisitor) VisitExprStmt(stmt *ir.ExprStmt) {
 	ir.VisitExpr(v, stmt.X)
 }
 
+func (v *dependencyVisitor) VisitPointerTypeExpr(expr *ir.PointerTypeExpr) ir.Expr {
+	ir.VisitExpr(v, expr.X)
+	return expr
+}
+
 func (v *dependencyVisitor) VisitArrayTypeExpr(expr *ir.ArrayTypeExpr) ir.Expr {
-	ir.VisitExpr(v, expr.Size)
+	if expr.Size != nil {
+		ir.VisitExpr(v, expr.Size)
+	}
 	ir.VisitExpr(v, expr.X)
 	return expr
 }
@@ -170,6 +177,11 @@ func (v *dependencyVisitor) VisitCastExpr(expr *ir.CastExpr) ir.Expr {
 func (v *dependencyVisitor) VisitFuncCall(expr *ir.FuncCall) ir.Expr {
 	ir.VisitExpr(v, expr.X)
 	ir.VisitExprList(v, expr.Args)
+	return expr
+}
+
+func (v *dependencyVisitor) VisitAddressExpr(expr *ir.AddressExpr) ir.Expr {
+	ir.VisitExpr(v, expr.X)
 	return expr
 }
 

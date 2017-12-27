@@ -56,6 +56,27 @@ func (p *exprPrinter) VisitUnaryExpr(expr *ir.UnaryExpr) ir.Expr {
 	return expr
 }
 
+func (p *exprPrinter) VisitAddressExpr(expr *ir.AddressExpr) ir.Expr {
+	xPrec := prec(expr.X)
+	opPrec := prec(expr)
+
+	p.buffer.WriteString(expr.And.Literal)
+
+	if expr.Decl.IsValid() {
+		p.buffer.WriteString(fmt.Sprintf("%s ", expr.Decl.Literal))
+	}
+
+	if opPrec < xPrec {
+		p.buffer.WriteString("(")
+	}
+	ir.VisitExpr(p, expr.X)
+	if opPrec < xPrec {
+		p.buffer.WriteString(")")
+	}
+
+	return expr
+}
+
 func (p *exprPrinter) VisitIndexExpr(expr *ir.IndexExpr) ir.Expr {
 	xPrec := prec(expr.X)
 	opPrec := prec(expr)
@@ -178,6 +199,8 @@ func prec(expr ir.Expr) int {
 			panic(fmt.Sprintf("Unhandled binary op %s", t.Op.ID))
 		}
 	case *ir.UnaryExpr:
+		return 2
+	case *ir.AddressExpr:
 		return 2
 	case *ir.IndexExpr:
 		return 1
