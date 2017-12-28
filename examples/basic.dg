@@ -1,11 +1,11 @@
 include "std/io.dg"
 
 pub fun main() {
-    var a [5]i32
+    var a [5:i32]
     for i = 0; i < a.len; i++ {
         a[i] = i
     }
-    var b = a[2:4]
+    var b = &var a[2:4]
     b[0] = 99
     for i = 0; i < a.len; i++ {
         puti(a[i])

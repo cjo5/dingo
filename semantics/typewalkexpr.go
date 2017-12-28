@@ -24,12 +24,13 @@ func (v *typeVisitor) makeTypedExpr(expr ir.Expr, t ir.Type) ir.Expr {
 		}
 	}
 
-	switch t2 := expr.Type().(type) {
-	case *ir.SliceType:
-		if !t2.Ptr {
-			v.c.error(expr.FirstPos(), "expression '%s' has incomplete type %s; use address of operator '&' to create a slice", PrintExpr(expr), t2)
-			return expr
+	if !v.c.checkCompleteType(expr.Type()) {
+		v.c.error(expr.FirstPos(), "invalid expression '%s' (incomplete type %s)", PrintExpr(expr), expr.Type())
+		switch t2 := expr.(type) {
+		case *ir.SliceExpr:
+			t2.T = ir.TBuiltinUntyped
 		}
+		return expr
 	}
 
 	if t != nil {
@@ -817,7 +818,7 @@ func (v *typeVisitor) VisitDotExpr(expr *ir.DotExpr) ir.Expr {
 		v.VisitIdent(expr.Name)
 		expr.T = expr.Name.Type()
 	} else if !untyped {
-		v.c.error(expr.X.FirstPos(), "'%s' does not support field access (has type %s)", PrintExpr(expr), expr.X.Type())
+		v.c.error(expr.X.FirstPos(), "invalid field access '%s' (type %s)", PrintExpr(expr), expr.X.Type())
 	}
 
 	if expr.T == nil {
@@ -966,7 +967,7 @@ func (v *typeVisitor) VisitIndexExpr(expr *ir.IndexExpr) ir.Expr {
 			}
 		}
 	} else if !untyped {
-		v.c.error(expr.X.FirstPos(), "'%s' cannot be indexed (has type %s)", PrintExpr(expr.X), expr.X.Type())
+		v.c.error(expr.X.FirstPos(), "invalid index access '%s' (type %s)", PrintExpr(expr), expr.X.Type())
 	}
 
 	if expr.T == nil {
@@ -1054,7 +1055,7 @@ func (v *typeVisitor) VisitSliceExpr(expr *ir.SliceExpr) ir.Expr {
 			expr.T = ir.NewSliceType(telem, true, false)
 		}
 	} else if !untyped {
-		v.c.error(expr.X.FirstPos(), "'%s' cannot be sliced (has type %s)", PrintExpr(expr.X), expr.X.Type())
+		v.c.error(expr.X.FirstPos(), "invalid slice '%s' (type %s)", PrintExpr(expr), expr.X.Type())
 	}
 
 	if expr.T == nil {

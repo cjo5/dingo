@@ -13,23 +13,27 @@ fun getb() Foo {
     return f
 }
 
+var greeting = c"Hello, world"
+
 pub fun main() {
     var a [5:i32]
     var b *var [:i32] = &var a[1:]
     var c = &var b[2:4]
     c[0] = 4
 
+    puts(greeting[:])
+
     puti(a[3])
     puti(b[2])
     puti(c[0])
 
-    puts(c"")
+    puts(c"blah")
 
     puti(a.len)
     puti(b.len)
     puti(c.len)
 
     if (&a[3]) == (&c[0]) {
-        puts("true".ptr)
+        puts(c"true")
     }
 }

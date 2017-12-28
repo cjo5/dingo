@@ -19,6 +19,7 @@ TODO:
     - Apply visibility modifier to multiple vars/functions by using () (same as Go)
     - Declarations are private by default
     - Modules can be declared multiple times.
+- Integer suffixes: 1u8, 1u16, 1u32, 1f32, 1f64 etc.
 - sizeof operator
 - Create slice from pointer
 - Dedicated size type (size_t in C)
@@ -41,7 +42,6 @@ TODO:
 - Change struct initialization
     - With keys foo{a: 2}
     - Without keys foo{2}
-- Integer suffixes: 1u8, 1u16, 1u32, 1f32, 1f64 etc.
 - Bit operations
 - Concurrent compilation
 - Invalidate keyword? Any use after an identifier has been invalidated will cause an error.
