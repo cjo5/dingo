@@ -45,9 +45,11 @@ struct foo {
 //struct Vec3 globalVec3 = {.v.x = 5, .v.y = 13, .z = 9 };
 
 int main() {
-        struct foo f;
+        int a[5];
 
-        &f.y;
+        if (&a[0] == &a[1]) {
+                puts("true");
+        }
 
         
         return 0;

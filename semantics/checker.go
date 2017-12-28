@@ -29,7 +29,6 @@ func addBuiltinType(t ir.Type) {
 func init() {
 	addBuiltinType(ir.TBuiltinVoid)
 	addBuiltinType(ir.TBuiltinBool)
-	addBuiltinType(ir.TBuiltinString)
 	addBuiltinType(ir.TBuiltinUInt64)
 	addBuiltinType(ir.TBuiltinInt64)
 	addBuiltinType(ir.TBuiltinUInt32)
@@ -186,6 +185,17 @@ func sortDeclDependencies(decl ir.TopDecl, trace *[]ir.TopDecl, sortedDecls *[]i
 	decl.SetNodeColor(ir.NodeColorBlack)
 	*sortedDecls = append(*sortedDecls, decl)
 	return sortOK
+}
+
+func (c *checker) checkCompleteType(t1 ir.Type) bool {
+	complete := true
+	switch t2 := t1.(type) {
+	case *ir.SliceType:
+		if !t2.Ptr {
+			complete = false
+		}
+	}
+	return complete
 }
 
 // Returns false if an error should be reported

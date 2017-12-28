@@ -7,7 +7,7 @@
 File = ['module' IDENT ';'] Include* TopDecl*
 
 Include = 'include' STRING ';'
-TopDecl = [Visibility] Decl ';'
+TopDecl = Visibility? Decl ';'
 Decl = ValDecl | FuncDecl | StructDecl
 ValDecl = ('val' | 'var') IDENT (TypeSpec | (TypeSpec? '=' Expr))
 FuncDecl = 'func' IDENT Func
@@ -16,7 +16,7 @@ StructDecl = 'struct' IDENT Struct
 Visibility = 'pub' | 'priv' 
 TypeSpec = PointerType | ArrayType | IDENT
 PointerType = '*' ['val' | 'var'] TypeSpec
-ArrayType = '[' INTEGER? ']' TypeSpec
+ArrayType = '[' INTEGER? ':' TypeSpec ']'
 Field = ['val' | 'var'] IDENT TypeSpec
 Struct= '{' {Field ';'} '}'
 FuncSignature = '(' [Field {',' Field} ','?] ')' TypeSpec?
@@ -39,21 +39,19 @@ Equality = Comparison {( '!=' | '==' ) Comparison}
 Comparison = Term {( '>' | '>=' | '<' | '<=' ) Term}
 Term = Factor {( '-' | '+' ) Factor}
 Factor = Unary {( '/' | '%' | '*' ) Unary}
-Unary = (( '!' | '-') Expr) | Operand
+Unary = (( '!' | '-' | '*') Expr) | AddressExpr | Operand
 
-# StructLit is ignored when parsing Condition
-Operand = CastExpr | AddressExpr | DerefExpr | Literal | InitPrimary
-CastExpr = 'cast' '(' TypeSpec ',' Expr ')'
 AddressExpr = '&' ['val' | 'var'] Expr
-DerefExpr = '*' Expr
+Operand = (CastExpr | IDENT | Literal | '(' Expr ')') Primary
+CastExpr = 'cast' '(' TypeSpec ',' Expr ')'
 
-InitPrimary = (IDENT | '(' Expr ')') Primary
 Primary = [SliceExpr | IndexExpr | FuncCall | DotExpr]
 SliceExpr = '[' Expr? ':' Expr? ']'
 IndexExpr = '[' Expr ']' Primary
 FuncCall = '(' [Expr {',' Expr} ','?] ')' Primary
 DotExpr = '.' IDENT Primary
 
+# StructLit is ignored when parsing Condition
 Literal = BasicLit | StructLit | ArrayLit
 BasicLit = INTEGER | FLOAT | STRING | 'true' | 'false' | 'null'
 KeyValue = IDENT '=' Expr

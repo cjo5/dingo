@@ -548,13 +548,17 @@ func (p *parser) parseArrayType() ir.Expr {
 	array.Lbrack = p.token
 	p.expect(token.Lbrack)
 
-	if !p.token.Is(token.Rbrack) {
+	if !p.token.Is(token.Colon) {
 		array.Size = p.parseExpr()
 	}
 
+	array.Colon = p.token
+	p.expect(token.Colon)
+
+	array.X = p.parseTypeSpec()
+
 	array.Rbrack = p.token
 	p.expect(token.Rbrack)
-	array.X = p.parseTypeSpec()
 	return array
 }
 
@@ -630,62 +634,15 @@ func (p *parser) parseFactor() ir.Expr {
 }
 
 func (p *parser) parseUnary() ir.Expr {
-	if p.token.OneOf(token.Sub, token.Lnot) {
+	if p.token.OneOf(token.Sub, token.Lnot, token.Mul) {
 		op := p.token
 		p.next()
 		x := p.parseExpr()
 		return &ir.UnaryExpr{Op: op, X: x}
+	} else if p.token.Is(token.And) {
+		return p.parseAddressExpr()
 	}
 	return p.parseOperand()
-}
-
-func (p *parser) parseOperand() ir.Expr {
-	var x ir.Expr
-	if p.token.Is(token.Cast) {
-		x = p.parseCastExpr()
-	} else if p.token.Is(token.Mul) {
-		x = p.parseDerefExpr()
-	} else if p.token.Is(token.And) {
-		x = p.parseAddressExpr()
-	} else if p.token.Is(token.Lparen) {
-		p.next()
-		x = p.parseExpr()
-		p.expect(token.Rparen)
-		x = p.parsePrimary(x)
-	} else if p.token.Is(token.Lbrack) {
-		x = p.parseArrayLit()
-	} else if p.token.Is(token.Ident) {
-		x = p.parseIdent()
-		if !p.inCondition && p.token.Is(token.Lbrace) {
-			x = p.parseStructLit(x)
-		} else {
-			x = p.parsePrimary(x)
-		}
-	} else {
-		x = p.parseBasicLit()
-	}
-	return x
-}
-
-func (p *parser) parseCastExpr() *ir.CastExpr {
-	cast := &ir.CastExpr{}
-	cast.Cast = p.token
-	p.next()
-	cast.Lparen = p.token
-	p.expect(token.Lparen)
-	cast.ToTyp = p.parseTypeSpec()
-	p.expect(token.Comma)
-	cast.X = p.parseExpr()
-	cast.Rparen = p.token
-	p.expect(token.Rparen)
-	return cast
-}
-
-func (p *parser) parseDerefExpr() ir.Expr {
-	op := p.token
-	p.expect(token.Mul)
-	x := p.parseExpr()
-	return &ir.UnaryExpr{Op: op, X: x}
 }
 
 func (p *parser) parseAddressExpr() ir.Expr {
@@ -701,6 +658,41 @@ func (p *parser) parseAddressExpr() ir.Expr {
 
 	x := p.parseExpr()
 	return &ir.AddressExpr{And: and, Decl: decl, X: x}
+}
+
+func (p *parser) parseOperand() ir.Expr {
+	var x ir.Expr
+	if p.token.Is(token.Cast) {
+		x = p.parseCastExpr()
+	} else if p.token.Is(token.Lparen) {
+		p.next()
+		x = p.parseExpr()
+		p.expect(token.Rparen)
+	} else if p.token.Is(token.Lbrack) {
+		x = p.parseArrayLit()
+	} else if p.token.Is(token.Ident) {
+		x = p.parseIdent()
+		if !p.inCondition && p.token.Is(token.Lbrace) {
+			x = p.parseStructLit(x)
+		}
+	} else {
+		x = p.parseBasicLit()
+	}
+	return p.parsePrimary(x)
+}
+
+func (p *parser) parseCastExpr() *ir.CastExpr {
+	cast := &ir.CastExpr{}
+	cast.Cast = p.token
+	p.next()
+	cast.Lparen = p.token
+	p.expect(token.Lparen)
+	cast.ToTyp = p.parseTypeSpec()
+	p.expect(token.Comma)
+	cast.X = p.parseExpr()
+	cast.Rparen = p.token
+	p.expect(token.Rparen)
+	return cast
 }
 
 func (p *parser) parsePrimary(expr ir.Expr) ir.Expr {

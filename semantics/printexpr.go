@@ -147,7 +147,15 @@ func (p *exprPrinter) VisitIdent(expr *ir.Ident) ir.Expr {
 }
 
 func (p *exprPrinter) VisitDotExpr(expr *ir.DotExpr) ir.Expr {
+	xPrec := prec(expr.X)
+	opPrec := prec(expr)
+	if opPrec < xPrec {
+		p.buffer.WriteString("(")
+	}
 	ir.VisitExpr(p, expr.X)
+	if opPrec < xPrec {
+		p.buffer.WriteString(")")
+	}
 	p.buffer.WriteString(".")
 	p.VisitIdent(expr.Name)
 	return expr

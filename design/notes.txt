@@ -3,13 +3,24 @@ TODO:
     - Struct alignment and padding
     - Debug symbols
     - Fix scoping rules
+    - Temp storage
 - Memory management and arrays
     - Run time bounds check
     - Non nullable pointers 
     - Ownership system / smart pointers
-- Pointer comparison
-- Create slice from pointer
+- Fix precedence rules in parser
+- Module system
+    - Use modules
+        - use a, use a.b etc
+    - Fix dotted module names: a.b.c etc
+    - Name mangling
+    - C linkage
+    - Specify mappings between module names and paths
+    - Apply visibility modifier to multiple vars/functions by using () (same as Go)
+    - Declarations are private by default
+    - Modules can be declared multiple times.
 - sizeof operator
+- Create slice from pointer
 - Dedicated size type (size_t in C)
 - C lib
     - Separate primitive types for C
@@ -31,16 +42,6 @@ TODO:
     - With keys foo{a: 2}
     - Without keys foo{2}
 - Integer suffixes: 1u8, 1u16, 1u32, 1f32, 1f64 etc.
-- Module system
-    - Use modules
-        - use a, use a.b etc
-    - Fix dotted module names: a.b.c etc
-    - Name mangling
-    - C linkage
-    - Specify mappings between module names and paths
-    - Apply visibility modifier to multiple vars/functions by using () (same as Go)
-    - Declarations are private by default
-    - Modules can be declared multiple times.
 - Bit operations
 - Concurrent compilation
 - Invalidate keyword? Any use after an identifier has been invalidated will cause an error.
@@ -62,4 +63,3 @@ TODO:
     - Conditional compilation
 - Default function arguments + keyed arguments
 - Parse escape sequences in string literal
-- Rewrite expression grammar 

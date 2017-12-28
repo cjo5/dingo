@@ -6,7 +6,6 @@ import "github.com/jhnl/dingo/ir"
 type typeVisitor struct {
 	ir.BaseVisitor
 	signature bool
-	pointer   bool
 	exprMode  int
 	c         *checker
 }
@@ -91,7 +90,7 @@ func (v *typeVisitor) visitValDeclSpec(sym *ir.Symbol, decl *ir.ValDeclSpec, def
 
 	if decl.Type != nil {
 		v.exprMode = exprModeType
-		ir.VisitExpr(v, decl.Type)
+		decl.Type = ir.VisitExpr(v, decl.Type)
 		v.exprMode = exprModeNone
 		sym.T = decl.Type.Type()
 
@@ -104,9 +103,11 @@ func (v *typeVisitor) visitValDeclSpec(sym *ir.Symbol, decl *ir.ValDeclSpec, def
 		}
 
 		if sym.T.ID() == ir.TVoid {
-			v.c.error(decl.Type.FirstPos(), "%s cannot be used as a type specifier", sym.T)
+			v.c.error(decl.Type.FirstPos(), "%s cannot be used as a type", sym.T)
 			sym.T = ir.TBuiltinUntyped
-			return
+		} else if !v.c.checkCompleteType(sym.T) {
+			v.c.error(decl.Type.FirstPos(), "incomplete type %s", sym.T)
+			sym.T = ir.TBuiltinUntyped
 		}
 
 		if ir.IsUntyped(sym.T) {

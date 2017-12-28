@@ -24,8 +24,17 @@ func (v *typeVisitor) makeTypedExpr(expr ir.Expr, t ir.Type) ir.Expr {
 		}
 	}
 
+	switch t2 := expr.Type().(type) {
+	case *ir.SliceType:
+		if !t2.Ptr {
+			v.c.error(expr.FirstPos(), "expression '%s' has incomplete type %s; use address of operator '&' to create a slice", PrintExpr(expr), t2)
+			return expr
+		}
+	}
+
 	if t != nil {
 		t2 := expr.Type()
+
 		if t2.ImplicitCastOK(t) {
 			cast := &ir.CastExpr{}
 			cast.X = expr
@@ -56,12 +65,18 @@ func (v *typeVisitor) tryMakeTypedLit(expr ir.Expr, target ir.Type) bool {
 			}
 
 			return false
-		} else if ir.IsTypeID(expr.Type(), ir.TPointer) && ir.IsTypeID(target, ir.TPointer) {
+		} else if ir.IsTypeID(expr.Type(), ir.TPointer) && ir.IsTypeID(target, ir.TSlice, ir.TPointer) {
 			common.Assert(lit.Value.ID == token.Null, "pointer literal should be null")
 			tpointer := expr.Type().(*ir.PointerType)
-			targetTpointer := target.(*ir.PointerType)
 			if ir.IsUntyped(tpointer.Underlying) {
-				lit.T = ir.NewPointerType(targetTpointer.Underlying, false)
+				switch ttarget := target.(type) {
+				case *ir.SliceType:
+					lit.T = ir.NewSliceType(ttarget.Elem, true, true)
+				case *ir.PointerType:
+					lit.T = ir.NewPointerType(ttarget.Underlying, true)
+				default:
+					panic(fmt.Sprintf("Unhandled target type %T", ttarget))
+				}
 			}
 		}
 	case *ir.ArrayLit:
@@ -102,7 +117,7 @@ func (v *typeVisitor) tryMakeDefaultTypedLit(expr ir.Expr) bool {
 			size := len(lit.Initializers)
 			if !err && size > 0 {
 				telem := lit.Initializers[0].Type()
-				lit.T = ir.NewArrayType(size, telem)
+				lit.T = ir.NewArrayType(telem, size)
 			}
 		}
 	}
@@ -110,34 +125,44 @@ func (v *typeVisitor) tryMakeDefaultTypedLit(expr ir.Expr) bool {
 }
 
 func tryDeref(expr ir.Expr) ir.Expr {
+	var tres ir.Type
 	switch t1 := expr.Type().(type) {
 	case *ir.PointerType:
-		var tres ir.Type
 		switch t2 := t1.Underlying.(type) {
 		case *ir.StructType:
 			tres = t2
 		case *ir.ArrayType:
 			tres = t2
+		case *ir.SliceType:
+			tres = t2
 		}
-		if tres != nil {
-			star := token.Synthetic(token.Mul, token.Mul.String())
-			starX := &ir.UnaryExpr{Op: star, X: expr}
-			starX.T = tres
-			return starX
-		}
+	}
+	if tres != nil {
+		star := token.Synthetic(token.Mul, token.Mul.String())
+		starX := &ir.UnaryExpr{Op: star, X: expr}
+		starX.T = tres
+		return starX
 	}
 	return expr
 }
 
 func (v *typeVisitor) VisitPointerTypeExpr(expr *ir.PointerTypeExpr) ir.Expr {
-	v.pointer = true
 	expr.X = ir.VisitExpr(v, expr.X)
-	v.pointer = false
+
+	ro := expr.Decl.Is(token.Val)
 	typ := expr.X.Type()
+
 	if ir.IsUntyped(typ) {
 		expr.T = ir.TBuiltinUntyped
+	} else if tslice, ok := typ.(*ir.SliceType); ok {
+		if !tslice.Ptr {
+			tslice.Ptr = true
+			tslice.ReadOnly = ro
+			expr.T = tslice
+		} else {
+			expr.T = ir.NewPointerType(typ, ro)
+		}
 	} else {
-		ro := expr.Decl.Is(token.Val)
 		expr.T = ir.NewPointerType(typ, ro)
 	}
 	return expr
@@ -177,14 +202,10 @@ func (v *typeVisitor) VisitArrayTypeExpr(expr *ir.ArrayTypeExpr) ir.Expr {
 	expr.X = ir.VisitExpr(v, expr.X)
 	if expr.X.Type().Equals(ir.TBuiltinUntyped) {
 		expr.T = ir.TBuiltinUntyped
+	} else if size != 0 {
+		expr.T = ir.NewArrayType(expr.X.Type(), size)
 	} else {
-		slice := ir.NewArrayType(size, expr.X.Type())
-		if size == 0 && !v.pointer {
-			v.c.error(expr.Lbrack.Pos, "type %s has unknown size", slice)
-			expr.T = ir.TBuiltinUntyped
-		} else {
-			expr.T = slice
-		}
+		expr.T = ir.NewSliceType(expr.X.Type(), true, false)
 	}
 
 	return expr
@@ -375,7 +396,7 @@ func (v *typeVisitor) VisitBinaryExpr(expr *ir.BinaryExpr) ir.Expr {
 			if arithOp || expr.Op.OneOf(token.Gt, token.GtEq, token.Lt, token.LtEq) {
 				typeNotSupported = leftType
 			}
-		} else if leftType.ID() == ir.TString && rightType.ID() == ir.TString {
+		} else if leftType.Equals(rightType) {
 			typeNotSupported = leftType
 		}
 
@@ -447,14 +468,16 @@ func (v *typeVisitor) VisitUnaryExpr(expr *ir.UnaryExpr) ir.Expr {
 
 		if !lvalue {
 			v.c.error(expr.X.FirstPos(), "cannot dereference '%s' (not an lvalue)", PrintExpr(expr.X))
-		} else if tptr, ok := expr.T.(*ir.PointerType); ok {
-			if tptr.SlicePtr() {
-				v.c.error(expr.X.FirstPos(), "cannot dereference '%s' (type %s has unknown size)", PrintExpr(expr.X), tptr.Underlying)
-			} else {
-				expr.T = tptr.Underlying
-			}
 		} else {
-			v.c.error(expr.X.FirstPos(), "cannot dereference '%s' (type %s is not a pointer)", PrintExpr(expr.X), expr.T)
+			switch t := expr.T.(type) {
+			case *ir.PointerType:
+				expr.T = t.Underlying
+			case *ir.SliceType:
+				tslice := ir.NewSliceType(t.Elem, t.ReadOnly, false)
+				v.c.error(expr.X.FirstPos(), "cannot dereference '%s' (type %s is incomplete)", PrintExpr(expr.X), tslice)
+			default:
+				v.c.error(expr.X.FirstPos(), "cannot dereference '%s' (type %s is not a pointer)", PrintExpr(expr.X), expr.T)
+			}
 		}
 
 		if expr.T == nil {
@@ -523,7 +546,7 @@ func (v *typeVisitor) VisitBasicLit(expr *ir.BasicLit) ir.Expr {
 		expr.T = ir.TBuiltinBool
 	} else if expr.Value.ID == token.String {
 		if expr.Raw == nil {
-			expr.T = ir.TBuiltinString
+			expr.T = ir.NewSliceType(ir.TBuiltinInt8, true, true)
 			expr.Raw = unescapeStringLiteral(expr.Value.Literal)
 		}
 	} else if expr.Value.ID == token.Integer {
@@ -659,7 +682,7 @@ func (v *typeVisitor) VisitArrayLit(expr *ir.ArrayLit) ir.Expr {
 	if t == ir.TBuiltinUntyped {
 		expr.T = t
 	} else {
-		expr.T = ir.NewArrayType(len(expr.Initializers), t)
+		expr.T = ir.NewArrayType(t, len(expr.Initializers))
 	}
 	return expr
 }
@@ -688,10 +711,6 @@ func createDefaultBasicLit(t ir.Type) *ir.BasicLit {
 	if ir.IsTypeID(t, ir.TBool) {
 		lit = &ir.BasicLit{Value: token.Synthetic(token.False, token.False.String())}
 		lit.T = ir.NewBasicType(ir.TBool)
-	} else if ir.IsTypeID(t, ir.TString) {
-		lit = &ir.BasicLit{Value: token.Synthetic(token.String, "")}
-		lit.Raw = ""
-		lit.T = ir.NewBasicType(ir.TString)
 	} else if ir.IsTypeID(t, ir.TUInt64, ir.TInt64, ir.TUInt32, ir.TInt32, ir.TUInt16, ir.TInt16, ir.TUInt8, ir.TInt8) {
 		lit = &ir.BasicLit{Value: token.Synthetic(token.Integer, "0")}
 		lit.Raw = ir.BigIntZero
@@ -700,10 +719,14 @@ func createDefaultBasicLit(t ir.Type) *ir.BasicLit {
 		lit = &ir.BasicLit{Value: token.Synthetic(token.Float, "0")}
 		lit.Raw = ir.BigFloatZero
 		lit.T = ir.NewBasicType(t.ID())
+	} else if ir.IsTypeID(t, ir.TSlice) {
+		lit = &ir.BasicLit{Value: token.Synthetic(token.Null, token.Null.String())}
+		slice := t.(*ir.SliceType)
+		lit.T = ir.NewSliceType(slice.Elem, true, true)
 	} else if ir.IsTypeID(t, ir.TPointer) {
 		lit = &ir.BasicLit{Value: token.Synthetic(token.Null, token.Null.String())}
 		ptr := t.(*ir.PointerType)
-		lit.T = ir.NewPointerType(ptr.Underlying, false)
+		lit.T = ir.NewPointerType(ptr.Underlying, true)
 	} else if !ir.IsTypeID(t, ir.TUntyped) {
 		panic(fmt.Sprintf("Unhandled init value for type %s", t.ID()))
 	}
@@ -737,8 +760,10 @@ func createStructLit(structt *ir.StructType, lit *ir.StructLit) *ir.StructLit {
 
 func (v *typeVisitor) VisitIdent(expr *ir.Ident) ir.Expr {
 	sym := v.c.lookup(expr.Name.Literal)
-	if sym == nil || sym.Untyped() {
+	if sym == nil {
 		v.c.error(expr.Pos(), "'%s' undefined", expr.Name.Literal)
+		expr.T = ir.TBuiltinUntyped
+	} else if sym.Untyped() {
 		expr.T = ir.TBuiltinUntyped
 	} else if v.exprMode != exprModeType && v.exprMode != exprModeFunc && sym.ID == ir.TypeSymbol {
 		v.c.error(expr.Pos(), "type %s cannot be used in an expression", sym.T)
@@ -767,6 +792,8 @@ func (v *typeVisitor) VisitDotExpr(expr *ir.DotExpr) ir.Expr {
 	case *ir.StructType:
 		scope = t.Scope
 	case *ir.ArrayType:
+		scope = t.Scope
+	case *ir.SliceType:
 		scope = t.Scope
 	case *ir.BasicType:
 		if t.ID() == ir.TUntyped {
@@ -874,18 +901,29 @@ func (v *typeVisitor) VisitFuncCall(expr *ir.FuncCall) ir.Expr {
 
 func (v *typeVisitor) VisitAddressExpr(expr *ir.AddressExpr) ir.Expr {
 	ro := expr.Decl.Is(token.Val)
-	v.pointer = true
 	expr.X = ir.VisitExpr(v, expr.X)
-	v.pointer = false
 	if !expr.X.Lvalue() {
-		expr.T = ir.TBuiltinUntyped
 		v.c.error(expr.X.FirstPos(), "cannot create pointer to '%s' (not an lvalue)", PrintExpr(expr.X))
 	} else if expr.X.ReadOnly() && !ro {
-		expr.T = ir.TBuiltinUntyped
 		v.c.error(expr.X.FirstPos(), "cannot create writable pointer to '%s' (read-only)", PrintExpr(expr.X))
 	} else {
-		expr.T = ir.NewPointerType(expr.X.Type(), ro)
+		if tslice, ok := expr.X.Type().(*ir.SliceType); ok {
+			if !tslice.Ptr {
+				tslice.Ptr = true
+				tslice.ReadOnly = ro
+				expr.T = tslice
+			} else {
+				expr.T = ir.NewPointerType(tslice, ro)
+			}
+		} else {
+			expr.T = ir.NewPointerType(expr.X.Type(), ro)
+		}
 	}
+
+	if expr.T == nil {
+		expr.T = ir.TBuiltinUntyped
+	}
+
 	return expr
 }
 
@@ -899,6 +937,8 @@ func (v *typeVisitor) VisitIndexExpr(expr *ir.IndexExpr) ir.Expr {
 	expr.X = tryDeref(expr.X)
 	switch t := expr.X.Type().(type) {
 	case *ir.ArrayType:
+		telem = t.Elem
+	case *ir.SliceType:
 		telem = t.Elem
 	case *ir.BasicType:
 		if t.ID() == ir.TUntyped {
@@ -943,6 +983,9 @@ func (v *typeVisitor) VisitSliceExpr(expr *ir.SliceExpr) ir.Expr {
 	expr.X = tryDeref(expr.X)
 	switch t := expr.X.Type().(type) {
 	case *ir.ArrayType:
+		telem = t.Elem
+		lenSym = t.Scope.Lookup(ir.LenField)
+	case *ir.SliceType:
 		telem = t.Elem
 		lenSym = t.Scope.Lookup(ir.LenField)
 	case *ir.BasicType:
@@ -997,11 +1040,7 @@ func (v *typeVisitor) VisitSliceExpr(expr *ir.SliceExpr) ir.Expr {
 				expr.End = cast
 			}
 
-			if !v.pointer {
-				v.c.error(expr.X.FirstPos(), "expression %s has unknown size; use address of operator '&' to create a slice", PrintExpr(expr))
-			} else {
-				expr.T = ir.NewArrayType(0, telem)
-			}
+			expr.T = ir.NewSliceType(telem, true, false)
 		}
 	} else if !untyped {
 		v.c.error(expr.X.FirstPos(), "'%s' cannot be sliced (has type %s)", PrintExpr(expr.X), expr.X.Type())

@@ -368,9 +368,10 @@ func (x *PointerTypeExpr) FirstPos() token.Position { return x.Pointer.Pos }
 
 type ArrayTypeExpr struct {
 	baseExpr
-	X      Expr
-	Size   Expr
 	Lbrack token.Token
+	Size   Expr
+	Colon  token.Token
+	X      Expr
 	Rbrack token.Token
 }
 
@@ -438,6 +439,12 @@ func (x *IndexExpr) Lvalue() bool {
 }
 
 func (x *IndexExpr) ReadOnly() bool {
+	t := x.X.Type()
+	if t != nil {
+		if tslice, ok := t.(*SliceType); ok {
+			return tslice.ReadOnly
+		}
+	}
 	return x.X.ReadOnly()
 }
 
@@ -458,6 +465,12 @@ func (x *SliceExpr) Lvalue() bool {
 }
 
 func (x *SliceExpr) ReadOnly() bool {
+	t := x.X.Type()
+	if t != nil {
+		if tslice, ok := t.(*SliceType); ok {
+			return tslice.ReadOnly
+		}
+	}
 	return x.X.ReadOnly()
 }
 
@@ -575,7 +588,7 @@ type DotExpr struct {
 func (x *DotExpr) FirstPos() token.Position { return x.X.FirstPos() }
 
 func (x *DotExpr) Lvalue() bool {
-	return x.Name.Lvalue()
+	return x.X.Lvalue()
 }
 
 func (x *DotExpr) ReadOnly() bool {
