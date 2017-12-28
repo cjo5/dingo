@@ -246,7 +246,7 @@ type SliceType struct {
 	baseType
 	Elem     Type
 	ReadOnly bool // Applies to the Elem type
-	Ptr      bool // SliceType is only valid once it has "absored" one pointer indirection
+	Ptr      bool // SliceType is only valid once it has "absorbed" one pointer indirection
 	Scope    *Scope
 }
 

@@ -147,7 +147,7 @@ func (l *lexer) lex() token.Token {
 		case '&':
 			tok.ID = l.lexAlt2('&', token.Land, token.And)
 		case '|':
-			tok.ID = l.lexAlt2('|', token.Lor, token.Or)
+			tok.ID = l.lexAlt2('|', token.Lor, token.Invalid)
 		case '!':
 			tok.ID = l.lexAltEqual(token.Neq, token.Lnot)
 		case '>':

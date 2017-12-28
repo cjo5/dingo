@@ -8,7 +8,6 @@ TODO:
     - Run time bounds check
     - Non nullable pointers 
     - Ownership system / smart pointers
-- Fix precedence rules in parser
 - Module system
     - Use modules
         - use a, use a.b etc
@@ -21,6 +20,7 @@ TODO:
     - Modules can be declared multiple times.
 - Integer suffixes: 1u8, 1u16, 1u32, 1f32, 1f64 etc.
 - sizeof operator
+- len operator (remove .ptr and .len from arrays and slices)
 - Create slice from pointer
 - Dedicated size type (size_t in C)
 - C lib

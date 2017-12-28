@@ -31,17 +31,12 @@ WhileStmt = 'while' Condition Block
 ForStmt 'for' [IDENT TypeSpec? '=' Expr] ';' Condition? ';' [AssignStmt | Expr] Block
 ReturnStmt = 'return' [Expr]
 
-Expr = LogicalOr 
-Condition = LogicalOr
-LogicalOr = LogicalAnd {'||' LogicalAnd}
-LogicalAnd = Equality {'&&' Equality}
-Equality = Comparison {( '!=' | '==' ) Comparison}
-Comparison = Term {( '>' | '>=' | '<' | '<=' ) Term}
-Term = Factor {( '-' | '+' ) Factor}
-Factor = Unary {( '/' | '%' | '*' ) Unary}
-Unary = (( '!' | '-' | '*') Expr) | AddressExpr | Operand
-
-AddressExpr = '&' ['val' | 'var'] Expr
+Condition = BinaryExpr
+Expr = BinaryExpr
+BinaryExpr = UnaryExpr [BinaryOp BinaryExpr]
+BinaryOp = '||' | '&&' | '!=' | '==' | '>' | '>=' | '<' | '<='
+                | '-' | '+' | '/' | '%' | '*'
+UnaryExpr = [('!' | '-' | '*') | ('&' ['val' | 'var'])] Operand
 Operand = (CastExpr | IDENT | Literal | '(' Expr ')') Primary
 CastExpr = 'cast' '(' TypeSpec ',' Expr ')'
 
@@ -53,7 +48,8 @@ DotExpr = '.' IDENT Primary
 
 # StructLit is ignored when parsing Condition
 Literal = BasicLit | StructLit | ArrayLit
-BasicLit = INTEGER | FLOAT | ('c'? STRING) | 'true' | 'false' | 'null'
+BasicLit = Number | ('c'? STRING) | 'true' | 'false' | 'null'
+Number = INTEGER | FLOAT
 KeyValue = IDENT '=' Expr
 StructLit = IDENT '{' [KeyValue {',' KeyValue} ','?] '}'
 ArrayLit  = '[' [Expr {',' Expr} ','?] ']'

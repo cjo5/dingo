@@ -33,16 +33,25 @@ const (
 	Colon
 
 	And
-	Or
+	Lnot
 
+	binopBeg
 	Add
 	Sub
 	Mul
 	Div
 	Mod
 
-	Inc
-	Dec
+	Land
+	Lor
+
+	Eq
+	Neq
+	Gt
+	GtEq
+	Lt
+	LtEq
+	binopEnd
 
 	assignBeg
 	Assign
@@ -53,19 +62,10 @@ const (
 	ModAssign
 	assignEnd
 
-	Land
-	Lor
-	Lnot
-
-	Eq
-	Neq
-	Gt
-	GtEq
-	Lt
-	LtEq
+	Inc
+	Dec
 
 	keywordBeg
-
 	If
 	Else
 	Elif
@@ -87,7 +87,6 @@ const (
 	True
 	False
 	Null
-
 	keywordEnd
 )
 
@@ -112,14 +111,24 @@ var tokens = [...]string{
 	Semicolon: ";",
 	Colon:     ":",
 
+	And:  "&",
+	Lnot: "!",
+
 	Add: "+",
 	Sub: "-",
 	Mul: "*",
 	Div: "/",
 	Mod: "%",
 
-	Inc: "++",
-	Dec: "--",
+	Land: "&&",
+	Lor:  "||",
+
+	Eq:   "==",
+	Neq:  "!=",
+	Gt:   ">",
+	GtEq: ">=",
+	Lt:   "<",
+	LtEq: "<=",
 
 	Assign:    "=",
 	AddAssign: "+=",
@@ -128,19 +137,8 @@ var tokens = [...]string{
 	DivAssign: "/=",
 	ModAssign: "%=",
 
-	And: "&",
-	Or:  "|",
-
-	Land: "&&",
-	Lor:  "||",
-	Lnot: "!",
-
-	Eq:   "==",
-	Neq:  "!=",
-	Gt:   ">",
-	GtEq: ">=",
-	Lt:   "<",
-	LtEq: "<=",
+	Inc: "++",
+	Dec: "--",
 
 	If:       "if",
 	Else:     "else",
@@ -245,12 +243,19 @@ func (t Token) IsValid() bool {
 	return t.Pos.IsValid()
 }
 
-// IsAssignOperator returns true if the token represents an assignment operator ('=', '+=', '-=', '*=', '/=', '%=').
-func (t Token) IsAssignOperator() bool {
+// IsAssignOp returns true if the token represents an assignment operator:
+// ('=', '+=', '-=', '*=', '/=', '%=')
+func (t Token) IsAssignOp() bool {
 	return assignBeg < t.ID && t.ID < assignEnd
 }
 
-// OneOf returns true if token one of the IDs matches.
+// IsBinaryOp return true if the token represents a binary operator:
+// ('+', '-', '*', '/', '%', '||', '&&', '!=', '==', '>', '>=', '<', '<=')
+func (t Token) IsBinaryOp() bool {
+	return binopBeg < t.ID && t.ID < binopEnd
+}
+
+// OneOf returns true if token one of the IDs match.
 func (t Token) OneOf(ids ...ID) bool {
 	for _, id := range ids {
 		if t.ID == id {

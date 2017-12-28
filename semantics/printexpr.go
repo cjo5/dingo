@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	"github.com/jhnl/dingo/ir"
-	"github.com/jhnl/dingo/token"
 )
 
 type exprPrinter struct {
@@ -15,9 +14,9 @@ type exprPrinter struct {
 }
 
 func (p *exprPrinter) VisitBinaryExpr(expr *ir.BinaryExpr) ir.Expr {
-	leftPrec := prec(expr.Left)
-	rightPrec := prec(expr.Right)
-	opPrec := prec(expr)
+	leftPrec := ir.ExprPrec(expr.Left)
+	rightPrec := ir.ExprPrec(expr.Right)
+	opPrec := ir.ExprPrec(expr)
 
 	if opPrec < leftPrec {
 		p.buffer.WriteString("(")
@@ -41,8 +40,8 @@ func (p *exprPrinter) VisitBinaryExpr(expr *ir.BinaryExpr) ir.Expr {
 }
 
 func (p *exprPrinter) VisitUnaryExpr(expr *ir.UnaryExpr) ir.Expr {
-	xPrec := prec(expr.X)
-	opPrec := prec(expr)
+	xPrec := ir.ExprPrec(expr.X)
+	opPrec := ir.ExprPrec(expr)
 
 	p.buffer.WriteString(expr.Op.Literal)
 	if opPrec < xPrec {
@@ -57,8 +56,8 @@ func (p *exprPrinter) VisitUnaryExpr(expr *ir.UnaryExpr) ir.Expr {
 }
 
 func (p *exprPrinter) VisitAddressExpr(expr *ir.AddressExpr) ir.Expr {
-	xPrec := prec(expr.X)
-	opPrec := prec(expr)
+	xPrec := ir.ExprPrec(expr.X)
+	opPrec := ir.ExprPrec(expr)
 
 	p.buffer.WriteString(expr.And.Literal)
 
@@ -78,8 +77,8 @@ func (p *exprPrinter) VisitAddressExpr(expr *ir.AddressExpr) ir.Expr {
 }
 
 func (p *exprPrinter) VisitIndexExpr(expr *ir.IndexExpr) ir.Expr {
-	xPrec := prec(expr.X)
-	opPrec := prec(expr)
+	xPrec := ir.ExprPrec(expr.X)
+	opPrec := ir.ExprPrec(expr)
 
 	if opPrec < xPrec {
 		p.buffer.WriteString("(")
@@ -97,8 +96,8 @@ func (p *exprPrinter) VisitIndexExpr(expr *ir.IndexExpr) ir.Expr {
 }
 
 func (p *exprPrinter) VisitSliceExpr(expr *ir.SliceExpr) ir.Expr {
-	xPrec := prec(expr.X)
-	opPrec := prec(expr)
+	xPrec := ir.ExprPrec(expr.X)
+	opPrec := ir.ExprPrec(expr)
 
 	if opPrec < xPrec {
 		p.buffer.WriteString("(")
@@ -150,8 +149,8 @@ func (p *exprPrinter) VisitIdent(expr *ir.Ident) ir.Expr {
 }
 
 func (p *exprPrinter) VisitDotExpr(expr *ir.DotExpr) ir.Expr {
-	xPrec := prec(expr.X)
-	opPrec := prec(expr)
+	xPrec := ir.ExprPrec(expr.X)
+	opPrec := ir.ExprPrec(expr)
 	if opPrec < xPrec {
 		p.buffer.WriteString("(")
 	}
@@ -187,45 +186,4 @@ func (p *exprPrinter) VisitFuncCall(expr *ir.FuncCall) ir.Expr {
 	p.buffer.WriteString(")")
 
 	return expr
-}
-
-// Lower number means higher precedence
-func prec(expr ir.Expr) int {
-	switch t := expr.(type) {
-	case *ir.BinaryExpr:
-		switch t.Op.ID {
-		case token.Mul, token.Div, token.Mod:
-			return 3
-		case token.Add, token.Sub:
-			return 4
-		case token.Gt, token.GtEq, token.Lt, token.LtEq:
-			return 5
-		case token.Eq, token.Neq:
-			return 6
-		case token.Land:
-			return 7
-		case token.Lor:
-			return 8
-		default:
-			panic(fmt.Sprintf("Unhandled binary op %s", t.Op.ID))
-		}
-	case *ir.UnaryExpr:
-		return 2
-	case *ir.AddressExpr:
-		return 2
-	case *ir.IndexExpr:
-		return 1
-	case *ir.SliceExpr:
-		return 1
-	case *ir.BasicLit, *ir.StructLit, *ir.Ident:
-		return 0
-	case *ir.DotExpr:
-		return 1
-	case *ir.CastExpr:
-		return 1
-	case *ir.FuncCall:
-		return 1
-	default:
-		return -1
-	}
 }

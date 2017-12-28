@@ -496,7 +496,7 @@ func (p *parser) parseReturnStmt() *ir.ReturnStmt {
 func (p *parser) parseExprOrAssignStmt() ir.Stmt {
 	var stmt ir.Stmt
 	expr := p.parseExpr()
-	if p.token.IsAssignOperator() || p.token.OneOf(token.Inc, token.Dec) {
+	if p.token.IsAssignOp() || p.token.OneOf(token.Inc, token.Dec) {
 		assign := p.token
 		p.next()
 
@@ -563,126 +563,70 @@ func (p *parser) parseArrayType() ir.Expr {
 }
 
 func (p *parser) parseExpr() ir.Expr {
-	return p.parseLogicalOr()
+	return p.parseBinaryExpr(ir.LowestPrec)
 }
 
-func (p *parser) parseLogicalOr() ir.Expr {
-	expr := p.parseLogicalAnd()
-	for p.token.ID == token.Lor {
+func (p *parser) parseBinaryExpr(prec int) ir.Expr {
+	expr := p.parseUnaryExpr()
+	for p.token.IsBinaryOp() {
 		op := p.token
+		opPrec := ir.BinaryPrec(op.ID)
+		if prec < opPrec {
+			break
+		}
 		p.next()
-		right := p.parseLogicalAnd()
+		right := p.parseBinaryExpr(opPrec - 1)
 		expr = &ir.BinaryExpr{Left: expr, Op: op, Right: right}
 	}
 	return expr
 }
 
-func (p *parser) parseLogicalAnd() ir.Expr {
-	expr := p.parseEquality()
-	for p.token.ID == token.Land {
-		op := p.token
-		p.next()
-		right := p.parseEquality()
-		expr = &ir.BinaryExpr{Left: expr, Op: op, Right: right}
-	}
-	return expr
-}
-
-func (p *parser) parseEquality() ir.Expr {
-	expr := p.parseComparison()
-	for p.token.ID == token.Eq || p.token.ID == token.Neq {
-		op := p.token
-		p.next()
-		right := p.parseComparison()
-		expr = &ir.BinaryExpr{Left: expr, Op: op, Right: right}
-	}
-	return expr
-}
-
-func (p *parser) parseComparison() ir.Expr {
-	expr := p.parseTerm()
-	for p.token.ID == token.Gt || p.token.ID == token.GtEq ||
-		p.token.ID == token.Lt || p.token.ID == token.LtEq {
-		op := p.token
-		p.next()
-		right := p.parseTerm()
-		expr = &ir.BinaryExpr{Left: expr, Op: op, Right: right}
-	}
-	return expr
-}
-
-func (p *parser) parseTerm() ir.Expr {
-	expr := p.parseFactor()
-	for p.token.ID == token.Add || p.token.ID == token.Sub {
-		op := p.token
-		p.next()
-		right := p.parseFactor()
-		expr = &ir.BinaryExpr{Left: expr, Op: op, Right: right}
-	}
-	return expr
-}
-
-func (p *parser) parseFactor() ir.Expr {
-	expr := p.parseUnary()
-	for p.token.OneOf(token.Mul, token.Div, token.Mod) {
-		op := p.token
-		p.next()
-		right := p.parseUnary()
-		expr = &ir.BinaryExpr{Left: expr, Op: op, Right: right}
-	}
-	return expr
-}
-
-func (p *parser) parseUnary() ir.Expr {
+func (p *parser) parseUnaryExpr() ir.Expr {
 	if p.token.OneOf(token.Sub, token.Lnot, token.Mul) {
 		op := p.token
 		p.next()
-		x := p.parseExpr()
+		x := p.parseOperand()
 		return &ir.UnaryExpr{Op: op, X: x}
 	} else if p.token.Is(token.And) {
-		return p.parseAddressExpr()
+		and := p.token
+		p.expect(token.And)
+
+		decl := p.token
+		if p.token.OneOf(token.Var, token.Val) {
+			p.next()
+		} else {
+			decl = token.Synthetic(token.Val, token.Val.String())
+		}
+
+		x := p.parseOperand()
+		return &ir.AddressExpr{And: and, Decl: decl, X: x}
 	}
 	return p.parseOperand()
 }
 
-func (p *parser) parseAddressExpr() ir.Expr {
-	and := p.token
-	p.expect(token.And)
-
-	decl := p.token
-	if p.token.OneOf(token.Var, token.Val) {
-		p.next()
-	} else {
-		decl = token.Synthetic(token.Val, token.Val.String())
-	}
-
-	x := p.parseExpr()
-	return &ir.AddressExpr{And: and, Decl: decl, X: x}
-}
-
 func (p *parser) parseOperand() ir.Expr {
-	var x ir.Expr
+	var expr ir.Expr
 	if p.token.Is(token.Cast) {
-		x = p.parseCastExpr()
+		expr = p.parseCastExpr()
 	} else if p.token.Is(token.Lparen) {
 		p.next()
-		x = p.parseExpr()
+		expr = p.parseExpr()
 		p.expect(token.Rparen)
 	} else if p.token.Is(token.Lbrack) {
-		x = p.parseArrayLit()
+		expr = p.parseArrayLit()
 	} else if p.token.Is(token.Ident) {
 		ident := p.parseIdent()
 		if !p.inCondition && p.token.Is(token.Lbrace) {
-			x = p.parseStructLit(ident)
+			expr = p.parseStructLit(ident)
 		} else if p.token.Is(token.String) {
-			x = p.parseBasicLit(ident)
+			expr = p.parseBasicLit(ident)
 		} else {
-			x = ident
+			expr = ident
 		}
 	} else {
-		x = p.parseBasicLit(nil)
+		expr = p.parseBasicLit(nil)
 	}
-	return p.parsePrimary(x)
+	return p.parsePrimary(expr)
 }
 
 func (p *parser) parseCastExpr() *ir.CastExpr {

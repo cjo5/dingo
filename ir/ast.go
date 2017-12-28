@@ -659,3 +659,56 @@ func CopyExpr(expr Expr, includePositions bool) Expr {
 		panic(fmt.Sprintf("Unhandled CopyExpr src %T", src))
 	}
 }
+
+// Lower number means higher precedence.
+
+// LowestPrec is the initial precedence used in parsing.
+const LowestPrec int = 100
+
+// BinaryPrec returns the precedence for a binary operation.
+func BinaryPrec(op token.ID) int {
+	switch op {
+	case token.Mul, token.Div, token.Mod:
+		return 5
+	case token.Add, token.Sub:
+		return 6
+	case token.Lt, token.LtEq, token.Gt, token.GtEq:
+		return 9
+	case token.Eq, token.Neq:
+		return 10
+	case token.Land:
+		return 14
+	case token.Lor:
+		return 15
+	default:
+		panic(fmt.Sprintf("Unhandled binary op %s", op))
+	}
+}
+
+// UnaryPrec returns the precedence for a unary operation.
+func UnaryPrec(op token.ID) int {
+	switch op {
+	case token.Lnot, token.Sub, token.Mul, token.And:
+		return 3
+	default:
+		panic(fmt.Sprintf("Unhandled unary op %s", op))
+	}
+}
+
+// ExprPrec returns the precedence for an expression.
+func ExprPrec(expr Expr) int {
+	switch t := expr.(type) {
+	case *BinaryExpr:
+		return BinaryPrec(t.Op.ID)
+	case *UnaryExpr:
+		return UnaryPrec(t.Op.ID)
+	case *AddressExpr:
+		return UnaryPrec(t.And.ID)
+	case *IndexExpr, *SliceExpr, *DotExpr, *CastExpr, *FuncCall:
+		return 1
+	case *BasicLit, *StructLit, *Ident:
+		return 0
+	default:
+		panic(fmt.Sprintf("Unhandled expr %T", expr))
+	}
+}

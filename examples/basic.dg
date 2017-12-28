@@ -1,13 +1,9 @@
 include "std/io.dg"
 
 pub fun main() {
-    var a [5:i32]
-    for i = 0; i < a.len; i++ {
-        a[i] = i
-    }
-    var b = &var a[2:4]
-    b[0] = 99
-    for i = 0; i < a.len; i++ {
-        puti(a[i])
+    var a = 2
+    puti(5*5+15/3)
+    if &a == &a {
+        puts(c"true")
     }
 }
