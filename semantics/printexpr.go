@@ -126,6 +126,9 @@ func (p *exprPrinter) VisitSliceExpr(expr *ir.SliceExpr) ir.Expr {
 }
 
 func (p *exprPrinter) VisitBasicLit(expr *ir.BasicLit) ir.Expr {
+	if expr.Prefix != nil {
+		ir.VisitExpr(p, expr.Prefix)
+	}
 	p.buffer.WriteString(expr.Value.Literal)
 	return expr
 }

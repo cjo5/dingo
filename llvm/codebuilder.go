@@ -690,9 +690,15 @@ func (cb *codeBuilder) buildBasicLit(expr *ir.BasicLit) llvm.Value {
 			ptr = llvm.ConstBitCast(arr, llvm.PointerType(llvm.Int8Type(), 0))
 		}
 
-		size := cb.createSliceSize(strLen)
-		slice := cb.createSliceStruct(ptr, size, expr.Type())
-		return slice
+		if expr.T.ID() == ir.TSlice {
+			size := cb.createSliceSize(strLen)
+			slice := cb.createSliceStruct(ptr, size, expr.Type())
+			return slice
+		} else if expr.T.ID() == ir.TPointer {
+			return ptr
+		}
+
+		panic(fmt.Sprintf("Unhandled string literal type %T", expr.T))
 	}
 
 	llvmType := cb.toLLVMType(expr.T)

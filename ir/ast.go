@@ -476,6 +476,7 @@ func (x *SliceExpr) ReadOnly() bool {
 
 type BasicLit struct {
 	baseExpr
+	Prefix  *Ident
 	Value   token.Token
 	Raw     interface{}
 	Rewrite int

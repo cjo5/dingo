@@ -23,7 +23,7 @@ pub fun main() {
     puti(b[2])
     puti(c[0])
 
-    puts("".ptr)
+    puts(c"")
 
     puti(a.len)
     puti(b.len)

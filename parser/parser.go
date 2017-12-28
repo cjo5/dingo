@@ -671,12 +671,16 @@ func (p *parser) parseOperand() ir.Expr {
 	} else if p.token.Is(token.Lbrack) {
 		x = p.parseArrayLit()
 	} else if p.token.Is(token.Ident) {
-		x = p.parseIdent()
+		ident := p.parseIdent()
 		if !p.inCondition && p.token.Is(token.Lbrace) {
-			x = p.parseStructLit(x)
+			x = p.parseStructLit(ident)
+		} else if p.token.Is(token.String) {
+			x = p.parseBasicLit(ident)
+		} else {
+			x = ident
 		}
 	} else {
-		x = p.parseBasicLit()
+		x = p.parseBasicLit(nil)
 	}
 	return p.parsePrimary(x)
 }
@@ -769,12 +773,12 @@ func (p *parser) parseFuncCall(expr ir.Expr) ir.Expr {
 	return &ir.FuncCall{X: expr, Lparen: lparen, Args: args, Rparen: rparen}
 }
 
-func (p *parser) parseBasicLit() ir.Expr {
+func (p *parser) parseBasicLit(prefix *ir.Ident) ir.Expr {
 	switch p.token.ID {
 	case token.Integer, token.Float, token.String, token.True, token.False, token.Null:
 		tok := p.token
 		p.next()
-		return &ir.BasicLit{Value: tok}
+		return &ir.BasicLit{Prefix: prefix, Value: tok}
 	default:
 		tok := p.token
 		p.error(tok, "got '%s', expected expression", tok.Quote())

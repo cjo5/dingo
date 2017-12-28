@@ -546,8 +546,17 @@ func (v *typeVisitor) VisitBasicLit(expr *ir.BasicLit) ir.Expr {
 		expr.T = ir.TBuiltinBool
 	} else if expr.Value.ID == token.String {
 		if expr.Raw == nil {
-			expr.T = ir.NewSliceType(ir.TBuiltinInt8, true, true)
-			expr.Raw = unescapeStringLiteral(expr.Value.Literal)
+			raw := unescapeStringLiteral(expr.Value.Literal)
+			if expr.Prefix == nil {
+				expr.T = ir.NewSliceType(ir.TBuiltinInt8, true, true)
+				expr.Raw = raw
+			} else if expr.Prefix.Literal() == "c" {
+				expr.T = ir.NewPointerType(ir.TBuiltinInt8, true)
+				expr.Raw = raw
+			} else {
+				v.c.error(expr.Prefix.FirstPos(), "invalid string prefix '%s'", PrintExpr(expr.Prefix))
+				expr.T = ir.TBuiltinUntyped
+			}
 		}
 	} else if expr.Value.ID == token.Integer {
 		if expr.Raw == nil {
@@ -556,9 +565,11 @@ func (v *typeVisitor) VisitBasicLit(expr *ir.BasicLit) ir.Expr {
 			_, ok := val.SetString(normalized, 0)
 			if !ok {
 				v.c.error(expr.Value.Pos, "unable to interpret integer literal '%s'", normalized)
+				expr.T = ir.TBuiltinUntyped
+			} else {
+				expr.T = ir.NewBasicType(ir.TBigInt)
+				expr.Raw = val
 			}
-			expr.T = ir.NewBasicType(ir.TBigInt)
-			expr.Raw = val
 		}
 	} else if expr.Value.ID == token.Float {
 		if expr.Raw == nil {
