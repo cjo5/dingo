@@ -377,6 +377,16 @@ type ArrayTypeExpr struct {
 
 func (x *ArrayTypeExpr) FirstPos() token.Position { return x.Lbrack.Pos }
 
+type FuncTypeExpr struct {
+	baseExpr
+	Lparen token.Token
+	Params []Expr
+	Return Expr
+	Rparen token.Token
+}
+
+func (x *FuncTypeExpr) FirstPos() token.Position { return x.Lparen.Pos }
+
 type BinaryExpr struct {
 	baseExpr
 	Left  Expr

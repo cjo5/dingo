@@ -106,29 +106,36 @@ func (p *parser) syncStmt() {
 	}
 }
 
-func (p *parser) match(id token.ID) bool {
-	if !p.token.Is(id) {
-		return false
-	}
+func (p *parser) expect2(id token.ID, sync bool) bool {
+	tok := p.token
 	p.next()
-	return true
-}
-
-func (p *parser) expect(id token.ID) bool {
-	if !p.match(id) {
-		p.error(p.token, "got '%s', expected '%s'", p.token.Quote(), id)
-		p.next()
+	if !tok.Is(id) {
+		p.error(tok, "got '%s', expected '%s'", tok.Quote(), id)
+		if sync {
+			panic(parseError{tok})
+		}
 		return false
 	}
 	return true
 }
 
-func (p *parser) expectSemi() bool {
+func (p *parser) expect1(id token.ID) bool {
+	return p.expect2(id, true)
+}
+
+func (p *parser) expectSemi1(sync bool) bool {
 	if !p.token.OneOf(token.Rbrace, token.Rbrack) {
-		if !p.match(token.Semicolon) {
-			p.error(p.token, "got '%s', expected semicolon or newline", p.token.Quote())
-			p.next()
+		tok := p.token
+		p.next()
+
+		if !tok.Is(token.Semicolon) {
+			p.error(p.token, "got '%s', expected semicolon or newline", tok.Quote())
+			if sync {
+				panic(parseError{tok})
+			}
+			return false
 		}
+
 		for p.token.Is(token.Semicolon) {
 			p.next()
 		}
@@ -136,18 +143,8 @@ func (p *parser) expectSemi() bool {
 	return true
 }
 
-func (p *parser) consume(id token.ID) bool {
-	if !p.expect(id) {
-		panic(parseError{p.token})
-	}
-	return true
-}
-
-func (p *parser) consumeSemi() bool {
-	if !p.expectSemi() {
-		panic(parseError{p.token})
-	}
-	return true
+func (p *parser) expectSemi0() bool {
+	return p.expectSemi1(true)
 }
 
 // Fix support for fatal parse errors.
@@ -166,8 +163,8 @@ func (p *parser) parseFile() (*ir.File, []ir.TopDecl) {
 		file.Ctx.Decl = p.token
 		p.next()
 		file.Ctx.Module = p.token
-		p.expect(token.Ident)
-		p.expectSemi()
+		p.expect2(token.Ident, false)
+		p.expectSemi1(false)
 	} else {
 		file.Ctx.Decl = token.Synthetic(token.Module, token.Module.String())
 		file.Ctx.Module = token.Synthetic(token.Ident, "")
@@ -196,10 +193,10 @@ func (p *parser) parseInclude() *ir.Include {
 	tok := p.token
 	p.next()
 	path := p.token
-	if !p.expect(token.String) {
+	if !p.expect2(token.String, false) {
 		return nil
 	}
-	p.expectSemi()
+	p.expectSemi1(false)
 	return &ir.Include{Include: tok, Literal: path}
 }
 
@@ -223,13 +220,13 @@ func (p *parser) parseTopDecl() (decl ir.TopDecl) {
 
 	if p.token.ID == token.Var || p.token.ID == token.Val {
 		decl = p.parseValTopDecl(visibility)
-		p.consumeSemi()
+		p.expectSemi0()
 	} else if p.token.ID == token.Func {
 		decl = p.parseFuncDecl(visibility)
-		p.consumeSemi()
+		p.expectSemi0()
 	} else if p.token.ID == token.Struct {
 		decl = p.parseStructDecl(visibility)
-		p.consumeSemi()
+		p.expectSemi0()
 	} else {
 		p.error(p.token, "got '%s', expected declaration", p.token.Quote())
 		p.syncDecl()
@@ -258,11 +255,9 @@ func (p *parser) parseValDeclSpec() ir.ValDeclSpec {
 	p.next()
 
 	decl.Name = p.token
-	p.consume(token.Ident)
+	p.expect1(token.Ident)
 
-	if !p.token.Is(token.Assign) {
-		decl.Type = p.parseTypeSpec()
-	}
+	decl.Type = p.parseType(true)
 
 	if p.token.Is(token.Assign) {
 		p.next()
@@ -284,9 +279,9 @@ func (p *parser) parseField(flags int, defaultDecl token.ID) *ir.ValDecl {
 	}
 
 	decl.Name = p.token
-	p.consume(token.Ident)
+	p.expect1(token.Ident)
 
-	decl.Type = p.parseTypeSpec()
+	decl.Type = p.parseType(false)
 	return decl
 }
 
@@ -296,15 +291,15 @@ func (p *parser) parseFuncDecl(visibility token.Token) *ir.FuncDecl {
 	decl.Decl = p.token
 	p.next()
 	decl.Name = p.token
-	p.consume(token.Ident)
+	p.expect1(token.Ident)
 
 	decl.Lparen = p.token
-	p.consume(token.Lparen)
+	p.expect1(token.Lparen)
 	flags := ir.AstFlagNoInit
 	if !p.token.Is(token.Rparen) {
 		decl.Params = append(decl.Params, p.parseField(flags, token.Val))
 		for !p.token.OneOf(token.EOF, token.Rparen) {
-			p.consume(token.Comma)
+			p.expect1(token.Comma)
 			if p.token.Is(token.Rparen) {
 				break
 			}
@@ -312,11 +307,10 @@ func (p *parser) parseFuncDecl(visibility token.Token) *ir.FuncDecl {
 		}
 	}
 	decl.Rparen = p.token
-	p.consume(token.Rparen)
+	p.expect1(token.Rparen)
 
-	if !p.token.OneOf(token.Lbrace, token.Semicolon) {
-		decl.TReturn = p.parseTypeSpec()
-	} else {
+	decl.TReturn = p.parseType(true)
+	if decl.TReturn == nil {
 		decl.TReturn = &ir.Ident{Name: token.Synthetic(token.Ident, ir.TVoid.String())}
 	}
 
@@ -334,18 +328,18 @@ func (p *parser) parseStructDecl(visibility token.Token) *ir.StructDecl {
 	decl.Decl = p.token
 	p.next()
 	decl.Name = p.token
-	p.consume(token.Ident)
+	p.expect1(token.Ident)
 
 	decl.Lbrace = p.token
-	p.consume(token.Lbrace)
+	p.expect1(token.Lbrace)
 	flags := ir.AstFlagNoInit
 	for !p.token.OneOf(token.EOF, token.Rbrace) {
 		decl.Fields = append(decl.Fields, p.parseField(flags, token.Var))
-		p.consumeSemi()
+		p.expectSemi0()
 	}
 
 	decl.Rbrace = p.token
-	p.consume(token.Rbrace)
+	p.expect1(token.Rbrace)
 
 	return decl
 }
@@ -388,14 +382,14 @@ func (p *parser) parseStmt() (stmt ir.Stmt) {
 	} else {
 		stmt = p.parseExprOrAssignStmt()
 	}
-	p.consumeSemi()
+	p.expectSemi0()
 	return stmt
 }
 
 func (p *parser) parseBlockStmt() *ir.BlockStmt {
 	block := &ir.BlockStmt{}
 	block.Lbrace = p.token
-	p.consume(token.Lbrace)
+	p.expect1(token.Lbrace)
 	for p.token.ID != token.Rbrace && p.token.ID != token.EOF {
 		stmt := p.parseStmt()
 		if stmt != nil {
@@ -403,7 +397,7 @@ func (p *parser) parseBlockStmt() *ir.BlockStmt {
 		}
 	}
 	block.Rbrace = p.token
-	p.consume(token.Rbrace)
+	p.expect1(token.Rbrace)
 	return block
 }
 
@@ -452,17 +446,15 @@ func (p *parser) parseForStmt() *ir.ForStmt {
 		s.Init.Decl = token.Synthetic(token.Var, token.Var.String())
 
 		s.Init.Name = p.token
-		p.expect(token.Ident)
+		p.expect1(token.Ident)
 
-		if !p.token.Is(token.Assign) {
-			s.Init.Type = p.parseTypeSpec()
-		}
+		s.Init.Type = p.parseType(true)
 
-		p.expect(token.Assign)
+		p.expect1(token.Assign)
 		s.Init.Initializer = p.parseExpr()
 	}
 
-	p.expect(token.Semicolon)
+	p.expectSemi0()
 
 	if p.token.ID != token.Semicolon {
 		p.inCondition = true
@@ -470,7 +462,7 @@ func (p *parser) parseForStmt() *ir.ForStmt {
 		p.inCondition = false
 	}
 
-	p.expect(token.Semicolon)
+	p.expectSemi0()
 
 	if p.token.ID != token.Lbrace {
 		s.Inc = p.parseExprOrAssignStmt()
@@ -519,47 +511,79 @@ func (p *parser) parseExprOrAssignStmt() ir.Stmt {
 	return stmt
 }
 
-func (p *parser) parseTypeSpec() ir.Expr {
+func (p *parser) parseType(optional bool) ir.Expr {
 	if p.token.Is(token.Mul) {
 		return p.parsePointerType()
 	} else if p.token.Is(token.Lbrack) {
 		return p.parseArrayType()
+	} else if p.token.Is(token.Lparen) {
+		return p.parseFuncType()
+	} else if p.token.Is(token.Ident) {
+		tok := p.token
+		p.expect1(token.Ident)
+		return &ir.Ident{Name: tok}
+	} else if optional {
+		return nil
 	}
-	tok := p.token
-	p.expect(token.Ident)
-	return &ir.Ident{Name: tok}
+	p.error(p.token, "got '%s', expected type", p.token.Quote())
+	panic(parseError{p.token})
 }
 
 func (p *parser) parsePointerType() ir.Expr {
 	tok := p.token
-	p.expect(token.Mul)
+	p.expect1(token.Mul)
 	decl := p.token
 	if p.token.OneOf(token.Var, token.Val) {
 		p.next()
 	} else {
 		decl = token.Synthetic(token.Val, token.Val.String())
 	}
-	x := p.parseTypeSpec()
+	x := p.parseType(false)
 	return &ir.PointerTypeExpr{Pointer: tok, Decl: decl, X: x}
 }
 
 func (p *parser) parseArrayType() ir.Expr {
 	array := &ir.ArrayTypeExpr{}
 	array.Lbrack = p.token
-	p.expect(token.Lbrack)
+	p.expect1(token.Lbrack)
 
 	if !p.token.Is(token.Colon) {
 		array.Size = p.parseExpr()
 	}
 
 	array.Colon = p.token
-	p.expect(token.Colon)
+	p.expect1(token.Colon)
 
-	array.X = p.parseTypeSpec()
+	array.X = p.parseType(false)
 
 	array.Rbrack = p.token
-	p.expect(token.Rbrack)
+	p.expect1(token.Rbrack)
 	return array
+}
+
+func (p *parser) parseFuncType() ir.Expr {
+	fun := &ir.FuncTypeExpr{}
+
+	fun.Lparen = p.token
+	p.expect1(token.Lparen)
+
+	if !p.token.Is(token.Rparen) {
+		fun.Params = append(fun.Params, p.parseType(false))
+		for !p.token.Is(token.Rparen) {
+			p.expect1(token.Comma)
+			fun.Params = append(fun.Params, p.parseType(false))
+		}
+	}
+
+	fun.Rparen = p.token
+	p.expect1(token.Rparen)
+
+	fun.Return = p.parseType(true)
+	if fun.Return == nil {
+		fun.Return = &ir.Ident{Name: token.Synthetic(token.Ident, ir.TVoid.String())}
+	}
+
+	return fun
 }
 
 func (p *parser) parseExpr() ir.Expr {
@@ -589,7 +613,7 @@ func (p *parser) parseUnaryExpr() ir.Expr {
 		return &ir.UnaryExpr{Op: op, X: x}
 	} else if p.token.Is(token.And) {
 		and := p.token
-		p.expect(token.And)
+		p.expect1(token.And)
 
 		decl := p.token
 		if p.token.OneOf(token.Var, token.Val) {
@@ -611,7 +635,7 @@ func (p *parser) parseOperand() ir.Expr {
 	} else if p.token.Is(token.Lparen) {
 		p.next()
 		expr = p.parseExpr()
-		p.expect(token.Rparen)
+		p.expect1(token.Rparen)
 	} else if p.token.Is(token.Lbrack) {
 		expr = p.parseArrayLit()
 	} else if p.token.Is(token.Ident) {
@@ -634,12 +658,12 @@ func (p *parser) parseCastExpr() *ir.CastExpr {
 	cast.Cast = p.token
 	p.next()
 	cast.Lparen = p.token
-	p.expect(token.Lparen)
-	cast.ToTyp = p.parseTypeSpec()
-	p.expect(token.Comma)
+	p.expect1(token.Lparen)
+	cast.ToTyp = p.parseType(false)
+	p.expect1(token.Comma)
 	cast.X = p.parseExpr()
 	cast.Rparen = p.token
-	p.expect(token.Rparen)
+	p.expect1(token.Rparen)
 	return cast
 }
 
@@ -660,7 +684,7 @@ func (p *parser) parseSliceOrIndexExpr(expr ir.Expr) ir.Expr {
 	colon := token.Synthetic(token.Invalid, token.Invalid.String())
 
 	lbrack := p.token
-	p.expect(token.Lbrack)
+	p.expect1(token.Lbrack)
 
 	if !p.token.Is(token.Colon) {
 		index1 = p.parseExpr()
@@ -675,7 +699,7 @@ func (p *parser) parseSliceOrIndexExpr(expr ir.Expr) ir.Expr {
 	}
 
 	rbrack := p.token
-	p.expect(token.Rbrack)
+	p.expect1(token.Rbrack)
 
 	if colon.IsValid() {
 		return &ir.SliceExpr{X: expr, Lbrack: lbrack, Start: index1, Colon: colon, End: index2, Rbrack: rbrack}
@@ -687,25 +711,25 @@ func (p *parser) parseSliceOrIndexExpr(expr ir.Expr) ir.Expr {
 
 func (p *parser) parseIdent() *ir.Ident {
 	tok := p.token
-	p.consume(token.Ident)
+	p.expect1(token.Ident)
 	return &ir.Ident{Name: tok}
 }
 
 func (p *parser) parseDotExpr(expr ir.Expr) ir.Expr {
 	dot := p.token
-	p.consume(token.Dot)
+	p.expect1(token.Dot)
 	name := p.parseIdent()
 	return &ir.DotExpr{X: expr, Dot: dot, Name: name}
 }
 
 func (p *parser) parseFuncCall(expr ir.Expr) ir.Expr {
 	lparen := p.token
-	p.consume(token.Lparen)
+	p.expect1(token.Lparen)
 	var args []ir.Expr
 	if p.token.ID != token.Rparen {
 		args = append(args, p.parseExpr())
 		for p.token.ID != token.EOF && p.token.ID != token.Rparen {
-			p.consume(token.Comma)
+			p.expect1(token.Comma)
 			if p.token.Is(token.Rparen) {
 				break
 			}
@@ -713,7 +737,7 @@ func (p *parser) parseFuncCall(expr ir.Expr) ir.Expr {
 		}
 	}
 	rparen := p.token
-	p.consume(token.Rparen)
+	p.expect1(token.Rparen)
 	return &ir.FuncCall{X: expr, Lparen: lparen, Args: args, Rparen: rparen}
 }
 
@@ -733,21 +757,21 @@ func (p *parser) parseBasicLit(prefix *ir.Ident) ir.Expr {
 
 func (p *parser) parseKeyValue() *ir.KeyValue {
 	key := p.token
-	p.consume(token.Ident)
+	p.expect1(token.Ident)
 	equal := p.token
-	p.consume(token.Assign)
+	p.expect1(token.Assign)
 	value := p.parseExpr()
 	return &ir.KeyValue{Key: key, Equal: equal, Value: value}
 }
 
 func (p *parser) parseStructLit(name ir.Expr) ir.Expr {
 	lbrace := p.token
-	p.expect(token.Lbrace)
+	p.expect1(token.Lbrace)
 	var inits []*ir.KeyValue
 	if !p.token.Is(token.Rbrace) {
 		inits = append(inits, p.parseKeyValue())
 		for p.token.ID != token.EOF && p.token.ID != token.Rbrace {
-			p.expect(token.Comma)
+			p.expect1(token.Comma)
 			if p.token.Is(token.Rbrace) {
 				break
 			}
@@ -755,18 +779,18 @@ func (p *parser) parseStructLit(name ir.Expr) ir.Expr {
 		}
 	}
 	rbrace := p.token
-	p.expect(token.Rbrace)
+	p.expect1(token.Rbrace)
 	return &ir.StructLit{Name: name, Lbrace: lbrace, Initializers: inits, Rbrace: rbrace}
 }
 
 func (p *parser) parseArrayLit() ir.Expr {
 	lbrack := p.token
-	p.expect(token.Lbrack)
+	p.expect1(token.Lbrack)
 	var inits []ir.Expr
 	if !p.token.Is(token.Rbrack) {
 		inits = append(inits, p.parseExpr())
 		for p.token.ID != token.EOF && p.token.ID != token.Rbrack {
-			p.expect(token.Comma)
+			p.expect1(token.Comma)
 			if p.token.Is(token.Rbrack) {
 				break
 			}
@@ -774,6 +798,6 @@ func (p *parser) parseArrayLit() ir.Expr {
 		}
 	}
 	rbrack := p.token
-	p.expect(token.Rbrack)
+	p.expect1(token.Rbrack)
 	return &ir.ArrayLit{Lbrack: lbrack, Initializers: inits, Rbrack: rbrack}
 }

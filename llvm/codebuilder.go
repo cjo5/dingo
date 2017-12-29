@@ -480,6 +480,14 @@ func (cb *codeBuilder) toLLVMType(t ir.Type) llvm.Type {
 		tptr := t.(*ir.PointerType)
 		tunderlying := cb.toLLVMType(tptr.Underlying)
 		return llvm.PointerType(tunderlying, 0)
+	case ir.TFunc:
+		tfun := t.(*ir.FuncType)
+		var params []llvm.Type
+		for _, param := range tfun.Params {
+			params = append(params, cb.toLLVMType(param))
+		}
+		ret := cb.toLLVMType(tfun.Return)
+		return llvm.PointerType(llvm.FunctionType(ret, params, false), 0)
 	default:
 		panic(fmt.Sprintf("Unhandled type %s", t.ID()))
 	}
@@ -715,15 +723,15 @@ func (cb *codeBuilder) buildBasicLit(expr *ir.BasicLit) llvm.Value {
 	} else if expr.Value.ID == token.False {
 		return llvm.ConstInt(llvmType, 0, false)
 	} else if expr.Value.ID == token.Null {
-		if expr.T.ID() == ir.TSlice {
-			tslice := expr.T.(*ir.SliceType)
-			tptr := llvm.PointerType(cb.toLLVMType(tslice.Elem), 0)
+		switch t := expr.T.(type) {
+		case *ir.SliceType:
+			tptr := llvm.PointerType(cb.toLLVMType(t.Elem), 0)
 			ptr := llvm.ConstPointerNull(tptr)
 			size := cb.createSliceSize(0)
 			return cb.createSliceStruct(ptr, size, expr.T)
-
+		case *ir.PointerType, *ir.FuncType:
+			return llvm.ConstPointerNull(llvmType)
 		}
-		return llvm.ConstPointerNull(llvmType)
 	}
 
 	panic(fmt.Sprintf("Unhandled basic lit %s, type %s", expr.Value.ID, expr.T))
@@ -756,12 +764,18 @@ func (cb *codeBuilder) buildArrayLit(expr *ir.ArrayLit) llvm.Value {
 }
 
 func (cb *codeBuilder) buildIdent(expr *ir.Ident, load bool) llvm.Value {
+	if expr.Sym.ID == ir.FuncSymbol {
+		return cb.mod.NamedFunction(expr.Sym.Name)
+	}
+
 	if val, ok := cb.values[expr.Sym]; ok {
+
 		if load {
 			return cb.b.CreateLoad(val, expr.Sym.Name)
 		}
 		return val
 	}
+
 	panic(fmt.Sprintf("%s not found", expr.Sym))
 }
 
@@ -889,14 +903,16 @@ func (cb *codeBuilder) buildCastExpr(expr *ir.CastExpr) llvm.Value {
 }
 
 func (cb *codeBuilder) buildFuncCall(expr *ir.FuncCall) llvm.Value {
+	fun := cb.buildExprVal(expr.X)
+
 	var args []llvm.Value
 	for _, arg := range expr.Args {
 		args = append(args, cb.buildExprVal(arg))
 	}
-	sym := ir.ExprSymbol(expr.X)
-	fun := cb.mod.NamedFunction(sym.Name)
+
 	return cb.b.CreateCall(fun, args, "")
 }
+
 func (cb *codeBuilder) buildAddressExpr(expr *ir.AddressExpr, load bool) llvm.Value {
 	return cb.buildExprPtr(expr.X)
 }

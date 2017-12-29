@@ -9,18 +9,19 @@ File = ['module' IDENT ';'] Include* TopDecl*
 Include = 'include' STRING ';'
 TopDecl = Visibility? Decl ';'
 Decl = ValDecl | FuncDecl | StructDecl
-ValDecl = ('val' | 'var') IDENT (TypeSpec | (TypeSpec? '=' Expr))
+ValDecl = ('val' | 'var') IDENT (Type | (Type? '=' Expr))
 FuncDecl = 'func' IDENT Func
 StructDecl = 'struct' IDENT Struct
 
 Visibility = 'pub' | 'priv' 
-TypeSpec = PointerType | ArrayType | IDENT
-PointerType = '*' ['val' | 'var'] TypeSpec
-ArrayType = '[' INTEGER? ':' TypeSpec ']'
-Field = ['val' | 'var'] IDENT TypeSpec
+Type = PointerType | ArrayType | FuncType | IDENT
+PointerType = '*' ['val' | 'var'] Type
+ArrayType = '[' INTEGER? ':' Type ']'
+FuncType '(' Type? [',' Type]  ')' Type?
+Field = ['val' | 'var'] IDENT Type
 Struct= '{' {Field ';'} '}'
-FuncSignature = '(' [Field {',' Field} ','?] ')' TypeSpec?
 Func = FuncSignature (Block | ';')
+FuncSignature = '(' [Field {',' Field} ','?] ')' Type?
 
 Block = '{' Stmt* '}'
 Stmt = [Block | ValDecl | Expr | AssignStmt | 'if' IfStmt | WhileStmt |
@@ -28,7 +29,7 @@ Stmt = [Block | ValDecl | Expr | AssignStmt | 'if' IfStmt | WhileStmt |
 AssignStmt = Expr ('++' | '--' | ('=' | '+=' | '-=' | '*=' | '/=' | '%=' ) Expr)
 IfStmt = Condition Block [('elif' IfStmt) | ('else' Block)]
 WhileStmt = 'while' Condition Block
-ForStmt 'for' [IDENT TypeSpec? '=' Expr] ';' Condition? ';' [AssignStmt | Expr] Block
+ForStmt 'for' [IDENT Type? '=' Expr] ';' Condition? ';' [AssignStmt | Expr] Block
 ReturnStmt = 'return' [Expr]
 
 Condition = BinaryExpr
@@ -38,7 +39,7 @@ BinaryOp = '||' | '&&' | '!=' | '==' | '>' | '>=' | '<' | '<='
                 | '-' | '+' | '/' | '%' | '*'
 UnaryExpr = [('!' | '-' | '*') | ('&' ['val' | 'var'])] Operand
 Operand = (CastExpr | IDENT | Literal | '(' Expr ')') Primary
-CastExpr = 'cast' '(' TypeSpec ',' Expr ')'
+CastExpr = 'cast' '(' Type ',' Expr ')'
 
 Primary = [SliceExpr | IndexExpr | FuncCall | DotExpr]
 SliceExpr = '[' Expr? ':' Expr? ']'

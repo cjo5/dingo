@@ -317,8 +317,7 @@ func (t *PointerType) String() string {
 
 type FuncType struct {
 	baseType
-	Sym    *Symbol
-	Params []*Field
+	Params []Type
 	Return Type
 }
 
@@ -331,7 +330,7 @@ func (t *FuncType) Equals(other Type) bool {
 			return false
 		}
 		for i := 0; i < len(t.Params); i++ {
-			if !t.Params[i].T.Equals(t2.Params[i].T) {
+			if !t.Params[i].Equals(t2.Params[i]) {
 				return false
 			}
 		}
@@ -343,13 +342,17 @@ func (t *FuncType) Equals(other Type) bool {
 func (t *FuncType) String() string {
 	var buf bytes.Buffer
 	buf.WriteString("(")
-	for i, p := range t.Params {
-		buf.WriteString(p.T.String())
+	for i, param := range t.Params {
+		buf.WriteString(param.String())
 		if (i + 1) < len(t.Params) {
 			buf.WriteString(", ")
 		}
 	}
-	buf.WriteString(fmt.Sprintf(") -> %s", t.Return))
+	buf.WriteString(")")
+	if t.Return.ID() != TVoid {
+		buf.WriteString(" ")
+		buf.WriteString(t.Return.String())
+	}
 	return buf.String()
 }
 
@@ -408,12 +411,8 @@ func NewPointerType(Underlying Type, readOnly bool) Type {
 	return t
 }
 
-func NewFuncType(decl *FuncDecl) Type {
-	t := &FuncType{Sym: decl.Sym}
-	for _, param := range decl.Params {
-		t.Params = append(t.Params, &Field{Sym: param.Sym, T: param.Type.Type()})
-	}
-	t.Return = decl.TReturn.Type()
+func NewFuncType(params []Type, ret Type) Type {
+	t := &FuncType{Params: params, Return: ret}
 	t.id = TFunc
 	return t
 }

@@ -120,6 +120,14 @@ func (v *dependencyVisitor) VisitArrayTypeExpr(expr *ir.ArrayTypeExpr) ir.Expr {
 	return expr
 }
 
+func (v *dependencyVisitor) VisitFuncTypeExpr(expr *ir.FuncTypeExpr) ir.Expr {
+	for _, param := range expr.Params {
+		ir.VisitExpr(v, param)
+	}
+	ir.VisitExpr(v, expr.Return)
+	return expr
+}
+
 func (v *dependencyVisitor) VisitBinaryExpr(expr *ir.BinaryExpr) ir.Expr {
 	ir.VisitExpr(v, expr.Left)
 	ir.VisitExpr(v, expr.Right)

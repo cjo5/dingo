@@ -142,23 +142,31 @@ func (v *typeVisitor) VisitFuncDecl(decl *ir.FuncDecl) {
 	defer setScope(setScope(v.c, decl.Scope))
 
 	if v.signature {
+		var tparams []ir.Type
+
 		for _, param := range decl.Params {
 			v.VisitValDecl(param)
+			if param.Sym.T == nil || ir.IsUntyped(param.Sym.T) {
+				tparams = append(tparams, ir.TBuiltinUntyped)
+			} else {
+				tparams = append(tparams, param.Sym.T)
+			}
 		}
+
 		v.exprMode = exprModeType
 		decl.TReturn = ir.VisitExpr(v, decl.TReturn)
 		v.exprMode = exprModeNone
 
-		typ := ir.NewFuncType(decl)
+		tfun := ir.NewFuncType(tparams, decl.TReturn.Type())
 
-		if decl.Sym.T != nil && !v.c.checkTypes(decl.Sym.T, typ) {
+		if decl.Sym.T != nil && !v.c.checkTypes(decl.Sym.T, tfun) {
 			v.c.error(decl.Name.Pos, "'%s' was previously declared at %s with a different type signature", decl.Name.Literal, decl.Sym.Src.FirstPos())
 		} else if decl.Visibility.ID == token.Private && !decl.Sym.Defined() {
 			v.c.error(decl.Name.Pos, "'%s' is declared as private and there's no definition in this module", decl.Name.Literal)
 		}
 
 		if decl.Sym.T == nil {
-			decl.Sym.T = typ
+			decl.Sym.T = tfun
 		}
 
 		return

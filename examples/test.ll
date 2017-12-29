@@ -39,8 +39,10 @@ declare i32 @puti(i32) #2
 ; Function Attrs: nounwind ssp uwtable
 define i32 @main() #0 {
   %1 = alloca i32, align 4
-  %2 = alloca [5 x i32], align 16
+  %2 = alloca i32 (i32)*, align 8
   store i32 0, i32* %1, align 4
+  store i32 (i32)* @puti, i32 (i32)** %2, align 8
+  %3 = load i32 (i32)*, i32 (i32)** %2, align 8
   ret i32 0
 }
 

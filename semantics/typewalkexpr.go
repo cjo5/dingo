@@ -66,7 +66,7 @@ func (v *typeVisitor) tryMakeTypedLit(expr ir.Expr, target ir.Type) bool {
 			}
 
 			return false
-		} else if ir.IsTypeID(expr.Type(), ir.TPointer) && ir.IsTypeID(target, ir.TSlice, ir.TPointer) {
+		} else if ir.IsTypeID(expr.Type(), ir.TPointer) && ir.IsTypeID(target, ir.TSlice, ir.TPointer, ir.TFunc) {
 			common.Assert(lit.Value.ID == token.Null, "pointer literal should be null")
 			tpointer := expr.Type().(*ir.PointerType)
 			if ir.IsUntyped(tpointer.Underlying) {
@@ -75,6 +75,8 @@ func (v *typeVisitor) tryMakeTypedLit(expr ir.Expr, target ir.Type) bool {
 					lit.T = ir.NewSliceType(ttarget.Elem, true, true)
 				case *ir.PointerType:
 					lit.T = ir.NewPointerType(ttarget.Underlying, true)
+				case *ir.FuncType:
+					lit.T = ir.NewFuncType(ttarget.Params, ttarget.Return)
 				default:
 					panic(fmt.Sprintf("Unhandled target type %T", ttarget))
 				}
@@ -207,6 +209,32 @@ func (v *typeVisitor) VisitArrayTypeExpr(expr *ir.ArrayTypeExpr) ir.Expr {
 		expr.T = ir.NewArrayType(expr.X.Type(), size)
 	} else {
 		expr.T = ir.NewSliceType(expr.X.Type(), true, false)
+	}
+
+	return expr
+}
+
+func (v *typeVisitor) VisitFuncTypeExpr(expr *ir.FuncTypeExpr) ir.Expr {
+	var tparams []ir.Type
+	untyped := false
+	for i, param := range expr.Params {
+		expr.Params[i] = ir.VisitExpr(v, param)
+		tparam := expr.Params[i].Type()
+		tparams = append(tparams, tparam)
+		if ir.IsUntyped(tparam) {
+			untyped = true
+		}
+	}
+
+	expr.Return = ir.VisitExpr(v, expr.Return)
+	if ir.IsUntyped(expr.Return.Type()) {
+		untyped = true
+	}
+
+	if !untyped {
+		expr.T = ir.NewFuncType(tparams, expr.Return.Type())
+	} else {
+		expr.T = ir.TBuiltinUntyped
 	}
 
 	return expr
@@ -739,6 +767,10 @@ func createDefaultBasicLit(t ir.Type) *ir.BasicLit {
 		lit = &ir.BasicLit{Value: token.Synthetic(token.Null, token.Null.String())}
 		ptr := t.(*ir.PointerType)
 		lit.T = ir.NewPointerType(ptr.Underlying, true)
+	} else if ir.IsTypeID(t, ir.TFunc) {
+		lit = &ir.BasicLit{Value: token.Synthetic(token.Null, token.Null.String())}
+		fun := t.(*ir.FuncType)
+		lit.T = ir.NewFuncType(fun.Params, fun.Return)
 	} else if !ir.IsTypeID(t, ir.TUntyped) {
 		panic(fmt.Sprintf("Unhandled init value for type %s", t.ID()))
 	}
@@ -779,9 +811,6 @@ func (v *typeVisitor) VisitIdent(expr *ir.Ident) ir.Expr {
 		expr.T = ir.TBuiltinUntyped
 	} else if v.exprMode != exprModeType && v.exprMode != exprModeFunc && sym.ID == ir.TypeSymbol {
 		v.c.error(expr.Pos(), "type %s cannot be used in an expression", sym.T)
-		expr.T = ir.TBuiltinUntyped
-	} else if v.exprMode == exprModeNone && sym.ID == ir.FuncSymbol {
-		v.c.error(expr.Pos(), "invalid function call to '%s' (missing argument list)", expr.Literal())
 		expr.T = ir.TBuiltinUntyped
 	} else {
 		expr.SetSymbol(sym)
@@ -872,36 +901,34 @@ func (v *typeVisitor) VisitFuncCall(expr *ir.FuncCall) ir.Expr {
 	v.exprMode = prevMode
 
 	t := expr.X.Type()
+
 	if ir.IsUntyped(t) {
 		expr.T = ir.TBuiltinUntyped
 		return expr
 	}
 
 	if t.ID() != ir.TFunc {
-		v.c.error(expr.X.FirstPos(), "'%s' is not a function", PrintExpr(expr.X))
+		v.c.error(expr.X.FirstPos(), "'%s' is not callable (has type %s)", PrintExpr(expr), t)
 		expr.T = ir.TBuiltinUntyped
 		return expr
 	}
 
-	funcType, _ := t.(*ir.FuncType)
+	tfun := t.(*ir.FuncType)
 
-	for i, arg := range expr.Args {
-		expr.Args[i] = v.makeTypedExpr(arg, funcType.Params[i].T)
-	}
-
-	if len(funcType.Params) != len(expr.Args) {
-		v.c.error(expr.X.FirstPos(), "'%s' takes %d argument(s) but called with %d", PrintExpr(expr.X), len(funcType.Params), len(expr.Args))
+	if len(tfun.Params) != len(expr.Args) {
+		v.c.error(expr.X.FirstPos(), "'%s' takes %d argument(s) but called with %d", PrintExpr(expr.X), len(tfun.Params), len(expr.Args))
 	} else {
 		for i, arg := range expr.Args {
-			paramType := funcType.Params[i].T
+			expr.Args[i] = v.makeTypedExpr(arg, tfun.Params[i])
+			tparam := tfun.Params[i]
 
-			argType := arg.Type()
-			if !v.c.checkTypes(argType, paramType) {
+			targ := arg.Type()
+			if !v.c.checkTypes(targ, tparam) {
 				v.c.error(arg.FirstPos(), "type mismatch: argument %d of function '%s' expects type %s (got type %s)",
-					i, PrintExpr(expr.X), paramType, argType)
+					i, PrintExpr(expr.X), tparam, targ)
 			}
 		}
-		expr.T = funcType.Return
+		expr.T = tfun.Return
 	}
 
 	if expr.T == nil {

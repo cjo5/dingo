@@ -29,6 +29,7 @@ type Visitor interface {
 	VisitBadExpr(expr *BadExpr) Expr
 	VisitPointerTypeExpr(expr *PointerTypeExpr) Expr
 	VisitArrayTypeExpr(expr *ArrayTypeExpr) Expr
+	VisitFuncTypeExpr(expr *FuncTypeExpr) Expr
 	VisitBinaryExpr(expr *BinaryExpr) Expr
 	VisitUnaryExpr(expr *UnaryExpr) Expr
 	VisitBasicLit(expr *BasicLit) Expr
@@ -85,6 +86,7 @@ func (v *BaseVisitor) VisitBadExpr(decl *BadExpr) Expr {
 
 func (v *BaseVisitor) VisitPointerTypeExpr(expr *PointerTypeExpr) Expr { return expr }
 func (v *BaseVisitor) VisitArrayTypeExpr(expr *ArrayTypeExpr) Expr     { return expr }
+func (v *BaseVisitor) VisitFuncTypeExpr(expr *FuncTypeExpr) Expr       { return expr }
 func (v *BaseVisitor) VisitBinaryExpr(expr *BinaryExpr) Expr           { return expr }
 func (v *BaseVisitor) VisitUnaryExpr(expr *UnaryExpr) Expr             { return expr }
 func (v *BaseVisitor) VisitBasicLit(expr *BasicLit) Expr               { return expr }
@@ -167,6 +169,8 @@ func VisitExpr(v Visitor, expr Expr) Expr {
 		return v.VisitPointerTypeExpr(e)
 	case *ArrayTypeExpr:
 		return v.VisitArrayTypeExpr(e)
+	case *FuncTypeExpr:
+		return v.VisitFuncTypeExpr(e)
 	case *BinaryExpr:
 		return v.VisitBinaryExpr(e)
 	case *UnaryExpr:

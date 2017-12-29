@@ -1,9 +1,19 @@
 include "std/io.dg"
 
+fun absy(x i32, y i32) i32 {
+    return x*x + y*y
+}
+
+struct Vec2 {
+    abs (i32, i32) i32
+    x i32
+    y i32
+}
+
 pub fun main() {
-    var a = 2
-    puti(5*5+15/3)
-    if &a == &a {
-        puts(c"true")
-    }
+    val v1 = Vec2{x=2, y=3, abs=absy}
+
+    val res = v1.abs(v1.x, v1.y)
+    puti(res)
+
 }
