@@ -35,9 +35,15 @@ func (v *typeChecker) VisitValTopDecl(decl *ir.ValTopDecl) {
 	if v.signature {
 		return
 	}
+
 	v.visitValDeclSpec(decl.Sym, &decl.ValDeclSpec, true)
 
-	v.checkCompileTimeContant(decl.Initializer)
+	if !ir.IsUntyped(decl.Sym.T) {
+		init := decl.Initializer
+		if !v.checkCompileTimeConstant(init) {
+			v.c.error(init.FirstPos(), "'%s' is not a compile-time constant", PrintExpr(init))
+		}
+	}
 }
 
 func (v *typeChecker) VisitValDecl(decl *ir.ValDecl) {

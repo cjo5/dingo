@@ -1,4 +1,4 @@
-//include "std/io.dg"
+include "std/io.dg"
 
 struct Vec2 {
     v fun (Vec2)
@@ -6,6 +6,13 @@ struct Vec2 {
     y i32
 }
 
+fun mul(a i32, b i32) i32 {
+    return a * b
+}
+
+val ptr = mul
+
 pub fun main() {
-    val v1 = Vec2{x=2, y=3}
+    val res = ptr(2, 3)
+    puti(res)
 }

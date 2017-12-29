@@ -160,14 +160,6 @@ func (cb *codeBuilder) buildValTopDecl(decl *ir.ValTopDecl) {
 		return
 	}
 
-	switch t := decl.Initializer.(type) {
-	case *ir.BasicLit:
-	case *ir.StructLit:
-	case *ir.ArrayLit:
-	default:
-		panic(fmt.Sprintf("%T cannot be used as global initializer in LLVM", t))
-	}
-
 	init := cb.buildExprVal(decl.Initializer)
 	loc := cb.values[sym]
 	loc.SetInitializer(init)

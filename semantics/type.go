@@ -158,24 +158,30 @@ func typeCastNumericLit(lit *ir.BasicLit, target ir.Type) numericCastResult {
 	return res
 }
 
-func (v *typeChecker) checkCompileTimeContant(expr ir.Expr) bool {
-	switch init := expr.(type) {
+func (v *typeChecker) checkCompileTimeConstant(expr ir.Expr) bool {
+	constant := true
+
+	switch t := expr.(type) {
 	case *ir.BasicLit:
 	case *ir.StructLit:
-		for _, field := range init.Initializers {
-			if !v.checkCompileTimeContant(field.Value) {
+		for _, field := range t.Initializers {
+			if !v.checkCompileTimeConstant(field.Value) {
 				return false
 			}
 		}
 	case *ir.ArrayLit:
-		for _, elem := range init.Initializers {
-			if !v.checkCompileTimeContant(elem) {
+		for _, elem := range t.Initializers {
+			if !v.checkCompileTimeConstant(elem) {
 				return false
 			}
 		}
+	case *ir.Ident:
+		if t.Sym == nil || t.Sym.ID != ir.FuncSymbol {
+			return false
+		}
 	default:
-		v.c.error(expr.FirstPos(), "'%s' is not a compile-time constant", PrintExpr(init))
-		return false
+		constant = false
 	}
-	return true
+
+	return constant
 }
