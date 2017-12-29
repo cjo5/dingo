@@ -378,7 +378,7 @@ func (t *StructType) SetBody(decl *StructDecl) Type {
 
 func NewArrayType(elem Type, size int) Type {
 	scope := NewScope(FieldScope, nil)
-	len := NewSymbol(ValSymbol, FieldScope, LenField, token.NoPosition, nil)
+	len := NewSymbol(ValSymbol, FieldScope, LenField, token.NoPosition)
 	len.Flags |= SymFlagReadOnly
 	len.T = TBuiltinInt32
 	scope.Insert(len)
@@ -390,12 +390,12 @@ func NewArrayType(elem Type, size int) Type {
 
 func NewSliceType(elem Type, readOnly bool, absorbedPtr bool) Type {
 	scope := NewScope(FieldScope, nil)
-	len := NewSymbol(ValSymbol, FieldScope, LenField, token.NoPosition, nil)
+	len := NewSymbol(ValSymbol, FieldScope, LenField, token.NoPosition)
 	len.Flags |= SymFlagReadOnly
 	len.T = TBuiltinInt32
 	scope.Insert(len)
 
-	ptr := NewSymbol(ValSymbol, FieldScope, PtrField, token.NoPosition, nil)
+	ptr := NewSymbol(ValSymbol, FieldScope, PtrField, token.NoPosition)
 	ptr.Flags |= SymFlagReadOnly
 	ptr.T = NewPointerType(elem, true)
 	scope.Insert(ptr)

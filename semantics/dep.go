@@ -14,13 +14,13 @@ type depChecker struct {
 }
 
 func depCheck(c *context) {
-	v := &depChecker{c: c}
 	c.resetWalkState()
+	v := &depChecker{c: c}
 	ir.VisitModuleSet(v, c.set)
-	v.c.sortDecls()
+	sortDecls(v.c)
 }
 
-func (c *context) sortDecls() {
+func sortDecls(c *context) {
 	for _, mod := range c.set.Modules {
 		for _, decl := range mod.Decls {
 			decl.SetNodeColor(ir.NodeColorWhite)
@@ -56,7 +56,7 @@ func (c *context) sortDecls() {
 				for i := len(cycleTrace) - 1; i >= 0; i-- {
 					s := cycleTrace[i].Symbol()
 					s.Flags |= ir.SymFlagDepCycle
-					line := cycleTrace[i].Context().Path + ":" + s.Name
+					line := cycleTrace[i].Context().Path + ":" + s.Pos.String() + ":" + s.Name
 					trace.Lines = append(trace.Lines, line)
 				}
 
@@ -99,7 +99,7 @@ func (v *depChecker) Module(mod *ir.Module) {
 	v.c.mod = mod
 	v.c.scope = mod.Scope
 	for _, decl := range mod.Decls {
-		v.c.setTopDecl(decl)
+		v.c.setCurrentTopDecl(decl)
 		ir.VisitDecl(v, decl)
 	}
 }
@@ -189,23 +189,21 @@ func (v *depChecker) VisitExprStmt(stmt *ir.ExprStmt) {
 }
 
 func (v *depChecker) VisitPointerTypeExpr(expr *ir.PointerTypeExpr) ir.Expr {
-	ir.VisitExpr(v, expr.X)
+	// Pointer types cannot be a dependency
 	return expr
 }
 
 func (v *depChecker) VisitArrayTypeExpr(expr *ir.ArrayTypeExpr) ir.Expr {
+	// Slice types cannot be a dependency
 	if expr.Size != nil {
 		ir.VisitExpr(v, expr.Size)
+		ir.VisitExpr(v, expr.X)
 	}
-	ir.VisitExpr(v, expr.X)
 	return expr
 }
 
 func (v *depChecker) VisitFuncTypeExpr(expr *ir.FuncTypeExpr) ir.Expr {
-	for _, param := range expr.Params {
-		ir.VisitExpr(v, param)
-	}
-	ir.VisitExpr(v, expr.Return)
+	// Function types cannot be a dependency
 	return expr
 }
 
@@ -238,7 +236,7 @@ func (v *depChecker) VisitArrayLit(expr *ir.ArrayLit) ir.Expr {
 func (v *depChecker) VisitIdent(expr *ir.Ident) ir.Expr {
 	sym := v.c.lookup(expr.Literal())
 	if sym != nil {
-		if decl, ok := sym.Src.(ir.TopDecl); ok {
+		if decl, ok := v.c.topDecls[sym]; ok {
 			_, isFunc1 := v.c.topDecl.(*ir.FuncDecl)
 			_, isFunc2 := decl.(*ir.FuncDecl)
 

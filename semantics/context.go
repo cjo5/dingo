@@ -41,10 +41,11 @@ func init() {
 }
 
 type context struct {
-	set    *ir.ModuleSet
-	errors *common.ErrorList
+	set      *ir.ModuleSet
+	errors   *common.ErrorList
+	topDecls map[*ir.Symbol]ir.TopDecl
 
-	// State that changes when visiting nodes
+	// State that can change during node visits
 	scope   *ir.Scope
 	mod     *ir.Module
 	fileCtx *ir.FileContext
@@ -54,6 +55,7 @@ type context struct {
 func newContext(set *ir.ModuleSet) *context {
 	c := &context{set: set, scope: builtinScope}
 	c.errors = &common.ErrorList{}
+	c.topDecls = make(map[*ir.Symbol]ir.TopDecl)
 	return c
 }
 
@@ -81,9 +83,15 @@ func (c *context) visibilityScope(tok token.Token) *ir.Scope {
 	return c.mod.Scope
 }
 
-func (c *context) setTopDecl(decl ir.TopDecl) {
+func (c *context) setCurrentTopDecl(decl ir.TopDecl) {
 	c.topDecl = decl
 	c.fileCtx = decl.Context()
+}
+
+func (c *context) mapTopDecl(sym *ir.Symbol, decl ir.TopDecl) {
+	if sym != nil {
+		c.topDecls[sym] = decl
+	}
 }
 
 func (c *context) error(pos token.Position, format string, args ...interface{}) {
@@ -94,8 +102,8 @@ func (c *context) error(pos token.Position, format string, args ...interface{}) 
 	c.errors.Add(filename, pos, common.GenericError, format, args...)
 }
 
-func (c *context) insert(scope *ir.Scope, id ir.SymbolID, name string, pos token.Position, src ir.Decl) *ir.Symbol {
-	sym := ir.NewSymbol(id, scope.ID, name, pos, src)
+func (c *context) insert(scope *ir.Scope, id ir.SymbolID, name string, pos token.Position) *ir.Symbol {
+	sym := ir.NewSymbol(id, scope.ID, name, pos)
 	if existing := scope.Insert(sym); existing != nil {
 		msg := fmt.Sprintf("redeclaration of '%s', previously declared at %s", name, existing.Pos)
 		c.error(pos, msg)

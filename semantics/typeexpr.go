@@ -807,7 +807,7 @@ func (v *typeChecker) VisitIdent(expr *ir.Ident) ir.Expr {
 	if sym == nil {
 		v.c.error(expr.Pos(), "'%s' undefined", expr.Name.Literal)
 		expr.T = ir.TBuiltinUntyped
-	} else if sym.Untyped() {
+	} else if sym.Untyped() || sym.DepCycle() {
 		expr.T = ir.TBuiltinUntyped
 	} else if v.exprMode != exprModeType && v.exprMode != exprModeFunc && sym.ID == ir.TypeSymbol {
 		v.c.error(expr.Pos(), "type %s cannot be used in an expression", sym.T)
