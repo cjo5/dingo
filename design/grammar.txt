@@ -14,10 +14,10 @@ FuncDecl = 'func' IDENT Func
 StructDecl = 'struct' IDENT Struct
 
 Visibility = 'pub' | 'priv' 
-Type = PointerType | ArrayType | FuncType | IDENT
+Type = PointerType | ArrayType | FuncType | IDENT | '(' Type ')'
 PointerType = '*' ['val' | 'var'] Type
 ArrayType = '[' INTEGER? ':' Type ']'
-FuncType '(' Type? [',' Type]  ')' Type?
+FuncType 'fun' '(' Type? [',' Type]  ')' Type?
 Field = ['val' | 'var'] IDENT Type
 Struct= '{' {Field ';'} '}'
 Func = FuncSignature (Block | ';')

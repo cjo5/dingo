@@ -45,9 +45,7 @@ struct foo {
 //struct Vec3 globalVec3 = {.v.x = 5, .v.y = 13, .z = 9 };
 
 int main() {
-        int (*func)(int) = puti;
-
-        *func;
+        (int) a;
 
         
         return 0;

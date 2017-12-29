@@ -1,7 +1,7 @@
 //include "std/io.dg"
 
 struct Vec2 {
-    v (Vec2)
+    v fun (Vec2)
     x i32
     y i32
 }

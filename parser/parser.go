@@ -516,12 +516,19 @@ func (p *parser) parseType(optional bool) ir.Expr {
 		return p.parsePointerType()
 	} else if p.token.Is(token.Lbrack) {
 		return p.parseArrayType()
-	} else if p.token.Is(token.Lparen) {
+	} else if p.token.Is(token.Func) {
 		return p.parseFuncType()
 	} else if p.token.Is(token.Ident) {
 		tok := p.token
 		p.expect1(token.Ident)
 		return &ir.Ident{Name: tok}
+	} else if p.token.Is(token.Lparen) {
+		p.next()
+		t := p.parseType(optional)
+		if t != nil {
+			p.expect1(token.Rparen)
+		}
+		return t
 	} else if optional {
 		return nil
 	}
@@ -563,6 +570,9 @@ func (p *parser) parseArrayType() ir.Expr {
 
 func (p *parser) parseFuncType() ir.Expr {
 	fun := &ir.FuncTypeExpr{}
+
+	fun.Fun = p.token
+	p.expect1(token.Func)
 
 	fun.Lparen = p.token
 	p.expect1(token.Lparen)
