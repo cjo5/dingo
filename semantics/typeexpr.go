@@ -10,7 +10,7 @@ import (
 	"github.com/jhnl/dingo/token"
 )
 
-func (v *typeVisitor) makeTypedExpr(expr ir.Expr, t ir.Type) ir.Expr {
+func (v *typeChecker) makeTypedExpr(expr ir.Expr, t ir.Type) ir.Expr {
 	expr = ir.VisitExpr(v, expr)
 	if ir.IsUntyped(expr.Type()) || (t != nil && ir.IsUntyped(t)) {
 		return expr
@@ -24,7 +24,7 @@ func (v *typeVisitor) makeTypedExpr(expr ir.Expr, t ir.Type) ir.Expr {
 		}
 	}
 
-	if !v.c.checkCompleteType(expr.Type()) {
+	if !checkCompleteType(expr.Type()) {
 		v.c.error(expr.FirstPos(), "invalid expression '%s' (incomplete type %s)", PrintExpr(expr), expr.Type())
 		switch t2 := expr.(type) {
 		case *ir.SliceExpr:
@@ -47,7 +47,7 @@ func (v *typeVisitor) makeTypedExpr(expr ir.Expr, t ir.Type) ir.Expr {
 	return expr
 }
 
-func (v *typeVisitor) tryMakeTypedLit(expr ir.Expr, target ir.Type) bool {
+func (v *typeChecker) tryMakeTypedLit(expr ir.Expr, target ir.Type) bool {
 	switch lit := expr.(type) {
 	case *ir.BasicLit:
 		if ir.IsTypeID(lit.T, ir.TBigInt, ir.TBigFloat) && ir.IsNumericType(target) {
@@ -102,7 +102,7 @@ func (v *typeVisitor) tryMakeTypedLit(expr ir.Expr, target ir.Type) bool {
 	return true
 }
 
-func (v *typeVisitor) tryMakeDefaultTypedLit(expr ir.Expr) bool {
+func (v *typeChecker) tryMakeDefaultTypedLit(expr ir.Expr) bool {
 	t := expr.Type()
 	if t.ID() == ir.TBigInt {
 		return v.tryMakeTypedLit(expr, ir.TBuiltinInt32)
@@ -149,7 +149,7 @@ func tryDeref(expr ir.Expr) ir.Expr {
 	return expr
 }
 
-func (v *typeVisitor) VisitPointerTypeExpr(expr *ir.PointerTypeExpr) ir.Expr {
+func (v *typeChecker) VisitPointerTypeExpr(expr *ir.PointerTypeExpr) ir.Expr {
 	expr.X = ir.VisitExpr(v, expr.X)
 
 	ro := expr.Decl.Is(token.Val)
@@ -171,7 +171,7 @@ func (v *typeVisitor) VisitPointerTypeExpr(expr *ir.PointerTypeExpr) ir.Expr {
 	return expr
 }
 
-func (v *typeVisitor) VisitArrayTypeExpr(expr *ir.ArrayTypeExpr) ir.Expr {
+func (v *typeChecker) VisitArrayTypeExpr(expr *ir.ArrayTypeExpr) ir.Expr {
 	size := 0
 
 	if expr.Size != nil {
@@ -214,7 +214,7 @@ func (v *typeVisitor) VisitArrayTypeExpr(expr *ir.ArrayTypeExpr) ir.Expr {
 	return expr
 }
 
-func (v *typeVisitor) VisitFuncTypeExpr(expr *ir.FuncTypeExpr) ir.Expr {
+func (v *typeChecker) VisitFuncTypeExpr(expr *ir.FuncTypeExpr) ir.Expr {
 	var tparams []ir.Type
 	untyped := false
 	for i, param := range expr.Params {
@@ -242,7 +242,7 @@ func (v *typeVisitor) VisitFuncTypeExpr(expr *ir.FuncTypeExpr) ir.Expr {
 
 // TODO: Evaluate constant boolean expressions
 
-func (v *typeVisitor) VisitBinaryExpr(expr *ir.BinaryExpr) ir.Expr {
+func (v *typeChecker) VisitBinaryExpr(expr *ir.BinaryExpr) ir.Expr {
 	expr.Left = ir.VisitExpr(v, expr.Left)
 	expr.Right = ir.VisitExpr(v, expr.Right)
 
@@ -429,7 +429,7 @@ func (v *typeVisitor) VisitBinaryExpr(expr *ir.BinaryExpr) ir.Expr {
 			typeNotSupported = leftType
 		}
 
-		if !v.c.checkTypes(leftType, rightType) {
+		if !checkTypes(v.c, leftType, rightType) {
 			v.c.error(expr.Op.Pos, "type mismatch: '%s' have different types (%s and %s)",
 				PrintExpr(expr), leftType, rightType)
 		} else if !ir.IsUntyped(leftType) && !ir.IsUntyped(rightType) {
@@ -451,7 +451,7 @@ func (v *typeVisitor) VisitBinaryExpr(expr *ir.BinaryExpr) ir.Expr {
 	return expr
 }
 
-func (v *typeVisitor) VisitUnaryExpr(expr *ir.UnaryExpr) ir.Expr {
+func (v *typeChecker) VisitUnaryExpr(expr *ir.UnaryExpr) ir.Expr {
 	expr.X = ir.VisitExpr(v, expr.X)
 	expr.T = expr.X.Type()
 	switch expr.Op.ID {
@@ -570,7 +570,7 @@ func removeUnderscores(lit string) string {
 	return res
 }
 
-func (v *typeVisitor) VisitBasicLit(expr *ir.BasicLit) ir.Expr {
+func (v *typeChecker) VisitBasicLit(expr *ir.BasicLit) ir.Expr {
 	if expr.Value.ID == token.False || expr.Value.ID == token.True {
 		expr.T = ir.TBuiltinBool
 	} else if expr.Value.ID == token.String {
@@ -619,7 +619,7 @@ func (v *typeVisitor) VisitBasicLit(expr *ir.BasicLit) ir.Expr {
 	return expr
 }
 
-func (v *typeVisitor) VisitStructLit(expr *ir.StructLit) ir.Expr {
+func (v *typeChecker) VisitStructLit(expr *ir.StructLit) ir.Expr {
 	prevMode := v.exprMode
 	v.exprMode = exprModeType
 	expr.Name = ir.VisitExpr(v, expr.Name)
@@ -662,7 +662,7 @@ func (v *typeVisitor) VisitStructLit(expr *ir.StructLit) ir.Expr {
 			continue
 		}
 
-		if !v.c.checkTypes(fieldSym.T, kv.Value.Type()) {
+		if !checkTypes(v.c, fieldSym.T, kv.Value.Type()) {
 			v.c.error(kv.Key.Pos, "type mismatch: field '%s' expects type %s but got %s",
 				kv.Key.Literal, fieldSym.T, kv.Value.Type())
 			inits[kv.Key.Literal] = nil
@@ -680,7 +680,7 @@ func (v *typeVisitor) VisitStructLit(expr *ir.StructLit) ir.Expr {
 	return createStructLit(structt, expr)
 }
 
-func (v *typeVisitor) VisitArrayLit(expr *ir.ArrayLit) ir.Expr {
+func (v *typeChecker) VisitArrayLit(expr *ir.ArrayLit) ir.Expr {
 	t := ir.TBuiltinUntyped
 	backup := ir.TBuiltinUntyped
 
@@ -708,7 +708,7 @@ func (v *typeVisitor) VisitArrayLit(expr *ir.ArrayLit) ir.Expr {
 
 	if t != ir.TBuiltinUntyped {
 		for _, init := range expr.Initializers {
-			if !v.c.checkTypes(t, init.Type()) {
+			if !checkTypes(v.c, t, init.Type()) {
 				v.c.error(init.FirstPos(), "type mismatch: array elements must be of the same type (expected %s, got %s)", t, init.Type())
 				break
 			}
@@ -802,7 +802,7 @@ func createStructLit(structt *ir.StructType, lit *ir.StructLit) *ir.StructLit {
 	return lit
 }
 
-func (v *typeVisitor) VisitIdent(expr *ir.Ident) ir.Expr {
+func (v *typeChecker) VisitIdent(expr *ir.Ident) ir.Expr {
 	sym := v.c.lookup(expr.Name.Literal)
 	if sym == nil {
 		v.c.error(expr.Pos(), "'%s' undefined", expr.Name.Literal)
@@ -818,7 +818,7 @@ func (v *typeVisitor) VisitIdent(expr *ir.Ident) ir.Expr {
 	return expr
 }
 
-func (v *typeVisitor) VisitDotExpr(expr *ir.DotExpr) ir.Expr {
+func (v *typeChecker) VisitDotExpr(expr *ir.DotExpr) ir.Expr {
 	expr.X = ir.VisitExpr(v, expr.X)
 	if ir.IsUntyped(expr.X.Type()) {
 		expr.T = ir.TBuiltinUntyped
@@ -857,7 +857,7 @@ func (v *typeVisitor) VisitDotExpr(expr *ir.DotExpr) ir.Expr {
 	return expr
 }
 
-func (v *typeVisitor) VisitCastExpr(expr *ir.CastExpr) ir.Expr {
+func (v *typeChecker) VisitCastExpr(expr *ir.CastExpr) ir.Expr {
 	prevMode := v.exprMode
 	v.exprMode = exprModeType
 	expr.ToTyp = ir.VisitExpr(v, expr.ToTyp)
@@ -894,7 +894,7 @@ func (v *typeVisitor) VisitCastExpr(expr *ir.CastExpr) ir.Expr {
 	return expr
 }
 
-func (v *typeVisitor) VisitFuncCall(expr *ir.FuncCall) ir.Expr {
+func (v *typeChecker) VisitFuncCall(expr *ir.FuncCall) ir.Expr {
 	prevMode := v.exprMode
 	v.exprMode = exprModeFunc
 	expr.X = ir.VisitExpr(v, expr.X)
@@ -923,7 +923,7 @@ func (v *typeVisitor) VisitFuncCall(expr *ir.FuncCall) ir.Expr {
 			tparam := tfun.Params[i]
 
 			targ := arg.Type()
-			if !v.c.checkTypes(targ, tparam) {
+			if !checkTypes(v.c, targ, tparam) {
 				v.c.error(arg.FirstPos(), "type mismatch: argument %d of function '%s' expects type %s (got type %s)",
 					i, PrintExpr(expr.X), tparam, targ)
 			}
@@ -938,7 +938,7 @@ func (v *typeVisitor) VisitFuncCall(expr *ir.FuncCall) ir.Expr {
 	return expr
 }
 
-func (v *typeVisitor) VisitAddressExpr(expr *ir.AddressExpr) ir.Expr {
+func (v *typeChecker) VisitAddressExpr(expr *ir.AddressExpr) ir.Expr {
 	ro := expr.Decl.Is(token.Val)
 	expr.X = ir.VisitExpr(v, expr.X)
 	if !expr.X.Lvalue() {
@@ -966,7 +966,7 @@ func (v *typeVisitor) VisitAddressExpr(expr *ir.AddressExpr) ir.Expr {
 	return expr
 }
 
-func (v *typeVisitor) VisitIndexExpr(expr *ir.IndexExpr) ir.Expr {
+func (v *typeChecker) VisitIndexExpr(expr *ir.IndexExpr) ir.Expr {
 	expr.X = v.makeTypedExpr(expr.X, nil)
 	expr.Index = v.makeTypedExpr(expr.Index, nil)
 
@@ -1004,7 +1004,7 @@ func (v *typeVisitor) VisitIndexExpr(expr *ir.IndexExpr) ir.Expr {
 	return expr
 }
 
-func (v *typeVisitor) VisitSliceExpr(expr *ir.SliceExpr) ir.Expr {
+func (v *typeChecker) VisitSliceExpr(expr *ir.SliceExpr) ir.Expr {
 	expr.X = v.makeTypedExpr(expr.X, nil)
 
 	if expr.Start != nil {

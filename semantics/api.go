@@ -6,12 +6,11 @@ import "github.com/jhnl/dingo/ir"
 // Resolve identifiers, type check and look for cyclic dependencies between identifiers.
 //
 func Check(set *ir.ModuleSet) error {
-	c := newChecker(set)
+	c := newContext(set)
 
-	symbolWalk(c)
-	dependencyWalk(c)
-	c.sortDecls()
-	typeWalk(c)
+	symCheck(c)
+	depCheck(c)
+	typeCheck(c)
 
 	if c.errors.IsFatal() {
 		return c.errors

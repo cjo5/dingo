@@ -5,18 +5,18 @@ import (
 	"github.com/jhnl/dingo/token"
 )
 
-type symbolVisitor struct {
+type symChecker struct {
 	ir.BaseVisitor
-	c *checker
+	c *context
 }
 
-func symbolWalk(c *checker) {
-	v := &symbolVisitor{c: c}
+func symCheck(c *context) {
+	v := &symChecker{c: c}
 	ir.VisitModuleSet(v, c.set)
 	c.resetWalkState()
 }
 
-func (v *symbolVisitor) Module(mod *ir.Module) {
+func (v *symChecker) Module(mod *ir.Module) {
 	v.c.openScope(ir.TopScope)
 	mod.Scope = v.c.scope
 	v.c.mod = mod
@@ -28,7 +28,7 @@ func (v *symbolVisitor) Module(mod *ir.Module) {
 	v.c.closeScope()
 }
 
-func (v *symbolVisitor) isTypeName(name token.Token) bool {
+func (v *symChecker) isTypeName(name token.Token) bool {
 	if sym := v.c.lookup(name.Literal); sym != nil {
 		if sym.ID == ir.TypeSymbol {
 			v.c.error(name.Pos, "%s is a type and cannot be used as an identifier", name.Literal)
@@ -38,20 +38,20 @@ func (v *symbolVisitor) isTypeName(name token.Token) bool {
 	return false
 }
 
-func (v *symbolVisitor) VisitValTopDecl(decl *ir.ValTopDecl) {
+func (v *symChecker) VisitValTopDecl(decl *ir.ValTopDecl) {
 	if !v.isTypeName(decl.Name) {
 		scope := v.c.visibilityScope(decl.Visibility)
 		decl.Sym = v.c.insert(scope, ir.ValSymbol, decl.Name.Literal, decl.Name.Pos, decl)
 	}
 }
 
-func (v *symbolVisitor) VisitValDecl(decl *ir.ValDecl) {
+func (v *symChecker) VisitValDecl(decl *ir.ValDecl) {
 	if !v.isTypeName(decl.Name) {
 		decl.Sym = v.c.insert(v.c.scope, ir.ValSymbol, decl.Name.Literal, decl.Name.Pos, decl)
 	}
 }
 
-func (v *symbolVisitor) VisitFuncDecl(decl *ir.FuncDecl) {
+func (v *symChecker) VisitFuncDecl(decl *ir.FuncDecl) {
 	scope := v.c.visibilityScope(decl.Visibility)
 
 	sym := v.c.lookup(decl.Name.Literal)
@@ -82,7 +82,7 @@ func (v *symbolVisitor) VisitFuncDecl(decl *ir.FuncDecl) {
 	v.c.closeScope()
 }
 
-func (v *symbolVisitor) VisitStructDecl(decl *ir.StructDecl) {
+func (v *symChecker) VisitStructDecl(decl *ir.StructDecl) {
 	scope := v.c.visibilityScope(decl.Visibility)
 	decl.Sym = v.c.insert(scope, ir.TypeSymbol, decl.Name.Literal, decl.Name.Pos, decl)
 	decl.Scope = ir.NewScope(ir.FieldScope, nil)
@@ -93,25 +93,25 @@ func (v *symbolVisitor) VisitStructDecl(decl *ir.StructDecl) {
 	}
 }
 
-func (v *symbolVisitor) VisitBlockStmt(stmt *ir.BlockStmt) {
+func (v *symChecker) VisitBlockStmt(stmt *ir.BlockStmt) {
 	v.c.openScope(ir.LocalScope)
 	stmt.Scope = v.c.scope
 	ir.VisitStmtList(v, stmt.Stmts)
 	v.c.closeScope()
 }
 
-func (v *symbolVisitor) VisitDeclStmt(stmt *ir.DeclStmt) {
+func (v *symChecker) VisitDeclStmt(stmt *ir.DeclStmt) {
 	ir.VisitDecl(v, stmt.D)
 }
 
-func (v *symbolVisitor) VisitIfStmt(stmt *ir.IfStmt) {
+func (v *symChecker) VisitIfStmt(stmt *ir.IfStmt) {
 	v.VisitBlockStmt(stmt.Body)
 	if stmt.Else != nil {
 		ir.VisitStmt(v, stmt.Else)
 	}
 }
 
-func (v *symbolVisitor) VisitForStmt(stmt *ir.ForStmt) {
+func (v *symChecker) VisitForStmt(stmt *ir.ForStmt) {
 	v.c.openScope(ir.LocalScope)
 	stmt.Scope = v.c.scope
 

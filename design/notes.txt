@@ -19,9 +19,13 @@ TODO:
     - Declarations are private by default
     - Modules can be declared multiple times.
 - Fix type cycle detection
+- Refactor semantics package. The use of AST, symbol and type is very confusing right now.
+    - Remove Node from Symbol struct
+        - This will require a new way to handle decl dependencies (use map instead?)
 - Integer suffixes: 1u8, 1u16, 1u32, 1f32, 1f64 etc.
 - sizeof operator
 - len operator (remove .ptr and .len from arrays and slices)
+- Add function literals
 - Create slice from pointer
 - Dedicated size type (size_t in C)
 - C lib
@@ -46,13 +50,8 @@ TODO:
 - Bit operations
 - Concurrent compilation
 - Invalidate keyword? Any use after an identifier has been invalidated will cause an error.
-- Nested functions
-- Refactor semantics package. The use of AST, symbol and type is very confusing right now.
-    - Remove Node from Symbol struct
-        - This will require a new way to handle decl dependencies (use map instead?)
 - Add methods
 - Add characters
-- Add anonymous functions
 - Add anonymous structs
 - Add enums
 - Only allow subset of features when writing C/C++ module
