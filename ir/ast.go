@@ -489,6 +489,7 @@ type BasicLit struct {
 	baseExpr
 	Prefix  *Ident
 	Value   token.Token
+	Suffix  *Ident
 	Raw     interface{}
 	Rewrite int
 }

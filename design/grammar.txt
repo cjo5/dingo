@@ -1,7 +1,7 @@
 # {..} : 0 or more
 # (..)*  : 0 or more
 # [..] : optional
-# ?: optional
+# ? : optional
 # a | b : a or b
 
 File = ['module' IDENT ';'] Include* TopDecl*
@@ -49,8 +49,8 @@ DotExpr = '.' IDENT Primary
 
 # StructLit is ignored when parsing Condition
 Literal = BasicLit | StructLit | ArrayLit
-BasicLit = Number | ('c'? STRING) | 'true' | 'false' | 'null'
-Number = INTEGER | FLOAT
+BasicLit = Number | (IDENT? STRING) | 'true' | 'false' | 'null'
+Number = (INTEGER | FLOAT) IDENT?
 KeyValue = IDENT '=' Expr
 StructLit = IDENT '{' [KeyValue {',' KeyValue} ','?] '}'
 ArrayLit  = '[' [Expr {',' Expr} ','?] ']'

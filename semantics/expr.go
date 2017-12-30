@@ -589,33 +589,113 @@ func (v *typeChecker) VisitBasicLit(expr *ir.BasicLit) ir.Expr {
 		}
 	} else if expr.Value.ID == token.Integer {
 		if expr.Raw == nil {
-			val := big.NewInt(0)
-			normalized := removeUnderscores(expr.Value.Literal)
-			_, ok := val.SetString(normalized, 0)
-			if !ok {
-				v.c.error(expr.Value.Pos, "unable to interpret integer literal '%s'", normalized)
+			base := ir.TBigInt
+			target := ir.TBigInt
+
+			if expr.Suffix != nil {
+				switch expr.Suffix.Literal() {
+				case ir.TFloat64.String():
+					base = ir.TBigFloat
+					target = ir.TFloat64
+				case ir.TFloat32.String():
+					base = ir.TBigFloat
+					target = ir.TFloat32
+				case ir.TUInt64.String():
+					target = ir.TUInt64
+				case ir.TUInt32.String():
+					target = ir.TUInt32
+				case ir.TUInt16.String():
+					target = ir.TUInt16
+				case ir.TUInt8.String():
+					target = ir.TUInt8
+				case ir.TInt64.String():
+					target = ir.TInt64
+				case ir.TInt32.String():
+					target = ir.TInt32
+				case ir.TInt16.String():
+					target = ir.TInt16
+				case ir.TInt8.String():
+					target = ir.TInt8
+				default:
+					v.c.error(expr.Suffix.FirstPos(), "invalid int suffix '%s'", PrintExpr(expr.Suffix))
+					base = ir.TUntyped
+				}
+			}
+
+			if base != ir.TUntyped {
+				normalized := removeUnderscores(expr.Value.Literal)
+
+				if base == ir.TBigInt {
+					val := big.NewInt(0)
+					_, ok := val.SetString(normalized, 0)
+					if ok {
+						expr.Raw = val
+					}
+				} else if base == ir.TBigFloat {
+					val := big.NewFloat(0)
+					_, ok := val.SetString(normalized)
+					if ok {
+						expr.Raw = val
+					}
+				}
+
+				if expr.Raw != nil {
+					expr.T = ir.NewBasicType(base)
+					if target != ir.TBigInt && target != ir.TBigFloat {
+						v.tryMakeTypedLit(expr, ir.NewBasicType(target))
+					}
+				} else {
+					v.c.error(expr.Value.Pos, "unable to interpret int literal '%s'", normalized)
+				}
+			}
+
+			if expr.T == nil {
 				expr.T = ir.TBuiltinUntyped
-			} else {
-				expr.T = ir.NewBasicType(ir.TBigInt)
-				expr.Raw = val
 			}
 		}
 	} else if expr.Value.ID == token.Float {
 		if expr.Raw == nil {
-			val := big.NewFloat(0)
-			normalized := removeUnderscores(expr.Value.Literal)
-			_, ok := val.SetString(normalized)
-			if !ok {
-				v.c.error(expr.Value.Pos, "unable to interpret float literal '%s'", normalized)
+			base := ir.TBigFloat
+			target := ir.TBigFloat
+
+			if expr.Suffix != nil {
+				switch expr.Suffix.Literal() {
+				case ir.TFloat64.String():
+					target = ir.TFloat64
+				case ir.TFloat32.String():
+					target = ir.TFloat32
+				default:
+					v.c.error(expr.Suffix.FirstPos(), "invalid float suffix '%s'", PrintExpr(expr.Suffix))
+					base = ir.TUntyped
+				}
 			}
-			expr.T = ir.NewBasicType(ir.TBigFloat)
-			expr.Raw = val
+
+			if base != ir.TUntyped {
+				val := big.NewFloat(0)
+				normalized := removeUnderscores(expr.Value.Literal)
+				_, ok := val.SetString(normalized)
+				if ok {
+					expr.T = ir.NewBasicType(base)
+					expr.Raw = val
+
+					if target != ir.TBigFloat {
+						v.tryMakeTypedLit(expr, ir.NewBasicType(target))
+					}
+				} else {
+					v.c.error(expr.Value.Pos, "unable to interpret float literal '%s'", normalized)
+				}
+			}
+
+			if expr.T == nil {
+				expr.T = ir.TBuiltinUntyped
+			}
 		}
 	} else if expr.Value.ID == token.Null {
 		expr.T = ir.NewPointerType(ir.TBuiltinUntyped, false)
 	} else {
 		panic(fmt.Sprintf("Unhandled literal %s", expr.Value.ID))
 	}
+
 	return expr
 }
 

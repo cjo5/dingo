@@ -18,7 +18,6 @@ TODO:
     - Apply visibility modifier to multiple vars/functions by using () (same as Go)
     - Declarations are private by default
     - Modules can be declared multiple times.
-- Integer suffixes: 1u8, 1u16, 1u32, 1f32, 1f64 etc.
 - sizeof operator
 - len operator (remove .ptr and .len from arrays and slices)
 - Add function literals

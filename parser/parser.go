@@ -756,7 +756,13 @@ func (p *parser) parseBasicLit(prefix *ir.Ident) ir.Expr {
 	case token.Integer, token.Float, token.String, token.True, token.False, token.Null:
 		tok := p.token
 		p.next()
-		return &ir.BasicLit{Prefix: prefix, Value: tok}
+
+		var suffix *ir.Ident
+		if tok.OneOf(token.Integer, token.Float) && p.token.Is(token.Ident) {
+			suffix = p.parseIdent()
+		}
+
+		return &ir.BasicLit{Prefix: prefix, Value: tok, Suffix: suffix}
 	default:
 		tok := p.token
 		p.error(tok, "got '%s', expected expression", tok.Quote())
