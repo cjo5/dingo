@@ -511,6 +511,8 @@ func (cb *codeBuilder) buildExpr(expr ir.Expr, load bool) llvm.Value {
 		return cb.buildDotExpr(t, load)
 	case *ir.CastExpr:
 		return cb.buildCastExpr(t)
+	case *ir.LenExpr:
+		return cb.buildLenExpr(t)
 	case *ir.FuncCall:
 		return cb.buildFuncCall(t)
 	case *ir.AddressExpr:
@@ -804,30 +806,6 @@ func (cb *codeBuilder) buildDotExpr(expr *ir.DotExpr, load bool) llvm.Value {
 			return cb.b.CreateLoad(gep, "")
 		}
 		return gep
-	case *ir.ArrayType:
-		if expr.Name.Sym.Name == ir.LenField {
-			return llvm.ConstInt(llvm.Int32Type(), uint64(t.Size), false)
-		}
-		panic(fmt.Sprintf("array field %s not handled", expr.Name.Sym.Name))
-	case *ir.SliceType:
-		val := cb.buildExprPtr(expr.X)
-		if val.Type().TypeKind() != llvm.PointerTypeKind {
-			val = cb.createTempStorage(val)
-		}
-
-		var gep llvm.Value
-		if expr.Name.Sym.Name == ir.LenField {
-			gep = cb.b.CreateStructGEP(val, lenFieldIndex, "")
-		} else if expr.Name.Sym.Name == ir.PtrField {
-			gep = cb.b.CreateStructGEP(val, ptrFieldIndex, "")
-		} else {
-			panic(fmt.Sprintf("slice field %s not handled", expr.Name.Sym.Name))
-		}
-
-		if load {
-			return cb.b.CreateLoad(gep, "")
-		}
-		return gep
 	default:
 		panic(fmt.Sprintf("%T not handled", t))
 	}
@@ -892,6 +870,22 @@ func (cb *codeBuilder) buildCastExpr(expr *ir.CastExpr) llvm.Value {
 	}
 
 	return res
+}
+
+func (cb *codeBuilder) buildLenExpr(expr *ir.LenExpr) llvm.Value {
+	switch t := expr.X.Type().(type) {
+	case *ir.ArrayType:
+		return llvm.ConstInt(llvm.Int32Type(), uint64(t.Size), false)
+	case *ir.SliceType:
+		val := cb.buildExprPtr(expr.X)
+		if val.Type().TypeKind() != llvm.PointerTypeKind {
+			val = cb.createTempStorage(val)
+		}
+		gep := cb.b.CreateStructGEP(val, lenFieldIndex, "")
+		return cb.b.CreateLoad(gep, "")
+	default:
+		panic(fmt.Sprintf("%T not handled", t))
+	}
 }
 
 func (cb *codeBuilder) buildFuncCall(expr *ir.FuncCall) llvm.Value {

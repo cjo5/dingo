@@ -38,8 +38,9 @@ BinaryExpr = UnaryExpr [BinaryOp BinaryExpr]
 BinaryOp = '||' | '&&' | '!=' | '==' | '>' | '>=' | '<' | '<='
                 | '-' | '+' | '/' | '%' | '*'
 UnaryExpr = [('!' | '-' | '*') | ('&' ['val' | 'var'])] Operand
-Operand = (CastExpr | IDENT | Literal | '(' Expr ')') Primary
+Operand = (CastExpr | LenExpr | IDENT | Literal | '(' Expr ')') Primary
 CastExpr = 'cast' '(' Type ',' Expr ')'
+LenExpr = 'lenof' '(' Expr ')'
 
 Primary = [SliceExpr | IndexExpr | FuncCall | DotExpr]
 SliceExpr = '[' Expr? ':' Expr? ']'

@@ -117,12 +117,6 @@ var (
 	BigFloatZero = big.NewFloat(0)
 )
 
-// LenField is the name of length field in arrays and slices
-const LenField = "len"
-
-// PtrField is the name of the underlying pointer field in slices
-const PtrField = "ptr"
-
 type Type interface {
 	ID() TypeID
 	Equals(Type) bool
@@ -221,9 +215,8 @@ func (t *StructType) FieldIndex(fieldName string) int {
 
 type ArrayType struct {
 	baseType
-	Elem  Type
-	Size  int
-	Scope *Scope
+	Elem Type
+	Size int
 }
 
 func (t *ArrayType) Equals(other Type) bool {
@@ -247,7 +240,6 @@ type SliceType struct {
 	Elem     Type
 	ReadOnly bool // Applies to the Elem type
 	Ptr      bool // SliceType is only valid once it has "absorbed" one pointer indirection
-	Scope    *Scope
 }
 
 func (t *SliceType) Equals(other Type) bool {
@@ -257,6 +249,18 @@ func (t *SliceType) Equals(other Type) bool {
 	}
 
 	return t.ReadOnly == otherSlice.ReadOnly && t.Elem.Equals(otherSlice.Elem)
+}
+
+func (t *SliceType) ImplicitCastOK(other Type) bool {
+	if otherSlice, ok := other.(*SliceType); ok {
+		switch {
+		case t.Equals(otherSlice):
+			return true
+		case !t.ReadOnly && t.Elem.Equals(otherSlice.Elem):
+			return true
+		}
+	}
+	return false
 }
 
 func (t *SliceType) String() string {
@@ -377,30 +381,13 @@ func (t *StructType) SetBody(decl *StructDecl) Type {
 }
 
 func NewArrayType(elem Type, size int) Type {
-	scope := NewScope(FieldScope, nil)
-	len := NewSymbol(ValSymbol, FieldScope, LenField, token.NoPosition)
-	len.Flags |= SymFlagReadOnly
-	len.T = TBuiltinInt32
-	scope.Insert(len)
-
-	t := &ArrayType{Size: size, Elem: elem, Scope: scope}
+	t := &ArrayType{Size: size, Elem: elem}
 	t.id = TArray
 	return t
 }
 
 func NewSliceType(elem Type, readOnly bool, absorbedPtr bool) Type {
-	scope := NewScope(FieldScope, nil)
-	len := NewSymbol(ValSymbol, FieldScope, LenField, token.NoPosition)
-	len.Flags |= SymFlagReadOnly
-	len.T = TBuiltinInt32
-	scope.Insert(len)
-
-	ptr := NewSymbol(ValSymbol, FieldScope, PtrField, token.NoPosition)
-	ptr.Flags |= SymFlagReadOnly
-	ptr.T = NewPointerType(elem, true)
-	scope.Insert(ptr)
-
-	t := &SliceType{Elem: elem, ReadOnly: readOnly, Ptr: absorbedPtr, Scope: scope}
+	t := &SliceType{Elem: elem, ReadOnly: readOnly, Ptr: absorbedPtr}
 	t.id = TSlice
 	return t
 }

@@ -260,6 +260,11 @@ func (v *depChecker) VisitCastExpr(expr *ir.CastExpr) ir.Expr {
 	return expr
 }
 
+func (v *depChecker) VisitLenExpr(expr *ir.LenExpr) ir.Expr {
+	ir.VisitExpr(v, expr.X)
+	return expr
+}
+
 func (v *depChecker) VisitFuncCall(expr *ir.FuncCall) ir.Expr {
 	ir.VisitExpr(v, expr.X)
 	ir.VisitExprList(v, expr.Args)

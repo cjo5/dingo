@@ -619,6 +619,16 @@ type CastExpr struct {
 
 func (x *CastExpr) FirstPos() token.Position { return x.Cast.Pos }
 
+type LenExpr struct {
+	baseExpr
+	Len    token.Token
+	Lparen token.Token
+	X      Expr
+	Rparen token.Token
+}
+
+func (x *LenExpr) FirstPos() token.Position { return x.Len.Pos }
+
 type FuncCall struct {
 	baseExpr
 	X      Expr

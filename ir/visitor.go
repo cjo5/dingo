@@ -38,6 +38,7 @@ type Visitor interface {
 	VisitIdent(expr *Ident) Expr
 	VisitDotExpr(expr *DotExpr) Expr
 	VisitCastExpr(expr *CastExpr) Expr
+	VisitLenExpr(expr *LenExpr) Expr
 	VisitFuncCall(expr *FuncCall) Expr
 	VisitAddressExpr(expr *AddressExpr) Expr
 	VisitIndexExpr(expr *IndexExpr) Expr
@@ -95,6 +96,7 @@ func (v *BaseVisitor) VisitArrayLit(expr *ArrayLit) Expr               { return 
 func (v *BaseVisitor) VisitIdent(expr *Ident) Expr                     { return expr }
 func (v *BaseVisitor) VisitDotExpr(expr *DotExpr) Expr                 { return expr }
 func (v *BaseVisitor) VisitCastExpr(expr *CastExpr) Expr               { return expr }
+func (v *BaseVisitor) VisitLenExpr(expr *LenExpr) Expr                 { return expr }
 func (v *BaseVisitor) VisitFuncCall(expr *FuncCall) Expr               { return expr }
 func (v *BaseVisitor) VisitAddressExpr(expr *AddressExpr) Expr         { return expr }
 func (v *BaseVisitor) VisitIndexExpr(expr *IndexExpr) Expr             { return expr }
@@ -187,6 +189,8 @@ func VisitExpr(v Visitor, expr Expr) Expr {
 		return v.VisitDotExpr(e)
 	case *CastExpr:
 		return v.VisitCastExpr(e)
+	case *LenExpr:
+		return v.VisitLenExpr(e)
 	case *FuncCall:
 		return v.VisitFuncCall(e)
 	case *AddressExpr:

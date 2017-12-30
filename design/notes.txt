@@ -19,7 +19,6 @@ TODO:
     - Declarations are private by default
     - Modules can be declared multiple times.
 - sizeof operator
-- len operator (remove .ptr and .len from arrays and slices)
 - Add function literals
 - Create slice from pointer
 - Dedicated size type (size_t in C)

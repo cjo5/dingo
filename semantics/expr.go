@@ -72,9 +72,9 @@ func (v *typeChecker) tryMakeTypedLit(expr ir.Expr, target ir.Type) bool {
 			if ir.IsUntyped(tpointer.Underlying) {
 				switch ttarget := target.(type) {
 				case *ir.SliceType:
-					lit.T = ir.NewSliceType(ttarget.Elem, true, true)
+					lit.T = ir.NewSliceType(ttarget.Elem, false, true)
 				case *ir.PointerType:
-					lit.T = ir.NewPointerType(ttarget.Underlying, true)
+					lit.T = ir.NewPointerType(ttarget.Underlying, false)
 				case *ir.FuncType:
 					lit.T = ir.NewFuncType(ttarget.Params, ttarget.Return)
 				default:
@@ -503,7 +503,7 @@ func (v *typeChecker) VisitUnaryExpr(expr *ir.UnaryExpr) ir.Expr {
 				expr.T = t.Underlying
 			case *ir.SliceType:
 				tslice := ir.NewSliceType(t.Elem, t.ReadOnly, false)
-				v.c.error(expr.X.FirstPos(), "cannot dereference '%s' (type %s is incomplete)", PrintExpr(expr.X), tslice)
+				v.c.error(expr.X.FirstPos(), "cannot dereference '%s' (underlying type %s is incomplete)", PrintExpr(expr.X), tslice)
 			default:
 				v.c.error(expr.X.FirstPos(), "cannot dereference '%s' (type %s is not a pointer)", PrintExpr(expr.X), expr.T)
 			}
@@ -912,10 +912,6 @@ func (v *typeChecker) VisitDotExpr(expr *ir.DotExpr) ir.Expr {
 	switch t := expr.X.Type().(type) {
 	case *ir.StructType:
 		scope = t.Scope
-	case *ir.ArrayType:
-		scope = t.Scope
-	case *ir.SliceType:
-		scope = t.Scope
 	case *ir.BasicType:
 		if t.ID() == ir.TUntyped {
 			untyped = true
@@ -945,9 +941,7 @@ func (v *typeChecker) VisitCastExpr(expr *ir.CastExpr) ir.Expr {
 
 	ident := ir.TypeExprToIdent(expr.ToTyp)
 	err := true
-	if ident == nil {
-		v.c.error(expr.ToTyp.FirstPos(), "'%s' is not a valid type specifier", PrintExpr(expr.ToTyp))
-	} else if ident.Sym != nil {
+	if ident != nil && ident.Sym != nil {
 		if ident.Sym.ID != ir.TypeSymbol {
 			v.c.error(expr.ToTyp.FirstPos(), "'%s' is not a type", PrintExpr(expr.ToTyp))
 		} else {
@@ -968,6 +962,25 @@ func (v *typeChecker) VisitCastExpr(expr *ir.CastExpr) ir.Expr {
 	}
 
 	if expr.T == nil {
+		expr.T = ir.TBuiltinUntyped
+	}
+
+	return expr
+}
+
+func (v *typeChecker) VisitLenExpr(expr *ir.LenExpr) ir.Expr {
+	expr.X = ir.VisitExpr(v, expr.X)
+
+	expr.X = tryDeref(expr.X)
+	switch t := expr.X.Type().(type) {
+	case *ir.ArrayType:
+		expr.T = ir.TBuiltinInt32
+	case *ir.SliceType:
+		expr.T = ir.TBuiltinInt32
+	default:
+		if !ir.IsUntyped(t) {
+			v.c.error(expr.X.FirstPos(), "'%s' is not a slice or an array (has type %s)", PrintExpr(expr.X), t)
+		}
 		expr.T = ir.TBuiltinUntyped
 	}
 
@@ -1096,17 +1109,14 @@ func (v *typeChecker) VisitSliceExpr(expr *ir.SliceExpr) ir.Expr {
 	}
 
 	var telem ir.Type
-	var lenSym *ir.Symbol
 	untyped := false
 
 	expr.X = tryDeref(expr.X)
 	switch t := expr.X.Type().(type) {
 	case *ir.ArrayType:
 		telem = t.Elem
-		lenSym = t.Scope.Lookup(ir.LenField)
 	case *ir.SliceType:
 		telem = t.Elem
-		lenSym = t.Scope.Lookup(ir.LenField)
 	case *ir.BasicType:
 		if t.ID() == ir.TUntyped {
 			untyped = true
@@ -1144,14 +1154,11 @@ func (v *typeChecker) VisitSliceExpr(expr *ir.SliceExpr) ir.Expr {
 			}
 
 			if expr.End == nil {
-				name := &ir.Ident{Name: token.Synthetic(token.Ident, lenSym.Name)}
-				name.Sym = lenSym
-				len := &ir.DotExpr{
-					X:    expr.X,
-					Dot:  token.Synthetic(token.Dot, token.Dot.String()),
-					Name: name,
+				len := &ir.LenExpr{
+					Len: token.Synthetic(token.Lenof, token.Lenof.String()),
+					X:   expr.X,
 				}
-				len.T = lenSym.T
+				len.T = ir.TBuiltinInt32
 				expr.End = len
 			} else if expr.End.Type().ID() != ir.TInt32 {
 				cast := &ir.CastExpr{X: expr.End}

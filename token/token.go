@@ -75,6 +75,7 @@ const (
 	Continue
 	Break
 	Cast
+	Lenof
 	Module
 	Include
 	Var
@@ -149,6 +150,7 @@ var tokens = [...]string{
 	Continue: "continue",
 	Break:    "break",
 	Cast:     "cast",
+	Lenof:    "lenof",
 	Module:   "module",
 	Include:  "include",
 	Var:      "var",

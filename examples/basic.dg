@@ -13,6 +13,6 @@ fun mul(a i32, b i32) i32 {
 val ptr = mul
 
 pub fun main() {
-    val x = 3f32
-    puti(x)
+    var a [5:i32]
+    puti(lenof(a[2]))
 }
