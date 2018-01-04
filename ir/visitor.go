@@ -8,7 +8,7 @@ type Visitor interface {
 
 	// Decls
 	VisitBadDecl(decl *BadDecl)
-	VisitInclude(decl *Include)
+	VisitFileDependency(decl *FileDependency)
 	VisitValTopDecl(decl *ValTopDecl)
 	VisitValDecl(decl *ValDecl)
 	VisitFuncDecl(decl *FuncDecl)
@@ -56,8 +56,8 @@ func (v *BaseVisitor) VisitBadDecl(decl *BadDecl) {
 	panic("VisitBadDecl")
 }
 
-func (v *BaseVisitor) VisitInclude(decl *Include) {
-	panic("VisitInclude")
+func (v *BaseVisitor) VisitFileDependency(decl *FileDependency) {
+	panic("VisitFileDependency")
 }
 
 func (v *BaseVisitor) VisitValTopDecl(decl *ValTopDecl) {}
@@ -121,8 +121,8 @@ func VisitDecl(v Visitor, decl Decl) {
 	switch d := decl.(type) {
 	case *BadDecl:
 		v.VisitBadDecl(d)
-	case *Include:
-		v.VisitInclude(d)
+	case *FileDependency:
+		v.VisitFileDependency(d)
 	case *ValTopDecl:
 		v.VisitValTopDecl(d)
 	case *ValDecl:
@@ -236,10 +236,10 @@ func VisitTopDeclList(v Visitor, decls []TopDecl) {
 	}
 }
 
-// VisitIncludeList visits each include.
-func VisitIncludeList(v Visitor, decls []*Include) {
+// VisitFileDependencyList visits each include.
+func VisitFileDependencyList(v Visitor, decls []*FileDependency) {
 	for _, decl := range decls {
-		v.VisitInclude(decl)
+		v.VisitFileDependency(decl)
 	}
 }
 

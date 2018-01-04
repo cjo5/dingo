@@ -41,11 +41,24 @@ struct foo {
         int y;
 };
 
+void printarr(int* ptr);
 
 //struct Vec3 globalVec3 = {.v.x = 5, .v.y = 13, .z = 9 };
 
+void stuff() {
+        int a[100];
+        {
+                int b[20000];
+                printarr(b);
+        }
+        {
+                int b[10000];
+                printarr(b);
+        }
+        printarr(a);
+}
+
 int main() {
-        (int) a;
 
         
         return 0;

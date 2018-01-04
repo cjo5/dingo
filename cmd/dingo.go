@@ -51,11 +51,11 @@ func (d *driver) build() {
 	}
 
 	for _, mod := range modules.Modules {
-		fmt.Println("Module", mod.Name.Literal)
+		fmt.Println("Module", mod.FQN)
 		for _, file := range mod.Files {
 			fmt.Println("  File", file.Ctx.Path)
-			for _, inc := range file.Includes {
-				fmt.Println("    Include", inc.Literal.Literal)
+			for _, dep := range file.Deps {
+				fmt.Println("    Include", dep.Literal.Literal)
 			}
 		}
 	}

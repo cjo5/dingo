@@ -109,7 +109,7 @@ func checkElseEndsWithBranchStmt(stmt *ir.IfStmt) bool {
 }
 
 func (cb *codeBuilder) buildModule(mod *ir.Module) {
-	cb.mod = llvm.NewModule(mod.Name.Literal)
+	cb.mod = llvm.NewModule(mod.FQN)
 	cb.inFunction = false
 
 	cb.signature = true

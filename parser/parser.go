@@ -162,18 +162,16 @@ func (p *parser) parseFile() (*ir.File, []ir.TopDecl) {
 	if p.token.Is(token.Module) {
 		file.Ctx.Decl = p.token
 		p.next()
-		file.Ctx.Module = p.token
-		p.expect2(token.Ident, false)
+		file.Ctx.ModName = p.parseIdent()
 		p.expectSemi1(false)
 	} else {
 		file.Ctx.Decl = token.Synthetic(token.Module, token.Module.String())
-		file.Ctx.Module = token.Synthetic(token.Ident, "")
 	}
 
-	for p.token.Is(token.Include) {
-		inc := p.parseInclude()
-		if inc != nil {
-			file.Includes = append(file.Includes, inc)
+	for p.token.Is(token.Require) {
+		dep := p.parseRequire()
+		if dep != nil {
+			file.Deps = append(file.Deps, dep)
 		}
 	}
 
@@ -189,7 +187,7 @@ func (p *parser) parseFile() (*ir.File, []ir.TopDecl) {
 	return file, decls
 }
 
-func (p *parser) parseInclude() *ir.Include {
+func (p *parser) parseRequire() *ir.FileDependency {
 	tok := p.token
 	p.next()
 	path := p.token
@@ -197,7 +195,7 @@ func (p *parser) parseInclude() *ir.Include {
 		return nil
 	}
 	p.expectSemi1(false)
-	return &ir.Include{Include: tok, Literal: path}
+	return &ir.FileDependency{Decl: tok, Literal: path}
 }
 
 func (p *parser) parseTopDecl() (decl ir.TopDecl) {

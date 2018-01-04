@@ -1,4 +1,4 @@
-include "std/io.dg"
+require "std/io.dg"
 
 struct Vec2 {
     v fun(Vec2)
@@ -14,5 +14,5 @@ val ptr = mul
 
 pub fun main() {
     var a [5:i32]
-    puti(lenof(a[2]))
+    puti(lenof(a))
 }

@@ -16,24 +16,29 @@ import (
 
 const fileExtension = ".dg"
 
-type include struct {
-	inc  *ir.Include
-	path string
+var emptyPath = requirePath{"", ""}
+
+type requirePath struct {
+	canonical string // Used to determine if two paths refer to the same file
+	actual    string // The actual (cleaned) path in the code
+}
+
+type fileDependency struct {
+	dep  *ir.FileDependency
+	path requirePath
 	file *file
 }
 
 type file struct {
 	file       *ir.File
-	includedBy *file
-	includes   []*include
-}
-
-func (f *file) path() string {
-	return f.file.Path()
+	path       requirePath
+	requiredBy *file
+	deps       []*fileDependency
 }
 
 type loader struct {
 	errors      *common.ErrorList
+	cwd         string
 	loadedFiles []*file
 }
 
@@ -44,14 +49,20 @@ func Load(path string) (*ir.ModuleSet, error) {
 		return nil, fmt.Errorf("%s does not have file extension %s", path, fileExtension)
 	}
 
-	path, err := normalizePath("", path)
+	cwd, err := os.Getwd()
+	if err != nil {
+		return nil, err
+	}
+
+	normPath, err := normalizePath(cwd, "", path)
 	if err != nil {
 		return nil, err
 	}
 
 	loader := newLoader()
+	loader.cwd = cwd
 
-	mod := loader.loadModule(path)
+	mod := loader.loadModule(normPath)
 	if mod == nil || loader.errors.IsFatal() {
 		return nil, loader.errors
 	}
@@ -68,113 +79,119 @@ func newLoader() *loader {
 	return l
 }
 
-func (l *loader) loadModule(filename string) *ir.Module {
-	rootFile, rootDecls, err := parser.ParseFile(filename)
+func (l *loader) loadModule(path requirePath) *ir.Module {
+	rootFile, rootDecls, err := parser.ParseFile(path.actual)
 	if err != nil {
-		l.errors.AddGeneric(filename, token.NoPosition, err)
+		l.errors.AddGeneric(path.actual, token.NoPosition, err)
 		return nil
 	}
 
 	mod := &ir.Module{}
-	mod.Name = rootFile.Ctx.Module
-	mod.Path = filename
+	mod.FQN = "MyModule" // TODO
+	mod.Path = path.actual
 	mod.Files = append(mod.Files, rootFile)
 	mod.Decls = append(mod.Decls, rootDecls...)
 
-	l.loadedFiles = append(l.loadedFiles, &file{file: rootFile})
+	l.loadedFiles = append(l.loadedFiles, &file{file: rootFile, path: path})
 
-	var allIncludeDecls []ir.TopDecl
+	var allDepDecls []ir.TopDecl
 	for i := 0; i < len(l.loadedFiles); i++ {
 		srcFile := l.loadedFiles[i]
 
-		if !l.createIncludeList(srcFile) {
+		if !l.createDependencyList(srcFile) {
 			return nil
 		}
 
-		for _, inc := range srcFile.includes {
-			if inc.file != nil {
+		for _, dep := range srcFile.deps {
+			if dep.file != nil {
 				continue
 			}
 
-			includeFile, includeDecls, err := parser.ParseFile(inc.path)
+			depFile, depDecls, err := parser.ParseFile(dep.path.actual)
 			if err != nil {
-				l.errors.AddGeneric(inc.path, token.NoPosition, err)
+				l.errors.AddGeneric(dep.path.actual, token.NoPosition, err)
 				continue
 			}
 
-			mod.Files = append(mod.Files, includeFile)
-			allIncludeDecls = append(allIncludeDecls, includeDecls...)
-			inc.inc.File = includeFile
+			mod.Files = append(mod.Files, depFile)
+			allDepDecls = append(allDepDecls, depDecls...)
+			dep.dep.File = depFile
 
-			loadedFile := &file{file: includeFile, includedBy: srcFile}
-			inc.file = loadedFile
+			loadedFile := &file{file: depFile, path: dep.path, requiredBy: srcFile}
+			dep.file = loadedFile
 			l.loadedFiles = append(l.loadedFiles, loadedFile)
 		}
-
 	}
 
-	mod.Decls = append(mod.Decls, allIncludeDecls...)
+	mod.Decls = append(mod.Decls, allDepDecls...)
 
 	return mod
 }
 
-func normalizePath(rel string, path string) (string, error) {
-	normPath := filepath.Join(rel, path)
-	if !strings.HasPrefix(normPath, "/") {
-		normPath = "./" + normPath
+func normalizePath(cwd string, rel string, path string) (requirePath, error) {
+	normPath := emptyPath
+	if filepath.IsAbs(path) {
+		normPath.actual = filepath.Clean(path)
+		normPath.canonical = normPath.actual
+	} else {
+		normPath.actual = filepath.Join(rel, path)
+		if !strings.HasPrefix(normPath.actual, ".") {
+			normPath.actual = "./" + normPath.actual
+		}
+		normPath.canonical = filepath.Join(cwd, rel, path)
 	}
 
-	stat, err := os.Stat(normPath)
+	stat, err := os.Stat(normPath.actual)
 	if err == nil {
 		if stat.IsDir() {
-			return "", fmt.Errorf("%s is a directory", normPath)
+			return emptyPath, fmt.Errorf("%s is a directory", normPath.actual)
 		}
 		return normPath, nil
 	} else if !os.IsNotExist(err) {
-		return "", err
+		return emptyPath, err
 	}
 
 	// Failed to find file
-	return "", fmt.Errorf("failed to find file %s", normPath)
+	return emptyPath, fmt.Errorf("failed to find file %s", normPath.actual)
 }
 
-func (l *loader) createIncludeList(loadedFile *file) bool {
-	parentDir := filepath.Dir(loadedFile.path())
+func (l *loader) createDependencyList(loadedFile *file) bool {
+	parentDir := filepath.Dir(loadedFile.path.actual)
 
-	for _, inc := range loadedFile.file.Includes {
-		unquoted, err := strconv.Unquote(inc.Literal.Literal)
+	for _, dep := range loadedFile.file.Deps {
+		unquoted, err := strconv.Unquote(dep.Literal.Literal)
 		if err != nil {
-			l.errors.AddGeneric(loadedFile.path(), inc.Literal.Pos, err)
+			l.errors.AddGeneric(loadedFile.path.actual, dep.Literal.Pos, err)
 			break
 		}
 
 		if len(unquoted) == 0 {
-			l.errors.AddTrace(loadedFile.path(), inc.Literal.Pos, common.GenericError, l.getIncludedByTrace(loadedFile), "invalid path")
+			l.errors.AddTrace(loadedFile.path.actual, dep.Literal.Pos, common.GenericError, l.getRequiredByTrace(loadedFile), "invalid path")
 			continue
 		}
 
-		includePath, err := normalizePath(parentDir, unquoted)
+		normPath, err := normalizePath(l.cwd, parentDir, unquoted)
 		if err != nil {
-			l.errors.AddGeneric(loadedFile.path(), inc.Literal.Pos, err)
+			l.errors.AddGeneric(loadedFile.path.actual, dep.Literal.Pos, err)
 			continue
 		}
 
-		foundFile := l.findLoadedFile(includePath)
+		foundFile := l.findLoadedFile(normPath.canonical)
 
 		if foundFile != nil {
-			var traceLines []string
-			if checkIncludeCycle(foundFile, loadedFile.path(), &traceLines) {
-				trace := common.NewTrace(fmt.Sprintf("%s includes:", loadedFile.path()), nil)
+			/*var traceLines []string
+			if checkFileCycle(foundFile, loadedFile.path.canonical, &traceLines) {
+				trace := common.NewTrace(fmt.Sprintf("%s requires:", loadedFile.path.actual), nil)
 				for i := len(traceLines) - 1; i >= 0; i-- {
 					trace.Lines = append(trace.Lines, traceLines[i])
 				}
-				l.errors.AddTrace(loadedFile.path(), inc.Literal.Pos, common.GenericError, trace, "include cycle detected")
+				l.errors.AddTrace(loadedFile.path.actual, dep.Literal.Pos, common.GenericError, trace, "file cycle detected")
 				continue
-			}
-			inc.File = foundFile.file
+			}*/
+			dep.File = foundFile.file
 		}
 
-		loadedFile.includes = append(loadedFile.includes, &include{file: foundFile, inc: inc, path: includePath})
+		loadedFile.deps = append(loadedFile.deps, &fileDependency{file: foundFile, dep: dep, path: normPath})
 	}
 
 	if l.errors.IsFatal() {
@@ -186,34 +203,34 @@ func (l *loader) createIncludeList(loadedFile *file) bool {
 
 func (l *loader) findLoadedFile(path string) *file {
 	for _, file := range l.loadedFiles {
-		if file.path() == path {
+		if file.path.canonical == path {
 			return file
 		}
 	}
 	return nil
 }
 
-func (l *loader) getIncludedByTrace(loadedFile *file) common.Trace {
+func (l *loader) getRequiredByTrace(loadedFile *file) common.Trace {
 	var trace []string
 	for file := loadedFile; file != nil; {
-		trace = append(trace, file.path())
-		file = file.includedBy
+		trace = append(trace, file.path.actual)
+		file = file.requiredBy
 	}
-	return common.NewTrace("included by:", trace)
+	return common.NewTrace("required by:", trace)
 }
 
-func checkIncludeCycle(loadedFile *file, includePath string, trace *[]string) bool {
-	if loadedFile.path() == includePath {
-		*trace = append(*trace, loadedFile.path())
+func checkFileCycle(loadedFile *file, path string, trace *[]string) bool {
+	if loadedFile.path.canonical == path {
+		*trace = append(*trace, loadedFile.path.actual)
 		return true
 	}
 
-	for _, inc := range loadedFile.includes {
-		if inc.file == nil {
+	for _, dep := range loadedFile.deps {
+		if dep.file == nil {
 			continue
 		}
-		if checkIncludeCycle(inc.file, includePath, trace) {
-			*trace = append(*trace, loadedFile.path())
+		if checkFileCycle(dep.file, path, trace) {
+			*trace = append(*trace, loadedFile.path.actual)
 			return true
 		}
 	}

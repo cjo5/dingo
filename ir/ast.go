@@ -135,8 +135,8 @@ func (d *ModuleSet) FirstPos() token.Position { return token.NoPosition }
 // A Module is a collection of files sharing the same namespace.
 type Module struct {
 	baseDecl
-	Path  string
-	Name  token.Token
+	Path  string // To root file
+	FQN   string
 	Scope *Scope
 	Files []*File
 	Decls []TopDecl
@@ -145,8 +145,8 @@ type Module struct {
 func (m *Module) FirstPos() token.Position { return token.NoPosition }
 
 type File struct {
-	Ctx      *FileContext
-	Includes []*Include
+	Ctx  *FileContext
+	Deps []*FileDependency
 }
 
 // Path returns the file path.
@@ -155,19 +155,19 @@ func (f *File) Path() string {
 }
 
 type FileContext struct {
-	Path   string
-	Decl   token.Token
-	Module token.Token
+	Path    string
+	Decl    token.Token
+	ModName Expr
 }
 
-type Include struct {
+type FileDependency struct {
 	baseDecl
-	Include token.Token
+	Decl    token.Token
 	Literal token.Token
 	File    *File
 }
 
-func (i *Include) FirstPos() token.Position { return i.Include.Pos }
+func (i *FileDependency) FirstPos() token.Position { return i.Decl.Pos }
 
 type ValDeclSpec struct {
 	Decl        token.Token

@@ -1,0 +1,2 @@
+//require "mod/a.dg"
+require "/Users/carlj/Dev/go/src/github.com/jhnl/dingo/examples/mod/a.dg"
