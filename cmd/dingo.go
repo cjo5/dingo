@@ -3,22 +3,29 @@ package main
 import (
 	"fmt"
 
+	"github.com/jhnl/dingo/ir"
+	"github.com/jhnl/dingo/token"
+
 	"flag"
 	"os"
 
+	"github.com/jhnl/dingo/backend"
 	"github.com/jhnl/dingo/common"
-	"github.com/jhnl/dingo/llvm"
 	"github.com/jhnl/dingo/module"
 	"github.com/jhnl/dingo/semantics"
 )
 
 func main() {
+	env := &common.BuildEnvironment{}
+	env.Debug = true
+
 	flag.Usage = func() {
 		fmt.Printf("Usage of %s: [options] file\n", os.Args[0])
 		flag.PrintDefaults()
 	}
 
-	out := flag.String("exe", "", "Name of executable")
+	flag.StringVar(&env.Exe, "exe", "dgexe", "Name of executable")
+	flag.BoolVar(&env.Clean, "clean", true, "Clean up object files after build has finished")
 	flag.Parse()
 
 	if len(os.Args) < 2 {
@@ -26,71 +33,68 @@ func main() {
 		os.Exit(1)
 	}
 
-	driver := newDriver()
-	driver.infile = os.Args[1]
-	driver.outfile = *out
-
-	driver.build()
+	build(os.Args[1:2], env)
 }
 
-type driver struct {
-	infile  string
-	outfile string
-}
+func build(files []string, env *common.BuildEnvironment) {
+	errors := &common.ErrorList{}
+	set := &ir.ModuleSet{}
 
-func newDriver() *driver {
-	return &driver{}
-}
+	for _, file := range files {
+		mod, err := module.Load(file)
+		addError(err, errors)
+		if mod != nil {
+			set.Modules = append(set.Modules, mod)
+		}
+	}
 
-func (d *driver) build() {
-	var errors common.ErrorList
-
-	modules, err := module.Load(d.infile)
-	if printErrors(errors, err, false) {
+	if errors.Count() > 0 {
+		printErrors(errors)
 		return
 	}
 
-	for _, mod := range modules.Modules {
-		fmt.Println("Module", mod.FQN)
-		for _, file := range mod.Files {
-			fmt.Println("  File", file.Ctx.Path)
-			for _, dep := range file.Deps {
-				fmt.Println("    Include", dep.Literal.Literal)
+	if env.Debug {
+		for _, mod := range set.Modules {
+			fmt.Println("Module", mod.FQN)
+			for _, file := range mod.Files {
+				fmt.Println("  File", file.Ctx.Path)
+				for _, dep := range file.Deps {
+					fmt.Println("    Include", dep.Literal.Literal)
+				}
 			}
 		}
 	}
 
-	//fmt.Println("Parse done")
-	//fmt.Println(semantics.PrintTree(modules))
-
-	err = semantics.Check(modules)
-	if printErrors(errors, err, false) {
+	err := semantics.Check(set)
+	addError(err, errors)
+	if errors.Count() > 0 {
+		printErrors(errors)
 		return
 	}
 
-	//fmt.Println("Check done")
-	//fmt.Println(semantics.PrintTree(modules))
-
-	llvm.Build(modules, d.outfile)
+	err = backend.Build(set, env)
+	addError(err, errors)
+	printErrors(errors)
 }
 
-func printErrors(oldErrors common.ErrorList, newError error, onlyFatal bool) bool {
+func addError(newError error, errList *common.ErrorList) {
 	if newError == nil {
-		return false
+		return
 	}
 
-	if errList, ok := newError.(*common.ErrorList); ok {
-		oldErrors.Merge(errList)
-		if len(errList.Errors) == 0 || (onlyFatal && !oldErrors.IsFatal()) {
-			return false
-		}
-		errList.Sort()
-		for _, e := range errList.Errors {
-			fmt.Printf("%s\n", e)
-		}
-	} else {
-		fmt.Printf("%s\n", newError)
+	switch t := newError.(type) {
+	case *common.ErrorList:
+		errList.Merge(t)
+	case *common.Error:
+		errList.Errors = append(errList.Errors, t)
+	default:
+		errList.AddGeneric("", token.NoPosition, newError)
 	}
+}
 
-	return true
+func printErrors(errList *common.ErrorList) {
+	errList.Sort()
+	for _, err := range errList.Errors {
+		fmt.Printf("%s\n", err)
+	}
 }

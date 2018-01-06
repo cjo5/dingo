@@ -19,15 +19,12 @@ type ErrorID int
 const (
 	GenericError ErrorID = iota
 	SyntaxError
-	GenericWarning
 )
 
 func (e ErrorID) String() string {
 	switch e {
 	case GenericError:
 		return "error"
-	case GenericWarning:
-		return "warning"
 	case SyntaxError:
 		return "syntax error"
 	}
@@ -117,10 +114,6 @@ func (e *ErrorList) Merge(other *ErrorList) {
 	for _, err := range other.Errors {
 		e.Errors = append(e.Errors, err)
 	}
-}
-
-func (e *ErrorList) IsFatal() bool {
-	return e.isFatal
 }
 
 func (e *ErrorList) Count() int {

@@ -162,7 +162,7 @@ func (p *parser) parseFile() (*ir.File, []ir.TopDecl) {
 	if p.token.Is(token.Module) {
 		file.Ctx.Decl = p.token
 		p.next()
-		file.Ctx.ModName = p.parseIdent()
+		file.Ctx.ModName = p.parseModName()
 		p.expectSemi1(false)
 	} else {
 		file.Ctx.Decl = token.Synthetic(token.Module, token.Module.String())
@@ -185,6 +185,14 @@ func (p *parser) parseFile() (*ir.File, []ir.TopDecl) {
 	}
 
 	return file, decls
+}
+
+func (p *parser) parseModName() ir.Expr {
+	ident := p.parseIdent()
+	if p.token.Is(token.Dot) {
+		return p.parseDotExpr(ident)
+	}
+	return ident
 }
 
 func (p *parser) parseRequire() *ir.FileDependency {
@@ -277,7 +285,11 @@ func (p *parser) parseField(flags int, defaultDecl token.ID) *ir.ValDecl {
 	}
 
 	decl.Name = p.token
-	p.expect1(token.Ident)
+	if p.token.Is(token.Underscore) {
+		p.next()
+	} else {
+		p.expect1(token.Ident)
+	}
 
 	decl.Type = p.parseType(false)
 	return decl

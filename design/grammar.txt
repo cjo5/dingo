@@ -4,21 +4,23 @@
 # ? : optional
 # a | b : a or b
 
-File = ['module' IDENT ';'] Include* TopDecl*
+File = ['module' ModName ';'] Require* TopDecl*
 
-Include = 'include' STRING ';'
-TopDecl = Visibility? Decl ';'
+ModName = IDENT | DotExpr
+Require = 'require' STRING ';'
+TopDecl = Visibility? (Import | Decl) ';'
+Visibility = 'pub' | 'priv' 
+Import = 'import' ModName ';'
 Decl = ValDecl | FuncDecl | StructDecl
 ValDecl = ('val' | 'var') IDENT (Type | (Type? '=' Expr))
 FuncDecl = 'func' IDENT Func
 StructDecl = 'struct' IDENT Struct
 
-Visibility = 'pub' | 'priv' 
 Type = PointerType | ArrayType | FuncType | IDENT | '(' Type ')'
 PointerType = '*' ['val' | 'var'] Type
 ArrayType = '[' INTEGER? ':' Type ']'
 FuncType 'fun' '(' Type? [',' Type]  ')' Type?
-Field = ['val' | 'var'] IDENT Type
+Field = ['val' | 'var'] (IDENT | '_') Type
 Struct= '{' {Field ';'} '}'
 Func = FuncSignature (Block | ';')
 FuncSignature = '(' [Field {',' Field} ','?] ')' Type?

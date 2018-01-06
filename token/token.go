@@ -31,6 +31,7 @@ const (
 	Comma
 	Semicolon
 	Colon
+	Underscore
 
 	And
 	Lnot
@@ -102,16 +103,17 @@ var tokens = [...]string{
 	Float:   "float",
 	String:  "string",
 
-	Lparen:    "(",
-	Rparen:    ")",
-	Lbrace:    "{",
-	Rbrace:    "}",
-	Lbrack:    "[",
-	Rbrack:    "]",
-	Dot:       ".",
-	Comma:     ",",
-	Semicolon: ";",
-	Colon:     ":",
+	Lparen:     "(",
+	Rparen:     ")",
+	Lbrace:     "{",
+	Rbrace:     "}",
+	Lbrack:     "[",
+	Rbrack:     "]",
+	Dot:        ".",
+	Comma:      ",",
+	Semicolon:  ";",
+	Colon:      ":",
+	Underscore: "_",
 
 	And:  "&",
 	Lnot: "!",

@@ -130,7 +130,16 @@ type ModuleSet struct {
 	Modules []*Module
 }
 
-func (d *ModuleSet) FirstPos() token.Position { return token.NoPosition }
+func (m *ModuleSet) FirstPos() token.Position { return token.NoPosition }
+
+func (m *ModuleSet) FindModule(fqn string) *Module {
+	for _, mod := range m.Modules {
+		if mod.FQN == fqn {
+			return mod
+		}
+	}
+	return nil
+}
 
 // A Module is a collection of files sharing the same namespace.
 type Module struct {
@@ -143,6 +152,18 @@ type Module struct {
 }
 
 func (m *Module) FirstPos() token.Position { return token.NoPosition }
+
+func (m *Module) FindFuncSymbol(name string) *Symbol {
+	for _, decl := range m.Decls {
+		sym := decl.Symbol()
+		if sym != nil && sym.ID == FuncSymbol {
+			if sym.Name == name {
+				return sym
+			}
+		}
+	}
+	return nil
+}
 
 type File struct {
 	Ctx  *FileContext
@@ -639,6 +660,21 @@ type FuncCall struct {
 
 func (x *FuncCall) FirstPos() token.Position { return x.X.FirstPos() }
 
+func ExprToModuleFQN(expr Expr) string {
+	switch t := expr.(type) {
+	case *Ident:
+		return t.Literal()
+	case *DotExpr:
+		x := ExprToModuleFQN(t.X)
+		if len(x) == 0 {
+			return ""
+		}
+		return x + "." + t.Name.Literal()
+	default:
+		return ""
+	}
+}
+
 func TypeExprToIdent(expr Expr) *Ident {
 	switch t := expr.(type) {
 	case *Ident:
@@ -659,27 +695,6 @@ func ExprSymbol(expr Expr) *Symbol {
 		return t.Name.Sym
 	}
 	return nil
-}
-
-func CopyExpr(expr Expr, includePositions bool) Expr {
-	switch src := expr.(type) {
-	case *Ident:
-		dst := &Ident{}
-		dst.Name = src.Name
-		if !includePositions {
-			dst.Name.Pos = token.NoPosition
-		}
-		dst.SetSymbol(src.Sym)
-		return dst
-	case *DotExpr:
-		dst := &DotExpr{}
-		dst.X = CopyExpr(src.X, includePositions)
-		dst.Name = CopyExpr(src.Name, includePositions).(*Ident)
-		dst.T = src.T
-		return dst
-	default:
-		panic(fmt.Sprintf("Unhandled CopyExpr src %T", src))
-	}
 }
 
 // Lower number means higher precedence.

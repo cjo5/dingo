@@ -1,8 +1,11 @@
-package llvm
+package backend
 
 import (
 	"fmt"
+	"os"
 	"strings"
+
+	"github.com/jhnl/dingo/common"
 
 	"io/ioutil"
 	"os/exec"
@@ -13,10 +16,15 @@ import (
 	"llvm.org/llvm/bindings/go/llvm"
 )
 
-type codeBuilder struct {
+type llvmCodeBuilder struct {
+	errors         *common.ErrorList
+	env            *common.BuildEnvironment
+	objectfiles    []string
+	target         llvm.TargetMachine
 	b              llvm.Builder
 	mod            llvm.Module
 	inFunction     bool
+	inMain         bool
 	signature      bool
 	values         map[*ir.Symbol]llvm.Value
 	typeDecls      map[*ir.Symbol]llvm.Type
@@ -28,7 +36,7 @@ const ptrFieldIndex = 0
 const lenFieldIndex = 1
 
 // Build LLVM code.
-func Build(set *ir.ModuleSet, outfile string) {
+func Build(set *ir.ModuleSet, env *common.BuildEnvironment) error {
 	if err := llvm.InitializeNativeTarget(); err != nil {
 		panic(err)
 	}
@@ -37,48 +45,142 @@ func Build(set *ir.ModuleSet, outfile string) {
 		panic(err)
 	}
 
+	if len(set.Modules) == 1 {
+		if set.Modules[0].FQN == "" {
+			set.Modules[0].FQN = "main"
+		}
+	}
+
+	if err := checkPreconditions(set); err != nil {
+		return err
+	}
+
+	cb := newBuilder(env)
+	if cb.env.Clean {
+		defer cb.deleteObjects()
+	}
+
+	for _, mod := range set.Modules {
+		cb.buildModule(mod)
+	}
+
+	if cb.errors.Count() > 0 {
+		return cb.errors
+	}
+
+	objects := ""
+	for i, object := range cb.objectfiles {
+		objects += object
+		if (i + 1) < len(cb.objectfiles) {
+			objects += " "
+		}
+	}
+
+	cmd := exec.Command("cc", objects, "-o", env.Exe)
+	if linkOutput, linkErr := cmd.CombinedOutput(); linkErr != nil {
+		panic(fmt.Sprintf("Err: %s\nOutput: %s", linkErr, linkOutput))
+	}
+
+	return nil
+}
+
+func createTargetMachine() llvm.TargetMachine {
 	triple := llvm.DefaultTargetTriple()
 	target, err := llvm.GetTargetFromTriple(triple)
 	if err != nil {
 		panic(err)
 	}
-	targetMachine := target.CreateTargetMachine(triple, "", "", llvm.CodeGenLevelNone, llvm.RelocDefault, llvm.CodeModelDefault)
+	return target.CreateTargetMachine(triple, "", "", llvm.CodeGenLevelNone, llvm.RelocDefault, llvm.CodeModelDefault)
+}
 
-	// TODO:
-	// - Build multiple modules
-	// - Write object/assembly files to specified output directory
-	// - Invoke system linker to build executable
-	// - Better error handling
-	//
-
-	cb := &codeBuilder{b: llvm.NewBuilder()}
+func newBuilder(env *common.BuildEnvironment) *llvmCodeBuilder {
+	cb := &llvmCodeBuilder{b: llvm.NewBuilder()}
+	cb.errors = &common.ErrorList{}
+	cb.env = env
 	cb.values = make(map[*ir.Symbol]llvm.Value)
 	cb.typeDecls = make(map[*ir.Symbol]llvm.Type)
-
 	cb.b = llvm.NewBuilder()
-	mod := set.Modules[0]
-	cb.buildModule(mod)
+	cb.target = createTargetMachine()
+	return cb
+}
+
+func checkPreconditions(set *ir.ModuleSet) error {
+	mod := set.FindModule("main")
+	if mod == nil {
+		return fmt.Errorf("no main module")
+	}
+	return checkMainFunc(mod)
+}
+
+func checkMainFunc(mod *ir.Module) error {
+	mainFunc := mod.FindFuncSymbol("main")
+	if mainFunc != nil {
+		tmain := mainFunc.T.(*ir.FuncType)
+		msg := ""
+		if len(tmain.Params) > 0 {
+			msg = fmt.Sprintf("invalid main function (expected 0 parameters, got %d)", len(tmain.Params))
+		} else if tmain.Return.ID() != ir.TVoid {
+			msg = fmt.Sprintf("invalid main function (expected return type %s, got %s)", ir.TVoid, tmain.Return)
+		}
+
+		if len(msg) > 0 {
+			return common.NewError(mod.Path, mainFunc.Pos, common.GenericError, msg)
+		}
+	} else {
+		return common.NewError(mod.Path, token.NoPosition, common.GenericError, "no main function")
+	}
+	return nil
+}
+
+func (cb *llvmCodeBuilder) deleteObjects() {
+	for _, object := range cb.objectfiles {
+		os.Remove(object)
+	}
+}
+
+func (cb *llvmCodeBuilder) buildModule(mod *ir.Module) {
+	if mod.FQN == "main" {
+		cb.inMain = true
+	} else {
+		cb.inMain = false
+	}
+
+	cb.mod = llvm.NewModule(mod.FQN)
+	cb.inFunction = false
+
+	cb.signature = true
+	for _, decl := range mod.Decls {
+		cb.buildDecl(decl)
+	}
+
+	cb.signature = false
+	for _, decl := range mod.Decls {
+		cb.buildDecl(decl)
+	}
+
+	cb.finalizeModule(mod)
+}
+
+func (cb *llvmCodeBuilder) finalizeModule(mod *ir.Module) {
+	if err := llvm.VerifyModule(cb.mod, llvm.ReturnStatusAction); err != nil {
+		panic(err)
+	}
+
+	cb.mod.Dump()
 
 	ext := filepath.Ext(mod.Path)
-	filename := outfile
-	if len(filename) == 0 {
-		filename = strings.TrimSuffix(mod.Path, ext)
-	}
+	filename := strings.TrimSuffix(mod.Path, ext)
+
 	objectfile := filename + ".o"
 	outputmode := llvm.ObjectFile
 
-	if code, err := targetMachine.EmitToMemoryBuffer(cb.mod, outputmode); err == nil {
+	if code, err := cb.target.EmitToMemoryBuffer(cb.mod, outputmode); err == nil {
 		if writeErr := ioutil.WriteFile(objectfile, code.Bytes(), 0644); writeErr != nil {
 			panic(writeErr)
 		}
-
-		cmd := exec.Command("gcc", objectfile, "-o", filename)
-		if linkOutput, linkErr := cmd.CombinedOutput(); linkErr != nil {
-			panic(fmt.Sprintf("Err: %s\nOutput: %s", linkErr, linkOutput))
-		}
-	} else {
-		panic(err)
 	}
+
+	cb.objectfiles = append(cb.objectfiles, objectfile)
 }
 
 func checkEndsWithBranchStmt(stmts []ir.Stmt) bool {
@@ -108,28 +210,7 @@ func checkElseEndsWithBranchStmt(stmt *ir.IfStmt) bool {
 	return checkEndsWithBranchStmt(body.Stmts)
 }
 
-func (cb *codeBuilder) buildModule(mod *ir.Module) {
-	cb.mod = llvm.NewModule(mod.FQN)
-	cb.inFunction = false
-
-	cb.signature = true
-	for _, decl := range mod.Decls {
-		cb.buildDecl(decl)
-	}
-
-	cb.signature = false
-	for _, decl := range mod.Decls {
-		cb.buildDecl(decl)
-	}
-
-	if err := llvm.VerifyModule(cb.mod, llvm.ReturnStatusAction); err != nil {
-		panic(err)
-	}
-
-	cb.mod.Dump()
-}
-
-func (cb *codeBuilder) buildDecl(decl ir.Decl) {
+func (cb *llvmCodeBuilder) buildDecl(decl ir.Decl) {
 	switch t := decl.(type) {
 	case *ir.ValTopDecl:
 		cb.buildValTopDecl(t)
@@ -144,7 +225,7 @@ func (cb *codeBuilder) buildDecl(decl ir.Decl) {
 	}
 }
 
-func (cb *codeBuilder) buildValTopDecl(decl *ir.ValTopDecl) {
+func (cb *llvmCodeBuilder) buildValTopDecl(decl *ir.ValTopDecl) {
 	sym := decl.Sym
 	if cb.signature {
 		loc := llvm.AddGlobal(cb.mod, cb.toLLVMType(sym.T), sym.Name)
@@ -165,7 +246,7 @@ func (cb *codeBuilder) buildValTopDecl(decl *ir.ValTopDecl) {
 	loc.SetInitializer(init)
 }
 
-func (cb *codeBuilder) buildValDecl(decl *ir.ValDecl) {
+func (cb *llvmCodeBuilder) buildValDecl(decl *ir.ValDecl) {
 	sym := decl.Sym
 	loc := cb.b.CreateAlloca(cb.toLLVMType(sym.T), sym.Name)
 	cb.values[decl.Sym] = loc
@@ -174,7 +255,7 @@ func (cb *codeBuilder) buildValDecl(decl *ir.ValDecl) {
 	cb.b.CreateStore(init, loc)
 }
 
-func (cb *codeBuilder) buildFuncDecl(decl *ir.FuncDecl) {
+func (cb *llvmCodeBuilder) buildFuncDecl(decl *ir.FuncDecl) {
 	fun := cb.mod.NamedFunction(decl.Name.Literal)
 
 	if cb.signature {
@@ -191,11 +272,15 @@ func (cb *codeBuilder) buildFuncDecl(decl *ir.FuncDecl) {
 		funType := llvm.FunctionType(retType, paramTypes, false)
 		fun := llvm.AddFunction(cb.mod, decl.Name.Literal, funType)
 
-		switch decl.Visibility.ID {
-		case token.Public:
+		if cb.inMain && decl.Name.Literal == "main" {
 			fun.SetLinkage(llvm.ExternalLinkage)
-		case token.Private:
-			fun.SetLinkage(llvm.InternalLinkage)
+		} else {
+			switch decl.Visibility.ID {
+			case token.Public:
+				fun.SetLinkage(llvm.ExternalLinkage)
+			case token.Private:
+				fun.SetLinkage(llvm.InternalLinkage)
+			}
 		}
 
 		return
@@ -221,7 +306,7 @@ func (cb *codeBuilder) buildFuncDecl(decl *ir.FuncDecl) {
 	cb.inFunction = false
 }
 
-func (cb *codeBuilder) buildStructDecl(decl *ir.StructDecl) {
+func (cb *llvmCodeBuilder) buildStructDecl(decl *ir.StructDecl) {
 	if cb.signature {
 		structt := cb.mod.Context().StructCreateNamed(decl.Name.Literal)
 		cb.typeDecls[decl.Sym] = structt
@@ -238,13 +323,13 @@ func (cb *codeBuilder) buildStructDecl(decl *ir.StructDecl) {
 	structt.StructSetBody(types, false)
 }
 
-func (cb *codeBuilder) buildStmtList(stmts []ir.Stmt) {
+func (cb *llvmCodeBuilder) buildStmtList(stmts []ir.Stmt) {
 	for _, stmt := range stmts {
 		cb.buildStmt(stmt)
 	}
 }
 
-func (cb *codeBuilder) buildStmt(stmt ir.Stmt) {
+func (cb *llvmCodeBuilder) buildStmt(stmt ir.Stmt) {
 	switch t := stmt.(type) {
 	case *ir.BlockStmt:
 		cb.buildBlockStmt(t)
@@ -267,15 +352,15 @@ func (cb *codeBuilder) buildStmt(stmt ir.Stmt) {
 	}
 }
 
-func (cb *codeBuilder) buildBlockStmt(stmt *ir.BlockStmt) {
+func (cb *llvmCodeBuilder) buildBlockStmt(stmt *ir.BlockStmt) {
 	cb.buildStmtList(stmt.Stmts)
 }
 
-func (cb *codeBuilder) buildDeclStmt(stmt *ir.DeclStmt) {
+func (cb *llvmCodeBuilder) buildDeclStmt(stmt *ir.DeclStmt) {
 	cb.buildDecl(stmt.D)
 }
 
-func (cb *codeBuilder) buildIfStmt(stmt *ir.IfStmt) {
+func (cb *llvmCodeBuilder) buildIfStmt(stmt *ir.IfStmt) {
 	cond := cb.buildExprVal(stmt.Cond)
 
 	fun := cb.b.GetInsertBlock().Parent()
@@ -318,7 +403,7 @@ func (cb *codeBuilder) buildIfStmt(stmt *ir.IfStmt) {
 	cb.b.SetInsertPointAtEnd(join)
 }
 
-func (cb *codeBuilder) buildForStmt(stmt *ir.ForStmt) {
+func (cb *llvmCodeBuilder) buildForStmt(stmt *ir.ForStmt) {
 	if stmt.Init != nil {
 		cb.buildValDecl(stmt.Init)
 	}
@@ -383,7 +468,7 @@ func (cb *codeBuilder) buildForStmt(stmt *ir.ForStmt) {
 	cb.loopExits = cb.loopExits[:len(cb.loopExits)-1]
 }
 
-func (cb *codeBuilder) buildReturnStmt(stmt *ir.ReturnStmt) {
+func (cb *llvmCodeBuilder) buildReturnStmt(stmt *ir.ReturnStmt) {
 	if stmt.X != nil {
 		val := cb.buildExprVal(stmt.X)
 		cb.b.CreateRet(val)
@@ -395,7 +480,7 @@ func (cb *codeBuilder) buildReturnStmt(stmt *ir.ReturnStmt) {
 	cb.b.SetInsertPointAtEnd(block)
 }
 
-func (cb *codeBuilder) buildBranchStmt(stmt *ir.BranchStmt) {
+func (cb *llvmCodeBuilder) buildBranchStmt(stmt *ir.BranchStmt) {
 	if stmt.Tok.ID == token.Continue {
 		block := cb.loopConditions[len(cb.loopConditions)-1]
 		cb.b.CreateBr(block)
@@ -410,7 +495,7 @@ func (cb *codeBuilder) buildBranchStmt(stmt *ir.BranchStmt) {
 	cb.b.SetInsertPointAtEnd(block)
 }
 
-func (cb *codeBuilder) buildAssignStmt(stmt *ir.AssignStmt) {
+func (cb *llvmCodeBuilder) buildAssignStmt(stmt *ir.AssignStmt) {
 	loc := cb.buildExprPtr(stmt.Left)
 	val := cb.buildExprVal(stmt.Right)
 
@@ -423,18 +508,18 @@ func (cb *codeBuilder) buildAssignStmt(stmt *ir.AssignStmt) {
 	cb.b.CreateStore(val, loc)
 }
 
-func (cb *codeBuilder) buildExprStmt(stmt *ir.ExprStmt) {
+func (cb *llvmCodeBuilder) buildExprStmt(stmt *ir.ExprStmt) {
 	cb.buildExprVal(stmt.X)
 }
 
-func (cb *codeBuilder) llvmEnumAttribute(name string, val uint64) llvm.Attribute {
+func (cb *llvmCodeBuilder) llvmEnumAttribute(name string, val uint64) llvm.Attribute {
 	kind := llvm.AttributeKindID(name)
 	ctx := llvm.GlobalContext()
 	attr := ctx.CreateEnumAttribute(kind, val)
 	return attr
 }
 
-func (cb *codeBuilder) toLLVMType(t ir.Type) llvm.Type {
+func (cb *llvmCodeBuilder) toLLVMType(t ir.Type) llvm.Type {
 	switch t.ID() {
 	case ir.TVoid:
 		return llvm.VoidType()
@@ -485,15 +570,15 @@ func (cb *codeBuilder) toLLVMType(t ir.Type) llvm.Type {
 	}
 }
 
-func (cb *codeBuilder) buildExprVal(expr ir.Expr) llvm.Value {
+func (cb *llvmCodeBuilder) buildExprVal(expr ir.Expr) llvm.Value {
 	return cb.buildExpr(expr, true)
 }
 
-func (cb *codeBuilder) buildExprPtr(expr ir.Expr) llvm.Value {
+func (cb *llvmCodeBuilder) buildExprPtr(expr ir.Expr) llvm.Value {
 	return cb.buildExpr(expr, false)
 }
 
-func (cb *codeBuilder) buildExpr(expr ir.Expr, load bool) llvm.Value {
+func (cb *llvmCodeBuilder) buildExpr(expr ir.Expr, load bool) llvm.Value {
 	switch t := expr.(type) {
 	case *ir.BinaryExpr:
 		return cb.buildBinaryExpr(t)
@@ -526,7 +611,7 @@ func (cb *codeBuilder) buildExpr(expr ir.Expr, load bool) llvm.Value {
 	}
 }
 
-func (cb *codeBuilder) createArithmeticOp(op token.ID, t ir.Type, left llvm.Value, right llvm.Value) llvm.Value {
+func (cb *llvmCodeBuilder) createArithmeticOp(op token.ID, t ir.Type, left llvm.Value, right llvm.Value) llvm.Value {
 	switch op {
 	case token.Add, token.AddAssign:
 		if ir.IsFloatingType(t) {
@@ -609,7 +694,7 @@ func intPredicate(op token.ID, t ir.Type) llvm.IntPredicate {
 	panic(fmt.Sprintf("Unhandled int predicate %s", op))
 }
 
-func (cb *codeBuilder) buildBinaryExpr(expr *ir.BinaryExpr) llvm.Value {
+func (cb *llvmCodeBuilder) buildBinaryExpr(expr *ir.BinaryExpr) llvm.Value {
 	left := cb.buildExprVal(expr.Left)
 
 	switch expr.Op.ID {
@@ -650,7 +735,7 @@ func (cb *codeBuilder) buildBinaryExpr(expr *ir.BinaryExpr) llvm.Value {
 	panic(fmt.Sprintf("Unhandled binary op %s", expr.Op.ID))
 }
 
-func (cb *codeBuilder) buildUnaryExpr(expr *ir.UnaryExpr, load bool) llvm.Value {
+func (cb *llvmCodeBuilder) buildUnaryExpr(expr *ir.UnaryExpr, load bool) llvm.Value {
 	switch expr.Op.ID {
 	case token.Sub:
 		val := cb.buildExprVal(expr.X)
@@ -673,7 +758,7 @@ func (cb *codeBuilder) buildUnaryExpr(expr *ir.UnaryExpr, load bool) llvm.Value 
 	}
 }
 
-func (cb *codeBuilder) buildBasicLit(expr *ir.BasicLit) llvm.Value {
+func (cb *llvmCodeBuilder) buildBasicLit(expr *ir.BasicLit) llvm.Value {
 	if expr.Value.ID == token.String {
 		raw := expr.AsString()
 		strLen := len(raw)
@@ -731,7 +816,7 @@ func (cb *codeBuilder) buildBasicLit(expr *ir.BasicLit) llvm.Value {
 	panic(fmt.Sprintf("Unhandled basic lit %s, type %s", expr.Value.ID, expr.T))
 }
 
-func (cb *codeBuilder) buildStructLit(expr *ir.StructLit) llvm.Value {
+func (cb *llvmCodeBuilder) buildStructLit(expr *ir.StructLit) llvm.Value {
 	tstruct := expr.T.(*ir.StructType)
 	llvmType := cb.typeDecls[tstruct.Sym]
 	structLit := llvm.Undef(llvmType)
@@ -745,7 +830,7 @@ func (cb *codeBuilder) buildStructLit(expr *ir.StructLit) llvm.Value {
 	return structLit
 }
 
-func (cb *codeBuilder) buildArrayLit(expr *ir.ArrayLit) llvm.Value {
+func (cb *llvmCodeBuilder) buildArrayLit(expr *ir.ArrayLit) llvm.Value {
 	llvmType := cb.toLLVMType(expr.T)
 	arrayLit := llvm.Undef(llvmType)
 
@@ -757,7 +842,7 @@ func (cb *codeBuilder) buildArrayLit(expr *ir.ArrayLit) llvm.Value {
 	return arrayLit
 }
 
-func (cb *codeBuilder) buildIdent(expr *ir.Ident, load bool) llvm.Value {
+func (cb *llvmCodeBuilder) buildIdent(expr *ir.Ident, load bool) llvm.Value {
 	if expr.Sym.ID == ir.FuncSymbol {
 		return cb.mod.NamedFunction(expr.Sym.Name)
 	}
@@ -773,14 +858,14 @@ func (cb *codeBuilder) buildIdent(expr *ir.Ident, load bool) llvm.Value {
 	panic(fmt.Sprintf("%s not found", expr.Sym))
 }
 
-func (cb *codeBuilder) createTempStorage(val llvm.Value) llvm.Value {
+func (cb *llvmCodeBuilder) createTempStorage(val llvm.Value) llvm.Value {
 	// TODO: See if there's a better way to handle intermediary results
 	loc := cb.b.CreateAlloca(val.Type(), ".tmp")
 	cb.b.CreateStore(val, loc)
 	return loc
 }
 
-func (cb *codeBuilder) createSliceStruct(ptr llvm.Value, size llvm.Value, t ir.Type) llvm.Value {
+func (cb *llvmCodeBuilder) createSliceStruct(ptr llvm.Value, size llvm.Value, t ir.Type) llvm.Value {
 	llvmType := cb.toLLVMType(t)
 	sliceStruct := llvm.Undef(llvmType)
 	sliceStruct = cb.b.CreateInsertValue(sliceStruct, ptr, ptrFieldIndex, "")
@@ -788,11 +873,11 @@ func (cb *codeBuilder) createSliceStruct(ptr llvm.Value, size llvm.Value, t ir.T
 	return sliceStruct
 }
 
-func (cb *codeBuilder) createSliceSize(size int) llvm.Value {
+func (cb *llvmCodeBuilder) createSliceSize(size int) llvm.Value {
 	return llvm.ConstInt(llvm.IntType(32), uint64(size), false)
 }
 
-func (cb *codeBuilder) buildDotExpr(expr *ir.DotExpr, load bool) llvm.Value {
+func (cb *llvmCodeBuilder) buildDotExpr(expr *ir.DotExpr, load bool) llvm.Value {
 	switch t := expr.X.Type().(type) {
 	case *ir.StructType:
 		val := cb.buildExprPtr(expr.X)
@@ -811,7 +896,7 @@ func (cb *codeBuilder) buildDotExpr(expr *ir.DotExpr, load bool) llvm.Value {
 	}
 }
 
-func (cb *codeBuilder) buildCastExpr(expr *ir.CastExpr) llvm.Value {
+func (cb *llvmCodeBuilder) buildCastExpr(expr *ir.CastExpr) llvm.Value {
 	val := cb.buildExprVal(expr.X)
 
 	to := expr.Type()
@@ -872,7 +957,7 @@ func (cb *codeBuilder) buildCastExpr(expr *ir.CastExpr) llvm.Value {
 	return res
 }
 
-func (cb *codeBuilder) buildLenExpr(expr *ir.LenExpr) llvm.Value {
+func (cb *llvmCodeBuilder) buildLenExpr(expr *ir.LenExpr) llvm.Value {
 	switch t := expr.X.Type().(type) {
 	case *ir.ArrayType:
 		return llvm.ConstInt(llvm.Int32Type(), uint64(t.Size), false)
@@ -888,7 +973,7 @@ func (cb *codeBuilder) buildLenExpr(expr *ir.LenExpr) llvm.Value {
 	}
 }
 
-func (cb *codeBuilder) buildFuncCall(expr *ir.FuncCall) llvm.Value {
+func (cb *llvmCodeBuilder) buildFuncCall(expr *ir.FuncCall) llvm.Value {
 	fun := cb.buildExprVal(expr.X)
 
 	var args []llvm.Value
@@ -899,11 +984,11 @@ func (cb *codeBuilder) buildFuncCall(expr *ir.FuncCall) llvm.Value {
 	return cb.b.CreateCall(fun, args, "")
 }
 
-func (cb *codeBuilder) buildAddressExpr(expr *ir.AddressExpr, load bool) llvm.Value {
+func (cb *llvmCodeBuilder) buildAddressExpr(expr *ir.AddressExpr, load bool) llvm.Value {
 	return cb.buildExprPtr(expr.X)
 }
 
-func (cb *codeBuilder) buildIndexExpr(expr *ir.IndexExpr, load bool) llvm.Value {
+func (cb *llvmCodeBuilder) buildIndexExpr(expr *ir.IndexExpr, load bool) llvm.Value {
 	val := cb.buildExprPtr(expr.X)
 	if val.Type().TypeKind() != llvm.PointerTypeKind {
 		val = cb.createTempStorage(val)
@@ -928,7 +1013,7 @@ func (cb *codeBuilder) buildIndexExpr(expr *ir.IndexExpr, load bool) llvm.Value 
 	return gep
 }
 
-func (cb *codeBuilder) buildSliceExpr(expr *ir.SliceExpr) llvm.Value {
+func (cb *llvmCodeBuilder) buildSliceExpr(expr *ir.SliceExpr) llvm.Value {
 	val := cb.buildExprPtr(expr.X)
 	start := cb.buildExprVal(expr.Start)
 	end := cb.buildExprVal(expr.End)

@@ -2,8 +2,8 @@ require "std/io.dg"
 
 struct Vec2 {
     v fun(Vec2)
-    x i32
-    y i32
+    _ i32
+    _ i32
 }
 
 fun mul(a i32, b i32) i32 {
@@ -12,7 +12,8 @@ fun mul(a i32, b i32) i32 {
 
 val ptr = mul
 
-pub fun main() {
+fun main() {
+    var v = Vec2{}
     var a [5:i32]
     puti(lenof(a))
 }

@@ -13,6 +13,13 @@ type exprPrinter struct {
 	buffer bytes.Buffer
 }
 
+// PrintExpr in-order.
+func PrintExpr(expr ir.Expr) string {
+	p := &exprPrinter{}
+	ir.VisitExpr(p, expr)
+	return p.buffer.String()
+}
+
 func (p *exprPrinter) VisitBinaryExpr(expr *ir.BinaryExpr) ir.Expr {
 	leftPrec := ir.ExprPrec(expr.Left)
 	rightPrec := ir.ExprPrec(expr.Right)

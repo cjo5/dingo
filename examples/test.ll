@@ -53,9 +53,15 @@ define void @stuff() #0 {
 declare void @printarr(i32*) #2
 
 ; Function Attrs: nounwind ssp uwtable
+define void @_ZShit() #0 {
+  ret void
+}
+
+; Function Attrs: nounwind ssp uwtable
 define i32 @main() #0 {
   %1 = alloca i32, align 4
   store i32 0, i32* %1, align 4
+  call void @_ZShit()
   ret i32 0
 }
 

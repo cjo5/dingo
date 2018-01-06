@@ -46,7 +46,9 @@ func (v *symChecker) VisitValTopDecl(decl *ir.ValTopDecl) {
 }
 
 func (v *symChecker) VisitValDecl(decl *ir.ValDecl) {
-	if !v.isTypeName(decl.Name) {
+	if decl.Name.ID == token.Underscore {
+		decl.Sym = ir.NewSymbol(ir.ValSymbol, v.c.scope.ID, decl.Name.Literal, decl.Name.Pos)
+	} else if !v.isTypeName(decl.Name) {
 		decl.Sym = v.c.insert(v.c.scope, ir.ValSymbol, decl.Name.Literal, decl.Name.Pos)
 	}
 }

@@ -44,7 +44,7 @@ type loader struct {
 
 // Load module and includes.
 //
-func Load(path string) (*ir.ModuleSet, error) {
+func Load(path string) (*ir.Module, error) {
 	if !strings.HasSuffix(path, fileExtension) {
 		return nil, fmt.Errorf("%s does not have file extension %s", path, fileExtension)
 	}
@@ -63,14 +63,11 @@ func Load(path string) (*ir.ModuleSet, error) {
 	loader.cwd = cwd
 
 	mod := loader.loadModule(normPath)
-	if mod == nil || loader.errors.IsFatal() {
+	if mod == nil || loader.errors.Count() > 0 {
 		return nil, loader.errors
 	}
 
-	set := &ir.ModuleSet{}
-	set.Modules = append(set.Modules, mod)
-
-	return set, loader.errors
+	return mod, loader.errors
 }
 
 func newLoader() *loader {
@@ -87,7 +84,10 @@ func (l *loader) loadModule(path requirePath) *ir.Module {
 	}
 
 	mod := &ir.Module{}
-	mod.FQN = "MyModule" // TODO
+	mod.FQN = ""
+	if rootFile.Ctx.ModName != nil {
+		mod.FQN = ir.ExprToModuleFQN(rootFile.Ctx.ModName)
+	}
 	mod.Path = path.actual
 	mod.Files = append(mod.Files, rootFile)
 	mod.Decls = append(mod.Decls, rootDecls...)
@@ -194,7 +194,7 @@ func (l *loader) createDependencyList(loadedFile *file) bool {
 		loadedFile.deps = append(loadedFile.deps, &fileDependency{file: foundFile, dep: dep, path: normPath})
 	}
 
-	if l.errors.IsFatal() {
+	if l.errors.Count() > 0 {
 		return false
 	}
 

@@ -18,14 +18,18 @@ public:
     
 };
 
-extern "C" void printfoo(Foo*);
+namespace shit {
+    void face() {
+
+    }
+}
+
+void _Zshitface() {
+
+}
 
 int main() {
-        Foo f1;
-        {
-            Foo f2;
-            printfoo(&f1);
-        }
-        printfoo(&f1);
-
+    _Zshitface();
+    shit::face();
+    return 0;
 }

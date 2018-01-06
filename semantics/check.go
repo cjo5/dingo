@@ -8,6 +8,23 @@ import (
 	"github.com/jhnl/dingo/token"
 )
 
+// Check program.
+// Resolve identifiers, type check and look for cyclic dependencies between identifiers.
+//
+func Check(set *ir.ModuleSet) error {
+	c := newContext(set)
+
+	symCheck(c)
+	depCheck(c)
+	typeCheck(c)
+
+	if c.errors.Count() > 0 {
+		return c.errors
+	}
+
+	return nil
+}
+
 const (
 	exprModeNone = 0
 	exprModeType = 1

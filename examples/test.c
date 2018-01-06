@@ -28,7 +28,6 @@ struct Vec3 {
 };
 
 void printVec(struct Vec3 v) {
-        puti(v.v.x + v.v.y + v.z);
 }
 
 
@@ -41,24 +40,12 @@ struct foo {
         int y;
 };
 
-void printarr(int* ptr);
+void _ZShit() {
 
-//struct Vec3 globalVec3 = {.v.x = 5, .v.y = 13, .z = 9 };
-
-void stuff() {
-        int a[100];
-        {
-                int b[20000];
-                printarr(b);
-        }
-        {
-                int b[10000];
-                printarr(b);
-        }
-        printarr(a);
 }
 
-int main() {
+static int main() {
+        _ZShit();
 
         
         return 0;

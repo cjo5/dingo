@@ -181,7 +181,7 @@ func isLineTerminator(id token.ID) bool {
 }
 
 func isLetter(ch rune) bool {
-	return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || ch == '_'
+	return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || (ch == '_')
 }
 
 func isDigit(ch rune, base int) bool {
@@ -272,8 +272,11 @@ func (l *lexer) lexIdent() (token.ID, string) {
 
 	tok := token.Ident
 	lit := string(l.src[startOffset:l.chOffset])
+
 	if len(lit) > 1 {
 		tok = token.Lookup(lit)
+	} else if lit == "_" {
+		tok = token.Underscore
 	}
 
 	return tok, lit
