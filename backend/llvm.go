@@ -166,7 +166,9 @@ func (cb *llvmCodeBuilder) finalizeModule(mod *ir.Module) {
 		panic(err)
 	}
 
-	cb.mod.Dump()
+	if cb.env.LLVMIR {
+		cb.mod.Dump()
+	}
 
 	ext := filepath.Ext(mod.Path)
 	filename := strings.TrimSuffix(mod.Path, ext)

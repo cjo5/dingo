@@ -2,12 +2,12 @@ package main
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/jhnl/dingo/ir"
 	"github.com/jhnl/dingo/token"
 
 	"flag"
-	"os"
 
 	"github.com/jhnl/dingo/backend"
 	"github.com/jhnl/dingo/common"
@@ -17,7 +17,6 @@ import (
 
 func main() {
 	env := &common.BuildEnvironment{}
-	env.Debug = true
 
 	flag.Usage = func() {
 		fmt.Printf("Usage of %s: [options] file\n", os.Args[0])
@@ -25,19 +24,26 @@ func main() {
 	}
 
 	flag.StringVar(&env.Exe, "exe", "dgexe", "Name of executable")
-	flag.BoolVar(&env.Clean, "clean", true, "Clean up object files after build has finished")
+	flag.BoolVar(&env.Clean, "clean", false, "Clean up object files after build has finished")
+	flag.BoolVar(&env.Verbose, "verbose", false, "Print compilation info")
+	flag.BoolVar(&env.LLVMIR, "dump-llvm-ir", false, "Print LLVM IR")
 	flag.Parse()
 
-	if len(os.Args) < 2 {
-		flag.Usage()
-		os.Exit(1)
+	if len(flag.Args()) == 0 {
+		fmt.Printf("error: no input files\n")
+		os.Exit(0)
 	}
 
-	build(os.Args[1:2], env)
+	errors := &common.ErrorList{}
+	build(flag.Args()[0:1], env, errors)
+
+	errors.Sort()
+	for _, err := range errors.Errors {
+		fmt.Printf("%s\n", err)
+	}
 }
 
-func build(files []string, env *common.BuildEnvironment) {
-	errors := &common.ErrorList{}
+func build(files []string, env *common.BuildEnvironment, errors *common.ErrorList) {
 	set := &ir.ModuleSet{}
 
 	for _, file := range files {
@@ -49,11 +55,10 @@ func build(files []string, env *common.BuildEnvironment) {
 	}
 
 	if errors.Count() > 0 {
-		printErrors(errors)
 		return
 	}
 
-	if env.Debug {
+	if env.Verbose {
 		for _, mod := range set.Modules {
 			fmt.Println("Module", mod.FQN)
 			for _, file := range mod.Files {
@@ -68,13 +73,11 @@ func build(files []string, env *common.BuildEnvironment) {
 	err := semantics.Check(set)
 	addError(err, errors)
 	if errors.Count() > 0 {
-		printErrors(errors)
 		return
 	}
 
 	err = backend.Build(set, env)
 	addError(err, errors)
-	printErrors(errors)
 }
 
 func addError(newError error, errList *common.ErrorList) {
@@ -89,12 +92,5 @@ func addError(newError error, errList *common.ErrorList) {
 		errList.Errors = append(errList.Errors, t)
 	default:
 		errList.AddGeneric("", token.NoPosition, newError)
-	}
-}
-
-func printErrors(errList *common.ErrorList) {
-	errList.Sort()
-	for _, err := range errList.Errors {
-		fmt.Printf("%s\n", err)
 	}
 }
