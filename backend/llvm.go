@@ -51,11 +51,13 @@ func Build(set *ir.ModuleSet, env *common.BuildEnvironment) error {
 		}
 	}
 
-	if err := checkPreconditions(set); err != nil {
-		return err
+	cb := newBuilder(env)
+	cb.validateModuleSet(set)
+
+	if cb.errors.Count() > 0 {
+		return cb.errors
 	}
 
-	cb := newBuilder(env)
 	if cb.env.Clean {
 		defer cb.deleteObjects()
 	}
@@ -104,15 +106,22 @@ func newBuilder(env *common.BuildEnvironment) *llvmCodeBuilder {
 	return cb
 }
 
-func checkPreconditions(set *ir.ModuleSet) error {
+func (cb *llvmCodeBuilder) validateModuleSet(set *ir.ModuleSet) {
+	for _, mod := range set.Modules {
+		if len(mod.FQN) == 0 {
+			cb.errors.Add(mod.Path, token.NoPosition, common.GenericError, "no module name")
+		}
+	}
+
 	mod := set.FindModule("main")
 	if mod == nil {
-		return fmt.Errorf("no main module")
+		cb.errors.AddGeneric("", token.NoPosition, fmt.Errorf("no main module"))
+	} else {
+		cb.validateMainFunc(mod)
 	}
-	return checkMainFunc(mod)
 }
 
-func checkMainFunc(mod *ir.Module) error {
+func (cb *llvmCodeBuilder) validateMainFunc(mod *ir.Module) {
 	mainFunc := mod.FindFuncSymbol("main")
 	if mainFunc != nil {
 		tmain := mainFunc.T.(*ir.FuncType)
@@ -124,12 +133,11 @@ func checkMainFunc(mod *ir.Module) error {
 		}
 
 		if len(msg) > 0 {
-			return common.NewError(mod.Path, mainFunc.Pos, common.GenericError, msg)
+			cb.errors.Add(mod.Path, mainFunc.Pos, common.GenericError, msg)
 		}
 	} else {
-		return common.NewError(mod.Path, token.NoPosition, common.GenericError, "no main function")
+		cb.errors.Add(mod.Path, token.NoPosition, common.GenericError, "no main function")
 	}
-	return nil
 }
 
 func (cb *llvmCodeBuilder) deleteObjects() {
