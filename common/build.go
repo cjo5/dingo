@@ -5,5 +5,4 @@ type BuildEnvironment struct {
 	Verbose bool
 	LLVMIR  bool
 	Exe     string
-	Clean   bool
 }

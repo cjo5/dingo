@@ -24,7 +24,6 @@ func main() {
 	}
 
 	flag.StringVar(&env.Exe, "exe", "dgexe", "Name of executable")
-	flag.BoolVar(&env.Clean, "clean", false, "Clean up object files after build has finished")
 	flag.BoolVar(&env.Verbose, "verbose", false, "Print compilation info")
 	flag.BoolVar(&env.LLVMIR, "dump-llvm-ir", false, "Print LLVM IR")
 	flag.Parse()

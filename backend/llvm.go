@@ -58,9 +58,7 @@ func Build(set *ir.ModuleSet, env *common.BuildEnvironment) error {
 		return cb.errors
 	}
 
-	if cb.env.Clean {
-		defer cb.deleteObjects()
-	}
+	defer cb.deleteObjects()
 
 	for _, mod := range set.Modules {
 		cb.buildModule(mod)
@@ -178,19 +176,26 @@ func (cb *llvmCodeBuilder) finalizeModule(mod *ir.Module) {
 		cb.mod.Dump()
 	}
 
-	ext := filepath.Ext(mod.Path)
-	filename := strings.TrimSuffix(mod.Path, ext)
+	_, filename := filepath.Split(mod.Path)
+	filename = strings.TrimSuffix(filename, filepath.Ext(mod.Path))
 
 	objectfile := filename + ".o"
 	outputmode := llvm.ObjectFile
 
 	if code, err := cb.target.EmitToMemoryBuffer(cb.mod, outputmode); err == nil {
-		if writeErr := ioutil.WriteFile(objectfile, code.Bytes(), 0644); writeErr != nil {
-			panic(writeErr)
+		file, err := ioutil.TempFile("", objectfile)
+		if err != nil {
+			panic(err)
 		}
-	}
 
-	cb.objectfiles = append(cb.objectfiles, objectfile)
+		if _, err := file.Write(code.Bytes()); err == nil {
+			cb.objectfiles = append(cb.objectfiles, file.Name())
+		} else {
+			panic(err)
+		}
+	} else {
+		panic(err)
+	}
 }
 
 func checkEndsWithBranchStmt(stmts []ir.Stmt) bool {
