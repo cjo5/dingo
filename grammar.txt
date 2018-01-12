@@ -1,14 +1,15 @@
 # {..} : 0 or more
 # (..)*  : 0 or more
-# [..] : optional
-# ? : optional
+# [..] : 0 or 1
+# ? : 0 or 1
 # a | b : a or b
 
 File = ['module' ModName ';'] Require* TopDecl*
 
 ModName = IDENT | DotExpr
 Require = 'require' STRING ';'
-TopDecl = Visibility? (Import | Decl) ';'
+TopDecl = Directive* Visibility? (Import | Decl) ';'
+Directive = '@' IDENT
 Visibility = 'pub' | 'priv' 
 Import = 'import' ModName ';'
 Decl = ValDecl | FuncDecl | StructDecl

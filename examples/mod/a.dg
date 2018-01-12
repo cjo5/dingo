@@ -1,5 +1,0 @@
-require "../b.dg"
-
-pub fun main() {
-    
-}

@@ -1,19 +1,25 @@
-# Dingo
+## Dingo
 
-## Introduction
+Dingo is a programming language inspired by C++, Go and Rust. The goal is to create an alternative to C and C++ that is more convenient to use. The main topics are: fast build times, simple C interop (from and to) and full memory control.
 
-Dingo is a programming language inspired by C++, Go and Rust.
-The goal is to create a system language with convenient syntax and features, while maintaining simple C interoperability without bindings. 
+Note: this project is still immature and changing every day.
 
-Currently only manual memory management is supported (C style) but later on the plan is to add support for an ownership model.
+### Planned features
+
+* Initial module system
+* Methods and interfaces
+* Templates
+* Smart pointers
 
 ## Example
 
-## Installing
+TODO
 
-### Dependencies
-* Go 1.6.2 or later
-* LLVM (some version)
+## Dependencies
+* Go 
+* LLVM 
 * Go LLVM bindings
 
-(Only tested on OS X)
+## Installing
+
+TODO

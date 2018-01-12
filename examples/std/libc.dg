@@ -1,8 +1,0 @@
-// std
-pub fun atoi(_ *i8) i32
-pub fun exit(_ i32)
-pub fun abs(_ i32) i32
-
-// stdio
-pub fun puts(_ *i8) i32
-pub fun putchar(_ i32) i32
