@@ -1,7 +1,7 @@
 # {..} : 0 or more
-# (..)*  : 0 or more
 # [..] : 0 or 1
-# ? : 0 or 1
+# a* : 0 or more a
+# a? : 0 or 1 a
 # a | b : a or b
 
 File = ['module' ModName ';'] Require* TopDecl*
@@ -29,7 +29,7 @@ FuncSignature = '(' [Field {',' Field} ','?] ')' Type?
 Block = '{' Stmt* '}'
 Stmt = [Block | ValDecl | Expr | AssignStmt | 'if' IfStmt | WhileStmt |
         ForStmt | ReturnStmt | 'break' | 'continue'] ';'
-AssignStmt = Expr ('++' | '--' | ('=' | '+=' | '-=' | '*=' | '/=' | '%=' ) Expr)
+AssignStmt = Expr ('++' | '--' | (('=' | '+=' | '-=' | '*=' | '/=' | '%=' ) Expr))
 IfStmt = Condition Block [('elif' IfStmt) | ('else' Block)]
 WhileStmt = 'while' Condition Block
 ForStmt 'for' [IDENT Type? '=' Expr] ';' Condition? ';' [AssignStmt | Expr] Block
