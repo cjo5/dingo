@@ -1,6 +1,7 @@
 package backend
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"strings"
@@ -23,6 +24,7 @@ type llvmCodeBuilder struct {
 	target         llvm.TargetMachine
 	b              llvm.Builder
 	mod            llvm.Module
+	mangledFQN     string
 	inFunction     bool
 	signature      bool
 	values         map[*ir.Symbol]llvm.Value
@@ -145,8 +147,36 @@ func (cb *llvmCodeBuilder) deleteObjects() {
 	}
 }
 
+func (cb *llvmCodeBuilder) mangle(sym *ir.Symbol) string {
+	if sym.ID == ir.FuncSymbol {
+		tfun := sym.T.(*ir.FuncType)
+		if tfun.C {
+			return sym.Name
+		}
+	}
+
+	var b bytes.Buffer
+	b.WriteString("_ZN")
+	b.WriteString(cb.mangledFQN)
+	b.WriteString(fmt.Sprintf("%d", len(sym.Name)))
+	b.WriteString(sym.Name)
+	b.WriteString("E")
+	return b.String()
+}
+
+func mangleFQN(fqn string) string {
+	split := strings.Split(fqn, ".")
+	var b bytes.Buffer
+	for _, part := range split {
+		b.WriteString(fmt.Sprintf("%d", len(part)))
+		b.WriteString(part)
+	}
+	return b.String()
+}
+
 func (cb *llvmCodeBuilder) buildModule(mod *ir.Module) {
 	cb.mod = llvm.NewModule(mod.FQN)
+	cb.mangledFQN = mangleFQN(mod.FQN)
 	cb.inFunction = false
 
 	cb.signature = true
@@ -238,7 +268,7 @@ func (cb *llvmCodeBuilder) buildDecl(decl ir.Decl) {
 func (cb *llvmCodeBuilder) buildValTopDecl(decl *ir.ValTopDecl) {
 	sym := decl.Sym
 	if cb.signature {
-		loc := llvm.AddGlobal(cb.mod, cb.toLLVMType(sym.T), sym.Name)
+		loc := llvm.AddGlobal(cb.mod, cb.toLLVMType(sym.T), cb.mangle(sym))
 
 		switch decl.Visibility.ID {
 		case token.Public:
@@ -266,7 +296,8 @@ func (cb *llvmCodeBuilder) buildValDecl(decl *ir.ValDecl) {
 }
 
 func (cb *llvmCodeBuilder) buildFuncDecl(decl *ir.FuncDecl) {
-	fun := cb.mod.NamedFunction(decl.Name.Literal)
+	name := cb.mangle(decl.Sym)
+	fun := cb.mod.NamedFunction(name)
 
 	if cb.signature {
 		if !fun.IsNil() {
@@ -282,7 +313,7 @@ func (cb *llvmCodeBuilder) buildFuncDecl(decl *ir.FuncDecl) {
 		retType := cb.toLLVMType(tfun.Return)
 
 		funType := llvm.FunctionType(retType, paramTypes, false)
-		fun := llvm.AddFunction(cb.mod, decl.Name.Literal, funType)
+		fun = llvm.AddFunction(cb.mod, name, funType)
 
 		if tfun.C {
 			fun.SetLinkage(llvm.ExternalLinkage)
@@ -320,7 +351,7 @@ func (cb *llvmCodeBuilder) buildFuncDecl(decl *ir.FuncDecl) {
 
 func (cb *llvmCodeBuilder) buildStructDecl(decl *ir.StructDecl) {
 	if cb.signature {
-		structt := cb.mod.Context().StructCreateNamed(decl.Name.Literal)
+		structt := cb.mod.Context().StructCreateNamed(cb.mangle(decl.Sym))
 		cb.typeDecls[decl.Sym] = structt
 		return
 	}
@@ -856,11 +887,10 @@ func (cb *llvmCodeBuilder) buildArrayLit(expr *ir.ArrayLit) llvm.Value {
 
 func (cb *llvmCodeBuilder) buildIdent(expr *ir.Ident, load bool) llvm.Value {
 	if expr.Sym.ID == ir.FuncSymbol {
-		return cb.mod.NamedFunction(expr.Sym.Name)
+		return cb.mod.NamedFunction(cb.mangle(expr.Sym))
 	}
 
 	if val, ok := cb.values[expr.Sym]; ok {
-
 		if load {
 			return cb.b.CreateLoad(val, expr.Sym.Name)
 		}

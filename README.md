@@ -2,13 +2,6 @@
 
 Dingo is a statically typed and compiled programming language inspired by C++, Go and Rust. The focus is on easy C interop (from and to), full memory control, fast build times and expressivity.
 
-Current planned features:
-* Initial module system
-* Function literals
-* Methods and interfaces
-* Templates
-* Smart pointers
-
 Note this project is still a work in progress.
 
 ## Example
