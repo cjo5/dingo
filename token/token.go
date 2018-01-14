@@ -32,6 +32,7 @@ const (
 	Semicolon
 	Colon
 	Underscore
+	Directive
 
 	And
 	Lnot
@@ -114,6 +115,7 @@ var tokens = [...]string{
 	Semicolon:  ";",
 	Colon:      ":",
 	Underscore: "_",
+	Directive:  "@",
 
 	And:  "&",
 	Lnot: "!",

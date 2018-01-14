@@ -5,7 +5,6 @@ import (
 	"os"
 
 	"github.com/jhnl/dingo/ir"
-	"github.com/jhnl/dingo/token"
 
 	"flag"
 
@@ -16,16 +15,16 @@ import (
 )
 
 func main() {
-	env := &common.BuildEnvironment{}
+	config := &common.BuildConfig{}
 
 	flag.Usage = func() {
 		fmt.Printf("Usage of %s: [options] file\n", os.Args[0])
 		flag.PrintDefaults()
 	}
 
-	flag.StringVar(&env.Exe, "exe", "dgexe", "Name of executable")
-	flag.BoolVar(&env.Verbose, "verbose", false, "Print compilation info")
-	flag.BoolVar(&env.LLVMIR, "dump-llvm-ir", false, "Print LLVM IR")
+	flag.StringVar(&config.Exe, "exe", "dgexe", "Name of executable")
+	flag.BoolVar(&config.Verbose, "verbose", false, "Print compilation info")
+	flag.BoolVar(&config.LLVMIR, "dump-llvm-ir", false, "Print LLVM IR")
 	flag.Parse()
 
 	if len(flag.Args()) == 0 {
@@ -34,15 +33,27 @@ func main() {
 	}
 
 	errors := &common.ErrorList{}
-	build(flag.Args()[0:1], env, errors)
+	build(flag.Args()[0:1], config, errors)
+	printErrors(errors)
+}
 
+func printErrors(errors *common.ErrorList) {
 	errors.Sort()
+
+	for _, warn := range errors.Warnings {
+		fmt.Printf("%s\n", warn)
+	}
+
 	for _, err := range errors.Errors {
 		fmt.Printf("%s\n", err)
 	}
+
+	if errors.IsError() {
+		os.Exit(1)
+	}
 }
 
-func build(files []string, env *common.BuildEnvironment, errors *common.ErrorList) {
+func build(files []string, config *common.BuildConfig, errors *common.ErrorList) {
 	set := &ir.ModuleSet{}
 
 	for _, file := range files {
@@ -53,11 +64,11 @@ func build(files []string, env *common.BuildEnvironment, errors *common.ErrorLis
 		}
 	}
 
-	if errors.Count() > 0 {
+	if errors.IsError() {
 		return
 	}
 
-	if env.Verbose {
+	if config.Verbose {
 		for _, mod := range set.Modules {
 			fmt.Println("Module", mod.FQN)
 			for _, file := range mod.Files {
@@ -71,25 +82,18 @@ func build(files []string, env *common.BuildEnvironment, errors *common.ErrorLis
 
 	err := semantics.Check(set)
 	addError(err, errors)
-	if errors.Count() > 0 {
+
+	if errors.IsError() {
 		return
 	}
 
-	err = backend.Build(set, env)
+	err = backend.Build(set, config)
 	addError(err, errors)
 }
 
-func addError(newError error, errList *common.ErrorList) {
+func addError(newError error, errors *common.ErrorList) {
 	if newError == nil {
 		return
 	}
-
-	switch t := newError.(type) {
-	case *common.ErrorList:
-		errList.Merge(t)
-	case *common.Error:
-		errList.Errors = append(errList.Errors, t)
-	default:
-		errList.AddGeneric("", token.NoPosition, newError)
-	}
+	errors.AddGeneric1(newError)
 }

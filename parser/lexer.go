@@ -103,6 +103,8 @@ func (l *lexer) lex() token.Token {
 			tok.ID = token.Semicolon
 		case ':':
 			tok.ID = token.Colon
+		case '@':
+			tok.ID = token.Directive
 		case '+':
 			tok.ID = l.lexAlt3('=', token.AddAssign, '+', token.Inc, token.Add)
 		case '-':

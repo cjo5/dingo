@@ -79,10 +79,17 @@ type baseDecl struct {
 
 func (d *baseDecl) declNode() {}
 
+type Directive struct {
+	Directive token.Token
+	Name      token.Token
+}
+
 type baseTopDecl struct {
 	baseDecl
-	Sym *Symbol
-	Ctx *FileContext
+	Sym        *Symbol
+	Ctx        *FileContext
+	Directives []Directive
+	Visibility token.Token
 
 	Deps  []TopDecl // Dependencies don't cross module boundaries
 	Color NodeColor
@@ -201,7 +208,6 @@ type ValDeclSpec struct {
 type ValTopDecl struct {
 	baseTopDecl
 	ValDeclSpec
-	Visibility token.Token
 }
 
 func (d *ValTopDecl) FirstPos() token.Position {
@@ -229,15 +235,14 @@ func (d *ValDecl) Init() bool {
 // FuncDecl represents a function (with body) or a function signature.
 type FuncDecl struct {
 	baseTopDecl
-	Visibility token.Token
-	Decl       token.Token
-	Name       token.Token
-	Lparen     token.Token
-	Params     []*ValDecl
-	Rparen     token.Token
-	TReturn    Expr
-	Body       *BlockStmt
-	Scope      *Scope
+	Decl    token.Token
+	Name    token.Token
+	Lparen  token.Token
+	Params  []*ValDecl
+	Rparen  token.Token
+	TReturn Expr
+	Body    *BlockStmt
+	Scope   *Scope
 }
 
 func (d *FuncDecl) FirstPos() token.Position { return d.Decl.Pos }
@@ -247,13 +252,12 @@ func (d *FuncDecl) SignatureOnly() bool { return d.Body == nil }
 // StructDecl represents a struct declaration.
 type StructDecl struct {
 	baseTopDecl
-	Visibility token.Token
-	Decl       token.Token
-	Name       token.Token
-	Lbrace     token.Token
-	Fields     []*ValDecl
-	Rbrace     token.Token
-	Scope      *Scope
+	Decl   token.Token
+	Name   token.Token
+	Lbrace token.Token
+	Fields []*ValDecl
+	Rbrace token.Token
+	Scope  *Scope
 }
 
 func (d *StructDecl) FirstPos() token.Position { return d.Decl.Pos }
@@ -400,11 +404,12 @@ func (x *ArrayTypeExpr) FirstPos() token.Position { return x.Lbrack.Pos }
 
 type FuncTypeExpr struct {
 	baseExpr
-	Lparen token.Token
-	Fun    token.Token
-	Params []Expr
-	Return Expr
-	Rparen token.Token
+	Directives []Directive
+	Fun        token.Token
+	Lparen     token.Token
+	Params     []Expr
+	Rparen     token.Token
+	Return     Expr
 }
 
 func (x *FuncTypeExpr) FirstPos() token.Position { return x.Fun.Pos }

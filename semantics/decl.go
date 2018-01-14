@@ -36,6 +36,7 @@ func (v *typeChecker) VisitValTopDecl(decl *ir.ValTopDecl) {
 		return
 	}
 
+	v.warnUnusedDirectives(decl.Directives)
 	v.visitValDeclSpec(decl.Sym, &decl.ValDeclSpec, true)
 
 	if !ir.IsUntyped(decl.Sym.T) {
@@ -50,6 +51,26 @@ func (v *typeChecker) VisitValDecl(decl *ir.ValDecl) {
 	if decl.Sym != nil {
 		v.visitValDeclSpec(decl.Sym, &decl.ValDeclSpec, decl.Init())
 	}
+}
+
+func (v *typeChecker) warnUnusedDirectives(directives []ir.Directive) {
+	for _, dir := range directives {
+		v.c.warning(dir.Directive.Pos, "unused directive %s%s", dir.Directive.Literal, dir.Name.Literal)
+	}
+}
+
+func (v *typeChecker) checkCAndWarnUnusedDirectives(directives []ir.Directive) bool {
+	var unused []ir.Directive
+	c := false
+	for _, dir := range directives {
+		if dir.Name.Literal == "c" {
+			c = true
+		} else {
+			unused = append(unused, dir)
+		}
+	}
+	v.warnUnusedDirectives(unused)
+	return c
 }
 
 func (v *typeChecker) visitValDeclSpec(sym *ir.Symbol, decl *ir.ValDeclSpec, defaultInit bool) {
@@ -131,12 +152,13 @@ func (v *typeChecker) VisitFuncDecl(decl *ir.FuncDecl) {
 		decl.TReturn = ir.VisitExpr(v, decl.TReturn)
 		v.exprMode = exprModeNone
 
-		tfun := ir.NewFuncType(tparams, decl.TReturn.Type())
+		c := v.checkCAndWarnUnusedDirectives(decl.Directives)
+		tfun := ir.NewFuncType(tparams, decl.TReturn.Type(), c)
 
 		if decl.Sym.T != nil && !checkTypes(v.c, decl.Sym.T, tfun) {
 			v.c.error(decl.Name.Pos, "'%s' was previously declared at %s with a different type signature", decl.Name.Literal, decl.Sym.Pos)
-		} else if decl.Visibility.ID == token.Private && !decl.Sym.Defined() {
-			v.c.error(decl.Name.Pos, "'%s' is declared as private and there's no definition in this module", decl.Name.Literal)
+		} else if !decl.Sym.Defined() && !c {
+			v.c.error(decl.Name.Pos, "'%s' is not defined or declared as a C function", decl.Name.Literal)
 		}
 
 		if decl.Sym.T == nil {
@@ -177,6 +199,7 @@ func (v *typeChecker) VisitFuncDecl(decl *ir.FuncDecl) {
 
 func (v *typeChecker) VisitStructDecl(decl *ir.StructDecl) {
 	if v.signature {
+		v.warnUnusedDirectives(decl.Directives)
 		decl.Sym.T = ir.NewIncompleteStructType(decl)
 		return
 	}

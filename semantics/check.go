@@ -18,11 +18,7 @@ func Check(set *ir.ModuleSet) error {
 	depCheck(c)
 	typeCheck(c)
 
-	if c.errors.Count() > 0 {
-		return c.errors
-	}
-
-	return nil
+	return c.errors
 }
 
 const (
@@ -117,6 +113,14 @@ func (c *context) error(pos token.Position, format string, args ...interface{}) 
 		filename = c.fileCtx.Path
 	}
 	c.errors.Add(filename, pos, common.GenericError, format, args...)
+}
+
+func (c *context) warning(pos token.Position, format string, args ...interface{}) {
+	filename := ""
+	if c.fileCtx != nil {
+		filename = c.fileCtx.Path
+	}
+	c.errors.AddWarning(filename, pos, format, args...)
 }
 
 func (c *context) insert(scope *ir.Scope, id ir.SymbolID, name string, pos token.Position) *ir.Symbol {

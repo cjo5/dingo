@@ -1,7 +1,7 @@
 package common
 
-// BuildEnvironment represents the build options/arguments.
-type BuildEnvironment struct {
+// BuildConfig represents the build options/arguments.
+type BuildConfig struct {
 	Verbose bool
 	LLVMIR  bool
 	Exe     string

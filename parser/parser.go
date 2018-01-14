@@ -28,7 +28,7 @@ func parse(src []byte, filepath string) (*ir.File, []ir.TopDecl, error) {
 
 	file, decls := p.parseFile()
 
-	if p.errors.Count() > 0 {
+	if p.errors.IsError() {
 		return file, decls, p.errors
 	}
 
@@ -218,20 +218,24 @@ func (p *parser) parseTopDecl() (decl ir.TopDecl) {
 		}
 	}()
 
+	directives := p.parseDirectives(nil)
+
 	visibility := token.Synthetic(token.Private, token.Private.String())
 	if p.token.OneOf(token.Public, token.Private) {
 		visibility = p.token
 		p.next()
 	}
 
+	directives = p.parseDirectives(directives)
+
 	if p.token.ID == token.Var || p.token.ID == token.Val {
-		decl = p.parseValTopDecl(visibility)
+		decl = p.parseValTopDecl(visibility, directives)
 		p.expectSemi0()
 	} else if p.token.ID == token.Func {
-		decl = p.parseFuncDecl(visibility)
+		decl = p.parseFuncDecl(visibility, directives)
 		p.expectSemi0()
 	} else if p.token.ID == token.Struct {
-		decl = p.parseStructDecl(visibility)
+		decl = p.parseStructDecl(visibility, directives)
 		p.expectSemi0()
 	} else {
 		p.error(p.token, "got '%s', expected declaration", p.token.Quote())
@@ -241,8 +245,20 @@ func (p *parser) parseTopDecl() (decl ir.TopDecl) {
 	return decl
 }
 
-func (p *parser) parseValTopDecl(visibility token.Token) *ir.ValTopDecl {
+func (p *parser) parseDirectives(directives []ir.Directive) []ir.Directive {
+	for p.token.Is(token.Directive) {
+		dir := p.token
+		p.next()
+		name := p.token
+		p.expect1(token.Ident)
+		directives = append(directives, ir.Directive{Directive: dir, Name: name})
+	}
+	return directives
+}
+
+func (p *parser) parseValTopDecl(visibility token.Token, directives []ir.Directive) *ir.ValTopDecl {
 	decl := &ir.ValTopDecl{}
+	decl.Directives = directives
 	decl.Visibility = visibility
 	decl.ValDeclSpec = p.parseValDeclSpec()
 	return decl
@@ -295,8 +311,9 @@ func (p *parser) parseField(flags int, defaultDecl token.ID) *ir.ValDecl {
 	return decl
 }
 
-func (p *parser) parseFuncDecl(visibility token.Token) *ir.FuncDecl {
+func (p *parser) parseFuncDecl(visibility token.Token, directives []ir.Directive) *ir.FuncDecl {
 	decl := &ir.FuncDecl{}
+	decl.Directives = directives
 	decl.Visibility = visibility
 	decl.Decl = p.token
 	p.next()
@@ -332,8 +349,9 @@ func (p *parser) parseFuncDecl(visibility token.Token) *ir.FuncDecl {
 	return decl
 }
 
-func (p *parser) parseStructDecl(visibility token.Token) *ir.StructDecl {
+func (p *parser) parseStructDecl(visibility token.Token, directives []ir.Directive) *ir.StructDecl {
 	decl := &ir.StructDecl{}
+	decl.Directives = directives
 	decl.Visibility = visibility
 	decl.Decl = p.token
 	p.next()
@@ -522,12 +540,13 @@ func (p *parser) parseExprOrAssignStmt() ir.Stmt {
 }
 
 func (p *parser) parseType(optional bool) ir.Expr {
+	directives := p.parseDirectives(nil)
 	if p.token.Is(token.Mul) {
 		return p.parsePointerType()
 	} else if p.token.Is(token.Lbrack) {
 		return p.parseArrayType()
-	} else if p.token.Is(token.Func) {
-		return p.parseFuncType()
+	} else if p.token.OneOf(token.Func) {
+		return p.parseFuncType(directives)
 	} else if p.token.Is(token.Ident) {
 		tok := p.token
 		p.expect1(token.Ident)
@@ -578,9 +597,10 @@ func (p *parser) parseArrayType() ir.Expr {
 	return array
 }
 
-func (p *parser) parseFuncType() ir.Expr {
+func (p *parser) parseFuncType(directives []ir.Directive) ir.Expr {
 	fun := &ir.FuncTypeExpr{}
 
+	fun.Directives = directives
 	fun.Fun = p.token
 	p.expect1(token.Func)
 

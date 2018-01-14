@@ -8,23 +8,24 @@ File = ['module' ModName ';'] Require* TopDecl*
 
 ModName = IDENT | DotExpr
 Require = 'require' STRING ';'
-TopDecl = Directive* Visibility? (Import | Decl) ';'
-Directive = '@' IDENT
+TopDecl = Directive* Visibility? Directive* (Import | Decl) ';'
 Visibility = 'pub' | 'priv' 
+Directive = '@' IDENT
 Import = 'import' ModName ';'
 Decl = ValDecl | FuncDecl | StructDecl
 ValDecl = ('val' | 'var') IDENT (Type | (Type? '=' Expr))
-FuncDecl = 'func' IDENT Func
+FuncDecl = 'fun' IDENT Func
 StructDecl = 'struct' IDENT Struct
+
+Field = ['val' | 'var'] (IDENT | '_') Type
+Struct= '{' {Field ';'} '}'
+Func = FuncSignature (Block | ';')
+FuncSignature = '(' [Field {',' Field} ','?] ')' Type?
 
 Type = PointerType | ArrayType | FuncType | IDENT | '(' Type ')'
 PointerType = '*' ['val' | 'var'] Type
 ArrayType = '[' INTEGER? ':' Type ']'
 FuncType 'fun' '(' Type? [',' Type]  ')' Type?
-Field = ['val' | 'var'] (IDENT | '_') Type
-Struct= '{' {Field ';'} '}'
-Func = FuncSignature (Block | ';')
-FuncSignature = '(' [Field {',' Field} ','?] ')' Type?
 
 Block = '{' Stmt* '}'
 Stmt = [Block | ValDecl | Expr | AssignStmt | 'if' IfStmt | WhileStmt |

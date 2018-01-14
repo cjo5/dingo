@@ -76,7 +76,7 @@ func (v *typeChecker) tryMakeTypedLit(expr ir.Expr, target ir.Type) bool {
 				case *ir.PointerType:
 					lit.T = ir.NewPointerType(ttarget.Underlying, false)
 				case *ir.FuncType:
-					lit.T = ir.NewFuncType(ttarget.Params, ttarget.Return)
+					lit.T = ir.NewFuncType(ttarget.Params, ttarget.Return, ttarget.C)
 				default:
 					panic(fmt.Sprintf("Unhandled target type %T", ttarget))
 				}
@@ -232,7 +232,8 @@ func (v *typeChecker) VisitFuncTypeExpr(expr *ir.FuncTypeExpr) ir.Expr {
 	}
 
 	if !untyped {
-		expr.T = ir.NewFuncType(tparams, expr.Return.Type())
+		c := v.checkCAndWarnUnusedDirectives(expr.Directives)
+		expr.T = ir.NewFuncType(tparams, expr.Return.Type(), c)
 	} else {
 		expr.T = ir.TBuiltinUntyped
 	}
@@ -850,7 +851,7 @@ func createDefaultBasicLit(t ir.Type) *ir.BasicLit {
 	} else if ir.IsTypeID(t, ir.TFunc) {
 		lit = &ir.BasicLit{Value: token.Synthetic(token.Null, token.Null.String())}
 		fun := t.(*ir.FuncType)
-		lit.T = ir.NewFuncType(fun.Params, fun.Return)
+		lit.T = ir.NewFuncType(fun.Params, fun.Return, fun.C)
 	} else if !ir.IsTypeID(t, ir.TUntyped) {
 		panic(fmt.Sprintf("Unhandled init value for type %s", t.ID()))
 	}

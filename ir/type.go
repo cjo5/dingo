@@ -321,12 +321,16 @@ func (t *PointerType) String() string {
 
 type FuncType struct {
 	baseType
+	C      bool
 	Params []Type
 	Return Type
 }
 
 func (t *FuncType) Equals(other Type) bool {
 	if t2, ok := other.(*FuncType); ok {
+		if t.C != t2.C {
+			return false
+		}
 		if len(t.Params) != len(t2.Params) {
 			return false
 		}
@@ -345,7 +349,10 @@ func (t *FuncType) Equals(other Type) bool {
 
 func (t *FuncType) String() string {
 	var buf bytes.Buffer
-	buf.WriteString("(")
+	if t.C {
+		buf.WriteString("@c ")
+	}
+	buf.WriteString("fun(")
 	for i, param := range t.Params {
 		buf.WriteString(param.String())
 		if (i + 1) < len(t.Params) {
@@ -398,8 +405,8 @@ func NewPointerType(Underlying Type, readOnly bool) Type {
 	return t
 }
 
-func NewFuncType(params []Type, ret Type) Type {
-	t := &FuncType{Params: params, Return: ret}
+func NewFuncType(params []Type, ret Type, c bool) Type {
+	t := &FuncType{Params: params, Return: ret, C: c}
 	t.id = TFunc
 	return t
 }

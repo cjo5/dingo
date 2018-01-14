@@ -63,7 +63,7 @@ func Load(path string) (*ir.Module, error) {
 	loader.cwd = cwd
 
 	mod := loader.loadModule(normPath)
-	if mod == nil || loader.errors.Count() > 0 {
+	if mod == nil || loader.errors.IsError() {
 		return nil, loader.errors
 	}
 
@@ -79,7 +79,7 @@ func newLoader() *loader {
 func (l *loader) loadModule(path requirePath) *ir.Module {
 	rootFile, rootDecls, err := parser.ParseFile(path.actual)
 	if err != nil {
-		l.errors.AddGeneric(path.actual, token.NoPosition, err)
+		l.errors.AddGeneric3(path.actual, token.NoPosition, err)
 		return nil
 	}
 
@@ -109,7 +109,7 @@ func (l *loader) loadModule(path requirePath) *ir.Module {
 
 			depFile, depDecls, err := parser.ParseFile(dep.path.actual)
 			if err != nil {
-				l.errors.AddGeneric(dep.path.actual, token.NoPosition, err)
+				l.errors.AddGeneric3(dep.path.actual, token.NoPosition, err)
 				continue
 			}
 
@@ -161,7 +161,7 @@ func (l *loader) createDependencyList(loadedFile *file) bool {
 	for _, dep := range loadedFile.file.Deps {
 		unquoted, err := strconv.Unquote(dep.Literal.Literal)
 		if err != nil {
-			l.errors.AddGeneric(loadedFile.path.actual, dep.Literal.Pos, err)
+			l.errors.AddGeneric3(loadedFile.path.actual, dep.Literal.Pos, err)
 			break
 		}
 
@@ -172,7 +172,7 @@ func (l *loader) createDependencyList(loadedFile *file) bool {
 
 		normPath, err := normalizePath(l.cwd, parentDir, unquoted)
 		if err != nil {
-			l.errors.AddGeneric(loadedFile.path.actual, dep.Literal.Pos, err)
+			l.errors.AddGeneric3(loadedFile.path.actual, dep.Literal.Pos, err)
 			continue
 		}
 
@@ -194,7 +194,7 @@ func (l *loader) createDependencyList(loadedFile *file) bool {
 		loadedFile.deps = append(loadedFile.deps, &fileDependency{file: foundFile, dep: dep, path: normPath})
 	}
 
-	if l.errors.Count() > 0 {
+	if l.errors.IsError() {
 		return false
 	}
 

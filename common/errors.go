@@ -19,6 +19,7 @@ type ErrorID int
 const (
 	GenericError ErrorID = iota
 	SyntaxError
+	Warning
 )
 
 func (e ErrorID) String() string {
@@ -27,6 +28,8 @@ func (e ErrorID) String() string {
 		return "error"
 	case SyntaxError:
 		return "syntax error"
+	case Warning:
+		return "warning"
 	}
 	return ""
 }
@@ -40,8 +43,8 @@ type Error struct {
 }
 
 type ErrorList struct {
-	Errors  []*Error
-	isFatal bool
+	Warnings []*Error
+	Errors   []*Error
 }
 
 func NewTrace(title string, lines []string) Trace {
@@ -92,53 +95,55 @@ func (e Error) Error() string {
 func (e *ErrorList) Add(filename string, pos token.Position, id ErrorID, format string, args ...interface{}) {
 	err := NewError(filename, pos, id, fmt.Sprintf(format, args...))
 	e.Errors = append(e.Errors, err)
-	e.isFatal = true
 }
 
 func (e *ErrorList) AddTrace(filename string, pos token.Position, id ErrorID, trace Trace, format string, args ...interface{}) {
 	err := NewError(filename, pos, id, fmt.Sprintf(format, args...))
 	err.Trace = trace
 	e.Errors = append(e.Errors, err)
-	e.isFatal = true
-
 }
-func (e *ErrorList) AddGeneric(filename string, pos token.Position, err error) {
-	if errList, ok := err.(*ErrorList); ok {
-		e.Merge(errList)
-	} else {
+
+func (e *ErrorList) AddWarning(filename string, pos token.Position, format string, args ...interface{}) {
+	err := NewError(filename, pos, Warning, fmt.Sprintf(format, args...))
+	e.Warnings = append(e.Warnings, err)
+}
+
+func (e *ErrorList) AddGeneric3(filename string, pos token.Position, err error) {
+	switch t := err.(type) {
+	case *ErrorList:
+		e.Merge(t)
+	case *Error:
+		if t.ID == Warning {
+			e.Warnings = append(e.Warnings, t)
+		} else {
+			e.Errors = append(e.Errors, t)
+		}
+	default:
 		e.Add(filename, pos, GenericError, err.Error())
 	}
 }
 
+func (e *ErrorList) AddGeneric1(err error) {
+	e.AddGeneric3("", token.NoPosition, err)
+}
+
 func (e *ErrorList) Merge(other *ErrorList) {
+	for _, warn := range other.Warnings {
+		e.Warnings = append(e.Warnings, warn)
+	}
 	for _, err := range other.Errors {
 		e.Errors = append(e.Errors, err)
 	}
 }
 
-func (e *ErrorList) Count() int {
-	return len(e.Errors)
+func (e *ErrorList) IsError() bool {
+	return len(e.Errors) > 0
 }
 
 // Sort errors by filename and line numbers.
 func (e *ErrorList) Sort() {
+	sort.Stable(byFileAndLineNumber(e.Warnings))
 	sort.Stable(byFileAndLineNumber(e.Errors))
-}
-
-// Filter remove errors that are in the same file and line.
-// Sort must be called before.
-func (e *ErrorList) Filter() {
-	for i, n := 0, len(e.Errors); i < n; i++ {
-		err1 := e.Errors[i]
-		if i > 0 && err1.Pos.IsValid() {
-			err2 := e.Errors[i-1]
-			if err1.Filename == err2.Filename && err1.Pos.Line == err2.Pos.Line {
-				e.Errors = append(e.Errors[:i], e.Errors[i+1:]...)
-				i--
-				n--
-			}
-		}
-	}
 }
 
 type byFileAndLineNumber []*Error

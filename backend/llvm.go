@@ -18,13 +18,12 @@ import (
 
 type llvmCodeBuilder struct {
 	errors         *common.ErrorList
-	env            *common.BuildEnvironment
+	config         *common.BuildConfig
 	objectfiles    []string
 	target         llvm.TargetMachine
 	b              llvm.Builder
 	mod            llvm.Module
 	inFunction     bool
-	inMain         bool
 	signature      bool
 	values         map[*ir.Symbol]llvm.Value
 	typeDecls      map[*ir.Symbol]llvm.Type
@@ -36,7 +35,7 @@ const ptrFieldIndex = 0
 const lenFieldIndex = 1
 
 // Build LLVM code.
-func Build(set *ir.ModuleSet, env *common.BuildEnvironment) error {
+func Build(set *ir.ModuleSet, config *common.BuildConfig) error {
 	if err := llvm.InitializeNativeTarget(); err != nil {
 		panic(err)
 	}
@@ -51,10 +50,10 @@ func Build(set *ir.ModuleSet, env *common.BuildEnvironment) error {
 		}
 	}
 
-	cb := newBuilder(env)
+	cb := newBuilder(config)
 	cb.validateModuleSet(set)
 
-	if cb.errors.Count() > 0 {
+	if cb.errors.IsError() {
 		return cb.errors
 	}
 
@@ -64,7 +63,7 @@ func Build(set *ir.ModuleSet, env *common.BuildEnvironment) error {
 		cb.buildModule(mod)
 	}
 
-	if cb.errors.Count() > 0 {
+	if cb.errors.IsError() {
 		return cb.errors
 	}
 
@@ -76,12 +75,12 @@ func Build(set *ir.ModuleSet, env *common.BuildEnvironment) error {
 		}
 	}
 
-	cmd := exec.Command("cc", objects, "-o", env.Exe)
+	cmd := exec.Command("cc", objects, "-o", config.Exe)
 	if linkOutput, linkErr := cmd.CombinedOutput(); linkErr != nil {
 		panic(fmt.Sprintf("Err: %s\nOutput: %s", linkErr, linkOutput))
 	}
 
-	return nil
+	return cb.errors
 }
 
 func createTargetMachine() llvm.TargetMachine {
@@ -93,10 +92,10 @@ func createTargetMachine() llvm.TargetMachine {
 	return target.CreateTargetMachine(triple, "", "", llvm.CodeGenLevelNone, llvm.RelocDefault, llvm.CodeModelDefault)
 }
 
-func newBuilder(env *common.BuildEnvironment) *llvmCodeBuilder {
+func newBuilder(config *common.BuildConfig) *llvmCodeBuilder {
 	cb := &llvmCodeBuilder{b: llvm.NewBuilder()}
 	cb.errors = &common.ErrorList{}
-	cb.env = env
+	cb.config = config
 	cb.values = make(map[*ir.Symbol]llvm.Value)
 	cb.typeDecls = make(map[*ir.Symbol]llvm.Type)
 	cb.b = llvm.NewBuilder()
@@ -113,7 +112,7 @@ func (cb *llvmCodeBuilder) validateModuleSet(set *ir.ModuleSet) {
 
 	mod := set.FindModule("main")
 	if mod == nil {
-		cb.errors.AddGeneric("", token.NoPosition, fmt.Errorf("no main module"))
+		cb.errors.AddGeneric1(fmt.Errorf("no main module"))
 	} else {
 		cb.validateMainFunc(mod)
 	}
@@ -124,7 +123,9 @@ func (cb *llvmCodeBuilder) validateMainFunc(mod *ir.Module) {
 	if mainFunc != nil {
 		tmain := mainFunc.T.(*ir.FuncType)
 		msg := ""
-		if len(tmain.Params) > 0 {
+		if !tmain.C {
+			msg = fmt.Sprintf("invalid main function (not declared as C function)")
+		} else if len(tmain.Params) > 0 {
 			msg = fmt.Sprintf("invalid main function (expected 0 parameters, got %d)", len(tmain.Params))
 		} else if tmain.Return.ID() != ir.TVoid {
 			msg = fmt.Sprintf("invalid main function (expected return type %s, got %s)", ir.TVoid, tmain.Return)
@@ -145,12 +146,6 @@ func (cb *llvmCodeBuilder) deleteObjects() {
 }
 
 func (cb *llvmCodeBuilder) buildModule(mod *ir.Module) {
-	if mod.FQN == "main" {
-		cb.inMain = true
-	} else {
-		cb.inMain = false
-	}
-
 	cb.mod = llvm.NewModule(mod.FQN)
 	cb.inFunction = false
 
@@ -172,7 +167,7 @@ func (cb *llvmCodeBuilder) finalizeModule(mod *ir.Module) {
 		panic(err)
 	}
 
-	if cb.env.LLVMIR {
+	if cb.config.LLVMIR {
 		cb.mod.Dump()
 	}
 
@@ -278,16 +273,18 @@ func (cb *llvmCodeBuilder) buildFuncDecl(decl *ir.FuncDecl) {
 			return
 		}
 
+		tfun := decl.Sym.T.(*ir.FuncType)
+
 		var paramTypes []llvm.Type
-		for _, p := range decl.Params {
-			paramTypes = append(paramTypes, cb.toLLVMType(p.Type.Type()))
+		for _, p := range tfun.Params {
+			paramTypes = append(paramTypes, cb.toLLVMType(p))
 		}
-		retType := cb.toLLVMType(decl.TReturn.Type())
+		retType := cb.toLLVMType(tfun.Return)
 
 		funType := llvm.FunctionType(retType, paramTypes, false)
 		fun := llvm.AddFunction(cb.mod, decl.Name.Literal, funType)
 
-		if cb.inMain && decl.Name.Literal == "main" {
+		if tfun.C {
 			fun.SetLinkage(llvm.ExternalLinkage)
 		} else {
 			switch decl.Visibility.ID {
