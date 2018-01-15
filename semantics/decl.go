@@ -59,18 +59,15 @@ func (v *typeChecker) warnUnusedDirectives(directives []ir.Directive) {
 	}
 }
 
-func (v *typeChecker) checkCAndWarnUnusedDirectives(directives []ir.Directive) bool {
-	var unused []ir.Directive
-	c := false
-	for _, dir := range directives {
-		if dir.Name.Literal == "c" {
-			c = true
-		} else {
-			unused = append(unused, dir)
-		}
+func (v *typeChecker) checkCABI(abi *ir.Ident) bool {
+	if abi == nil {
+		return false
 	}
-	v.warnUnusedDirectives(unused)
-	return c
+	if abi.Literal() != "c" {
+		v.c.error(abi.Pos(), "unknown abi '%s'", abi.Literal())
+		return false
+	}
+	return true
 }
 
 func (v *typeChecker) visitValDeclSpec(sym *ir.Symbol, decl *ir.ValDeclSpec, defaultInit bool) {
@@ -152,7 +149,9 @@ func (v *typeChecker) VisitFuncDecl(decl *ir.FuncDecl) {
 		decl.TReturn = ir.VisitExpr(v, decl.TReturn)
 		v.exprMode = exprModeNone
 
-		c := v.checkCAndWarnUnusedDirectives(decl.Directives)
+		v.warnUnusedDirectives(decl.Directives)
+
+		c := v.checkCABI(decl.ABI)
 		tfun := ir.NewFuncType(tparams, decl.TReturn.Type(), c)
 
 		if decl.Sym.T != nil && !checkTypes(v.c, decl.Sym.T, tfun) {

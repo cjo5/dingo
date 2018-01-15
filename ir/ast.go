@@ -236,6 +236,7 @@ func (d *ValDecl) Init() bool {
 type FuncDecl struct {
 	baseTopDecl
 	Decl    token.Token
+	ABI     *Ident
 	Name    token.Token
 	Lparen  token.Token
 	Params  []*ValDecl
@@ -404,12 +405,12 @@ func (x *ArrayTypeExpr) FirstPos() token.Position { return x.Lbrack.Pos }
 
 type FuncTypeExpr struct {
 	baseExpr
-	Directives []Directive
-	Fun        token.Token
-	Lparen     token.Token
-	Params     []Expr
-	Rparen     token.Token
-	Return     Expr
+	Fun    token.Token
+	ABI    *Ident
+	Lparen token.Token
+	Params []Expr
+	Rparen token.Token
+	Return Expr
 }
 
 func (x *FuncTypeExpr) FirstPos() token.Position { return x.Fun.Pos }

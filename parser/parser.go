@@ -317,6 +317,13 @@ func (p *parser) parseFuncDecl(visibility token.Token, directives []ir.Directive
 	decl.Visibility = visibility
 	decl.Decl = p.token
 	p.next()
+
+	if p.token.Is(token.Lbrack) {
+		p.next()
+		decl.ABI = p.parseIdent()
+		p.expect1(token.Rbrack)
+	}
+
 	decl.Name = p.token
 	p.expect1(token.Ident)
 
@@ -540,13 +547,12 @@ func (p *parser) parseExprOrAssignStmt() ir.Stmt {
 }
 
 func (p *parser) parseType(optional bool) ir.Expr {
-	directives := p.parseDirectives(nil)
 	if p.token.Is(token.Mul) {
 		return p.parsePointerType()
 	} else if p.token.Is(token.Lbrack) {
 		return p.parseArrayType()
 	} else if p.token.OneOf(token.Func) {
-		return p.parseFuncType(directives)
+		return p.parseFuncType()
 	} else if p.token.Is(token.Ident) {
 		tok := p.token
 		p.expect1(token.Ident)
@@ -597,12 +603,17 @@ func (p *parser) parseArrayType() ir.Expr {
 	return array
 }
 
-func (p *parser) parseFuncType(directives []ir.Directive) ir.Expr {
+func (p *parser) parseFuncType() ir.Expr {
 	fun := &ir.FuncTypeExpr{}
 
-	fun.Directives = directives
 	fun.Fun = p.token
 	p.expect1(token.Func)
+
+	if p.token.Is(token.Lbrack) {
+		p.next()
+		fun.ABI = p.parseIdent()
+		p.expect1(token.Rbrack)
+	}
 
 	fun.Lparen = p.token
 	p.expect1(token.Lparen)

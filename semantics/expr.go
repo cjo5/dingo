@@ -232,7 +232,7 @@ func (v *typeChecker) VisitFuncTypeExpr(expr *ir.FuncTypeExpr) ir.Expr {
 	}
 
 	if !untyped {
-		c := v.checkCAndWarnUnusedDirectives(expr.Directives)
+		c := v.checkCABI(expr.ABI)
 		expr.T = ir.NewFuncType(tparams, expr.Return.Type(), c)
 	} else {
 		expr.T = ir.TBuiltinUntyped

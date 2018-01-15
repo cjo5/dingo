@@ -349,10 +349,11 @@ func (t *FuncType) Equals(other Type) bool {
 
 func (t *FuncType) String() string {
 	var buf bytes.Buffer
+	buf.WriteString("fun")
 	if t.C {
-		buf.WriteString("@c ")
+		buf.WriteString("[c] ")
 	}
-	buf.WriteString("fun(")
+	buf.WriteString("(")
 	for i, param := range t.Params {
 		buf.WriteString(param.String())
 		if (i + 1) < len(t.Params) {

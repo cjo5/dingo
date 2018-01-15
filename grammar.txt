@@ -8,7 +8,7 @@ File = ['module' ModName ';'] Require* TopDecl*
 
 ModName = IDENT | DotExpr
 Require = 'require' STRING ';'
-TopDecl = Directive* Visibility? 'extern'? (Import | Decl) ';'
+TopDecl = Directive* Visibility? Directive* (Import | Decl) ';'
 Visibility = 'pub' | 'priv' 
 Directive = '@' IDENT
 Import = 'import' ModName ';'
@@ -25,7 +25,7 @@ FuncSignature = '(' [Field {',' Field} ','?] ')' Type?
 Type = PointerType | ArrayType | FuncType | IDENT | '(' Type ')'
 PointerType = '*' ['val' | 'var'] Type
 ArrayType = '[' INTEGER? ':' Type ']'
-FuncType 'fun' '(' Type? [',' Type]  ')' Type?
+FuncType 'fun' ['[' IDENT ']'] '(' Type? [',' Type]  ')' Type?
 
 Block = '{' Stmt* '}'
 Stmt = [Block | ValDecl | Expr | AssignStmt | 'if' IfStmt | WhileStmt |

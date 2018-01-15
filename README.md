@@ -9,9 +9,9 @@ Note this project is still a work in progress.
 module main
 
 // External C functions
-@c fun abs(_ i32) i32
-@c fun putchar(_ i32) i32
-@c fun puts(_ *i8) i32
+fun[c] abs(_ i32) i32
+fun[c] putchar(_ i32) i32
+fun[c] puts(_ *i8) i32
 
 /*
     Comment
@@ -19,7 +19,7 @@ module main
         Nested comment
     */
 */
-@c fun main() {
+fun[c] main() {
     // Infer type [5:i32]
     var arr = [31, 4, -10, 9, 2]
 
