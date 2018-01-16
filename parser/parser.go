@@ -42,25 +42,27 @@ type parseError struct {
 type parser struct {
 	lexer  lexer
 	errors *common.ErrorList
-	trace  bool
+
+	file  *ir.File
+	decls []ir.TopDecl
 
 	token       token.Token
 	prev        token.Token
 	inLoop      bool
 	inCondition bool
+
+	funcName        string
+	funcAnonCount   int
+	globalAnonCount int
 }
 
 func (p *parser) init(src []byte, filename string) {
-	p.trace = false
 	p.errors = &common.ErrorList{}
+	p.funcName = ""
 	p.lexer.init(src, filename, p.errors)
 }
 
 func (p *parser) next() {
-	if p.trace {
-		fmt.Println(p.token)
-	}
-
 	for {
 		p.prev = p.token
 		p.token = p.lexer.lex()
@@ -157,34 +159,33 @@ func (p *parser) expectSemi0() bool {
 // Improve parsing of function signature and struct fields. Try to synchronize locally instead of panicking.
 //
 func (p *parser) parseFile() (*ir.File, []ir.TopDecl) {
-	file := &ir.File{Ctx: &ir.FileContext{Path: p.lexer.filename}}
+	p.file = &ir.File{Ctx: &ir.FileContext{Path: p.lexer.filename}}
 
 	if p.token.Is(token.Module) {
-		file.Ctx.Decl = p.token
+		p.file.Ctx.Decl = p.token
 		p.next()
-		file.Ctx.ModName = p.parseModName()
+		p.file.Ctx.ModName = p.parseModName()
 		p.expectSemi1(false)
 	} else {
-		file.Ctx.Decl = token.Synthetic(token.Module, token.Module.String())
+		p.file.Ctx.Decl = token.Synthetic(token.Module, token.Module.String())
 	}
 
 	for p.token.Is(token.Require) {
 		dep := p.parseRequire()
 		if dep != nil {
-			file.Deps = append(file.Deps, dep)
+			p.file.Deps = append(p.file.Deps, dep)
 		}
 	}
 
-	var decls []ir.TopDecl
 	for !p.token.Is(token.EOF) {
 		decl := p.parseTopDecl()
 		if decl != nil {
-			decl.SetContext(file.Ctx)
-			decls = append(decls, decl)
+			decl.SetContext(p.file.Ctx)
+			p.decls = append(p.decls, decl)
 		}
 	}
 
-	return file, decls
+	return p.file, p.decls
 }
 
 func (p *parser) parseModName() ir.Expr {
@@ -327,10 +328,26 @@ func (p *parser) parseFuncDecl(visibility token.Token, directives []ir.Directive
 	decl.Name = p.token
 	p.expect1(token.Ident)
 
+	p.parseFuncSignature(decl)
+
+	if p.token.Is(token.Semicolon) {
+		return decl
+	}
+
+	p.funcName = decl.Name.Literal
+	p.funcAnonCount = 0
+	decl.Body = p.parseBlockStmt()
+	p.funcName = ""
+
+	return decl
+}
+
+func (p *parser) parseFuncSignature(decl *ir.FuncDecl) {
 	decl.Lparen = p.token
 	p.expect1(token.Lparen)
-	flags := ir.AstFlagNoInit
+
 	if !p.token.Is(token.Rparen) {
+		flags := ir.AstFlagNoInit
 		decl.Params = append(decl.Params, p.parseField(flags, token.Val))
 		for !p.token.OneOf(token.EOF, token.Rparen) {
 			p.expect1(token.Comma)
@@ -340,6 +357,7 @@ func (p *parser) parseFuncDecl(visibility token.Token, directives []ir.Directive
 			decl.Params = append(decl.Params, p.parseField(flags, token.Val))
 		}
 	}
+
 	decl.Rparen = p.token
 	p.expect1(token.Rparen)
 
@@ -347,13 +365,6 @@ func (p *parser) parseFuncDecl(visibility token.Token, directives []ir.Directive
 	if decl.TReturn == nil {
 		decl.TReturn = &ir.Ident{Name: token.Synthetic(token.Ident, ir.TVoid.String())}
 	}
-
-	if p.token.Is(token.Semicolon) {
-		return decl
-	}
-
-	decl.Body = p.parseBlockStmt()
-	return decl
 }
 
 func (p *parser) parseStructDecl(visibility token.Token, directives []ir.Directive) *ir.StructDecl {
@@ -691,6 +702,8 @@ func (p *parser) parseOperand() ir.Expr {
 		p.expect1(token.Rparen)
 	} else if p.token.Is(token.Lbrack) {
 		expr = p.parseArrayLit()
+	} else if p.token.Is(token.Func) {
+		expr = p.parseFuncLit()
 	} else if p.token.Is(token.Ident) {
 		ident := p.parseIdent()
 		if !p.inCondition && p.token.Is(token.Lbrace) {
@@ -871,4 +884,34 @@ func (p *parser) parseArrayLit() ir.Expr {
 	rbrack := p.token
 	p.expect1(token.Rbrack)
 	return &ir.ArrayLit{Lbrack: lbrack, Initializers: inits, Rbrack: rbrack}
+}
+
+func (p *parser) parseFuncLit() ir.Expr {
+	decl := &ir.FuncDecl{}
+	decl.Flags = ir.AstFlagAnon
+
+	if len(p.funcName) > 0 {
+		decl.Name = token.Synthetic(token.Ident, fmt.Sprintf("$%s_anon%d", p.funcName, p.funcAnonCount))
+		p.funcAnonCount++
+	} else {
+		decl.Name = token.Synthetic(token.Ident, fmt.Sprintf("$anon%d", p.globalAnonCount))
+		p.globalAnonCount++
+	}
+
+	decl.Visibility = token.Synthetic(token.Private, token.Private.String())
+	decl.Decl = p.token
+	p.expect1(token.Func)
+	if p.token.Is(token.Lbrack) {
+		p.next()
+		decl.ABI = p.parseIdent()
+		p.expect1(token.Rbrack)
+	}
+
+	p.parseFuncSignature(decl)
+	decl.Body = p.parseBlockStmt()
+
+	decl.SetContext(p.file.Ctx)
+	p.decls = append(p.decls, decl)
+
+	return &ir.Ident{Name: decl.Name}
 }

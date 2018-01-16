@@ -24,6 +24,7 @@ const (
 // AST flags.
 const (
 	AstFlagNoInit = 1 << 0
+	AstFlagAnon   = 1 << 1
 )
 
 // Node interface.
@@ -244,6 +245,7 @@ type FuncDecl struct {
 	TReturn Expr
 	Body    *BlockStmt
 	Scope   *Scope
+	Flags   int
 }
 
 func (d *FuncDecl) FirstPos() token.Position { return d.Decl.Pos }

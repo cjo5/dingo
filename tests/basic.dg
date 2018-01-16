@@ -1,0 +1,8 @@
+fun[c] main() {
+    foo
+}
+
+val foo = bar
+
+fun bar() {
+}

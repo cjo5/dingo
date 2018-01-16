@@ -351,7 +351,7 @@ func (t *FuncType) String() string {
 	var buf bytes.Buffer
 	buf.WriteString("fun")
 	if t.C {
-		buf.WriteString("[c] ")
+		buf.WriteString("[c]")
 	}
 	buf.WriteString("(")
 	for i, param := range t.Params {

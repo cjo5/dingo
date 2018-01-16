@@ -32,7 +32,7 @@ func (v *typeChecker) Module(mod *ir.Module) {
 }
 
 func (v *typeChecker) VisitValTopDecl(decl *ir.ValTopDecl) {
-	if v.signature {
+	if !v.signature {
 		return
 	}
 
@@ -111,11 +111,20 @@ func (v *typeChecker) visitValDeclSpec(sym *ir.Symbol, decl *ir.ValDeclSpec, def
 		decl.Initializer = v.makeTypedExpr(decl.Initializer, sym.T)
 
 		if decl.Type == nil {
-			sym.T = decl.Initializer.Type()
-			if ptr, ok := sym.T.(*ir.PointerType); ok {
+			tinit := decl.Initializer.Type()
+
+			if ptr, ok := tinit.(*ir.PointerType); ok {
 				if ir.IsTypeID(ptr.Underlying, ir.TUntyped) {
-					v.c.error(decl.Initializer.FirstPos(), "type specifier required; impossible to infer type from '%s'", PrintExpr(decl.Initializer))
+					v.c.error(decl.Initializer.FirstPos(), "invalid initializer (impossible to infer type from '%s')", PrintExpr(decl.Initializer))
+					sym.T = ir.TBuiltinUntyped
 				}
+			} else if tinit.ID() == ir.TVoid {
+				v.c.error(decl.Initializer.FirstPos(), "invalid initializer (has type %s)", tinit)
+				sym.T = ir.TBuiltinUntyped
+			}
+
+			if sym.T == nil {
+				sym.T = tinit
 			}
 		} else {
 			if !checkTypes(v.c, sym.T, decl.Initializer.Type()) {

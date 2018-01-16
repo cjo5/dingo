@@ -238,9 +238,9 @@ func (v *depChecker) VisitIdent(expr *ir.Ident) ir.Expr {
 	if sym != nil {
 		if decl, ok := v.c.topDecls[sym]; ok {
 			_, isFunc1 := v.c.topDecl.(*ir.FuncDecl)
-			_, isFunc2 := decl.(*ir.FuncDecl)
+			//_, isFunc2 := decl.(*ir.FuncDecl)
 
-			if !isFunc1 && !isFunc2 {
+			if !isFunc1 {
 				v.c.topDecl.AddDependency(decl)
 			}
 		}

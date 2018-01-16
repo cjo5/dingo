@@ -1,0 +1,25 @@
+require "common.dg"
+
+fun[c] main() {
+    val sayHello fun[c]() = fun[c]() {
+        puts(c"Hello!")
+    }
+
+    sayHello()
+
+    doOperation(5, 2, fun(arg1 i32, arg2 i32) i32 {
+        return arg1 * arg2
+    })
+
+    sayGoodBye()
+}
+
+val sayGoodBye = fun() {
+    puts(c"Good bye!")
+}
+
+fun doOperation(arg1 i32, arg2 i32, op fun(i32, i32) i32) {
+    val res = op(arg1, arg2)
+    puti(res)
+    puts(c"")
+}

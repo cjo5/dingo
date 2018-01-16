@@ -1,6 +1,7 @@
 package semantics
 
 import (
+	"github.com/jhnl/dingo/common"
 	"github.com/jhnl/dingo/ir"
 	"github.com/jhnl/dingo/token"
 )
@@ -109,4 +110,8 @@ func (v *typeChecker) VisitAssignStmt(stmt *ir.AssignStmt) {
 
 func (v *typeChecker) VisitExprStmt(stmt *ir.ExprStmt) {
 	stmt.X = v.makeTypedExpr(stmt.X, nil)
+	texpr := stmt.X.Type()
+	if texpr.ID() == ir.TUntyped {
+		common.Assert(v.c.errors.IsError(), "expr is untyped and no error was reported")
+	}
 }

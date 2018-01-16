@@ -315,7 +315,9 @@ func (cb *llvmCodeBuilder) buildFuncDecl(decl *ir.FuncDecl) {
 		funType := llvm.FunctionType(retType, paramTypes, false)
 		fun = llvm.AddFunction(cb.mod, name, funType)
 
-		if tfun.C {
+		if (decl.Flags & ir.AstFlagAnon) != 0 {
+			fun.SetLinkage(llvm.InternalLinkage)
+		} else if tfun.C {
 			fun.SetLinkage(llvm.ExternalLinkage)
 		} else {
 			switch decl.Visibility.ID {
