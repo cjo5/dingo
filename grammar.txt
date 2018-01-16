@@ -17,14 +17,14 @@ ValDecl = ('val' | 'var') IDENT (Type | (Type? '=' Expr))
 FuncDecl = 'fun' ['[' IDENT ']'] IDENT FuncSignature (Block | ';')
 StructDecl = 'struct' IDENT Struct
 
-Field = ['val' | 'var'] (IDENT | '_') Type
+Field = (['val' | 'var'] (IDENT | '_'))? Type
 Struct= '{' {Field ';'} '}'
 FuncSignature = '(' [Field {',' Field} ','?] ')' Type?
 
 Type = PointerType | ArrayType | FuncType | IDENT | '(' Type ')'
 PointerType = '*' ['val' | 'var'] Type
 ArrayType = '[' INTEGER? ':' Type ']'
-FuncType 'fun' ['[' IDENT ']'] '(' Type? [',' Type]  ')' Type?
+FuncType 'fun' ['[' IDENT ']'] FuncSignature
 
 Block = '{' Stmt* '}'
 Stmt = [Block | ValDecl | Expr | AssignStmt | 'if' IfStmt | WhileStmt |
@@ -58,4 +58,4 @@ Number = (INTEGER | FLOAT) IDENT?
 KeyValue = IDENT '=' Expr
 StructLit = IDENT '{' [KeyValue {',' KeyValue} ','?] '}'
 ArrayLit  = '[' [Expr {',' Expr} ','?] ']'
-FuncLit = 'fun' ['[' ABI ']'] FuncSignature Block
+FuncLit = 'fun' ['[' IDENT ']'] FuncSignature Block

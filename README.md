@@ -9,9 +9,9 @@ Note this project is still a work in progress.
 module main
 
 // External C functions
-fun[c] abs(_ i32) i32
-fun[c] putchar(_ i32) i32
-fun[c] puts(_ *i8) i32
+fun[c] abs(i32) i32
+fun[c] putchar(i32) i32
+fun[c] puts(*i8) i32
 
 /*
     Comment

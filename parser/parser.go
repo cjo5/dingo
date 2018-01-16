@@ -304,11 +304,23 @@ func (p *parser) parseField(flags int, defaultDecl token.ID) *ir.ValDecl {
 	decl.Name = p.token
 	if p.token.Is(token.Underscore) {
 		p.next()
-	} else {
+		decl.Type = p.parseType(false)
+	} else if decl.Decl.IsValid() {
 		p.expect1(token.Ident)
+		decl.Type = p.parseType(false)
+	} else {
+		optional := false
+		if p.token.Is(token.Ident) {
+			p.next()
+			optional = true
+		}
+		decl.Type = p.parseType(optional)
+		if decl.Type == nil {
+			decl.Type = &ir.Ident{Name: decl.Name}
+			decl.Name = token.Synthetic(token.Underscore, token.Underscore.String())
+		}
 	}
 
-	decl.Type = p.parseType(false)
 	return decl
 }
 
@@ -328,7 +340,7 @@ func (p *parser) parseFuncDecl(visibility token.Token, directives []ir.Directive
 	decl.Name = p.token
 	p.expect1(token.Ident)
 
-	p.parseFuncSignature(decl)
+	decl.Lparen, decl.Params, decl.TReturn, decl.Rparen = p.parseFuncSignature()
 
 	if p.token.Is(token.Semicolon) {
 		return decl
@@ -342,29 +354,31 @@ func (p *parser) parseFuncDecl(visibility token.Token, directives []ir.Directive
 	return decl
 }
 
-func (p *parser) parseFuncSignature(decl *ir.FuncDecl) {
-	decl.Lparen = p.token
+func (p *parser) parseFuncSignature() (lparen token.Token, params []*ir.ValDecl, ret ir.Expr, rparen token.Token) {
+	lparen = p.token
 	p.expect1(token.Lparen)
 
 	if !p.token.Is(token.Rparen) {
 		flags := ir.AstFlagNoInit
-		decl.Params = append(decl.Params, p.parseField(flags, token.Val))
+		params = append(params, p.parseField(flags, token.Val))
 		for !p.token.OneOf(token.EOF, token.Rparen) {
 			p.expect1(token.Comma)
 			if p.token.Is(token.Rparen) {
 				break
 			}
-			decl.Params = append(decl.Params, p.parseField(flags, token.Val))
+			params = append(params, p.parseField(flags, token.Val))
 		}
 	}
 
-	decl.Rparen = p.token
+	rparen = p.token
 	p.expect1(token.Rparen)
 
-	decl.TReturn = p.parseType(true)
-	if decl.TReturn == nil {
-		decl.TReturn = &ir.Ident{Name: token.Synthetic(token.Ident, ir.TVoid.String())}
+	ret = p.parseType(true)
+	if ret == nil {
+		ret = &ir.Ident{Name: token.Synthetic(token.Ident, ir.TVoid.String())}
 	}
+
+	return
 }
 
 func (p *parser) parseStructDecl(visibility token.Token, directives []ir.Directive) *ir.StructDecl {
@@ -626,23 +640,11 @@ func (p *parser) parseFuncType() ir.Expr {
 		p.expect1(token.Rbrack)
 	}
 
-	fun.Lparen = p.token
-	p.expect1(token.Lparen)
+	var params []*ir.ValDecl
+	fun.Lparen, params, fun.Return, fun.Rparen = p.parseFuncSignature()
 
-	if !p.token.Is(token.Rparen) {
-		fun.Params = append(fun.Params, p.parseType(false))
-		for !p.token.Is(token.Rparen) {
-			p.expect1(token.Comma)
-			fun.Params = append(fun.Params, p.parseType(false))
-		}
-	}
-
-	fun.Rparen = p.token
-	p.expect1(token.Rparen)
-
-	fun.Return = p.parseType(true)
-	if fun.Return == nil {
-		fun.Return = &ir.Ident{Name: token.Synthetic(token.Ident, ir.TVoid.String())}
+	for _, param := range params {
+		fun.Params = append(fun.Params, param.Type)
 	}
 
 	return fun
@@ -907,7 +909,7 @@ func (p *parser) parseFuncLit() ir.Expr {
 		p.expect1(token.Rbrack)
 	}
 
-	p.parseFuncSignature(decl)
+	decl.Lparen, decl.Params, decl.TReturn, decl.Rparen = p.parseFuncSignature()
 	decl.Body = p.parseBlockStmt()
 
 	decl.SetContext(p.file.Ctx)
