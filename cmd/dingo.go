@@ -39,6 +39,7 @@ func main() {
 
 func printErrors(errors *common.ErrorList) {
 	errors.Sort()
+	errors.LoadContext()
 
 	for _, warn := range errors.Warnings {
 		fmt.Printf("%s\n", warn)

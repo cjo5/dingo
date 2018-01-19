@@ -2,6 +2,8 @@ package common
 
 import (
 	"fmt"
+	"io/ioutil"
+	"strings"
 
 	"bytes"
 	"sort"
@@ -40,6 +42,7 @@ type Error struct {
 	ID       ErrorID
 	Msg      string
 	Trace    Trace
+	Context  []string
 }
 
 type ErrorList struct {
@@ -82,14 +85,21 @@ func (e Error) Error() string {
 		msg = fmt.Sprintf("%s: %s", e.ID, e.Msg)
 	}
 
-	if len(e.Trace.Lines) > 0 {
-		var buf bytes.Buffer
-		buf.WriteString(msg)
-		e.Trace.write(&buf)
-		msg = buf.String()
+	var buf bytes.Buffer
+	buf.WriteString(msg)
+
+	if len(e.Context) > 0 {
+		for _, l := range e.Context {
+			buf.WriteString("\n")
+			buf.WriteString(l)
+		}
 	}
 
-	return msg
+	if len(e.Trace.Lines) > 0 {
+		e.Trace.write(&buf)
+	}
+
+	return buf.String()
 }
 
 func (e *ErrorList) Add(filename string, pos token.Position, id ErrorID, format string, args ...interface{}) {
@@ -138,6 +148,108 @@ func (e *ErrorList) Merge(other *ErrorList) {
 
 func (e *ErrorList) IsError() bool {
 	return len(e.Errors) > 0
+}
+
+func (e *ErrorList) LoadContext() {
+	loadContext1(e.Warnings)
+	loadContext1(e.Errors)
+}
+
+func loadContext1(errors []*Error) {
+	var buf []byte
+	filename := ""
+
+	for _, e := range errors {
+		e.Context = nil
+		if e.Pos.IsValid() {
+			if e.Filename != filename {
+				buf = nil
+				filename = e.Filename
+				if len(filename) > 0 {
+					buf2, err := ioutil.ReadFile(filename)
+					if err == nil {
+						buf = buf2
+					}
+				}
+			}
+
+			if e.Pos.Offset < len(buf) {
+				// Find line start and end
+				start := e.Pos.Offset
+				end := e.Pos.Offset
+				foundStart := false
+				foundEnd := false
+
+				for start >= 0 && end < len(buf) && (!foundStart || !foundEnd) {
+					if !foundStart {
+						if buf[start] == '\n' {
+							start++
+							foundStart = true
+						} else {
+							start--
+						}
+					}
+
+					if !foundEnd {
+						if buf[end] == '\n' {
+							if end > 0 && buf[end-1] == '\r' {
+								end--
+							}
+							foundEnd = true
+						} else {
+							end++
+						}
+					}
+				}
+
+				if !foundStart {
+					start = 0
+				}
+
+				if !foundEnd {
+					end = len(buf)
+				}
+
+				if start < end {
+					var indent bytes.Buffer
+					spaces := 0
+
+					for _, ch := range buf[start:end] {
+						if ch == ' ' {
+							indent.WriteString(" ")
+							spaces++
+						} else if ch == '\t' {
+							indent.WriteString("    ")
+							spaces++
+						} else {
+							break
+						}
+					}
+
+					line := string(buf[start:end])
+					line = strings.Trim(line, " \t")
+					lineLen := len(line)
+
+					maxLen := 200
+
+					if lineLen > maxLen {
+						line = line[:maxLen+1]
+						line += "..."
+						lineLen = len(line)
+					}
+
+					line = indent.String() + line
+					e.Context = append(e.Context, line)
+
+					col := (e.Pos.Column - 1) - spaces
+					if col >= 0 && col < lineLen && col <= maxLen {
+						mark := indent.String() + strings.Repeat(" ", col) + "^"
+						e.Context = append(e.Context, mark)
+					}
+				}
+			}
+		}
+	}
 }
 
 // Sort errors by filename and line numbers.

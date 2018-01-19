@@ -85,25 +85,23 @@ func (v *typeChecker) VisitAssignStmt(stmt *ir.AssignStmt) {
 
 	left := stmt.Left
 	if !left.Lvalue() {
-		v.c.error(stmt.Left.FirstPos(), "cannot assign to '%s' (not an lvalue)", PrintExpr(left))
+		v.c.error(stmt.Left.FirstPos(), "expression is not an lvalue")
 		return
 	}
 
 	stmt.Right = v.makeTypedExpr(stmt.Right, left.Type())
 
 	if stmt.Left.ReadOnly() {
-		v.c.error(stmt.Left.FirstPos(), "'%s' is read-only", PrintExpr(stmt.Left))
+		v.c.error(stmt.Left.FirstPos(), "expression is read-only")
 	}
 
 	if !checkTypes(v.c, left.Type(), stmt.Right.Type()) {
-		v.c.error(left.FirstPos(), "type mismatch: '%s' with type %s is different from '%s' with type %s",
-			PrintExpr(left), left.Type(), PrintExpr(stmt.Right), stmt.Right.Type())
+		v.c.error(left.FirstPos(), "type mismatch %s and %s", left.Type(), stmt.Right.Type())
 	}
 
 	if stmt.Assign.ID != token.Assign {
 		if !ir.IsNumericType(left.Type()) {
-			v.c.error(left.FirstPos(), "type mismatch: %s is not numeric (has type %s)",
-				stmt.Assign, PrintExpr(left), left.Type())
+			v.c.error(left.FirstPos(), "type mismatch: type %s is not numeric", left.Type())
 		}
 	}
 }

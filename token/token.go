@@ -202,6 +202,7 @@ func (tok ID) String() string {
 
 // Position of token in a file.
 type Position struct {
+	Offset int
 	Line   int
 	Column int
 }
@@ -211,7 +212,7 @@ func NewPosition(line, column int) Position {
 }
 
 // NoPosition means it wasn't part of a file.
-var NoPosition = Position{-1, -1}
+var NoPosition = Position{-1, -1, 0}
 
 func (p Position) String() string {
 	return fmt.Sprintf("%d:%d", p.Line, p.Column)

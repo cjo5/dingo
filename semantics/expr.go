@@ -25,7 +25,7 @@ func (v *typeChecker) makeTypedExpr(expr ir.Expr, t ir.Type) ir.Expr {
 	}
 
 	if !checkCompleteType(expr.Type()) {
-		v.c.error(expr.FirstPos(), "invalid expression '%s' (incomplete type %s)", PrintExpr(expr), expr.Type())
+		v.c.error(expr.FirstPos(), "expression has incomplete type %s", expr.Type())
 		switch t2 := expr.(type) {
 		case *ir.SliceExpr:
 			t2.T = ir.TBuiltinUntyped
@@ -184,7 +184,7 @@ func (v *typeChecker) VisitArrayTypeExpr(expr *ir.ArrayTypeExpr) ir.Expr {
 			v.c.error(expr.Size.FirstPos(), "array size must be of type %s (got %s)", ir.TInt32, sizeType)
 			err = true
 		} else if lit, ok := expr.Size.(*ir.BasicLit); !ok {
-			v.c.error(expr.Size.FirstPos(), "array size '%s' is not a constant expression", PrintExpr(expr.Size))
+			v.c.error(expr.Size.FirstPos(), "array size is not a constant expression")
 			err = true
 		} else if lit.NegatigeInteger() {
 			v.c.error(expr.Size.FirstPos(), "array size cannot be negative")
@@ -257,8 +257,7 @@ func (v *typeChecker) VisitBinaryExpr(expr *ir.BinaryExpr) ir.Expr {
 
 	if expr.Op.OneOf(token.Land, token.Lor) {
 		if leftType.ID() != ir.TBool || rightType.ID() != ir.TBool {
-			v.c.error(expr.Op.Pos, "type mismatch: expression %s have types %s and %s (expected %s)",
-				PrintExpr(expr), leftType, rightType, ir.TBool)
+			v.c.error(expr.Op.Pos, "type mismatch: expression has types %s and %s (expected %s)", leftType, rightType, ir.TBool)
 		} else {
 			binType = ir.TBool
 		}
@@ -431,11 +430,10 @@ func (v *typeChecker) VisitBinaryExpr(expr *ir.BinaryExpr) ir.Expr {
 		}
 
 		if !checkTypes(v.c, leftType, rightType) {
-			v.c.error(expr.Op.Pos, "type mismatch: '%s' have different types (%s and %s)",
-				PrintExpr(expr), leftType, rightType)
+			v.c.error(expr.Op.Pos, "type mismatch %s and %s", leftType, rightType)
 		} else if !ir.IsUntyped(leftType) && !ir.IsUntyped(rightType) {
 			if !ir.IsTypeID(typeNotSupported, ir.TUntyped) {
-				v.c.error(expr.Op.Pos, "type mismatch: cannot perform '%s' with type %s", PrintExpr(expr), typeNotSupported)
+				v.c.error(expr.Op.Pos, "operation '%s' cannot be performed on type %s", expr.Op.ID.String(), typeNotSupported)
 			} else {
 				if boolOp {
 					binType = ir.TBool
@@ -458,7 +456,7 @@ func (v *typeChecker) VisitUnaryExpr(expr *ir.UnaryExpr) ir.Expr {
 	switch expr.Op.ID {
 	case token.Sub:
 		if !ir.IsNumericType(expr.T) {
-			v.c.error(expr.Op.Pos, "type mismatch: expression '%s' has type %s (expected integer or float)", PrintExpr(expr), expr.T)
+			v.c.error(expr.Op.Pos, "type mismatch: expression has type %s (expected integer or float)", expr.T)
 		} else if lit, ok := expr.X.(*ir.BasicLit); ok {
 			var raw interface{}
 
@@ -482,7 +480,7 @@ func (v *typeChecker) VisitUnaryExpr(expr *ir.UnaryExpr) ir.Expr {
 		}
 	case token.Lnot:
 		if expr.T.ID() != ir.TBool {
-			v.c.error(expr.Op.Pos, "type mismatch: expression '%s' has type %s (expected %s)", PrintExpr(expr), expr.T, ir.TBuiltinBool)
+			v.c.error(expr.Op.Pos, "type mismatch: expression has type %s (expected %s)", expr.T, ir.TBuiltinBool)
 		}
 	case token.Mul:
 		lvalue := false
@@ -497,16 +495,16 @@ func (v *typeChecker) VisitUnaryExpr(expr *ir.UnaryExpr) ir.Expr {
 		}
 
 		if !lvalue {
-			v.c.error(expr.X.FirstPos(), "cannot dereference '%s' (not an lvalue)", PrintExpr(expr.X))
+			v.c.error(expr.X.FirstPos(), "expression cannot be dereferenced (not an lvalue)")
 		} else {
 			switch t := expr.T.(type) {
 			case *ir.PointerType:
 				expr.T = t.Underlying
 			case *ir.SliceType:
 				tslice := ir.NewSliceType(t.Elem, t.ReadOnly, false)
-				v.c.error(expr.X.FirstPos(), "cannot dereference '%s' (underlying type %s is incomplete)", PrintExpr(expr.X), tslice)
+				v.c.error(expr.X.FirstPos(), "expression cannot be dereferenced (underlying type %s is incomplete)", tslice)
 			default:
-				v.c.error(expr.X.FirstPos(), "cannot dereference '%s' (type %s is not a pointer)", PrintExpr(expr.X), expr.T)
+				v.c.error(expr.X.FirstPos(), "type %s cannot be dereferenced", expr.T)
 			}
 		}
 
@@ -584,7 +582,7 @@ func (v *typeChecker) VisitBasicLit(expr *ir.BasicLit) ir.Expr {
 				expr.T = ir.NewPointerType(ir.TBuiltinInt8, true)
 				expr.Raw = raw
 			} else {
-				v.c.error(expr.Prefix.FirstPos(), "invalid string prefix '%s'", PrintExpr(expr.Prefix))
+				v.c.error(expr.Prefix.FirstPos(), "invalid string prefix '%s'", expr.Prefix.Literal())
 				expr.T = ir.TBuiltinUntyped
 			}
 		}
@@ -618,7 +616,7 @@ func (v *typeChecker) VisitBasicLit(expr *ir.BasicLit) ir.Expr {
 				case ir.TInt8.String():
 					target = ir.TInt8
 				default:
-					v.c.error(expr.Suffix.FirstPos(), "invalid int suffix '%s'", PrintExpr(expr.Suffix))
+					v.c.error(expr.Suffix.FirstPos(), "invalid int suffix '%s'", expr.Suffix.Literal())
 					base = ir.TUntyped
 				}
 			}
@@ -666,7 +664,7 @@ func (v *typeChecker) VisitBasicLit(expr *ir.BasicLit) ir.Expr {
 				case ir.TFloat32.String():
 					target = ir.TFloat32
 				default:
-					v.c.error(expr.Suffix.FirstPos(), "invalid float suffix '%s'", PrintExpr(expr.Suffix))
+					v.c.error(expr.Suffix.FirstPos(), "invalid float suffix '%s'", expr.Suffix.Literal())
 					base = ir.TUntyped
 				}
 			}
@@ -710,10 +708,12 @@ func (v *typeChecker) VisitStructLit(expr *ir.StructLit) ir.Expr {
 	if ir.IsUntyped(t) {
 		expr.T = ir.TBuiltinUntyped
 		return expr
-	} else if t.ID() != ir.TStruct {
-		v.c.error(expr.Name.FirstPos(), "'%s' is not a struct", PrintExpr(expr.Name))
-		expr.T = ir.TBuiltinUntyped
-		return expr
+	} else if typeSym := ir.ExprSymbol(expr.Name); typeSym != nil {
+		if typeSym.ID != ir.TypeSymbol && typeSym.T.ID() != ir.TStruct {
+			v.c.error(expr.Name.FirstPos(), "'%s' is not a struct", typeSym.Name)
+			expr.T = ir.TBuiltinUntyped
+			return expr
+		}
 	}
 
 	err := false
@@ -924,7 +924,7 @@ func (v *typeChecker) VisitDotExpr(expr *ir.DotExpr) ir.Expr {
 		v.VisitIdent(expr.Name)
 		expr.T = expr.Name.Type()
 	} else if !untyped {
-		v.c.error(expr.X.FirstPos(), "invalid field access '%s' (type %s)", PrintExpr(expr), expr.X.Type())
+		v.c.error(expr.X.FirstPos(), "type %s does not support field access", expr.X.Type())
 	}
 
 	if expr.T == nil {
@@ -940,11 +940,11 @@ func (v *typeChecker) VisitCastExpr(expr *ir.CastExpr) ir.Expr {
 	expr.ToTyp = ir.VisitExpr(v, expr.ToTyp)
 	v.exprMode = prevMode
 
-	ident := ir.TypeExprToIdent(expr.ToTyp)
+	sym := ir.ExprSymbol(expr.ToTyp)
 	err := true
-	if ident != nil && ident.Sym != nil {
-		if ident.Sym.ID != ir.TypeSymbol {
-			v.c.error(expr.ToTyp.FirstPos(), "'%s' is not a type", PrintExpr(expr.ToTyp))
+	if sym != nil {
+		if sym.ID != ir.TypeSymbol {
+			v.c.error(expr.ToTyp.FirstPos(), "'%s' is not a type", sym.Name)
 		} else {
 			err = false
 		}
@@ -980,7 +980,7 @@ func (v *typeChecker) VisitLenExpr(expr *ir.LenExpr) ir.Expr {
 		expr.T = ir.TBuiltinInt32
 	default:
 		if !ir.IsUntyped(t) {
-			v.c.error(expr.X.FirstPos(), "'%s' is not a slice or an array (has type %s)", PrintExpr(expr.X), t)
+			v.c.error(expr.X.FirstPos(), "type %s does not have a length", t)
 		}
 		expr.T = ir.TBuiltinUntyped
 	}
@@ -1002,7 +1002,7 @@ func (v *typeChecker) VisitFuncCall(expr *ir.FuncCall) ir.Expr {
 	}
 
 	if t.ID() != ir.TFunc {
-		v.c.error(expr.X.FirstPos(), "'%s' is not callable (has type %s)", PrintExpr(expr), t)
+		v.c.error(expr.X.FirstPos(), "expression is not callable (has type %s)", t)
 		expr.T = ir.TBuiltinUntyped
 		return expr
 	}
@@ -1010,7 +1010,7 @@ func (v *typeChecker) VisitFuncCall(expr *ir.FuncCall) ir.Expr {
 	tfun := t.(*ir.FuncType)
 
 	if len(tfun.Params) != len(expr.Args) {
-		v.c.error(expr.X.FirstPos(), "'%s' takes %d argument(s) but called with %d", PrintExpr(expr.X), len(tfun.Params), len(expr.Args))
+		v.c.error(expr.X.FirstPos(), "function takes %d argument(s) but called with %d", len(tfun.Params), len(expr.Args))
 	} else {
 		for i, arg := range expr.Args {
 			expr.Args[i] = v.makeTypedExpr(arg, tfun.Params[i])
@@ -1018,8 +1018,7 @@ func (v *typeChecker) VisitFuncCall(expr *ir.FuncCall) ir.Expr {
 
 			targ := arg.Type()
 			if !checkTypes(v.c, targ, tparam) {
-				v.c.error(arg.FirstPos(), "type mismatch: argument %d of function '%s' expects type %s (got type %s)",
-					i, PrintExpr(expr.X), tparam, targ)
+				v.c.error(arg.FirstPos(), "type mismatch: argument %d expects type %s (got type %s)", i, tparam, targ)
 			}
 		}
 		expr.T = tfun.Return
@@ -1036,9 +1035,9 @@ func (v *typeChecker) VisitAddressExpr(expr *ir.AddressExpr) ir.Expr {
 	ro := expr.Decl.Is(token.Val)
 	expr.X = ir.VisitExpr(v, expr.X)
 	if !expr.X.Lvalue() {
-		v.c.error(expr.X.FirstPos(), "cannot create pointer to '%s' (not an lvalue)", PrintExpr(expr.X))
+		v.c.error(expr.X.FirstPos(), "expression is not an lvalue")
 	} else if expr.X.ReadOnly() && !ro {
-		v.c.error(expr.X.FirstPos(), "cannot create writable pointer to '%s' (read-only)", PrintExpr(expr.X))
+		v.c.error(expr.X.FirstPos(), "expression is read-only")
 	} else {
 		if tslice, ok := expr.X.Type().(*ir.SliceType); ok {
 			if !tslice.Ptr {
@@ -1082,13 +1081,13 @@ func (v *typeChecker) VisitIndexExpr(expr *ir.IndexExpr) ir.Expr {
 	if telem != nil {
 		if !ir.IsUntyped(expr.Index.Type()) {
 			if !ir.IsIntegerType(expr.Index.Type()) {
-				v.c.error(expr.Index.FirstPos(), "'%s' cannot be used as an index (has type %s)", PrintExpr(expr.Index), expr.Index.Type())
+				v.c.error(expr.Index.FirstPos(), "type %s cannot be used as an index", expr.Index.Type())
 			} else {
 				expr.T = telem
 			}
 		}
 	} else if !untyped {
-		v.c.error(expr.X.FirstPos(), "invalid index access '%s' (type %s)", PrintExpr(expr), expr.X.Type())
+		v.c.error(expr.X.FirstPos(), "type %s cannot be indexed", expr.X.Type())
 	}
 
 	if expr.T == nil {
@@ -1129,14 +1128,14 @@ func (v *typeChecker) VisitSliceExpr(expr *ir.SliceExpr) ir.Expr {
 
 		if expr.Start != nil {
 			if !ir.IsUntyped(expr.Start.Type()) && !ir.IsIntegerType(expr.Start.Type()) {
-				v.c.error(expr.Start.FirstPos(), "'%s' cannot be used as slice index (has type %s)", PrintExpr(expr.Start), expr.Start.Type())
+				v.c.error(expr.Start.FirstPos(), "type %s cannot be used as slice index", expr.Start.Type())
 				err = true
 			}
 		}
 
 		if expr.End != nil {
 			if !ir.IsUntyped(expr.End.Type()) && !ir.IsIntegerType(expr.End.Type()) {
-				v.c.error(expr.End.FirstPos(), "'%s' cannot be used as slice index (has type %s)", PrintExpr(expr.End), expr.End.Type())
+				v.c.error(expr.End.FirstPos(), "type %s cannot be used as slice index", expr.End.Type())
 				err = true
 			}
 		}
@@ -1170,7 +1169,7 @@ func (v *typeChecker) VisitSliceExpr(expr *ir.SliceExpr) ir.Expr {
 			expr.T = ir.NewSliceType(telem, true, false)
 		}
 	} else if !untyped {
-		v.c.error(expr.X.FirstPos(), "invalid slice '%s' (type %s)", PrintExpr(expr), expr.X.Type())
+		v.c.error(expr.X.FirstPos(), "type %s cannot be sliced", expr.X.Type())
 	}
 
 	if expr.T == nil {

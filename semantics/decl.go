@@ -42,7 +42,7 @@ func (v *typeChecker) VisitValTopDecl(decl *ir.ValTopDecl) {
 	if !ir.IsUntyped(decl.Sym.T) {
 		init := decl.Initializer
 		if !v.checkCompileTimeConstant(init) {
-			v.c.error(init.FirstPos(), "'%s' is not a compile-time constant", PrintExpr(init))
+			v.c.error(init.FirstPos(), "initializer is not a compile-time constant")
 		}
 	}
 }
@@ -88,7 +88,7 @@ func (v *typeChecker) visitValDeclSpec(sym *ir.Symbol, decl *ir.ValDeclSpec, def
 
 		if typeSym := ir.ExprSymbol(decl.Type); typeSym != nil {
 			if typeSym.ID != ir.TypeSymbol {
-				v.c.error(decl.Type.FirstPos(), "'%s' is not a type", PrintExpr(decl.Type))
+				v.c.error(decl.Type.FirstPos(), "'%s' is not a type", typeSym.Name)
 				sym.T = ir.TBuiltinUntyped
 				return
 			}
@@ -115,11 +115,11 @@ func (v *typeChecker) visitValDeclSpec(sym *ir.Symbol, decl *ir.ValDeclSpec, def
 
 			if ptr, ok := tinit.(*ir.PointerType); ok {
 				if ir.IsTypeID(ptr.Underlying, ir.TUntyped) {
-					v.c.error(decl.Initializer.FirstPos(), "invalid initializer (impossible to infer type from '%s')", PrintExpr(decl.Initializer))
+					v.c.error(decl.Initializer.FirstPos(), "impossible to infer type from initializer")
 					sym.T = ir.TBuiltinUntyped
 				}
 			} else if tinit.ID() == ir.TVoid {
-				v.c.error(decl.Initializer.FirstPos(), "invalid initializer (has type %s)", tinit)
+				v.c.error(decl.Initializer.FirstPos(), "initializer has invalid type %s", tinit)
 				sym.T = ir.TBuiltinUntyped
 			}
 
@@ -128,12 +128,11 @@ func (v *typeChecker) visitValDeclSpec(sym *ir.Symbol, decl *ir.ValDeclSpec, def
 			}
 		} else {
 			if !checkTypes(v.c, sym.T, decl.Initializer.Type()) {
-				v.c.error(decl.Initializer.FirstPos(), "type mismatch: '%s' with type %s is different from '%s' with type %s",
-					decl.Name.Literal, sym.T, PrintExpr(decl.Initializer), decl.Initializer.Type())
+				v.c.error(decl.Initializer.FirstPos(), "type mismatch %s and %s", sym.T, decl.Initializer.Type())
 			}
 		}
 	} else if decl.Type == nil {
-		v.c.error(decl.Name.Pos, "missing type specifier or initializer")
+		v.c.error(decl.Name.Pos, "missing type or initializer")
 	} else if defaultInit {
 		decl.Initializer = createDefaultLit(sym.T)
 	}

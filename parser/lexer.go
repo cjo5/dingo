@@ -229,7 +229,7 @@ func (l *lexer) newPos() token.Position {
 	if col <= 0 {
 		col = 1
 	}
-	return token.Position{Line: l.lineCount, Column: col}
+	return token.Position{Line: l.lineCount, Column: col, Offset: l.chOffset}
 }
 
 func (l *lexer) error(pos token.Position, msg string) {
