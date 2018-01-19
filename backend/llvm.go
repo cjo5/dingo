@@ -113,10 +113,10 @@ func (cb *llvmCodeBuilder) validateModuleSet(set *ir.ModuleSet) {
 	}
 
 	mod := set.FindModule("main")
-	if mod == nil {
-		cb.errors.AddGeneric1(fmt.Errorf("no main module"))
-	} else {
+	if mod != nil {
 		cb.validateMainFunc(mod)
+	} else {
+		cb.errors.AddGeneric1(fmt.Errorf("no main module"))
 	}
 }
 
@@ -125,6 +125,7 @@ func (cb *llvmCodeBuilder) validateMainFunc(mod *ir.Module) {
 	if mainFunc != nil {
 		tmain := mainFunc.T.(*ir.FuncType)
 		msg := ""
+
 		if !tmain.C {
 			msg = fmt.Sprintf("invalid main function (not declared as C function)")
 		} else if len(tmain.Params) > 0 {

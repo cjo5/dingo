@@ -1010,7 +1010,7 @@ func (v *typeChecker) VisitFuncCall(expr *ir.FuncCall) ir.Expr {
 	tfun := t.(*ir.FuncType)
 
 	if len(tfun.Params) != len(expr.Args) {
-		v.c.error(expr.X.Pos(), "function takes %d argument(s) but called with %d", len(tfun.Params), len(expr.Args))
+		v.c.error(expr.Lparen.Pos, "function takes %d argument(s) but called with %d", len(tfun.Params), len(expr.Args))
 	} else {
 		for i, arg := range expr.Args {
 			expr.Args[i] = v.makeTypedExpr(arg, tfun.Params[i])
@@ -1018,7 +1018,7 @@ func (v *typeChecker) VisitFuncCall(expr *ir.FuncCall) ir.Expr {
 
 			targ := arg.Type()
 			if !checkTypes(v.c, targ, tparam) {
-				v.c.error(arg.Pos(), "type mismatch: argument %d expects type %s (got type %s)", i, tparam, targ)
+				v.c.errorExpr(arg, "type mismatch: argument %d expects type %s (got type %s)", i, tparam, targ)
 			}
 		}
 		expr.T = tfun.Return

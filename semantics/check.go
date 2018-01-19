@@ -8,9 +8,7 @@ import (
 	"github.com/jhnl/dingo/token"
 )
 
-// Check program.
-// Resolve identifiers, type check and look for cyclic dependencies between identifiers.
-//
+// Check will resolve identifiers, look for cyclic dependencies between identifiers, and type check.
 func Check(set *ir.ModuleSet) error {
 	c := newContext(set)
 
@@ -96,6 +94,14 @@ func (c *context) visibilityScope(tok token.Token) *ir.Scope {
 	return c.mod.Scope
 }
 
+func (c *context) filename() string {
+	name := ""
+	if c.fileCtx != nil {
+		name = c.fileCtx.Path
+	}
+	return name
+}
+
 func (c *context) setCurrentTopDecl(decl ir.TopDecl) {
 	c.topDecl = decl
 	c.fileCtx = decl.Context()
@@ -108,27 +114,19 @@ func (c *context) mapTopDecl(sym *ir.Symbol, decl ir.TopDecl) {
 }
 
 func (c *context) error(pos token.Position, format string, args ...interface{}) {
-	filename := ""
-	if c.fileCtx != nil {
-		filename = c.fileCtx.Path
-	}
-	c.errors.Add(filename, pos, pos, common.GenericError, format, args...)
+	c.errors.Add(c.filename(), pos, pos, common.GenericError, format, args...)
+}
+
+func (c *context) errorInterval(pos token.Position, endPos token.Position, format string, args ...interface{}) {
+	c.errors.Add(c.filename(), pos, endPos, common.GenericError, format, args...)
 }
 
 func (c *context) errorExpr(expr ir.Expr, format string, args ...interface{}) {
-	filename := ""
-	if c.fileCtx != nil {
-		filename = c.fileCtx.Path
-	}
-	c.errors.Add(filename, expr.Pos(), expr.EndPos(), common.GenericError, format, args...)
+	c.errorInterval(expr.Pos(), expr.EndPos(), format, args...)
 }
 
 func (c *context) warning(pos token.Position, format string, args ...interface{}) {
-	filename := ""
-	if c.fileCtx != nil {
-		filename = c.fileCtx.Path
-	}
-	c.errors.AddWarning(filename, pos, pos, format, args...)
+	c.errors.AddWarning(c.filename(), pos, pos, format, args...)
 }
 
 func (c *context) insert(scope *ir.Scope, id ir.SymbolID, name string, pos token.Position) *ir.Symbol {

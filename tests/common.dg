@@ -7,6 +7,11 @@ fun[c] abs(i32) i32
 fun[c] puts(*i8) i32
 fun[c] putchar(i32) i32
 
+fun putiln(i i32) {
+    puti(i)
+    puts(c"")
+}
+
 // Recursively print each digit
 fun puti(i i32) {
     val i2 = abs(i)

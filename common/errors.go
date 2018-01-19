@@ -245,9 +245,9 @@ func loadContext1(errors []*Error) {
 					col := (e.Pos.Column - 1) - spaces
 					if col >= 0 && col < lineLen {
 						mark := indent.String() + strings.Repeat(" ", col)
-						endCol := e.EndPos.Column - spaces
-						if e.EndPos.Line == e.Pos.Line && endCol > col && endCol < lineLen {
-							mark += strings.Repeat("~", endCol-col)
+						endCol := (e.EndPos.Column - spaces) - col
+						if e.EndPos.Line == e.Pos.Line && endCol > 1 && endCol < lineLen {
+							mark += strings.Repeat("~", endCol)
 						} else {
 							mark += "^"
 						}
