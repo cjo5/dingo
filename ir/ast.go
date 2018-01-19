@@ -29,7 +29,7 @@ const (
 
 // Node interface.
 type Node interface {
-	FirstPos() token.Position
+	Pos() token.Position
 	node()
 }
 
@@ -62,6 +62,7 @@ type Stmt interface {
 // Expr is the main interface for expression nodes.
 type Expr interface {
 	Node
+	EndPos() token.Position
 	Type() Type
 	Lvalue() bool
 	ReadOnly() bool
@@ -130,7 +131,7 @@ type BadDecl struct {
 	To   token.Token
 }
 
-func (d *BadDecl) FirstPos() token.Position { return d.From.Pos }
+func (d *BadDecl) Pos() token.Position { return d.From.Pos }
 
 // A ModuleSet is a collection of modules that make up the program.
 type ModuleSet struct {
@@ -138,7 +139,7 @@ type ModuleSet struct {
 	Modules []*Module
 }
 
-func (m *ModuleSet) FirstPos() token.Position { return token.NoPosition }
+func (m *ModuleSet) Pos() token.Position { return token.NoPosition }
 
 func (m *ModuleSet) FindModule(fqn string) *Module {
 	for _, mod := range m.Modules {
@@ -159,7 +160,7 @@ type Module struct {
 	Decls []TopDecl
 }
 
-func (m *Module) FirstPos() token.Position { return token.NoPosition }
+func (m *Module) Pos() token.Position { return token.NoPosition }
 
 func (m *Module) FindFuncSymbol(name string) *Symbol {
 	for _, decl := range m.Decls {
@@ -196,7 +197,7 @@ type FileDependency struct {
 	File    *File
 }
 
-func (i *FileDependency) FirstPos() token.Position { return i.Decl.Pos }
+func (i *FileDependency) Pos() token.Position { return i.Decl.Pos }
 
 type ValDeclSpec struct {
 	Decl        token.Token
@@ -211,7 +212,7 @@ type ValTopDecl struct {
 	ValDeclSpec
 }
 
-func (d *ValTopDecl) FirstPos() token.Position {
+func (d *ValTopDecl) Pos() token.Position {
 	if d.Visibility.Pos.IsValid() {
 		return d.Visibility.Pos
 	}
@@ -225,7 +226,7 @@ type ValDecl struct {
 	Flags int
 }
 
-func (d *ValDecl) FirstPos() token.Position {
+func (d *ValDecl) Pos() token.Position {
 	return d.Decl.Pos
 }
 
@@ -248,7 +249,7 @@ type FuncDecl struct {
 	Flags   int
 }
 
-func (d *FuncDecl) FirstPos() token.Position { return d.Decl.Pos }
+func (d *FuncDecl) Pos() token.Position { return d.Decl.Pos }
 
 func (d *FuncDecl) SignatureOnly() bool { return d.Body == nil }
 
@@ -263,7 +264,7 @@ type StructDecl struct {
 	Scope  *Scope
 }
 
-func (d *StructDecl) FirstPos() token.Position { return d.Decl.Pos }
+func (d *StructDecl) Pos() token.Position { return d.Decl.Pos }
 
 // Statement nodes.
 
@@ -280,7 +281,7 @@ type BadStmt struct {
 	To   token.Token
 }
 
-func (s *BadStmt) FirstPos() token.Position { return s.From.Pos }
+func (s *BadStmt) Pos() token.Position { return s.From.Pos }
 
 type BlockStmt struct {
 	baseStmt
@@ -290,14 +291,14 @@ type BlockStmt struct {
 	Rbrace token.Token
 }
 
-func (s *BlockStmt) FirstPos() token.Position { return s.Lbrace.Pos }
+func (s *BlockStmt) Pos() token.Position { return s.Lbrace.Pos }
 
 type DeclStmt struct {
 	baseStmt
 	D Decl
 }
 
-func (s *DeclStmt) FirstPos() token.Position { return s.D.FirstPos() }
+func (s *DeclStmt) Pos() token.Position { return s.D.Pos() }
 
 // IfStmt represents a chain of if/elif/else statements.
 type IfStmt struct {
@@ -308,7 +309,7 @@ type IfStmt struct {
 	Else Stmt // Optional
 }
 
-func (s *IfStmt) FirstPos() token.Position { return s.If.Pos }
+func (s *IfStmt) Pos() token.Position { return s.If.Pos }
 
 type ForStmt struct {
 	baseStmt
@@ -320,7 +321,7 @@ type ForStmt struct {
 	Body  *BlockStmt
 }
 
-func (s *ForStmt) FirstPos() token.Position { return s.For.Pos }
+func (s *ForStmt) Pos() token.Position { return s.For.Pos }
 
 type ReturnStmt struct {
 	baseStmt
@@ -328,14 +329,14 @@ type ReturnStmt struct {
 	X      Expr
 }
 
-func (s *ReturnStmt) FirstPos() token.Position { return s.Return.Pos }
+func (s *ReturnStmt) Pos() token.Position { return s.Return.Pos }
 
 type BranchStmt struct {
 	baseStmt
 	Tok token.Token
 }
 
-func (s *BranchStmt) FirstPos() token.Position { return s.Tok.Pos }
+func (s *BranchStmt) Pos() token.Position { return s.Tok.Pos }
 
 type AssignStmt struct {
 	baseStmt
@@ -344,14 +345,14 @@ type AssignStmt struct {
 	Right  Expr
 }
 
-func (s *AssignStmt) FirstPos() token.Position { return s.Left.FirstPos() }
+func (s *AssignStmt) Pos() token.Position { return s.Left.Pos() }
 
 type ExprStmt struct {
 	baseStmt
 	X Expr
 }
 
-func (s *ExprStmt) FirstPos() token.Position { return s.X.FirstPos() }
+func (s *ExprStmt) Pos() token.Position { return s.X.Pos() }
 
 // Expression nodes.
 
@@ -383,7 +384,8 @@ type BadExpr struct {
 	To   token.Token
 }
 
-func (x *BadExpr) FirstPos() token.Position { return x.From.Pos }
+func (x *BadExpr) Pos() token.Position    { return x.From.Pos }
+func (x *BadExpr) EndPos() token.Position { return x.To.EndPos() }
 
 type PointerTypeExpr struct {
 	baseExpr
@@ -392,7 +394,8 @@ type PointerTypeExpr struct {
 	X       Expr
 }
 
-func (x *PointerTypeExpr) FirstPos() token.Position { return x.Pointer.Pos }
+func (x *PointerTypeExpr) Pos() token.Position    { return x.Pointer.Pos }
+func (x *PointerTypeExpr) EndPos() token.Position { return x.X.EndPos() }
 
 type ArrayTypeExpr struct {
 	baseExpr
@@ -403,7 +406,8 @@ type ArrayTypeExpr struct {
 	Rbrack token.Token
 }
 
-func (x *ArrayTypeExpr) FirstPos() token.Position { return x.Lbrack.Pos }
+func (x *ArrayTypeExpr) Pos() token.Position    { return x.Lbrack.Pos }
+func (x *ArrayTypeExpr) EndPos() token.Position { return x.Rbrack.EndPos() }
 
 type FuncTypeExpr struct {
 	baseExpr
@@ -415,7 +419,14 @@ type FuncTypeExpr struct {
 	Return Expr
 }
 
-func (x *FuncTypeExpr) FirstPos() token.Position { return x.Fun.Pos }
+func (x *FuncTypeExpr) Pos() token.Position { return x.Fun.Pos }
+func (x *FuncTypeExpr) EndPos() token.Position {
+	pos := x.Return.EndPos()
+	if pos.IsValid() {
+		return pos
+	}
+	return x.Rparen.EndPos()
+}
 
 type BinaryExpr struct {
 	baseExpr
@@ -424,7 +435,8 @@ type BinaryExpr struct {
 	Right Expr
 }
 
-func (x *BinaryExpr) FirstPos() token.Position { return x.Left.FirstPos() }
+func (x *BinaryExpr) Pos() token.Position    { return x.Left.Pos() }
+func (x *BinaryExpr) EndPos() token.Position { return x.Right.EndPos() }
 
 type UnaryExpr struct {
 	baseExpr
@@ -432,7 +444,8 @@ type UnaryExpr struct {
 	X  Expr
 }
 
-func (x *UnaryExpr) FirstPos() token.Position { return x.Op.Pos }
+func (x *UnaryExpr) Pos() token.Position    { return x.Op.Pos }
+func (x *UnaryExpr) EndPos() token.Position { return x.X.EndPos() }
 
 func (x *UnaryExpr) Lvalue() bool {
 	switch x.Op.ID {
@@ -462,7 +475,8 @@ type AddressExpr struct {
 	X    Expr
 }
 
-func (x *AddressExpr) FirstPos() token.Position { return x.And.Pos }
+func (x *AddressExpr) Pos() token.Position    { return x.And.Pos }
+func (x *AddressExpr) EndPos() token.Position { return x.X.EndPos() }
 
 type IndexExpr struct {
 	baseExpr
@@ -472,7 +486,8 @@ type IndexExpr struct {
 	Rbrack token.Token
 }
 
-func (x *IndexExpr) FirstPos() token.Position { return x.X.FirstPos() }
+func (x *IndexExpr) Pos() token.Position    { return x.X.Pos() }
+func (x *IndexExpr) EndPos() token.Position { return x.Rbrack.EndPos() }
 
 func (x *IndexExpr) Lvalue() bool {
 	return x.X.Lvalue()
@@ -498,7 +513,8 @@ type SliceExpr struct {
 	Rbrack token.Token
 }
 
-func (x *SliceExpr) FirstPos() token.Position { return x.X.FirstPos() }
+func (x *SliceExpr) Pos() token.Position    { return x.X.Pos() }
+func (x *SliceExpr) EndPos() token.Position { return x.Rbrack.EndPos() }
 
 func (x *SliceExpr) Lvalue() bool {
 	return x.X.Lvalue()
@@ -523,7 +539,8 @@ type BasicLit struct {
 	Rewrite int
 }
 
-func (x *BasicLit) FirstPos() token.Position { return x.Value.Pos }
+func (x *BasicLit) Pos() token.Position    { return x.Value.Pos }
+func (x *BasicLit) EndPos() token.Position { return x.Value.EndPos() }
 
 func (x *BasicLit) AsString() string {
 	return x.Raw.(string)
@@ -563,7 +580,7 @@ type KeyValue struct {
 	Value Expr
 }
 
-func (k *KeyValue) FirstPos() token.Position { return k.Key.Pos }
+func (k *KeyValue) Pos() token.Position { return k.Key.Pos }
 
 type StructLit struct {
 	baseExpr
@@ -573,7 +590,8 @@ type StructLit struct {
 	Rbrace       token.Token
 }
 
-func (x *StructLit) FirstPos() token.Position { return x.Name.FirstPos() }
+func (x *StructLit) Pos() token.Position    { return x.Name.Pos() }
+func (x *StructLit) EndPos() token.Position { return x.Rbrace.EndPos() }
 
 type ArrayLit struct {
 	baseExpr
@@ -582,7 +600,8 @@ type ArrayLit struct {
 	Rbrack       token.Token
 }
 
-func (x *ArrayLit) FirstPos() token.Position { return x.Lbrack.Pos }
+func (x *ArrayLit) Pos() token.Position    { return x.Lbrack.Pos }
+func (x *ArrayLit) EndPos() token.Position { return x.Rbrack.EndPos() }
 
 type Ident struct {
 	baseExpr
@@ -590,7 +609,8 @@ type Ident struct {
 	Sym  *Symbol
 }
 
-func (x *Ident) FirstPos() token.Position { return x.Name.Pos }
+func (x *Ident) Pos() token.Position    { return x.Name.Pos }
+func (x *Ident) EndPos() token.Position { return x.Name.EndPos() }
 
 func (x *Ident) Lvalue() bool {
 	if x.Sym != nil && x.Sym.ID == ValSymbol {
@@ -609,9 +629,6 @@ func (x *Ident) ReadOnly() bool {
 func (x *Ident) Literal() string {
 	return x.Name.Literal
 }
-func (x *Ident) Pos() token.Position {
-	return x.Name.Pos
-}
 
 func (x *Ident) SetSymbol(sym *Symbol) {
 	x.Sym = sym
@@ -627,7 +644,8 @@ type DotExpr struct {
 	Name *Ident
 }
 
-func (x *DotExpr) FirstPos() token.Position { return x.X.FirstPos() }
+func (x *DotExpr) Pos() token.Position    { return x.X.Pos() }
+func (x *DotExpr) EndPos() token.Position { return x.Name.EndPos() }
 
 func (x *DotExpr) Lvalue() bool {
 	return x.X.Lvalue()
@@ -646,7 +664,8 @@ type CastExpr struct {
 	Rparen token.Token
 }
 
-func (x *CastExpr) FirstPos() token.Position { return x.Cast.Pos }
+func (x *CastExpr) Pos() token.Position    { return x.Cast.Pos }
+func (x *CastExpr) EndPos() token.Position { return x.Rparen.EndPos() }
 
 type LenExpr struct {
 	baseExpr
@@ -656,7 +675,8 @@ type LenExpr struct {
 	Rparen token.Token
 }
 
-func (x *LenExpr) FirstPos() token.Position { return x.Len.Pos }
+func (x *LenExpr) Pos() token.Position    { return x.Len.Pos }
+func (x *LenExpr) EndPos() token.Position { return x.Rparen.EndPos() }
 
 type FuncCall struct {
 	baseExpr
@@ -666,7 +686,8 @@ type FuncCall struct {
 	Rparen token.Token
 }
 
-func (x *FuncCall) FirstPos() token.Position { return x.X.FirstPos() }
+func (x *FuncCall) Pos() token.Position    { return x.X.Pos() }
+func (x *FuncCall) EndPos() token.Position { return x.Rparen.EndPos() }
 
 func ExprToModuleFQN(expr Expr) string {
 	switch t := expr.(type) {

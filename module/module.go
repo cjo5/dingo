@@ -166,7 +166,7 @@ func (l *loader) createDependencyList(loadedFile *file) bool {
 		}
 
 		if len(unquoted) == 0 {
-			l.errors.AddTrace(loadedFile.path.actual, dep.Literal.Pos, common.GenericError, l.getRequiredByTrace(loadedFile), "invalid path")
+			l.errors.AddTrace(loadedFile.path.actual, dep.Literal.Pos, dep.Literal.Pos, common.GenericError, l.getRequiredByTrace(loadedFile), "invalid path")
 			continue
 		}
 

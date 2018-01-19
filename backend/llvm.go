@@ -108,7 +108,7 @@ func newBuilder(config *common.BuildConfig) *llvmCodeBuilder {
 func (cb *llvmCodeBuilder) validateModuleSet(set *ir.ModuleSet) {
 	for _, mod := range set.Modules {
 		if len(mod.FQN) == 0 {
-			cb.errors.Add(mod.Path, token.NoPosition, common.GenericError, "no module name")
+			cb.errors.Add(mod.Path, token.NoPosition, token.NoPosition, common.GenericError, "no module name")
 		}
 	}
 
@@ -134,10 +134,10 @@ func (cb *llvmCodeBuilder) validateMainFunc(mod *ir.Module) {
 		}
 
 		if len(msg) > 0 {
-			cb.errors.Add(mod.Path, mainFunc.Pos, common.GenericError, msg)
+			cb.errors.Add(mod.Path, mainFunc.Pos, mainFunc.Pos, common.GenericError, msg)
 		}
 	} else {
-		cb.errors.Add(mod.Path, token.NoPosition, common.GenericError, "no main function")
+		cb.errors.Add(mod.Path, token.NoPosition, token.NoPosition, common.GenericError, "no main function")
 	}
 }
 

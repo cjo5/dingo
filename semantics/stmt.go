@@ -18,7 +18,7 @@ func (v *typeChecker) VisitDeclStmt(stmt *ir.DeclStmt) {
 func (v *typeChecker) VisitIfStmt(stmt *ir.IfStmt) {
 	stmt.Cond = ir.VisitExpr(v, stmt.Cond)
 	if !checkTypes(v.c, stmt.Cond.Type(), ir.TBuiltinBool) {
-		v.c.error(stmt.Cond.FirstPos(), "condition has type %s (expected %s)", stmt.Cond.Type(), ir.TBool)
+		v.c.error(stmt.Cond.Pos(), "condition has type %s (expected %s)", stmt.Cond.Type(), ir.TBool)
 	}
 
 	v.VisitBlockStmt(stmt.Body)
@@ -36,7 +36,7 @@ func (v *typeChecker) VisitForStmt(stmt *ir.ForStmt) {
 	if stmt.Cond != nil {
 		stmt.Cond = ir.VisitExpr(v, stmt.Cond)
 		if !checkTypes(v.c, stmt.Cond.Type(), ir.TBuiltinBool) {
-			v.c.error(stmt.Cond.FirstPos(), "condition has type %s (expected %s)", stmt.Cond.Type(), ir.TBool)
+			v.c.error(stmt.Cond.Pos(), "condition has type %s (expected %s)", stmt.Cond.Type(), ir.TBool)
 		}
 	}
 
@@ -85,23 +85,23 @@ func (v *typeChecker) VisitAssignStmt(stmt *ir.AssignStmt) {
 
 	left := stmt.Left
 	if !left.Lvalue() {
-		v.c.error(stmt.Left.FirstPos(), "expression is not an lvalue")
+		v.c.error(stmt.Left.Pos(), "expression is not an lvalue")
 		return
 	}
 
 	stmt.Right = v.makeTypedExpr(stmt.Right, left.Type())
 
 	if stmt.Left.ReadOnly() {
-		v.c.error(stmt.Left.FirstPos(), "expression is read-only")
+		v.c.error(stmt.Left.Pos(), "expression is read-only")
 	}
 
 	if !checkTypes(v.c, left.Type(), stmt.Right.Type()) {
-		v.c.error(left.FirstPos(), "type mismatch %s and %s", left.Type(), stmt.Right.Type())
+		v.c.error(left.Pos(), "type mismatch %s and %s", left.Type(), stmt.Right.Type())
 	}
 
 	if stmt.Assign.ID != token.Assign {
 		if !ir.IsNumericType(left.Type()) {
-			v.c.error(left.FirstPos(), "type mismatch: type %s is not numeric", left.Type())
+			v.c.error(left.Pos(), "type mismatch: type %s is not numeric", left.Type())
 		}
 	}
 }

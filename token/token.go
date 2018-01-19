@@ -278,3 +278,18 @@ func (t Token) OneOf(ids ...ID) bool {
 func (t Token) Is(id ID) bool {
 	return t.ID == id
 }
+
+// EndPos returns the position of the last literal character.
+func (t Token) EndPos() Position {
+	if !t.Pos.IsValid() {
+		return t.Pos
+	}
+
+	n := len(t.Literal)
+	if n > 0 {
+		n--
+	}
+
+	pos := Position{Line: t.Pos.Line, Column: t.Pos.Column + n, Offset: t.Pos.Offset + n}
+	return pos
+}

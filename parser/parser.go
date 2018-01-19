@@ -74,7 +74,7 @@ func (p *parser) next() {
 
 func (p *parser) error(tok token.Token, format string, args ...interface{}) {
 	msg := fmt.Sprintf(format, args...)
-	p.errors.Add(p.lexer.filename, tok.Pos, common.SyntaxError, msg)
+	p.errors.Add(p.lexer.filename, tok.Pos, tok.Pos, common.SyntaxError, msg)
 }
 
 func (p *parser) syncDecl() {

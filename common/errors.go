@@ -39,6 +39,7 @@ func (e ErrorID) String() string {
 type Error struct {
 	Filename string
 	Pos      token.Position
+	EndPos   token.Position
 	ID       ErrorID
 	Msg      string
 	Trace    Trace
@@ -54,8 +55,8 @@ func NewTrace(title string, lines []string) Trace {
 	return Trace{Title: title, Lines: lines}
 }
 
-func NewError(filename string, pos token.Position, id ErrorID, msg string) *Error {
-	return &Error{Filename: filename, Pos: pos, ID: id, Msg: msg}
+func NewError(filename string, pos token.Position, endPos token.Position, id ErrorID, msg string) *Error {
+	return &Error{Filename: filename, Pos: pos, EndPos: endPos, ID: id, Msg: msg}
 }
 
 func (t Trace) write(buf *bytes.Buffer) {
@@ -102,19 +103,19 @@ func (e Error) Error() string {
 	return buf.String()
 }
 
-func (e *ErrorList) Add(filename string, pos token.Position, id ErrorID, format string, args ...interface{}) {
-	err := NewError(filename, pos, id, fmt.Sprintf(format, args...))
+func (e *ErrorList) Add(filename string, pos token.Position, endPos token.Position, id ErrorID, format string, args ...interface{}) {
+	err := NewError(filename, pos, endPos, id, fmt.Sprintf(format, args...))
 	e.Errors = append(e.Errors, err)
 }
 
-func (e *ErrorList) AddTrace(filename string, pos token.Position, id ErrorID, trace Trace, format string, args ...interface{}) {
-	err := NewError(filename, pos, id, fmt.Sprintf(format, args...))
+func (e *ErrorList) AddTrace(filename string, pos token.Position, endPos token.Position, id ErrorID, trace Trace, format string, args ...interface{}) {
+	err := NewError(filename, pos, endPos, id, fmt.Sprintf(format, args...))
 	err.Trace = trace
 	e.Errors = append(e.Errors, err)
 }
 
-func (e *ErrorList) AddWarning(filename string, pos token.Position, format string, args ...interface{}) {
-	err := NewError(filename, pos, Warning, fmt.Sprintf(format, args...))
+func (e *ErrorList) AddWarning(filename string, pos token.Position, endPos token.Position, format string, args ...interface{}) {
+	err := NewError(filename, pos, endPos, Warning, fmt.Sprintf(format, args...))
 	e.Warnings = append(e.Warnings, err)
 }
 
@@ -129,7 +130,7 @@ func (e *ErrorList) AddGeneric3(filename string, pos token.Position, err error) 
 			e.Errors = append(e.Errors, t)
 		}
 	default:
-		e.Add(filename, pos, GenericError, err.Error())
+		e.Add(filename, pos, pos, GenericError, err.Error())
 	}
 }
 
@@ -234,16 +235,22 @@ func loadContext1(errors []*Error) {
 
 					if lineLen > maxLen {
 						line = line[:maxLen+1]
-						line += "..."
 						lineLen = len(line)
+						line += "..."
 					}
 
 					line = indent.String() + line
 					e.Context = append(e.Context, line)
 
 					col := (e.Pos.Column - 1) - spaces
-					if col >= 0 && col < lineLen && col <= maxLen {
-						mark := indent.String() + strings.Repeat(" ", col) + "^"
+					if col >= 0 && col < lineLen {
+						mark := indent.String() + strings.Repeat(" ", col)
+						endCol := e.EndPos.Column - spaces
+						if e.EndPos.Line == e.Pos.Line && endCol > col && endCol < lineLen {
+							mark += strings.Repeat("~", endCol-col)
+						} else {
+							mark += "^"
+						}
 						e.Context = append(e.Context, mark)
 					}
 				}

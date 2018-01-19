@@ -112,7 +112,15 @@ func (c *context) error(pos token.Position, format string, args ...interface{}) 
 	if c.fileCtx != nil {
 		filename = c.fileCtx.Path
 	}
-	c.errors.Add(filename, pos, common.GenericError, format, args...)
+	c.errors.Add(filename, pos, pos, common.GenericError, format, args...)
+}
+
+func (c *context) errorExpr(expr ir.Expr, format string, args ...interface{}) {
+	filename := ""
+	if c.fileCtx != nil {
+		filename = c.fileCtx.Path
+	}
+	c.errors.Add(filename, expr.Pos(), expr.EndPos(), common.GenericError, format, args...)
 }
 
 func (c *context) warning(pos token.Position, format string, args ...interface{}) {
@@ -120,7 +128,7 @@ func (c *context) warning(pos token.Position, format string, args ...interface{}
 	if c.fileCtx != nil {
 		filename = c.fileCtx.Path
 	}
-	c.errors.AddWarning(filename, pos, format, args...)
+	c.errors.AddWarning(filename, pos, pos, format, args...)
 }
 
 func (c *context) insert(scope *ir.Scope, id ir.SymbolID, name string, pos token.Position) *ir.Symbol {

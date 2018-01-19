@@ -42,7 +42,7 @@ func (v *typeChecker) VisitValTopDecl(decl *ir.ValTopDecl) {
 	if !ir.IsUntyped(decl.Sym.T) {
 		init := decl.Initializer
 		if !v.checkCompileTimeConstant(init) {
-			v.c.error(init.FirstPos(), "initializer is not a compile-time constant")
+			v.c.error(init.Pos(), "initializer is not a compile-time constant")
 		}
 	}
 }
@@ -88,17 +88,17 @@ func (v *typeChecker) visitValDeclSpec(sym *ir.Symbol, decl *ir.ValDeclSpec, def
 
 		if typeSym := ir.ExprSymbol(decl.Type); typeSym != nil {
 			if typeSym.ID != ir.TypeSymbol {
-				v.c.error(decl.Type.FirstPos(), "'%s' is not a type", typeSym.Name)
+				v.c.error(decl.Type.Pos(), "'%s' is not a type", typeSym.Name)
 				sym.T = ir.TBuiltinUntyped
 				return
 			}
 		}
 
 		if sym.T.ID() == ir.TVoid {
-			v.c.error(decl.Type.FirstPos(), "%s cannot be used as a type", sym.T)
+			v.c.error(decl.Type.Pos(), "%s cannot be used as a type", sym.T)
 			sym.T = ir.TBuiltinUntyped
 		} else if !checkCompleteType(sym.T) {
-			v.c.error(decl.Type.FirstPos(), "incomplete type %s", sym.T)
+			v.c.error(decl.Type.Pos(), "incomplete type %s", sym.T)
 			sym.T = ir.TBuiltinUntyped
 		}
 
@@ -115,11 +115,11 @@ func (v *typeChecker) visitValDeclSpec(sym *ir.Symbol, decl *ir.ValDeclSpec, def
 
 			if ptr, ok := tinit.(*ir.PointerType); ok {
 				if ir.IsTypeID(ptr.Underlying, ir.TUntyped) {
-					v.c.error(decl.Initializer.FirstPos(), "impossible to infer type from initializer")
+					v.c.error(decl.Initializer.Pos(), "impossible to infer type from initializer")
 					sym.T = ir.TBuiltinUntyped
 				}
 			} else if tinit.ID() == ir.TVoid {
-				v.c.error(decl.Initializer.FirstPos(), "initializer has invalid type %s", tinit)
+				v.c.error(decl.Initializer.Pos(), "initializer has invalid type %s", tinit)
 				sym.T = ir.TBuiltinUntyped
 			}
 
@@ -128,7 +128,7 @@ func (v *typeChecker) visitValDeclSpec(sym *ir.Symbol, decl *ir.ValDeclSpec, def
 			}
 		} else {
 			if !checkTypes(v.c, sym.T, decl.Initializer.Type()) {
-				v.c.error(decl.Initializer.FirstPos(), "type mismatch %s and %s", sym.T, decl.Initializer.Type())
+				v.c.error(decl.Initializer.Pos(), "type mismatch %s and %s", sym.T, decl.Initializer.Type())
 			}
 		}
 	} else if decl.Type == nil {

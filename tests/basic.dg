@@ -5,4 +5,7 @@ fun[c] main() {
 val foo = bar
 
 fun bar() {
+    if 5 && 1 {
+        
+    }
 }
