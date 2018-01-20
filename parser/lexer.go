@@ -24,7 +24,7 @@ func (l *lexer) init(src []byte, filename string, errors *common.ErrorList) {
 	l.ch = ' '
 	l.chOffset = 0
 	l.readOffset = 0
-	l.lineOffset = 0
+	l.lineOffset = -1 // -1 so column positions for line 1 are calculated correctly
 	l.lineCount = 1
 	l.prev = token.Invalid
 	l.next()

@@ -28,11 +28,8 @@ const (
 var builtinScope = ir.NewScope(ir.RootScope, nil)
 
 func addBuiltinType(t ir.Type) {
-	sym := &ir.Symbol{}
-	sym.ID = ir.TypeSymbol
+	sym := ir.NewSymbol(ir.TypeSymbol, ir.RootScope, true, t.ID().String(), ir.NewPosition("", token.NoPosition))
 	sym.T = t
-	sym.Name = t.ID().String()
-	sym.Pos = token.NoPosition
 	builtinScope.Insert(sym)
 }
 
@@ -102,6 +99,17 @@ func (c *context) filename() string {
 	return name
 }
 
+func (c *context) newSymPos(pos token.Position) ir.Position {
+	return ir.NewPosition(c.filename(), pos)
+}
+
+func (c *context) fmtSymPos(pos ir.Position) string {
+	if c.filename() != pos.Filename {
+		return pos.String()
+	}
+	return pos.Pos.String()
+}
+
 func (c *context) setCurrentTopDecl(decl ir.TopDecl) {
 	c.topDecl = decl
 	c.fileCtx = decl.Context()
@@ -129,10 +137,10 @@ func (c *context) warning(pos token.Position, format string, args ...interface{}
 	c.errors.AddWarning(c.filename(), pos, pos, format, args...)
 }
 
-func (c *context) insert(scope *ir.Scope, id ir.SymbolID, name string, pos token.Position) *ir.Symbol {
-	sym := ir.NewSymbol(id, scope.ID, name, pos)
+func (c *context) insert(scope *ir.Scope, id ir.SymbolID, public bool, name string, pos token.Position) *ir.Symbol {
+	sym := ir.NewSymbol(id, scope.ID, public, name, c.newSymPos(pos))
 	if existing := scope.Insert(sym); existing != nil {
-		msg := fmt.Sprintf("redeclaration of '%s', previously declared at %s", name, existing.Pos)
+		msg := fmt.Sprintf("redefinition of '%s' (previously defined at %s)", name, c.fmtSymPos(existing.DefPos))
 		c.error(pos, msg)
 		return nil
 	}

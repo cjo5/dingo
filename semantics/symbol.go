@@ -37,57 +37,82 @@ func (v *symChecker) isTypeName(name token.Token) bool {
 	return false
 }
 
+func isPublic(tok token.Token) bool {
+	return tok.Is(token.Public)
+}
+
 func (v *symChecker) VisitValTopDecl(decl *ir.ValTopDecl) {
 	if !v.isTypeName(decl.Name) {
 		scope := v.c.visibilityScope(decl.Visibility)
-		decl.Sym = v.c.insert(scope, ir.ValSymbol, decl.Name.Literal, decl.Name.Pos)
+		decl.Sym = v.c.insert(scope, ir.ValSymbol, isPublic(decl.Visibility), decl.Name.Literal, decl.Name.Pos)
 		v.c.mapTopDecl(decl.Sym, decl)
 	}
 }
 
 func (v *symChecker) VisitValDecl(decl *ir.ValDecl) {
 	if decl.Name.ID == token.Underscore {
-		decl.Sym = ir.NewSymbol(ir.ValSymbol, v.c.scope.ID, decl.Name.Literal, decl.Name.Pos)
+		decl.Sym = ir.NewSymbol(ir.ValSymbol, v.c.scope.ID, false, decl.Name.Literal, v.c.newSymPos(decl.Name.Pos))
 	} else if !v.isTypeName(decl.Name) {
-		decl.Sym = v.c.insert(v.c.scope, ir.ValSymbol, decl.Name.Literal, decl.Name.Pos)
+		decl.Sym = v.c.insert(v.c.scope, ir.ValSymbol, false, decl.Name.Literal, decl.Name.Pos)
 	}
 }
 
 func (v *symChecker) VisitFuncDecl(decl *ir.FuncDecl) {
 	scope := v.c.visibilityScope(decl.Visibility)
 
-	sym := v.c.lookup(decl.Name.Literal)
-	if sym != nil && sym.ID == ir.FuncSymbol {
-		decl.Sym = sym
-	} else {
-		decl.Sym = v.c.insert(scope, ir.FuncSymbol, decl.Name.Literal, decl.Name.Pos)
+	if sym := v.c.lookup(decl.Name.Literal); sym != nil {
+		if sym.ID == ir.FuncSymbol && (!sym.Defined() || decl.SignatureOnly()) {
+			decl.Sym = sym
+		}
+	}
+
+	if decl.Sym == nil {
+		decl.Sym = v.c.insert(scope, ir.FuncSymbol, isPublic(decl.Visibility), decl.Name.Literal, decl.Name.Pos)
 		v.c.mapTopDecl(decl.Sym, decl)
 	}
 
 	v.c.openScope(ir.LocalScope)
+	defer v.c.closeScope()
 	decl.Scope = v.c.scope
 
 	for _, param := range decl.Params {
 		v.VisitValDecl(param)
 	}
 
-	if !decl.SignatureOnly() {
-		if decl.Sym.Defined() {
-			v.c.error(decl.Name.Pos, "redefinition of '%s', previously defined at %s", decl.Name.Literal, decl.Sym.Pos)
-		} else {
-			decl.Sym.Flags |= ir.SymFlagDefined
-		}
-
+	if decl.Body != nil {
 		decl.Body.Scope = decl.Scope
 		ir.VisitStmtList(v, decl.Body.Stmts)
 	}
 
-	v.c.closeScope()
+	if decl.Sym == nil {
+		return
+	}
+
+	public := decl.Visibility.Is(token.Public)
+
+	if decl.SignatureOnly() {
+		if !public {
+			v.c.error(decl.Name.Pos, "'%s' is not declared as public", decl.Name.Literal)
+			return
+		}
+	} else {
+		decl.Sym.Flags |= ir.SymFlagDefined
+		decl.Sym.DefPos = v.c.newSymPos(decl.Name.Pos)
+	}
+
+	if public != decl.Sym.Public {
+		vis := "private"
+		if decl.Sym.Public {
+			vis = "public"
+		}
+		v.c.error(decl.Name.Pos, "redeclaration of '%s' (previously declared as %s at %s)",
+			decl.Name.Literal, vis, v.c.fmtSymPos(decl.Sym.DeclPos))
+	}
 }
 
 func (v *symChecker) VisitStructDecl(decl *ir.StructDecl) {
 	scope := v.c.visibilityScope(decl.Visibility)
-	decl.Sym = v.c.insert(scope, ir.TypeSymbol, decl.Name.Literal, decl.Name.Pos)
+	decl.Sym = v.c.insert(scope, ir.TypeSymbol, isPublic(decl.Visibility), decl.Name.Literal, decl.Name.Pos)
 	decl.Scope = ir.NewScope(ir.FieldScope, nil)
 
 	v.c.mapTopDecl(decl.Sym, decl)

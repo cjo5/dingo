@@ -1,11 +1,8 @@
-fun[c] main() {
-    foo
+pub fun foo() {
+
 }
 
-val foo = bar
+pub fun foo()
 
-fun bar() {
-    if 5 && 1 {
-        
-    }
+fun[c] main() {
 }

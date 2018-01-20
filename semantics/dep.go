@@ -56,7 +56,7 @@ func sortDecls(c *context) {
 				for i := len(cycleTrace) - 1; i >= 0; i-- {
 					s := cycleTrace[i].Symbol()
 					s.Flags |= ir.SymFlagDepCycle
-					line := cycleTrace[i].Context().Path + ":" + s.Pos.String() + ":" + s.Name
+					line := cycleTrace[i].Context().Path + ":" + c.fmtSymPos(s.DefPos) + ":" + s.Name
 					trace.Lines = append(trace.Lines, line)
 				}
 
@@ -65,7 +65,7 @@ func sortDecls(c *context) {
 					errorMsg = "type cycle detected"
 				}
 
-				c.errors.AddTrace(decl.Context().Path, sym.Pos, sym.Pos, common.GenericError, trace, errorMsg)
+				c.errors.AddTrace(sym.DefPos.Filename, sym.DefPos.Pos, sym.DefPos.Pos, common.GenericError, trace, errorMsg)
 			}
 		}
 		mod.Decls = sortedDecls

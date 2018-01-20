@@ -132,10 +132,12 @@ func (cb *llvmCodeBuilder) validateMainFunc(mod *ir.Module) {
 			msg = fmt.Sprintf("invalid main function (expected 0 parameters, got %d)", len(tmain.Params))
 		} else if tmain.Return.ID() != ir.TVoid {
 			msg = fmt.Sprintf("invalid main function (expected return type %s, got %s)", ir.TVoid, tmain.Return)
+		} else if !mainFunc.Public {
+			msg = fmt.Sprintf("invalid main function (not declared as public)")
 		}
 
 		if len(msg) > 0 {
-			cb.errors.Add(mod.Path, mainFunc.Pos, mainFunc.Pos, common.GenericError, msg)
+			cb.errors.Add(mainFunc.DefPos.Filename, mainFunc.DefPos.Pos, mainFunc.DefPos.Pos, common.GenericError, msg)
 		}
 	} else {
 		cb.errors.Add(mod.Path, token.NoPosition, token.NoPosition, common.GenericError, "no main function")
@@ -316,17 +318,11 @@ func (cb *llvmCodeBuilder) buildFuncDecl(decl *ir.FuncDecl) {
 		funType := llvm.FunctionType(retType, paramTypes, false)
 		fun = llvm.AddFunction(cb.mod, name, funType)
 
-		if (decl.Flags & ir.AstFlagAnon) != 0 {
-			fun.SetLinkage(llvm.InternalLinkage)
-		} else if tfun.C {
+		switch decl.Visibility.ID {
+		case token.Public:
 			fun.SetLinkage(llvm.ExternalLinkage)
-		} else {
-			switch decl.Visibility.ID {
-			case token.Public:
-				fun.SetLinkage(llvm.ExternalLinkage)
-			case token.Private:
-				fun.SetLinkage(llvm.InternalLinkage)
-			}
+		case token.Private:
+			fun.SetLinkage(llvm.InternalLinkage)
 		}
 
 		return

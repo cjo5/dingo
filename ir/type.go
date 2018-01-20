@@ -75,6 +75,9 @@ func (id TypeID) String() string {
 	return s
 }
 
+// CABI name.
+const CABI = "c"
+
 // Built-in types
 var (
 	TBuiltinUntyped = NewBasicType(TUntyped)

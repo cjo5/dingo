@@ -72,8 +72,7 @@ func (v *typeChecker) VisitReturnStmt(stmt *ir.ReturnStmt) {
 	}
 
 	if mismatch {
-		v.c.error(stmt.Return.Pos, "type mismatch: return type %s does not match function '%s' return type %s",
-			exprType, funDecl.Name.Literal, retType)
+		v.c.error(stmt.Return.Pos, "type mismatch: return with type %s is different from function signature with return type %s", exprType, retType)
 	}
 }
 

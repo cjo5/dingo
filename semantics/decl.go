@@ -63,7 +63,7 @@ func (v *typeChecker) checkCABI(abi *ir.Ident) bool {
 	if abi == nil {
 		return false
 	}
-	if abi.Literal() != "c" {
+	if abi.Literal() != ir.CABI {
 		v.c.error(abi.Pos(), "unknown abi '%s'", abi.Literal())
 		return false
 	}
@@ -163,9 +163,8 @@ func (v *typeChecker) VisitFuncDecl(decl *ir.FuncDecl) {
 		tfun := ir.NewFuncType(tparams, decl.TReturn.Type(), c)
 
 		if decl.Sym.T != nil && !checkTypes(v.c, decl.Sym.T, tfun) {
-			v.c.error(decl.Name.Pos, "'%s' was previously declared at %s with a different type signature", decl.Name.Literal, decl.Sym.Pos)
-		} else if !decl.Sym.Defined() && !c {
-			v.c.error(decl.Name.Pos, "'%s' is not defined or declared as a C function", decl.Name.Literal)
+			v.c.error(decl.Name.Pos, "redeclaration of '%s' (previously declared with a different signature at %s)",
+				decl.Name.Literal, v.c.fmtSymPos(decl.Sym.DeclPos))
 		}
 
 		if decl.Sym.T == nil {
@@ -199,7 +198,6 @@ func (v *typeChecker) VisitFuncDecl(decl *ir.FuncDecl) {
 			tok := token.Synthetic(token.Return, "return")
 			returnStmt := &ir.ReturnStmt{Return: tok}
 			decl.Body.Stmts = append(decl.Body.Stmts, returnStmt)
-
 		}
 	}
 }

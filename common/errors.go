@@ -181,9 +181,12 @@ func loadContext1(errors []*Error) {
 				foundStart := false
 				foundEnd := false
 
-				for start >= 0 && end < len(buf) && (!foundStart || !foundEnd) {
+				for !(foundStart && foundEnd) {
 					if !foundStart {
-						if buf[start] == '\n' {
+						if start <= 0 {
+							start = 0
+							foundStart = true
+						} else if buf[start] == '\n' {
 							start++
 							foundStart = true
 						} else {
@@ -192,7 +195,10 @@ func loadContext1(errors []*Error) {
 					}
 
 					if !foundEnd {
-						if buf[end] == '\n' {
+						if end >= len(buf) {
+							end = len(buf)
+							foundEnd = true
+						} else if buf[end] == '\n' {
 							if end > 0 && buf[end-1] == '\r' {
 								end--
 							}
@@ -201,14 +207,6 @@ func loadContext1(errors []*Error) {
 							end++
 						}
 					}
-				}
-
-				if !foundStart {
-					start = 0
-				}
-
-				if !foundEnd {
-					end = len(buf)
 				}
 
 				if start < end {

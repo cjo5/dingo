@@ -335,6 +335,13 @@ func (p *parser) parseFuncDecl(visibility token.Token, directives []ir.Directive
 		p.next()
 		decl.ABI = p.parseIdent()
 		p.expect1(token.Rbrack)
+
+		if !decl.Visibility.IsValid() {
+			if decl.ABI.Literal() == ir.CABI {
+				// C functions have public as default visibility
+				decl.Visibility = token.Synthetic(token.Public, token.Public.String())
+			}
+		}
 	}
 
 	decl.Name = p.token
