@@ -16,21 +16,20 @@ type Trace struct {
 	Lines []string
 }
 
-type ErrorID int
+// MessageID represents the type of error message.
+type MessageID int
 
+// The messages IDs.
 const (
-	GenericError ErrorID = iota
-	SyntaxError
-	Warning
+	ErrorMsg MessageID = iota
+	WarningMsg
 )
 
-func (e ErrorID) String() string {
-	switch e {
-	case GenericError:
+func (id MessageID) String() string {
+	switch id {
+	case ErrorMsg:
 		return "error"
-	case SyntaxError:
-		return "syntax error"
-	case Warning:
+	case WarningMsg:
 		return "warning"
 	}
 	return ""
@@ -40,7 +39,7 @@ type Error struct {
 	Filename string
 	Pos      token.Position
 	EndPos   token.Position
-	ID       ErrorID
+	ID       MessageID
 	Msg      string
 	Trace    Trace
 	Context  []string
@@ -55,7 +54,7 @@ func NewTrace(title string, lines []string) Trace {
 	return Trace{Title: title, Lines: lines}
 }
 
-func NewError(filename string, pos token.Position, endPos token.Position, id ErrorID, msg string) *Error {
+func NewError(filename string, pos token.Position, endPos token.Position, id MessageID, msg string) *Error {
 	return &Error{Filename: filename, Pos: pos, EndPos: endPos, ID: id, Msg: msg}
 }
 
@@ -103,34 +102,34 @@ func (e Error) Error() string {
 	return buf.String()
 }
 
-func (e *ErrorList) Add(filename string, pos token.Position, endPos token.Position, id ErrorID, format string, args ...interface{}) {
-	err := NewError(filename, pos, endPos, id, fmt.Sprintf(format, args...))
+func (e *ErrorList) Add(filename string, pos token.Position, endPos token.Position, format string, args ...interface{}) {
+	err := NewError(filename, pos, endPos, ErrorMsg, fmt.Sprintf(format, args...))
 	e.Errors = append(e.Errors, err)
 }
 
-func (e *ErrorList) AddTrace(filename string, pos token.Position, endPos token.Position, id ErrorID, trace Trace, format string, args ...interface{}) {
-	err := NewError(filename, pos, endPos, id, fmt.Sprintf(format, args...))
+func (e *ErrorList) AddTrace(filename string, pos token.Position, endPos token.Position, trace Trace, format string, args ...interface{}) {
+	err := NewError(filename, pos, endPos, ErrorMsg, fmt.Sprintf(format, args...))
 	err.Trace = trace
 	e.Errors = append(e.Errors, err)
 }
 
 func (e *ErrorList) AddWarning(filename string, pos token.Position, endPos token.Position, format string, args ...interface{}) {
-	err := NewError(filename, pos, endPos, Warning, fmt.Sprintf(format, args...))
+	err := NewError(filename, pos, endPos, WarningMsg, fmt.Sprintf(format, args...))
 	e.Warnings = append(e.Warnings, err)
 }
 
 func (e *ErrorList) AddGeneric3(filename string, pos token.Position, err error) {
 	switch t := err.(type) {
 	case *ErrorList:
-		e.Merge(t)
+		e.Append(t)
 	case *Error:
-		if t.ID == Warning {
+		if t.ID == WarningMsg {
 			e.Warnings = append(e.Warnings, t)
 		} else {
 			e.Errors = append(e.Errors, t)
 		}
 	default:
-		e.Add(filename, pos, pos, GenericError, err.Error())
+		e.Add(filename, pos, pos, err.Error())
 	}
 }
 
@@ -138,7 +137,7 @@ func (e *ErrorList) AddGeneric1(err error) {
 	e.AddGeneric3("", token.NoPosition, err)
 }
 
-func (e *ErrorList) Merge(other *ErrorList) {
+func (e *ErrorList) Append(other *ErrorList) {
 	for _, warn := range other.Warnings {
 		e.Warnings = append(e.Warnings, warn)
 	}

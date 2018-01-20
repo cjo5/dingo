@@ -23,7 +23,7 @@ FuncSignature = '(' [Field {',' Field} ','?] ')' Type?
 
 Type = PointerType | ArrayType | FuncType | IDENT | '(' Type ')'
 PointerType = '*' ['val' | 'var'] Type
-ArrayType = '[' INTEGER? ':' Type ']'
+ArrayType = '[' Type [INTEGER ':'] ']'
 FuncType 'fun' ['[' IDENT ']'] FuncSignature
 
 Block = '{' Stmt* '}'

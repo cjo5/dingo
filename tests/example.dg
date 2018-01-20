@@ -1,6 +1,6 @@
 module main
 
-// External C functions
+// C function declarations
 fun[c] abs(i32) i32
 fun[c] putchar(i32) i32
 fun[c] puts(*i8) i32
@@ -12,12 +12,12 @@ fun[c] puts(*i8) i32
     */
 */
 fun[c] main() {
-    // Infer type [5:i32]
+    // Infer type [i32:5]
     var arr = [31, 4, -10, 9, 2]
 
     bubbleSort(&var arr[:])
     puts(c"Sorted ints:")
-    printArray(&arr[:])
+    printSlice(&arr[:])
 }
 
 fun swap(x *var i32, y *var i32) {
@@ -26,19 +26,19 @@ fun swap(x *var i32, y *var i32) {
     *y = tmp
 }
 
-fun bubbleSort(arr *var [:i32]) {
-    for i = 0; i < lenof(arr)-1; i++ {
-        for j = 0; j < lenof(arr)-1; j++ {
-            if arr[j] > arr[j+1] {
-                swap(&var arr[j], &var arr[j+1])
+fun bubbleSort(slice *var [i32]) {
+    for i = 0; i < lenof(slice)-1; i++ {
+        for j = 0; j < lenof(slice)-1; j++ {
+            if slice[j] > slice[j+1] {
+                swap(&var slice[j], &var slice[j+1])
             }
         }
     }
 }
 
-fun printArray(arr *[:i32]) {
-    for i = 0; i < lenof(arr); i++ {
-        puti(arr[i])
+fun printSlice(slice *[i32]) {
+    for i = 0; i < lenof(slice); i++ {
+        puti(slice[i])
         puts(c"")
     }
 }

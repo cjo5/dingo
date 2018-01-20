@@ -48,8 +48,9 @@ type parser struct {
 
 	token       token.Token
 	prev        token.Token
-	inLoop      bool
 	inCondition bool
+	loopCount   int
+	bodyCount   int
 
 	funcName        string
 	funcAnonCount   int
@@ -74,16 +75,27 @@ func (p *parser) next() {
 
 func (p *parser) error(tok token.Token, format string, args ...interface{}) {
 	msg := fmt.Sprintf(format, args...)
-	p.errors.Add(p.lexer.filename, tok.Pos, tok.Pos, common.SyntaxError, msg)
+	p.errors.Add(p.lexer.filename, tok.Pos, tok.Pos, msg)
 }
 
 func (p *parser) syncDecl() {
+	lbrace := p.bodyCount
+	p.bodyCount = 0
 	for {
 		switch p.token.ID {
-		case token.Public, token.Private: // Visibility modifiers
-			return
-		case token.Func, token.Struct, token.Var, token.Val: // Decls
-			return
+		case token.Semicolon:
+			if lbrace == 0 {
+				p.next()
+				return
+			}
+		case token.Public, token.Private, token.Struct:
+			if lbrace == 0 {
+				return
+			}
+		case token.Lbrace:
+			lbrace++
+		case token.Rbrace:
+			lbrace--
 		case token.EOF:
 			return
 		}
@@ -92,15 +104,25 @@ func (p *parser) syncDecl() {
 }
 
 func (p *parser) syncStmt() {
+	lbrace := p.bodyCount
+	p.inCondition = false
+	p.bodyCount = 0
+	p.loopCount = 0
 	for {
 		switch p.token.ID {
 		case token.Semicolon:
-			p.next()
-			return
-		case token.Var, token.Val:
-			return
+			if lbrace == 0 {
+				p.next()
+				return
+			}
 		case token.Return, token.If, token.While, token.For, token.Break, token.Continue:
-			return
+			if lbrace == 0 {
+				return
+			}
+		case token.Lbrace:
+			lbrace++
+		case token.Rbrace:
+			lbrace--
 		case token.EOF:
 			return
 		}
@@ -112,7 +134,7 @@ func (p *parser) expect2(id token.ID, sync bool) bool {
 	tok := p.token
 	p.next()
 	if !tok.Is(id) {
-		p.error(tok, "got '%s', expected '%s'", tok.Quote(), id)
+		p.error(tok, "expected '%s'", id)
 		if sync {
 			panic(parseError{tok})
 		}
@@ -131,7 +153,7 @@ func (p *parser) expectSemi1(sync bool) bool {
 		p.next()
 
 		if !tok.Is(token.Semicolon) {
-			p.error(p.token, "got '%s', expected semicolon or newline", tok.Quote())
+			p.error(p.token, "expected semicolon or newline")
 			if sync {
 				panic(parseError{tok})
 			}
@@ -239,7 +261,7 @@ func (p *parser) parseTopDecl() (decl ir.TopDecl) {
 		decl = p.parseStructDecl(visibility, directives)
 		p.expectSemi0()
 	} else {
-		p.error(p.token, "got '%s', expected declaration", p.token.Quote())
+		p.error(p.token, "expected declaration")
 		p.syncDecl()
 	}
 
@@ -399,6 +421,8 @@ func (p *parser) parseStructDecl(visibility token.Token, directives []ir.Directi
 
 	decl.Lbrace = p.token
 	p.expect1(token.Lbrace)
+	p.bodyCount++
+
 	flags := ir.AstFlagNoInit
 	for !p.token.OneOf(token.EOF, token.Rbrace) {
 		decl.Fields = append(decl.Fields, p.parseField(flags, token.Var))
@@ -407,6 +431,7 @@ func (p *parser) parseStructDecl(visibility token.Token, directives []ir.Directi
 
 	decl.Rbrace = p.token
 	p.expect1(token.Rbrace)
+	p.bodyCount--
 
 	return decl
 }
@@ -438,7 +463,7 @@ func (p *parser) parseStmt() (stmt ir.Stmt) {
 	} else if p.token.ID == token.Return {
 		stmt = p.parseReturnStmt()
 	} else if p.token.ID == token.Break || p.token.ID == token.Continue {
-		if !p.inLoop {
+		if p.loopCount == 0 {
 			// TODO: This should be done in type checker
 			p.error(p.token, "%s can only be used in a loop", p.token.Quote())
 		}
@@ -457,6 +482,7 @@ func (p *parser) parseBlockStmt() *ir.BlockStmt {
 	block := &ir.BlockStmt{}
 	block.Lbrace = p.token
 	p.expect1(token.Lbrace)
+	p.bodyCount++
 	for p.token.ID != token.Rbrace && p.token.ID != token.EOF {
 		stmt := p.parseStmt()
 		if stmt != nil {
@@ -465,6 +491,7 @@ func (p *parser) parseBlockStmt() *ir.BlockStmt {
 	}
 	block.Rbrace = p.token
 	p.expect1(token.Rbrace)
+	p.bodyCount--
 	return block
 }
 
@@ -497,9 +524,9 @@ func (p *parser) parseWhileStmt() *ir.ForStmt {
 	p.inCondition = true
 	s.Cond = p.parseExpr()
 	p.inCondition = false
-	p.inLoop = true
+	p.loopCount++
 	s.Body = p.parseBlockStmt()
-	p.inLoop = false
+	p.loopCount--
 	return s
 }
 
@@ -535,9 +562,9 @@ func (p *parser) parseForStmt() *ir.ForStmt {
 		s.Inc = p.parseExprOrAssignStmt()
 	}
 
-	p.inLoop = true
+	p.loopCount++
 	s.Body = p.parseBlockStmt()
-	p.inLoop = false
+	p.loopCount--
 
 	return s
 }
@@ -599,7 +626,7 @@ func (p *parser) parseType(optional bool) ir.Expr {
 	} else if optional {
 		return nil
 	}
-	p.error(p.token, "got '%s', expected type", p.token.Quote())
+	p.error(p.token, "expected type")
 	panic(parseError{p.token})
 }
 
@@ -621,14 +648,12 @@ func (p *parser) parseArrayType() ir.Expr {
 	array.Lbrack = p.token
 	p.expect1(token.Lbrack)
 
-	if !p.token.Is(token.Colon) {
+	array.X = p.parseType(false)
+
+	if p.token.Is(token.Colon) {
+		p.next()
 		array.Size = p.parseExpr()
 	}
-
-	array.Colon = p.token
-	p.expect1(token.Colon)
-
-	array.X = p.parseType(false)
 
 	array.Rbrack = p.token
 	p.expect1(token.Rbrack)
@@ -842,7 +867,7 @@ func (p *parser) parseBasicLit(prefix *ir.Ident) ir.Expr {
 		return &ir.BasicLit{Prefix: prefix, Value: tok, Suffix: suffix}
 	default:
 		tok := p.token
-		p.error(tok, "got '%s', expected expression", tok.Quote())
+		p.error(tok, "expected expression")
 		p.next()
 		panic(parseError{tok})
 	}

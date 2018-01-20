@@ -65,7 +65,7 @@ func sortDecls(c *context) {
 					errorMsg = "type cycle detected"
 				}
 
-				c.errors.AddTrace(sym.DefPos.Filename, sym.DefPos.Pos, sym.DefPos.Pos, common.GenericError, trace, errorMsg)
+				c.errors.AddTrace(sym.DefPos.Filename, sym.DefPos.Pos, sym.DefPos.Pos, trace, errorMsg)
 			}
 		}
 		mod.Decls = sortedDecls

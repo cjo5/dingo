@@ -235,7 +235,7 @@ func (t *ArrayType) Equals(other Type) bool {
 }
 
 func (t *ArrayType) String() string {
-	return fmt.Sprintf("[%d:%s]", t.Size, t.Elem.String())
+	return fmt.Sprintf("[%s:%d]", t.Elem.String(), t.Size)
 }
 
 type SliceType struct {
@@ -274,7 +274,7 @@ func (t *SliceType) String() string {
 			extra += token.Var.String() + " "
 		}
 	}
-	return fmt.Sprintf("%s[:%s]", extra, t.Elem.String())
+	return fmt.Sprintf("%s[%s]", extra, t.Elem.String())
 }
 
 type PointerType struct {

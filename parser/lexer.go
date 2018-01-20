@@ -233,7 +233,7 @@ func (l *lexer) newPos() token.Position {
 }
 
 func (l *lexer) error(pos token.Position, msg string) {
-	l.errors.Add(l.filename, pos, pos, common.SyntaxError, msg)
+	l.errors.Add(l.filename, pos, pos, msg)
 }
 
 func (l *lexer) skipWhitespace(newline bool) {

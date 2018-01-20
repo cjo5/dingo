@@ -401,7 +401,6 @@ type ArrayTypeExpr struct {
 	baseExpr
 	Lbrack token.Token
 	Size   Expr
-	Colon  token.Token
 	X      Expr
 	Rbrack token.Token
 }

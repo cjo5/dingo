@@ -20,13 +20,13 @@ fun[c] main() {
     printSlice(&arr[:])
 }
 
-fun printSlice(slice *[:i32]) {
+fun printSlice(slice *[i32]) {
     for i = 0; i < lenof(slice); i++ {
         putiln(slice[i])
     }
 }
 
-fun reverse(slice *var [:i32]) {
+fun reverse(slice *var [i32]) {
     for i = 0; i < lenof(slice)/2; i++ {
         val tmp = slice[i]
         val j = (lenof(slice)-1)-i

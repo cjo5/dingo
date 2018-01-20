@@ -122,11 +122,11 @@ func (c *context) mapTopDecl(sym *ir.Symbol, decl ir.TopDecl) {
 }
 
 func (c *context) error(pos token.Position, format string, args ...interface{}) {
-	c.errors.Add(c.filename(), pos, pos, common.GenericError, format, args...)
+	c.errors.Add(c.filename(), pos, pos, format, args...)
 }
 
 func (c *context) errorInterval(pos token.Position, endPos token.Position, format string, args ...interface{}) {
-	c.errors.Add(c.filename(), pos, endPos, common.GenericError, format, args...)
+	c.errors.Add(c.filename(), pos, endPos, format, args...)
 }
 
 func (c *context) errorExpr(expr ir.Expr, format string, args ...interface{}) {
