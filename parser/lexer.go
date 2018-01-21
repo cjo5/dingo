@@ -79,12 +79,7 @@ func (l *lexer) lex() token.Token {
 
 		switch ch1 {
 		case -1:
-			if isLineTerminator(l.prev) {
-				tok.ID = token.Semicolon
-				tok.Literal = "\n"
-			} else {
-				tok.ID = token.EOF
-			}
+			tok.ID = token.EOF
 		case '(':
 			tok.ID = token.Lparen
 		case ')':
@@ -210,14 +205,14 @@ func isDigit(ch rune, base int) bool {
 // Only supports ASCII characters for now
 //
 func (l *lexer) next() {
+	if l.ch == '\n' {
+		l.lineOffset = l.chOffset
+		l.lineCount++
+	}
 	if l.readOffset < len(l.src) {
 		l.chOffset = l.readOffset
 		l.readOffset++
 		l.ch = rune(l.src[l.chOffset])
-		if l.ch == '\n' {
-			l.lineOffset = l.chOffset
-			l.lineCount++
-		}
 	} else {
 		l.chOffset = l.readOffset
 		l.ch = -1

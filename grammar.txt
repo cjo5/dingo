@@ -7,14 +7,15 @@
 File = ['module' ModName ';'] Require* TopDecl*
 
 ModName = IDENT | DotExpr
+End = ';' | EOF
 Require = 'require' STRING ';'
-TopDecl = Directive* Visibility? Directive* (Import | Decl) ';'
+TopDecl = Directive* Visibility? Directive* (Import | Decl) End
 Visibility = 'pub' | 'priv' 
 Directive = '@' IDENT
-Import = 'import' ModName ';'
+Import = 'import' ModName End
 Decl = ValDecl | FuncDecl | StructDecl
 ValDecl = ('val' | 'var') IDENT (Type | (Type? '=' Expr))
-FuncDecl = 'fun' ['[' IDENT ']'] IDENT FuncSignature (Block | ';')
+FuncDecl = 'fun' ['[' IDENT ']'] IDENT FuncSignature (Block | End)
 StructDecl = 'struct' IDENT Struct
 
 Field = (['val' | 'var'] (IDENT | '_'))? Type
@@ -28,7 +29,7 @@ FuncType 'fun' ['[' IDENT ']'] FuncSignature
 
 Block = '{' Stmt* '}'
 Stmt = [Block | ValDecl | Expr | AssignStmt | 'if' IfStmt | WhileStmt |
-        ForStmt | ReturnStmt | 'break' | 'continue'] ';'
+        ForStmt | ReturnStmt | 'break' | 'continue'] End
 AssignStmt = Expr ('++' | '--' | (('=' | '+=' | '-=' | '*=' | '/=' | '%=' ) Expr))
 IfStmt = Condition Block [('elif' IfStmt) | ('else' Block)]
 WhileStmt = 'while' Condition Block

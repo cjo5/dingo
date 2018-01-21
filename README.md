@@ -1,6 +1,6 @@
 ## Dingo
 
-Dingo is a statically typed and compiled programming language focused on full memory control, fast build times, concise syntax, and easy interop from and to C. 
+Dingo is a statically typed and compiled programming language focused on concise syntax, fast build times, full memory control, and easy interop from and to C. Think a less error-prone and more convenient version of C.
 
 Note this project is still a work in progress.
 

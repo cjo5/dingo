@@ -173,9 +173,9 @@ func loadContext1(errors []*Error) {
 				}
 			}
 
-			if e.Pos.Offset < len(buf) {
+			if e.Pos.Offset <= len(buf) {
 				// Find line start and end
-				start := e.Pos.Offset
+				start := e.Pos.Offset - 1
 				end := e.Pos.Offset
 				foundStart := false
 				foundEnd := false
@@ -236,19 +236,23 @@ func loadContext1(errors []*Error) {
 						line += "..."
 					}
 
-					line = indent.String() + line
-					e.Context = append(e.Context, line)
+					if lineLen > 0 {
+						lineLen++ // include newline in line length
 
-					col := (e.Pos.Column - 1) - spaces
-					if col >= 0 && col < lineLen {
-						mark := indent.String() + strings.Repeat(" ", col)
-						endCol := (e.EndPos.Column - spaces) - col
-						if e.EndPos.Line == e.Pos.Line && endCol > 1 && endCol < lineLen {
-							mark += strings.Repeat("~", endCol)
-						} else {
-							mark += "^"
+						line = indent.String() + line
+						e.Context = append(e.Context, line)
+
+						col := (e.Pos.Column - 1) - spaces
+						if col >= 0 && col < lineLen {
+							mark := indent.String() + strings.Repeat(" ", col)
+							endCol := (e.EndPos.Column - spaces) - col
+							if e.EndPos.Line == e.Pos.Line && endCol > 1 && endCol < lineLen {
+								mark += strings.Repeat("~", endCol)
+							} else {
+								mark += "^"
+							}
+							e.Context = append(e.Context, mark)
 						}
-						e.Context = append(e.Context, mark)
 					}
 				}
 			}
