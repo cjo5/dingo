@@ -16,7 +16,6 @@ const (
 
 // Symbol flags.
 const (
-	SymFlagDepCycle = 1 << 0
 	SymFlagReadOnly = 1 << 1
 	SymFlagDefined  = 1 << 2
 )
@@ -30,7 +29,7 @@ type Position struct {
 // Symbol represents a unique symbol/identifier.
 type Symbol struct {
 	ID      SymbolID
-	ScopeID ScopeID
+	Parent  *Scope
 	Public  bool
 	Name    string
 	DeclPos Position
@@ -45,8 +44,8 @@ func NewPosition(filename string, pos token.Position) Position {
 }
 
 // NewSymbol creates a new symbol.
-func NewSymbol(id SymbolID, scopeID ScopeID, public bool, name string, pos Position) *Symbol {
-	return &Symbol{ID: id, ScopeID: scopeID, Public: public, Name: name, DeclPos: pos, DefPos: pos, Flags: 0}
+func NewSymbol(id SymbolID, parent *Scope, public bool, name string, pos Position) *Symbol {
+	return &Symbol{ID: id, Parent: parent, Public: public, Name: name, DeclPos: pos, DefPos: pos, Flags: 0}
 }
 
 func (s SymbolID) String() string {
@@ -73,10 +72,6 @@ func (p Position) String() string {
 
 func (s *Symbol) String() string {
 	return fmt.Sprintf("%s:%s:%s", s.ID, s.DeclPos, s.Name)
-}
-
-func (s *Symbol) DepCycle() bool {
-	return (s.Flags & SymFlagDepCycle) != 0
 }
 
 func (s *Symbol) ReadOnly() bool {

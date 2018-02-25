@@ -1,5 +1,10 @@
 require "common.dg"
 
+/* Output:
+Hello!
+10
+Good bye!
+*/
 fun[c] main() {
     val sayHello fun[c]() = fun[c]() {
         puts(c"Hello!")

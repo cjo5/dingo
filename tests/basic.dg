@@ -1,8 +1,10 @@
-pub fun foo() {
-
+struct Foo {
+    b Bar
 }
 
-pub fun foo()
+struct Bar {
+    f *Foo
+}
 
 fun[c] main() {
 }

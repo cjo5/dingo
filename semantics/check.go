@@ -15,6 +15,7 @@ func Check(set *ir.ModuleSet) error {
 	symCheck(c)
 	depCheck(c)
 	typeCheck(c)
+	sortDecls(c)
 
 	return c.errors
 }
@@ -28,7 +29,7 @@ const (
 var builtinScope = ir.NewScope(ir.RootScope, nil)
 
 func addBuiltinType(t ir.Type) {
-	sym := ir.NewSymbol(ir.TypeSymbol, ir.RootScope, true, t.ID().String(), ir.NewPosition("", token.NoPosition))
+	sym := ir.NewSymbol(ir.TypeSymbol, builtinScope, true, t.ID().String(), ir.NewPosition("", token.NoPosition))
 	sym.T = t
 	builtinScope.Insert(sym)
 }
@@ -49,28 +50,26 @@ func init() {
 }
 
 type context struct {
-	set      *ir.ModuleSet
-	errors   *common.ErrorList
-	topDecls map[*ir.Symbol]ir.TopDecl
+	set    *ir.ModuleSet
+	errors *common.ErrorList
+	decls  map[*ir.Symbol]ir.TopDecl
 
 	// State that can change during node visits
-	scope   *ir.Scope
-	mod     *ir.Module
-	fileCtx *ir.FileContext
-	topDecl ir.TopDecl
+	scope     *ir.Scope
+	mod       *ir.Module
+	declTrace []ir.TopDecl
 }
 
 func newContext(set *ir.ModuleSet) *context {
 	c := &context{set: set, scope: builtinScope}
 	c.errors = &common.ErrorList{}
-	c.topDecls = make(map[*ir.Symbol]ir.TopDecl)
+	c.decls = make(map[*ir.Symbol]ir.TopDecl)
 	return c
 }
 
 func (c *context) resetWalkState() {
 	c.mod = nil
-	c.fileCtx = nil
-	c.topDecl = nil
+	c.declTrace = nil
 }
 
 func (c *context) openScope(id ir.ScopeID) {
@@ -87,16 +86,45 @@ func setScope(c *context, scope *ir.Scope) (*context, *ir.Scope) {
 	return c, curr
 }
 
-func (c *context) visibilityScope(tok token.Token) *ir.Scope {
-	return c.mod.Scope
+func (c *context) mapTopDecl(sym *ir.Symbol, decl ir.TopDecl) {
+	if sym != nil {
+		c.decls[sym] = decl
+	}
+}
+
+func (c *context) pushTopDecl(decl ir.TopDecl) {
+	c.declTrace = append(c.declTrace, decl)
+}
+
+func (c *context) popTopDecl() {
+	n := len(c.declTrace)
+	if n > 0 {
+		c.declTrace = c.declTrace[:n-1]
+	}
+}
+
+func (c *context) topDecl() ir.TopDecl {
+	n := len(c.declTrace)
+	if n > 0 {
+		return c.declTrace[n-1]
+	}
+	return nil
+}
+
+func (c *context) fileCtx() *ir.FileContext {
+	n := len(c.declTrace)
+	if n > 0 {
+		return c.declTrace[n-1].FileContext()
+	}
+	return nil
 }
 
 func (c *context) filename() string {
-	name := ""
-	if c.fileCtx != nil {
-		name = c.fileCtx.Path
+	ctx := c.fileCtx()
+	if ctx != nil {
+		return ctx.Path
 	}
-	return name
+	return ""
 }
 
 func (c *context) newSymPos(pos token.Position) ir.Position {
@@ -108,17 +136,6 @@ func (c *context) fmtSymPos(pos ir.Position) string {
 		return pos.String()
 	}
 	return pos.Pos.String()
-}
-
-func (c *context) setCurrentTopDecl(decl ir.TopDecl) {
-	c.topDecl = decl
-	c.fileCtx = decl.Context()
-}
-
-func (c *context) mapTopDecl(sym *ir.Symbol, decl ir.TopDecl) {
-	if sym != nil {
-		c.topDecls[sym] = decl
-	}
 }
 
 func (c *context) error(pos token.Position, format string, args ...interface{}) {
@@ -138,7 +155,7 @@ func (c *context) warning(pos token.Position, format string, args ...interface{}
 }
 
 func (c *context) insert(scope *ir.Scope, id ir.SymbolID, public bool, name string, pos token.Position) *ir.Symbol {
-	sym := ir.NewSymbol(id, scope.ID, public, name, c.newSymPos(pos))
+	sym := ir.NewSymbol(id, scope, public, name, c.newSymPos(pos))
 	if existing := scope.Insert(sym); existing != nil {
 		msg := fmt.Sprintf("redefinition of '%s' (previously defined at %s)", name, c.fmtSymPos(existing.DefPos))
 		c.error(pos, msg)

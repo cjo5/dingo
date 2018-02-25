@@ -1,0 +1,31 @@
+require "common.dg"
+
+/* Output:
+9
+11
+13
+*/
+fun[c] main() {
+    var f1 = Foo{}
+    var f2 = Foo{a=9,b=Bar{c=11, f=&var f1}}
+
+    printFoo(&f2)
+
+    f2.b.f.a = 13
+    putiln(f1.a)
+}
+
+fun printFoo(f *Foo) {
+    putiln(f.a)
+    putiln(f.b.c)
+}
+
+struct Foo {
+    a i32
+    b Bar
+}
+
+struct Bar {
+    c i32
+    f *var Foo
+}

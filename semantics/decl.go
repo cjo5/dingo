@@ -1,40 +1,95 @@
 package semantics
 
 import (
+	"fmt"
+
 	"github.com/jhnl/dingo/ir"
 	"github.com/jhnl/dingo/token"
 )
 
-func (v *typeChecker) Module(mod *ir.Module) {
-	v.c.mod = mod
-
-	v.c.scope = mod.Scope
-	v.signature = true
-	for _, decl := range mod.Decls {
-		if decl.Symbol() == nil {
+func (v *typeChecker) visitModuleSet(set *ir.ModuleSet, signature bool) {
+	set.ResetDeclColors()
+	v.signature = signature
+	for _, mod := range set.Modules {
+		v.c.mod = mod
+		v.c.scope = mod.Scope
+		for _, decl := range mod.Decls {
 			// Nil symbol means a redeclaration
-			continue
+			if decl.Symbol() == nil {
+				continue
+			}
+			v.visitTopDecl(decl)
 		}
-		v.c.setCurrentTopDecl(decl)
-		ir.VisitDecl(v, decl)
-	}
-
-	v.c.scope = mod.Scope
-	v.signature = false
-	for _, decl := range mod.Decls {
-		if decl.Symbol() == nil {
-			// Nil symbol means a redeclaration
-			continue
-		}
-		v.c.setCurrentTopDecl(decl)
-		ir.VisitDecl(v, decl)
 	}
 }
 
-func (v *typeChecker) VisitValTopDecl(decl *ir.ValTopDecl) {
-	if !v.signature {
+func (v *typeChecker) visitDependencies(decl ir.TopDecl) {
+	graph := *decl.DependencyGraph()
+	for dep := range graph {
+		v.visitTopDecl(dep)
+	}
+}
+
+func (v *typeChecker) removeFalseDependencies(decl ir.TopDecl) {
+	graph := *decl.DependencyGraph()
+
+	switch decl.(type) {
+	case *ir.FuncDecl:
+		for dep := range graph {
+			sym := dep.Symbol()
+			if sym.ID == ir.FuncSymbol {
+				delete(graph, dep)
+			}
+		}
+	case *ir.ValTopDecl:
+		for dep := range graph {
+			sym := dep.Symbol()
+			if sym.ID == ir.ValSymbol || sym.ID == ir.FuncSymbol {
+				delete(graph, dep)
+			}
+		}
+	case *ir.StructDecl:
+		for dep, edges := range graph {
+			for i := 0; i < len(edges); i++ {
+				edge := edges[i]
+				if edge.IsType && edge.Sym != nil && edge.Sym.T != nil {
+					t := edge.Sym.T
+					if t.ID() == ir.TPointer || t.ID() == ir.TSlice || t.ID() == ir.TFunc {
+						edges = append(edges[:i], edges[i+1:]...)
+						i--
+					}
+				}
+			}
+			if len(edges) > 0 {
+				graph[dep] = edges
+			} else {
+				delete(graph, dep)
+			}
+		}
+	default:
+		panic(fmt.Sprintf("Unhandled top decl %T", decl))
+	}
+}
+
+func (v *typeChecker) visitTopDecl(decl ir.TopDecl) {
+	if decl.Color() != ir.WhiteColor {
 		return
 	}
+
+	v.c.pushTopDecl(decl)
+	decl.SetColor(ir.GrayColor)
+	ir.VisitDecl(v, decl)
+	decl.SetColor(ir.BlackColor)
+	v.c.popTopDecl()
+}
+
+func (v *typeChecker) VisitValTopDecl(decl *ir.ValTopDecl) {
+	if v.signature {
+		return
+	}
+
+	v.removeFalseDependencies(decl)
+	v.visitDependencies(decl)
 
 	v.warnUnusedDirectives(decl.Directives)
 	v.visitValDeclSpec(decl.Sym, &decl.ValDeclSpec, true)
@@ -75,96 +130,103 @@ func (v *typeChecker) visitValDeclSpec(sym *ir.Symbol, decl *ir.ValDeclSpec, def
 		sym.Flags |= ir.SymFlagReadOnly
 	}
 
-	if sym.DepCycle() {
-		sym.T = ir.TBuiltinUntyped
-		return
-	}
+	var t ir.Type
 
 	if decl.Type != nil {
 		v.exprMode = exprModeType
 		decl.Type = ir.VisitExpr(v, decl.Type)
 		v.exprMode = exprModeNone
-		sym.T = decl.Type.Type()
+		t = decl.Type.Type()
 
-		if typeSym := ir.ExprSymbol(decl.Type); typeSym != nil {
-			if typeSym.ID != ir.TypeSymbol {
-				v.c.error(decl.Type.Pos(), "'%s' is not a type", typeSym.Name)
-				sym.T = ir.TBuiltinUntyped
-				return
-			}
+		if t.ID() == ir.TVoid {
+			v.c.error(decl.Type.Pos(), "%s cannot be used as a type", t)
+			t = ir.TBuiltinUntyped
+		} else if !checkCompleteType(t) {
+			v.c.error(decl.Type.Pos(), "incomplete type %s", t)
+			t = ir.TBuiltinUntyped
 		}
 
-		if sym.T.ID() == ir.TVoid {
-			v.c.error(decl.Type.Pos(), "%s cannot be used as a type", sym.T)
-			sym.T = ir.TBuiltinUntyped
-		} else if !checkCompleteType(sym.T) {
-			v.c.error(decl.Type.Pos(), "incomplete type %s", sym.T)
-			sym.T = ir.TBuiltinUntyped
-		}
-
-		if ir.IsUntyped(sym.T) {
+		if ir.IsUntyped(t) {
+			sym.T = t
 			return
 		}
 	}
 
 	if decl.Initializer != nil {
-		decl.Initializer = v.makeTypedExpr(decl.Initializer, sym.T)
+		decl.Initializer = v.makeTypedExpr(decl.Initializer, t)
+		tinit := decl.Initializer.Type()
 
 		if decl.Type == nil {
-			tinit := decl.Initializer.Type()
-
 			if ptr, ok := tinit.(*ir.PointerType); ok {
 				if ir.IsTypeID(ptr.Underlying, ir.TUntyped) {
 					v.c.error(decl.Initializer.Pos(), "impossible to infer type from initializer")
-					sym.T = ir.TBuiltinUntyped
+					t = ir.TBuiltinUntyped
 				}
 			} else if tinit.ID() == ir.TVoid {
 				v.c.error(decl.Initializer.Pos(), "initializer has invalid type %s", tinit)
-				sym.T = ir.TBuiltinUntyped
+				t = ir.TBuiltinUntyped
 			}
 
-			if sym.T == nil {
-				sym.T = tinit
+			if t == nil {
+				t = tinit
 			}
 		} else {
-			if !checkTypes(v.c, sym.T, decl.Initializer.Type()) {
-				v.c.error(decl.Initializer.Pos(), "type mismatch %s and %s", sym.T, decl.Initializer.Type())
+			if ir.IsUntyped(t) || ir.IsUntyped(tinit) {
+				t = ir.TBuiltinUntyped
+			} else if !checkTypes(v.c, t, tinit) {
+				v.c.error(decl.Initializer.Pos(), "type mismatch %s and %s", t, tinit)
+				t = ir.TBuiltinUntyped
 			}
 		}
 	} else if decl.Type == nil {
 		v.c.error(decl.Name.Pos, "missing type or initializer")
+		t = ir.TBuiltinUntyped
 	} else if defaultInit {
-		decl.Initializer = createDefaultLit(sym.T)
+		decl.Initializer = createDefaultLit(t)
 	}
+
+	// Wait to set type until the final step in order to be able to detect cycles
+	sym.T = t
 }
 
 func (v *typeChecker) VisitFuncDecl(decl *ir.FuncDecl) {
-	defer setScope(setScope(v.c, decl.Scope))
-
 	if v.signature {
+		defer setScope(setScope(v.c, decl.Scope))
+
+		c := v.checkCABI(decl.ABI)
+		untyped := false
+
 		var tparams []ir.Type
 
 		for _, param := range decl.Params {
 			v.VisitValDecl(param)
-			if param.Sym.T == nil || ir.IsUntyped(param.Sym.T) {
+			if param.Sym == nil || ir.IsUntyped(param.Sym.T) {
 				tparams = append(tparams, ir.TBuiltinUntyped)
+				untyped = true
 			} else {
 				tparams = append(tparams, param.Sym.T)
 			}
 		}
 
 		v.exprMode = exprModeType
-		decl.TReturn = ir.VisitExpr(v, decl.TReturn)
+		decl.Return.Type = ir.VisitExpr(v, decl.Return.Type)
 		v.exprMode = exprModeNone
 
 		v.warnUnusedDirectives(decl.Directives)
 
-		c := v.checkCABI(decl.ABI)
-		tfun := ir.NewFuncType(tparams, decl.TReturn.Type(), c)
+		tret := decl.Return.Type.Type()
+		if ir.IsUntyped(tret) {
+			untyped = true
+		}
 
-		if decl.Sym.T != nil && !checkTypes(v.c, decl.Sym.T, tfun) {
-			v.c.error(decl.Name.Pos, "redeclaration of '%s' (previously declared with a different signature at %s)",
-				decl.Name.Literal, v.c.fmtSymPos(decl.Sym.DeclPos))
+		tfun := ir.TBuiltinUntyped
+
+		if !untyped {
+			tfun = ir.NewFuncType(tparams, tret, c)
+			if decl.Sym.T != nil && !checkTypes(v.c, decl.Sym.T, tfun) {
+				v.c.error(decl.Name.Pos, "redeclaration of '%s' (previously declared with a different signature at %s)",
+					decl.Name.Literal, v.c.fmtSymPos(decl.Sym.DeclPos))
+			}
 		}
 
 		if decl.Sym.T == nil {
@@ -176,10 +238,10 @@ func (v *typeChecker) VisitFuncDecl(decl *ir.FuncDecl) {
 		return
 	}
 
-	if decl.Sym.DepCycle() {
-		return
-	}
+	v.visitDependencies(decl)
+	v.removeFalseDependencies(decl)
 
+	defer setScope(setScope(v.c, decl.Scope))
 	v.VisitBlockStmt(decl.Body)
 
 	endsWithReturn := false
@@ -192,7 +254,7 @@ func (v *typeChecker) VisitFuncDecl(decl *ir.FuncDecl) {
 	}
 
 	if !endsWithReturn {
-		if decl.TReturn.Type().ID() != ir.TVoid {
+		if decl.Return.Type.Type().ID() != ir.TVoid {
 			v.c.error(decl.Body.Rbrace.Pos, "missing return")
 		} else {
 			tok := token.Synthetic(token.Return, "return")
@@ -203,15 +265,33 @@ func (v *typeChecker) VisitFuncDecl(decl *ir.FuncDecl) {
 }
 
 func (v *typeChecker) VisitStructDecl(decl *ir.StructDecl) {
-	if v.signature {
+	if !v.signature {
 		v.warnUnusedDirectives(decl.Directives)
-		decl.Sym.T = ir.NewIncompleteStructType(decl)
+		//decl.Sym.T = ir.NewIncompleteStructType(decl)
 		return
 	}
 
+	v.visitDependencies(decl)
+
+	untyped := false
+
 	for _, field := range decl.Fields {
 		v.VisitValDecl(field)
+		if ir.IsUntyped(field.Sym.T) {
+			untyped = true
+		}
 	}
-	structt := decl.Sym.T.(*ir.StructType)
-	structt.SetBody(decl)
+
+	v.removeFalseDependencies(decl)
+
+	if untyped {
+		decl.Sym.T = ir.TBuiltinUntyped
+	} else {
+		if checkCycle(decl) {
+			decl.Sym.T = ir.TBuiltinUntyped
+		} else {
+			structt := decl.Sym.T.(*ir.StructType)
+			structt.SetBody(decl)
+		}
+	}
 }

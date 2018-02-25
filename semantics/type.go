@@ -3,7 +3,6 @@ package semantics
 import (
 	"math/big"
 
-	"github.com/jhnl/dingo/common"
 	"github.com/jhnl/dingo/ir"
 )
 
@@ -17,7 +16,8 @@ type typeChecker struct {
 func typeCheck(c *context) {
 	v := &typeChecker{c: c}
 	c.resetWalkState()
-	ir.VisitModuleSet(v, c.set)
+	v.visitModuleSet(c.set, true)
+	v.visitModuleSet(c.set, false)
 }
 
 func checkCompleteType(t1 ir.Type) bool {
@@ -34,8 +34,6 @@ func checkCompleteType(t1 ir.Type) bool {
 // Returns false if an error should be reported
 func checkTypes(c *context, t1 ir.Type, t2 ir.Type) bool {
 	if ir.IsUntyped(t1) || ir.IsUntyped(t2) {
-		// TODO: Improve assert to check that an actual type error was reported for t1 and/or t2
-		common.Assert(c.errors.IsError(), "t1 or t2 are untyped and no error was reported")
 		return true
 	}
 	return t1.Equals(t2)

@@ -115,7 +115,6 @@ func (l *loader) loadModule(path requirePath) *ir.Module {
 
 			mod.Files = append(mod.Files, depFile)
 			allDepDecls = append(allDepDecls, depDecls...)
-			dep.dep.File = depFile
 
 			loadedFile := &file{file: depFile, path: dep.path, requiredBy: srcFile}
 			dep.file = loadedFile
@@ -158,7 +157,7 @@ func normalizePath(cwd string, rel string, path string) (requirePath, error) {
 func (l *loader) createDependencyList(loadedFile *file) bool {
 	parentDir := filepath.Dir(loadedFile.path.actual)
 
-	for _, dep := range loadedFile.file.Deps {
+	for _, dep := range loadedFile.file.FileDeps {
 		unquoted, err := strconv.Unquote(dep.Literal.Literal)
 		if err != nil {
 			l.errors.AddGeneric3(loadedFile.path.actual, dep.Literal.Pos, err)
@@ -177,20 +176,6 @@ func (l *loader) createDependencyList(loadedFile *file) bool {
 		}
 
 		foundFile := l.findLoadedFile(normPath.canonical)
-
-		if foundFile != nil {
-			/*var traceLines []string
-			if checkFileCycle(foundFile, loadedFile.path.canonical, &traceLines) {
-				trace := common.NewTrace(fmt.Sprintf("%s requires:", loadedFile.path.actual), nil)
-				for i := len(traceLines) - 1; i >= 0; i-- {
-					trace.Lines = append(trace.Lines, traceLines[i])
-				}
-				l.errors.AddTrace(loadedFile.path.actual, dep.Literal.Pos, common.GenericError, trace, "file cycle detected")
-				continue
-			}*/
-			dep.File = foundFile.file
-		}
-
 		loadedFile.deps = append(loadedFile.deps, &fileDependency{file: foundFile, dep: dep, path: normPath})
 	}
 
@@ -217,22 +202,4 @@ func (l *loader) getRequiredByTrace(loadedFile *file) common.Trace {
 		file = file.requiredBy
 	}
 	return common.NewTrace("required by:", trace)
-}
-
-func checkFileCycle(loadedFile *file, path string, trace *[]string) bool {
-	if loadedFile.path.canonical == path {
-		*trace = append(*trace, loadedFile.path.actual)
-		return true
-	}
-
-	for _, dep := range loadedFile.deps {
-		if dep.file == nil {
-			continue
-		}
-		if checkFileCycle(dep.file, path, trace) {
-			*trace = append(*trace, loadedFile.path.actual)
-			return true
-		}
-	}
-	return false
 }

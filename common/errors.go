@@ -59,18 +59,14 @@ func NewError(filename string, pos token.Position, endPos token.Position, id Mes
 }
 
 func (t Trace) write(buf *bytes.Buffer) {
-	indent := 0
 	if len(t.Title) > 0 {
 		buf.WriteString(fmt.Sprintf("\n    %s", t.Title))
-		indent++
 	}
 
-	for _, l := range t.Lines {
+	for num, l := range t.Lines {
 		buf.WriteString("\n")
-		for i := 0; i <= indent; i++ {
-			buf.WriteString("    ")
-		}
-		buf.WriteString(fmt.Sprintf("=> %s", l))
+		buf.WriteString("    ")
+		buf.WriteString(fmt.Sprintf("[%d] %s", num+1, l))
 	}
 }
 
@@ -88,15 +84,13 @@ func (e Error) Error() string {
 	var buf bytes.Buffer
 	buf.WriteString(msg)
 
-	if len(e.Context) > 0 {
+	if len(e.Trace.Lines) > 0 {
+		e.Trace.write(&buf)
+	} else if len(e.Context) > 0 {
 		for _, l := range e.Context {
 			buf.WriteString("\n")
 			buf.WriteString(l)
 		}
-	}
-
-	if len(e.Trace.Lines) > 0 {
-		e.Trace.write(&buf)
 	}
 
 	return buf.String()

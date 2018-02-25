@@ -218,22 +218,22 @@ func (v *typeChecker) VisitFuncTypeExpr(expr *ir.FuncTypeExpr) ir.Expr {
 	var tparams []ir.Type
 	untyped := false
 	for i, param := range expr.Params {
-		expr.Params[i] = ir.VisitExpr(v, param)
-		tparam := expr.Params[i].Type()
+		expr.Params[i].Type = ir.VisitExpr(v, param.Type)
+		tparam := expr.Params[i].Type.Type()
 		tparams = append(tparams, tparam)
 		if ir.IsUntyped(tparam) {
 			untyped = true
 		}
 	}
 
-	expr.Return = ir.VisitExpr(v, expr.Return)
-	if ir.IsUntyped(expr.Return.Type()) {
+	expr.Return.Type = ir.VisitExpr(v, expr.Return.Type)
+	if ir.IsUntyped(expr.Return.Type.Type()) {
 		untyped = true
 	}
 
 	if !untyped {
 		c := v.checkCABI(expr.ABI)
-		expr.T = ir.NewFuncType(tparams, expr.Return.Type(), c)
+		expr.T = ir.NewFuncType(tparams, expr.Return.Type.Type(), c)
 	} else {
 		expr.T = ir.TBuiltinUntyped
 	}
@@ -726,6 +726,7 @@ func (v *typeChecker) VisitStructLit(expr *ir.StructLit) ir.Expr {
 				v.c.error(kv.Key.Pos, "duplicate field key '%s'", kv.Key.Literal)
 			}
 			inits[kv.Key.Literal] = nil
+			err = true
 			continue
 		}
 
@@ -733,13 +734,15 @@ func (v *typeChecker) VisitStructLit(expr *ir.StructLit) ir.Expr {
 		if fieldSym == nil {
 			v.c.error(kv.Key.Pos, "'%s' undefined struct field", kv.Key.Literal)
 			inits[kv.Key.Literal] = nil
+			err = true
 			continue
 		}
 
 		kv.Value = v.makeTypedExpr(kv.Value, fieldSym.T)
 
-		if ir.IsUntyped(fieldSym.T) {
+		if ir.IsUntyped(fieldSym.T) || ir.IsUntyped(kv.Value.Type()) {
 			inits[kv.Key.Literal] = nil
+			err = true
 			continue
 		}
 
@@ -747,6 +750,7 @@ func (v *typeChecker) VisitStructLit(expr *ir.StructLit) ir.Expr {
 			v.c.error(kv.Key.Pos, "type mismatch: field '%s' expects type %s but got %s",
 				kv.Key.Literal, fieldSym.T, kv.Value.Type())
 			inits[kv.Key.Literal] = nil
+			err = true
 			continue
 		}
 		inits[kv.Key.Literal] = kv.Value
@@ -789,8 +793,11 @@ func (v *typeChecker) VisitArrayLit(expr *ir.ArrayLit) ir.Expr {
 
 	if t != ir.TBuiltinUntyped {
 		for _, init := range expr.Initializers {
-			if !checkTypes(v.c, t, init.Type()) {
+			if ir.IsUntyped(init.Type()) {
+				t = ir.TBuiltinUntyped
+			} else if !checkTypes(v.c, t, init.Type()) {
 				v.c.error(init.Pos(), "type mismatch: array elements must be of the same type (expected %s, got %s)", t, init.Type())
+				t = ir.TBuiltinUntyped
 				break
 			}
 		}
@@ -798,6 +805,7 @@ func (v *typeChecker) VisitArrayLit(expr *ir.ArrayLit) ir.Expr {
 
 	if len(expr.Initializers) == 0 {
 		v.c.error(expr.Lbrack.Pos, "array literal cannot have 0 elements")
+		t = ir.TBuiltinUntyped
 	}
 
 	if t == ir.TBuiltinUntyped {
@@ -885,13 +893,16 @@ func createStructLit(structt *ir.StructType, lit *ir.StructLit) *ir.StructLit {
 
 func (v *typeChecker) VisitIdent(expr *ir.Ident) ir.Expr {
 	sym := v.c.lookup(expr.Name.Literal)
-	if sym == nil {
+	if sym == nil || sym.T == nil {
 		v.c.error(expr.Pos(), "'%s' undefined", expr.Name.Literal)
 		expr.T = ir.TBuiltinUntyped
-	} else if sym.Untyped() || sym.DepCycle() {
+	} else if v.exprMode == exprModeType && sym.ID != ir.TypeSymbol {
+		v.c.error(expr.Pos(), "'%s' is not a type", sym.Name)
 		expr.T = ir.TBuiltinUntyped
-	} else if v.exprMode != exprModeType && v.exprMode != exprModeFunc && sym.ID == ir.TypeSymbol {
+	} else if v.exprMode != exprModeType && sym.ID == ir.TypeSymbol {
 		v.c.error(expr.Pos(), "type %s cannot be used in an expression", sym.T)
+		expr.T = ir.TBuiltinUntyped
+	} else if sym.Untyped() {
 		expr.T = ir.TBuiltinUntyped
 	} else {
 		expr.SetSymbol(sym)
@@ -1034,7 +1045,9 @@ func (v *typeChecker) VisitFuncCall(expr *ir.FuncCall) ir.Expr {
 func (v *typeChecker) VisitAddressExpr(expr *ir.AddressExpr) ir.Expr {
 	ro := expr.Decl.Is(token.Val)
 	expr.X = ir.VisitExpr(v, expr.X)
-	if !expr.X.Lvalue() {
+	if ir.IsUntyped(expr.X.Type()) {
+		expr.T = ir.TBuiltinUntyped
+	} else if !expr.X.Lvalue() {
 		v.c.error(expr.X.Pos(), "expression is not an lvalue")
 	} else if expr.X.ReadOnly() && !ro {
 		v.c.error(expr.X.Pos(), "expression is read-only")

@@ -21,8 +21,9 @@ func (v *symChecker) Module(mod *ir.Module) {
 	mod.Scope = v.c.scope
 	v.c.mod = mod
 	for _, decl := range mod.Decls {
-		v.c.setCurrentTopDecl(decl)
+		v.c.pushTopDecl(decl)
 		ir.VisitDecl(v, decl)
+		v.c.popTopDecl()
 	}
 	v.c.closeScope()
 }
@@ -42,23 +43,23 @@ func isPublic(tok token.Token) bool {
 }
 
 func (v *symChecker) VisitValTopDecl(decl *ir.ValTopDecl) {
+	decl.Deps = make(ir.DeclDependencyGraph)
 	if !v.isTypeName(decl.Name) {
-		scope := v.c.visibilityScope(decl.Visibility)
-		decl.Sym = v.c.insert(scope, ir.ValSymbol, isPublic(decl.Visibility), decl.Name.Literal, decl.Name.Pos)
+		decl.Sym = v.c.insert(v.c.scope, ir.ValSymbol, isPublic(decl.Visibility), decl.Name.Literal, decl.Name.Pos)
 		v.c.mapTopDecl(decl.Sym, decl)
 	}
 }
 
 func (v *symChecker) VisitValDecl(decl *ir.ValDecl) {
 	if decl.Name.ID == token.Underscore {
-		decl.Sym = ir.NewSymbol(ir.ValSymbol, v.c.scope.ID, false, decl.Name.Literal, v.c.newSymPos(decl.Name.Pos))
+		decl.Sym = ir.NewSymbol(ir.ValSymbol, nil, false, decl.Name.Literal, v.c.newSymPos(decl.Name.Pos))
 	} else if !v.isTypeName(decl.Name) {
 		decl.Sym = v.c.insert(v.c.scope, ir.ValSymbol, false, decl.Name.Literal, decl.Name.Pos)
 	}
 }
 
 func (v *symChecker) VisitFuncDecl(decl *ir.FuncDecl) {
-	scope := v.c.visibilityScope(decl.Visibility)
+	decl.Deps = make(ir.DeclDependencyGraph)
 
 	if sym := v.c.lookup(decl.Name.Literal); sym != nil {
 		if sym.ID == ir.FuncSymbol && (!sym.Defined() || decl.SignatureOnly()) {
@@ -67,7 +68,7 @@ func (v *symChecker) VisitFuncDecl(decl *ir.FuncDecl) {
 	}
 
 	if decl.Sym == nil {
-		decl.Sym = v.c.insert(scope, ir.FuncSymbol, isPublic(decl.Visibility), decl.Name.Literal, decl.Name.Pos)
+		decl.Sym = v.c.insert(v.c.scope, ir.FuncSymbol, isPublic(decl.Visibility), decl.Name.Literal, decl.Name.Pos)
 		v.c.mapTopDecl(decl.Sym, decl)
 	}
 
@@ -111,9 +112,14 @@ func (v *symChecker) VisitFuncDecl(decl *ir.FuncDecl) {
 }
 
 func (v *symChecker) VisitStructDecl(decl *ir.StructDecl) {
-	scope := v.c.visibilityScope(decl.Visibility)
-	decl.Sym = v.c.insert(scope, ir.TypeSymbol, isPublic(decl.Visibility), decl.Name.Literal, decl.Name.Pos)
+	decl.Deps = make(ir.DeclDependencyGraph)
+
+	decl.Sym = v.c.insert(v.c.scope, ir.TypeSymbol, isPublic(decl.Visibility), decl.Name.Literal, decl.Name.Pos)
 	decl.Scope = ir.NewScope(ir.FieldScope, nil)
+
+	if decl.Sym != nil {
+		decl.Sym.T = ir.NewIncompleteStructType(decl)
+	}
 
 	v.c.mapTopDecl(decl.Sym, decl)
 

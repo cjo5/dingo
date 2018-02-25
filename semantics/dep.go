@@ -1,71 +1,57 @@
 package semantics
 
 import (
-	"fmt"
-
 	"github.com/jhnl/dingo/common"
 	"github.com/jhnl/dingo/ir"
+	"github.com/jhnl/dingo/token"
 )
 
 type depChecker struct {
 	ir.BaseVisitor
-	exprMode int
 	c        *context
+	exprMode int
+	declSym  *ir.Symbol
 }
 
 func depCheck(c *context) {
 	c.resetWalkState()
 	v := &depChecker{c: c}
 	ir.VisitModuleSet(v, c.set)
-	sortDecls(v.c)
 }
 
 func sortDecls(c *context) {
-	for _, mod := range c.set.Modules {
-		for _, decl := range mod.Decls {
-			decl.SetNodeColor(ir.NodeColorWhite)
-		}
-	}
+	c.set.ResetDeclColors()
 
 	for _, mod := range c.set.Modules {
 		var sortedDecls []ir.TopDecl
 		for _, decl := range mod.Decls {
-			sym := decl.Symbol()
-			if sym == nil {
+			if decl.Symbol() == nil {
 				continue
 			}
 
 			var cycleTrace []ir.TopDecl
 			if !sortDeclDependencies(decl, &cycleTrace, &sortedDecls) {
-				// Report most specific cycle
-				i, j := 0, len(cycleTrace)-1
-				for ; i < len(cycleTrace) && j >= 0; i, j = i+1, j-1 {
-					if cycleTrace[i] == cycleTrace[j] {
+				cycleTrace = append(cycleTrace, decl)
+
+				// Find most specific cycle
+				j := len(cycleTrace) - 1
+				for ; j >= 0; j = j - 1 {
+					if cycleTrace[0] == cycleTrace[j] {
 						break
 					}
 				}
 
-				if i < j {
-					decl = cycleTrace[j]
-					cycleTrace = cycleTrace[i:j]
-				}
+				cycleTrace = cycleTrace[:j+1]
+				sym := cycleTrace[0].Symbol()
 
-				sym.Flags |= ir.SymFlagDepCycle
-
-				trace := common.NewTrace(fmt.Sprintf("%s uses:", sym.Name), nil)
+				trace := common.NewTrace("", nil)
 				for i := len(cycleTrace) - 1; i >= 0; i-- {
 					s := cycleTrace[i].Symbol()
-					s.Flags |= ir.SymFlagDepCycle
-					line := cycleTrace[i].Context().Path + ":" + c.fmtSymPos(s.DefPos) + ":" + s.Name
+					line := c.fmtSymPos(s.DefPos) + ":" + s.Name
 					trace.Lines = append(trace.Lines, line)
 				}
 
-				errorMsg := "initializer cycle detected"
-				if sym.ID == ir.TypeSymbol {
-					errorMsg = "type cycle detected"
-				}
-
-				c.errors.AddTrace(sym.DefPos.Filename, sym.DefPos.Pos, sym.DefPos.Pos, trace, errorMsg)
+				c.errors.AddTrace(sym.DefPos.Filename, sym.DefPos.Pos, sym.DefPos.Pos, trace, "cycle detected")
 			}
 		}
 		mod.Decls = sortedDecls
@@ -74,46 +60,77 @@ func sortDecls(c *context) {
 
 // Returns false if cycle
 func sortDeclDependencies(decl ir.TopDecl, trace *[]ir.TopDecl, sortedDecls *[]ir.TopDecl) bool {
-	color := decl.NodeColor()
-	if color == ir.NodeColorBlack {
+	color := decl.Color()
+	if color == ir.BlackColor {
 		return true
-	} else if color == ir.NodeColorGray {
+	} else if color == ir.GrayColor {
 		return false
 	}
 
 	sortOK := true
-	decl.SetNodeColor(ir.NodeColorGray)
-	for _, dep := range decl.Dependencies() {
+	decl.SetColor(ir.GrayColor)
+	graph := *decl.DependencyGraph()
+
+	for dep := range graph {
 		if !sortDeclDependencies(dep, trace, sortedDecls) {
 			*trace = append(*trace, dep)
 			sortOK = false
 			break
 		}
 	}
-	decl.SetNodeColor(ir.NodeColorBlack)
+	decl.SetColor(ir.BlackColor)
 	*sortedDecls = append(*sortedDecls, decl)
 	return sortOK
+}
+
+func checkCycle(decl ir.TopDecl) bool {
+	var visited []ir.TopDecl
+	return checkCycle2(decl, visited)
+}
+
+func checkCycle2(decl ir.TopDecl, visited []ir.TopDecl) bool {
+	for _, v := range visited {
+		if v == decl {
+			return true
+		}
+	}
+
+	visited = append(visited, decl)
+	graph := *decl.DependencyGraph()
+
+	for dep := range graph {
+		if checkCycle2(dep, visited) {
+			return true
+		}
+	}
+
+	visited = visited[:len(visited)-1]
+	return false
 }
 
 func (v *depChecker) Module(mod *ir.Module) {
 	v.c.mod = mod
 	v.c.scope = mod.Scope
 	for _, decl := range mod.Decls {
-		v.c.setCurrentTopDecl(decl)
+		v.c.pushTopDecl(decl)
 		ir.VisitDecl(v, decl)
+		v.c.popTopDecl()
 	}
 }
 
 func (v *depChecker) VisitValTopDecl(decl *ir.ValTopDecl) {
-	if decl.Type != nil {
-		ir.VisitExpr(v, decl.Type)
-	}
-	if decl.Initializer != nil {
-		ir.VisitExpr(v, decl.Initializer)
-	}
+	v.visitValDeclSpec(decl.Sym, &decl.ValDeclSpec)
 }
 
 func (v *depChecker) VisitValDecl(decl *ir.ValDecl) {
+	v.visitValDeclSpec(decl.Sym, &decl.ValDeclSpec)
+}
+
+func (v *depChecker) visitValDeclSpec(sym *ir.Symbol, decl *ir.ValDeclSpec) {
+	if sym == nil {
+		return
+	}
+	v.declSym = sym
 	if decl.Type != nil {
 		v.exprMode = exprModeType
 		ir.VisitExpr(v, decl.Type)
@@ -122,14 +139,15 @@ func (v *depChecker) VisitValDecl(decl *ir.ValDecl) {
 	if decl.Initializer != nil {
 		ir.VisitExpr(v, decl.Initializer)
 	}
+	v.declSym = nil
 }
 
 func (v *depChecker) VisitFuncDecl(decl *ir.FuncDecl) {
 	defer setScope(setScope(v.c, decl.Scope))
 	for _, param := range decl.Params {
-		ir.VisitExpr(v, param.Type)
+		v.VisitValDecl(param)
 	}
-	ir.VisitExpr(v, decl.TReturn)
+	v.VisitValDecl(decl.Return)
 	if decl.Body != nil {
 		ir.VisitStmtList(v, decl.Body.Stmts)
 	}
@@ -189,21 +207,26 @@ func (v *depChecker) VisitExprStmt(stmt *ir.ExprStmt) {
 }
 
 func (v *depChecker) VisitPointerTypeExpr(expr *ir.PointerTypeExpr) ir.Expr {
-	// Pointer types cannot be a dependency
+	ir.VisitExpr(v, expr.X)
 	return expr
 }
 
 func (v *depChecker) VisitArrayTypeExpr(expr *ir.ArrayTypeExpr) ir.Expr {
-	// Slice types cannot be a dependency
 	if expr.Size != nil {
 		ir.VisitExpr(v, expr.Size)
-		ir.VisitExpr(v, expr.X)
 	}
+	ir.VisitExpr(v, expr.X)
 	return expr
 }
 
 func (v *depChecker) VisitFuncTypeExpr(expr *ir.FuncTypeExpr) ir.Expr {
-	// Function types cannot be a dependency
+	if expr.ABI != nil {
+		ir.VisitExpr(v, expr.ABI)
+	}
+	for _, param := range expr.Params {
+		ir.VisitExpr(v, param.Type)
+	}
+	ir.VisitExpr(v, expr.Return.Type)
 	return expr
 }
 
@@ -235,22 +258,34 @@ func (v *depChecker) VisitArrayLit(expr *ir.ArrayLit) ir.Expr {
 
 func (v *depChecker) VisitIdent(expr *ir.Ident) ir.Expr {
 	sym := v.c.lookup(expr.Literal())
-	if sym != nil {
-		if decl, ok := v.c.topDecls[sym]; ok {
-			_, isFunc1 := v.c.topDecl.(*ir.FuncDecl)
-			//_, isFunc2 := decl.(*ir.FuncDecl)
-
-			if !isFunc1 {
-				v.c.topDecl.AddDependency(decl)
-			}
-		}
-	}
+	v.tryAddDependency(sym, expr.Name.Pos)
 	return expr
 }
 
+func (v *depChecker) tryAddDependency(sym *ir.Symbol, pos token.Position) {
+	if sym != nil {
+		if decl, ok := v.c.decls[sym]; ok {
+			edge := ir.DeclDependencyEdge{Sym: v.declSym}
+			edge.IsType = v.exprMode == exprModeType
+			edge.Pos = ir.NewPosition(v.c.filename(), pos)
+			graph := v.c.topDecl().DependencyGraph()
+			(*graph)[decl] = append((*graph)[decl], edge)
+		}
+	}
+}
+
 func (v *depChecker) VisitDotExpr(expr *ir.DotExpr) ir.Expr {
-	ir.VisitExpr(v, expr.X)
-	v.VisitIdent(expr.Name)
+	if ident, ok := expr.X.(*ir.Ident); ok {
+		sym := v.c.lookup(ident.Literal())
+		if sym != nil && sym.ID == ir.ModuleSymbol {
+			defer setScope(setScope(v.c, sym.Parent))
+			v.VisitIdent(expr.Name)
+		} else {
+			v.tryAddDependency(sym, ident.Name.Pos)
+		}
+	} else {
+		ir.VisitExpr(v, expr.X)
+	}
 	return expr
 }
 

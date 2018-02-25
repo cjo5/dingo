@@ -79,6 +79,3 @@ Sorted ints:
 * Go 
 * LLVM 
 * Go LLVM bindings
-
-## Installation
-TODO

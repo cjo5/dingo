@@ -7,20 +7,6 @@ import (
 	"github.com/jhnl/dingo/token"
 )
 
-// NodeColor is used to color nodes during dfs when sorting dependencies.
-type NodeColor int
-
-// The node colors.
-//
-// White: node not visited
-// Gray: node visit in progress
-// Black: node visit finished
-const (
-	NodeColorWhite NodeColor = iota
-	NodeColorGray
-	NodeColorBlack
-)
-
 // AST flags.
 const (
 	AstFlagNoInit = 1 << 0
@@ -37,20 +23,17 @@ type Node interface {
 type Decl interface {
 	Node
 	declNode()
+	Symbol() *Symbol
 }
 
 // TopDecl represents a top-level declaration.
 type TopDecl interface {
 	Decl
-	Symbol() *Symbol
-
-	SetContext(*FileContext)
-	Context() *FileContext
-
-	AddDependency(TopDecl)
-	Dependencies() []TopDecl
-	SetNodeColor(NodeColor)
-	NodeColor() NodeColor
+	SetColor(Color)
+	Color() Color
+	SetFileContext(*FileContext)
+	FileContext() *FileContext
+	DependencyGraph() *DeclDependencyGraph
 }
 
 // Stmt is the main interface for statement nodes.
@@ -62,11 +45,11 @@ type Stmt interface {
 // Expr is the main interface for expression nodes.
 type Expr interface {
 	Node
+	exprNode()
 	EndPos() token.Position
 	Type() Type
 	Lvalue() bool
 	ReadOnly() bool
-	exprNode()
 }
 
 type baseNode struct{}
@@ -77,9 +60,36 @@ func (n *baseNode) node() {}
 
 type baseDecl struct {
 	baseNode
+	Sym *Symbol
 }
 
 func (d *baseDecl) declNode() {}
+
+func (d *baseDecl) Symbol() *Symbol {
+	return d.Sym
+}
+
+// Color is used to color nodes during dfs when sorting dependencies.
+type Color int
+
+// The node colors.
+//
+// White: node not visited
+// Gray: node visit in progress
+// Black: node visit finished
+const (
+	WhiteColor Color = iota
+	GrayColor
+	BlackColor
+)
+
+type DeclDependencyGraph map[TopDecl][]DeclDependencyEdge
+
+type DeclDependencyEdge struct {
+	Sym    *Symbol
+	IsType bool
+	Pos    Position
+}
 
 type Directive struct {
 	Directive token.Token
@@ -88,41 +98,31 @@ type Directive struct {
 
 type baseTopDecl struct {
 	baseDecl
-	Sym        *Symbol
-	Ctx        *FileContext
+	color      Color
+	fileCtx    *FileContext
+	Deps       DeclDependencyGraph
 	Directives []Directive
 	Visibility token.Token
-
-	Deps  []TopDecl // Dependencies don't cross module boundaries
-	Color NodeColor
 }
 
-func (d *baseTopDecl) Symbol() *Symbol {
-	return d.Sym
+func (d *baseTopDecl) SetColor(color Color) {
+	d.color = color
 }
 
-func (d *baseTopDecl) SetContext(ctx *FileContext) {
-	d.Ctx = ctx
+func (d *baseTopDecl) Color() Color {
+	return d.color
 }
 
-func (d *baseTopDecl) Context() *FileContext {
-	return d.Ctx
+func (d *baseTopDecl) SetFileContext(ctx *FileContext) {
+	d.fileCtx = ctx
 }
 
-func (d *baseTopDecl) AddDependency(dep TopDecl) {
-	d.Deps = append(d.Deps, dep)
+func (d *baseTopDecl) FileContext() *FileContext {
+	return d.fileCtx
 }
 
-func (d *baseTopDecl) Dependencies() []TopDecl {
-	return d.Deps
-}
-
-func (d *baseTopDecl) SetNodeColor(color NodeColor) {
-	d.Color = color
-}
-
-func (d *baseTopDecl) NodeColor() NodeColor {
-	return d.Color
+func (d *baseTopDecl) DependencyGraph() *DeclDependencyGraph {
+	return &d.Deps
 }
 
 type BadDecl struct {
@@ -133,50 +133,10 @@ type BadDecl struct {
 
 func (d *BadDecl) Pos() token.Position { return d.From.Pos }
 
-// A ModuleSet is a collection of modules that make up the program.
-type ModuleSet struct {
-	baseNode
-	Modules []*Module
-}
-
-func (m *ModuleSet) Pos() token.Position { return token.NoPosition }
-
-func (m *ModuleSet) FindModule(fqn string) *Module {
-	for _, mod := range m.Modules {
-		if mod.FQN == fqn {
-			return mod
-		}
-	}
-	return nil
-}
-
-// A Module is a collection of files sharing the same namespace.
-type Module struct {
-	baseDecl
-	Path  string // To root file
-	FQN   string
-	Scope *Scope
-	Files []*File
-	Decls []TopDecl
-}
-
-func (m *Module) Pos() token.Position { return token.NoPosition }
-
-func (m *Module) FindFuncSymbol(name string) *Symbol {
-	for _, decl := range m.Decls {
-		sym := decl.Symbol()
-		if sym != nil && sym.ID == FuncSymbol {
-			if sym.Name == name {
-				return sym
-			}
-		}
-	}
-	return nil
-}
-
 type File struct {
-	Ctx  *FileContext
-	Deps []*FileDependency
+	baseNode
+	Ctx      *FileContext
+	FileDeps []*FileDependency
 }
 
 // Path returns the file path.
@@ -191,13 +151,9 @@ type FileContext struct {
 }
 
 type FileDependency struct {
-	baseDecl
 	Decl    token.Token
 	Literal token.Token
-	File    *File
 }
-
-func (i *FileDependency) Pos() token.Position { return i.Decl.Pos }
 
 type ValDeclSpec struct {
 	Decl        token.Token
@@ -222,7 +178,6 @@ func (d *ValTopDecl) Pos() token.Position {
 type ValDecl struct {
 	baseDecl
 	ValDeclSpec
-	Sym   *Symbol
 	Flags int
 }
 
@@ -237,16 +192,16 @@ func (d *ValDecl) Init() bool {
 // FuncDecl represents a function (with body) or a function signature.
 type FuncDecl struct {
 	baseTopDecl
-	Decl    token.Token
-	ABI     *Ident
-	Name    token.Token
-	Lparen  token.Token
-	Params  []*ValDecl
-	Rparen  token.Token
-	TReturn Expr
-	Body    *BlockStmt
-	Scope   *Scope
-	Flags   int
+	Decl   token.Token
+	ABI    *Ident
+	Name   token.Token
+	Lparen token.Token
+	Params []*ValDecl
+	Rparen token.Token
+	Return *ValDecl
+	Body   *BlockStmt
+	Scope  *Scope
+	Flags  int
 }
 
 func (d *FuncDecl) Pos() token.Position { return d.Decl.Pos }
@@ -413,14 +368,14 @@ type FuncTypeExpr struct {
 	Fun    token.Token
 	ABI    *Ident
 	Lparen token.Token
-	Params []Expr
+	Params []*ValDecl
 	Rparen token.Token
-	Return Expr
+	Return *ValDecl
 }
 
 func (x *FuncTypeExpr) Pos() token.Position { return x.Fun.Pos }
 func (x *FuncTypeExpr) EndPos() token.Position {
-	pos := x.Return.EndPos()
+	pos := x.Return.Type.EndPos()
 	if pos.IsValid() {
 		return pos
 	}

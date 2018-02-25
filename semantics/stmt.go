@@ -50,8 +50,8 @@ func (v *typeChecker) VisitForStmt(stmt *ir.ForStmt) {
 func (v *typeChecker) VisitReturnStmt(stmt *ir.ReturnStmt) {
 	mismatch := false
 
-	funDecl, _ := v.c.topDecl.(*ir.FuncDecl)
-	retType := funDecl.TReturn.Type()
+	funDecl, _ := v.c.topDecl().(*ir.FuncDecl)
+	retType := funDecl.Return.Type.Type()
 	if retType.ID() == ir.TUntyped {
 		return
 	}

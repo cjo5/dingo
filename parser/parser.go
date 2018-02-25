@@ -178,14 +178,14 @@ func (p *parser) parseFile() (*ir.File, []ir.TopDecl) {
 	for p.token.Is(token.Require) {
 		dep := p.parseRequire()
 		if dep != nil {
-			p.file.Deps = append(p.file.Deps, dep)
+			p.file.FileDeps = append(p.file.FileDeps, dep)
 		}
 	}
 
 	for !p.token.Is(token.EOF) {
 		decl := p.parseTopDecl()
 		if decl != nil {
-			decl.SetContext(p.file.Ctx)
+			decl.SetFileContext(p.file.Ctx)
 			p.decls = append(p.decls, decl)
 		}
 	}
@@ -353,7 +353,7 @@ func (p *parser) parseFuncDecl(visibility token.Token, directives []ir.Directive
 	decl.Name = p.token
 	p.expect(token.Ident)
 
-	decl.Lparen, decl.Params, decl.TReturn, decl.Rparen = p.parseFuncSignature()
+	decl.Lparen, decl.Params, decl.Return, decl.Rparen = p.parseFuncSignature()
 
 	if p.token.Is(token.Semicolon) {
 		return decl
@@ -367,7 +367,7 @@ func (p *parser) parseFuncDecl(visibility token.Token, directives []ir.Directive
 	return decl
 }
 
-func (p *parser) parseFuncSignature() (lparen token.Token, params []*ir.ValDecl, ret ir.Expr, rparen token.Token) {
+func (p *parser) parseFuncSignature() (lparen token.Token, params []*ir.ValDecl, ret *ir.ValDecl, rparen token.Token) {
 	lparen = p.token
 	p.expect(token.Lparen)
 
@@ -386,9 +386,13 @@ func (p *parser) parseFuncSignature() (lparen token.Token, params []*ir.ValDecl,
 	rparen = p.token
 	p.expect(token.Rparen)
 
-	ret = p.parseType(true)
-	if ret == nil {
-		ret = &ir.Ident{Name: token.Synthetic(token.Ident, ir.TVoid.String())}
+	ret = &ir.ValDecl{}
+	ret.Decl = token.Synthetic(token.Val, token.Val.String())
+	ret.Name = token.Synthetic(token.Underscore, token.Underscore.String())
+
+	ret.Type = p.parseType(true)
+	if ret.Type == nil {
+		ret.Type = &ir.Ident{Name: token.Synthetic(token.Ident, ir.TVoid.String())}
 	}
 
 	return
@@ -683,13 +687,7 @@ func (p *parser) parseFuncType() ir.Expr {
 		p.expect(token.Rbrack)
 	}
 
-	var params []*ir.ValDecl
-	fun.Lparen, params, fun.Return, fun.Rparen = p.parseFuncSignature()
-
-	for _, param := range params {
-		fun.Params = append(fun.Params, param.Type)
-	}
-
+	fun.Lparen, fun.Params, fun.Return, fun.Rparen = p.parseFuncSignature()
 	return fun
 }
 
@@ -954,10 +952,10 @@ func (p *parser) parseFuncLit() ir.Expr {
 		p.expect(token.Rbrack)
 	}
 
-	decl.Lparen, decl.Params, decl.TReturn, decl.Rparen = p.parseFuncSignature()
+	decl.Lparen, decl.Params, decl.Return, decl.Rparen = p.parseFuncSignature()
 	decl.Body = p.parseBlockStmt()
 
-	decl.SetContext(p.file.Ctx)
+	decl.SetFileContext(p.file.Ctx)
 	p.decls = append(p.decls, decl)
 
 	return &ir.Ident{Name: decl.Name}

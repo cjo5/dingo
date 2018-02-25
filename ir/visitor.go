@@ -8,7 +8,6 @@ type Visitor interface {
 
 	// Decls
 	VisitBadDecl(decl *BadDecl)
-	VisitFileDependency(decl *FileDependency)
 	VisitValTopDecl(decl *ValTopDecl)
 	VisitValDecl(decl *ValDecl)
 	VisitFuncDecl(decl *FuncDecl)
@@ -121,8 +120,6 @@ func VisitDecl(v Visitor, decl Decl) {
 	switch d := decl.(type) {
 	case *BadDecl:
 		v.VisitBadDecl(d)
-	case *FileDependency:
-		v.VisitFileDependency(d)
 	case *ValTopDecl:
 		v.VisitValTopDecl(d)
 	case *ValDecl:
@@ -204,17 +201,6 @@ func VisitExpr(v Visitor, expr Expr) Expr {
 	}
 }
 
-func StartWalk(v Visitor, node Node) {
-	switch t := node.(type) {
-	case *ModuleSet:
-		VisitModuleSet(v, t)
-	case *Module:
-		v.Module(t)
-	default:
-		VisitNode(v, node)
-	}
-}
-
 // VisitModuleSet will visit each module.
 func VisitModuleSet(v Visitor, set *ModuleSet) {
 	for _, mod := range set.Modules {
@@ -233,13 +219,6 @@ func VisitDeclList(v Visitor, decls []Decl) {
 func VisitTopDeclList(v Visitor, decls []TopDecl) {
 	for _, decl := range decls {
 		VisitDecl(v, decl)
-	}
-}
-
-// VisitFileDependencyList visits each include.
-func VisitFileDependencyList(v Visitor, decls []*FileDependency) {
-	for _, decl := range decls {
-		v.VisitFileDependency(decl)
 	}
 }
 
