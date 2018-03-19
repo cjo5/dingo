@@ -73,9 +73,9 @@ func build(files []string, config *common.BuildConfig, errors *common.ErrorList)
 		for _, mod := range set.Modules {
 			fmt.Println("Module", mod.FQN)
 			for _, file := range mod.Files {
-				fmt.Println("  File", file.Ctx.Path)
+				fmt.Println("  File", file.Filename)
 				for _, dep := range file.FileDeps {
-					fmt.Println("    Include", dep.Literal.Literal)
+					fmt.Println("    Include", dep.Literal)
 				}
 			}
 		}

@@ -110,7 +110,7 @@ func (v *typeChecker) VisitValDecl(decl *ir.ValDecl) {
 
 func (v *typeChecker) warnUnusedDirectives(directives []ir.Directive) {
 	for _, dir := range directives {
-		v.c.warning(dir.Directive.Pos, "unused directive %s%s", dir.Directive.Literal, dir.Name.Literal)
+		v.c.warning(dir.Directive.Pos, "unused directive %s%s", dir.Directive.String(), dir.Name.Literal)
 	}
 }
 
@@ -118,8 +118,8 @@ func (v *typeChecker) checkCABI(abi *ir.Ident) bool {
 	if abi == nil {
 		return false
 	}
-	if abi.Literal() != ir.CABI {
-		v.c.error(abi.Pos(), "unknown abi '%s'", abi.Literal())
+	if abi.Literal != ir.CABI {
+		v.c.error(abi.Pos(), "unknown abi '%s'", abi.Literal)
 		return false
 	}
 	return true
@@ -179,7 +179,7 @@ func (v *typeChecker) visitValDeclSpec(sym *ir.Symbol, decl *ir.ValDeclSpec, def
 			}
 		}
 	} else if decl.Type == nil {
-		v.c.error(decl.Name.Pos, "missing type or initializer")
+		v.c.error(decl.Name.Pos(), "missing type or initializer")
 		t = ir.TBuiltinUntyped
 	} else if defaultInit {
 		decl.Initializer = createDefaultLit(t)
@@ -224,8 +224,8 @@ func (v *typeChecker) VisitFuncDecl(decl *ir.FuncDecl) {
 		if !untyped {
 			tfun = ir.NewFuncType(tparams, tret, c)
 			if decl.Sym.T != nil && !checkTypes(v.c, decl.Sym.T, tfun) {
-				v.c.error(decl.Name.Pos, "redeclaration of '%s' (previously declared with a different signature at %s)",
-					decl.Name.Literal, v.c.fmtSymPos(decl.Sym.DeclPos))
+				v.c.error(decl.Name.Pos(), "redeclaration of '%s' (previously declared with a different signature at %s)",
+					decl.Name.Literal, decl.Sym.DeclPos)
 			}
 		}
 
@@ -257,7 +257,7 @@ func (v *typeChecker) VisitFuncDecl(decl *ir.FuncDecl) {
 		if decl.Return.Type.Type().ID() != ir.TVoid {
 			v.c.error(decl.Body.Rbrace.Pos, "missing return")
 		} else {
-			tok := token.Synthetic(token.Return, "return")
+			tok := token.Synthetic(token.Return)
 			returnStmt := &ir.ReturnStmt{Return: tok}
 			decl.Body.Stmts = append(decl.Body.Stmts, returnStmt)
 		}

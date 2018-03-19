@@ -36,13 +36,12 @@ func (id MessageID) String() string {
 }
 
 type Error struct {
-	Filename string
-	Pos      token.Position
-	EndPos   token.Position
-	ID       MessageID
-	Msg      string
-	Trace    Trace
-	Context  []string
+	Pos     token.Position
+	EndPos  token.Position
+	ID      MessageID
+	Msg     string
+	Trace   Trace
+	Context []string
 }
 
 type ErrorList struct {
@@ -54,8 +53,8 @@ func NewTrace(title string, lines []string) Trace {
 	return Trace{Title: title, Lines: lines}
 }
 
-func NewError(filename string, pos token.Position, endPos token.Position, id MessageID, msg string) *Error {
-	return &Error{Filename: filename, Pos: pos, EndPos: endPos, ID: id, Msg: msg}
+func NewError(pos token.Position, endPos token.Position, id MessageID, msg string) *Error {
+	return &Error{Pos: pos, EndPos: endPos, ID: id, Msg: msg}
 }
 
 func (t Trace) write(buf *bytes.Buffer) {
@@ -73,10 +72,10 @@ func (t Trace) write(buf *bytes.Buffer) {
 func (e Error) Error() string {
 	msg := ""
 
-	if e.Pos.IsValid() && len(e.Filename) > 0 {
-		msg = fmt.Sprintf("%s:%s: %s: %s", e.Filename, e.Pos, e.ID, e.Msg)
-	} else if len(e.Filename) > 0 {
-		msg = fmt.Sprintf("%s: %s: %s", e.Filename, e.ID, e.Msg)
+	if e.Pos.IsValid() {
+		msg = fmt.Sprintf("%s: %s: %s", e.Pos, e.ID, e.Msg)
+	} else if len(e.Pos.Filename) > 0 {
+		msg = fmt.Sprintf("%s: %s: %s", e.Pos.Filename, e.ID, e.Msg)
 	} else {
 		msg = fmt.Sprintf("%s: %s", e.ID, e.Msg)
 	}
@@ -96,23 +95,28 @@ func (e Error) Error() string {
 	return buf.String()
 }
 
-func (e *ErrorList) Add(filename string, pos token.Position, endPos token.Position, format string, args ...interface{}) {
-	err := NewError(filename, pos, endPos, ErrorMsg, fmt.Sprintf(format, args...))
+func (e *ErrorList) Add(pos token.Position, format string, args ...interface{}) {
+	err := NewError(pos, pos, ErrorMsg, fmt.Sprintf(format, args...))
 	e.Errors = append(e.Errors, err)
 }
 
-func (e *ErrorList) AddTrace(filename string, pos token.Position, endPos token.Position, trace Trace, format string, args ...interface{}) {
-	err := NewError(filename, pos, endPos, ErrorMsg, fmt.Sprintf(format, args...))
+func (e *ErrorList) AddRange(pos token.Position, endPos token.Position, format string, args ...interface{}) {
+	err := NewError(pos, endPos, ErrorMsg, fmt.Sprintf(format, args...))
+	e.Errors = append(e.Errors, err)
+}
+
+func (e *ErrorList) AddTrace(pos token.Position, trace Trace, format string, args ...interface{}) {
+	err := NewError(pos, pos, ErrorMsg, fmt.Sprintf(format, args...))
 	err.Trace = trace
 	e.Errors = append(e.Errors, err)
 }
 
-func (e *ErrorList) AddWarning(filename string, pos token.Position, endPos token.Position, format string, args ...interface{}) {
-	err := NewError(filename, pos, endPos, WarningMsg, fmt.Sprintf(format, args...))
+func (e *ErrorList) AddWarning(pos token.Position, format string, args ...interface{}) {
+	err := NewError(pos, pos, WarningMsg, fmt.Sprintf(format, args...))
 	e.Warnings = append(e.Warnings, err)
 }
 
-func (e *ErrorList) AddGeneric3(filename string, pos token.Position, err error) {
+func (e *ErrorList) AddGeneric3(pos token.Position, err error) {
 	switch t := err.(type) {
 	case *ErrorList:
 		e.Append(t)
@@ -123,12 +127,12 @@ func (e *ErrorList) AddGeneric3(filename string, pos token.Position, err error) 
 			e.Errors = append(e.Errors, t)
 		}
 	default:
-		e.Add(filename, pos, pos, err.Error())
+		e.Add(pos, err.Error())
 	}
 }
 
 func (e *ErrorList) AddGeneric1(err error) {
-	e.AddGeneric3("", token.NoPosition, err)
+	e.AddGeneric3(token.NoPosition, err)
 }
 
 func (e *ErrorList) Append(other *ErrorList) {
@@ -156,9 +160,9 @@ func loadContext1(errors []*Error) {
 	for _, e := range errors {
 		e.Context = nil
 		if e.Pos.IsValid() {
-			if e.Filename != filename {
+			if e.Pos.Filename != filename {
 				buf = nil
-				filename = e.Filename
+				filename = e.Pos.Filename
 				if len(filename) > 0 {
 					buf2, err := ioutil.ReadFile(filename)
 					if err == nil {
@@ -265,9 +269,9 @@ type byFileAndLineNumber []*Error
 func (e byFileAndLineNumber) Len() int      { return len(e) }
 func (e byFileAndLineNumber) Swap(i, j int) { e[i], e[j] = e[j], e[i] }
 func (e byFileAndLineNumber) Less(i, j int) bool {
-	if e[i].Filename < e[j].Filename {
+	if e[i].Pos.Filename < e[j].Pos.Filename {
 		return true
-	} else if e[i].Filename == e[j].Filename {
+	} else if e[i].Pos.Filename == e[j].Pos.Filename {
 		return e[i].Pos.Line < e[j].Pos.Line
 	}
 	return false

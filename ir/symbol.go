@@ -32,19 +32,14 @@ type Symbol struct {
 	Parent  *Scope
 	Public  bool
 	Name    string
-	DeclPos Position
-	DefPos  Position // Different from DeclPos if symbol was declared before defined
+	DeclPos token.Position
+	DefPos  token.Position // Different from DeclPos if symbol was declared before defined
 	T       Type
 	Flags   int
 }
 
-// NewPosition creates a new position.
-func NewPosition(filename string, pos token.Position) Position {
-	return Position{Pos: pos, Filename: filename}
-}
-
 // NewSymbol creates a new symbol.
-func NewSymbol(id SymbolID, parent *Scope, public bool, name string, pos Position) *Symbol {
+func NewSymbol(id SymbolID, parent *Scope, public bool, name string, pos token.Position) *Symbol {
 	return &Symbol{ID: id, Parent: parent, Public: public, Name: name, DeclPos: pos, DefPos: pos, Flags: 0}
 }
 

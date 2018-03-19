@@ -47,11 +47,11 @@ func sortDecls(c *context) {
 				trace := common.NewTrace("", nil)
 				for i := len(cycleTrace) - 1; i >= 0; i-- {
 					s := cycleTrace[i].Symbol()
-					line := c.fmtSymPos(s.DefPos) + ":" + s.Name
+					line := s.DefPos.String() + ":" + s.Name
 					trace.Lines = append(trace.Lines, line)
 				}
 
-				c.errors.AddTrace(sym.DefPos.Filename, sym.DefPos.Pos, sym.DefPos.Pos, trace, "cycle detected")
+				c.errors.AddTrace(sym.DefPos, trace, "cycle detected")
 			}
 		}
 		mod.Decls = sortedDecls
@@ -257,8 +257,8 @@ func (v *depChecker) VisitArrayLit(expr *ir.ArrayLit) ir.Expr {
 }
 
 func (v *depChecker) VisitIdent(expr *ir.Ident) ir.Expr {
-	sym := v.c.lookup(expr.Literal())
-	v.tryAddDependency(sym, expr.Name.Pos)
+	sym := v.c.lookup(expr.Literal)
+	v.tryAddDependency(sym, expr.Tok.Pos)
 	return expr
 }
 
@@ -267,7 +267,7 @@ func (v *depChecker) tryAddDependency(sym *ir.Symbol, pos token.Position) {
 		if decl, ok := v.c.decls[sym]; ok {
 			edge := ir.DeclDependencyEdge{Sym: v.declSym}
 			edge.IsType = v.exprMode == exprModeType
-			edge.Pos = ir.NewPosition(v.c.filename(), pos)
+			edge.Pos = pos
 			graph := v.c.topDecl().DependencyGraph()
 			(*graph)[decl] = append((*graph)[decl], edge)
 		}
@@ -276,12 +276,12 @@ func (v *depChecker) tryAddDependency(sym *ir.Symbol, pos token.Position) {
 
 func (v *depChecker) VisitDotExpr(expr *ir.DotExpr) ir.Expr {
 	if ident, ok := expr.X.(*ir.Ident); ok {
-		sym := v.c.lookup(ident.Literal())
+		sym := v.c.lookup(ident.Literal)
 		if sym != nil && sym.ID == ir.ModuleSymbol {
 			defer setScope(setScope(v.c, sym.Parent))
 			v.VisitIdent(expr.Name)
 		} else {
-			v.tryAddDependency(sym, ident.Name.Pos)
+			v.tryAddDependency(sym, ident.Tok.Pos)
 		}
 	} else {
 		ir.VisitExpr(v, expr.X)

@@ -29,14 +29,14 @@ func (m *ModuleSet) ResetDeclColors() {
 // A Module is a collection of files sharing the same namespace.
 type Module struct {
 	ID    int
-	Path  string // To root file
+	Path  token.Position
 	FQN   string
 	Scope *Scope
 	Files []*File
 	Decls []TopDecl
 }
 
-func (m *Module) Pos() token.Position { return token.NoPosition }
+func (m *Module) Pos() token.Position { return m.Path }
 
 func (m *Module) FindFuncSymbol(name string) *Symbol {
 	for _, decl := range m.Decls {

@@ -28,10 +28,10 @@ func (v *symChecker) Module(mod *ir.Module) {
 	v.c.closeScope()
 }
 
-func (v *symChecker) isTypeName(name token.Token) bool {
+func (v *symChecker) isTypeName(name *ir.Ident) bool {
 	if sym := v.c.lookup(name.Literal); sym != nil {
 		if sym.ID == ir.TypeSymbol {
-			v.c.error(name.Pos, "%s is a type and cannot be used as an identifier", name.Literal)
+			v.c.error(name.Pos(), "%s is a type and cannot be used as an identifier", name.Literal)
 			return true
 		}
 	}
@@ -45,16 +45,16 @@ func isPublic(tok token.Token) bool {
 func (v *symChecker) VisitValTopDecl(decl *ir.ValTopDecl) {
 	decl.Deps = make(ir.DeclDependencyGraph)
 	if !v.isTypeName(decl.Name) {
-		decl.Sym = v.c.insert(v.c.scope, ir.ValSymbol, isPublic(decl.Visibility), decl.Name.Literal, decl.Name.Pos)
+		decl.Sym = v.c.insert(v.c.scope, ir.ValSymbol, isPublic(decl.Visibility), decl.Name.Literal, decl.Name.Pos())
 		v.c.mapTopDecl(decl.Sym, decl)
 	}
 }
 
 func (v *symChecker) VisitValDecl(decl *ir.ValDecl) {
-	if decl.Name.ID == token.Underscore {
-		decl.Sym = ir.NewSymbol(ir.ValSymbol, nil, false, decl.Name.Literal, v.c.newSymPos(decl.Name.Pos))
+	if decl.Name.Tok.ID == token.Underscore {
+		decl.Sym = ir.NewSymbol(ir.ValSymbol, nil, false, decl.Name.Literal, decl.Name.Pos())
 	} else if !v.isTypeName(decl.Name) {
-		decl.Sym = v.c.insert(v.c.scope, ir.ValSymbol, false, decl.Name.Literal, decl.Name.Pos)
+		decl.Sym = v.c.insert(v.c.scope, ir.ValSymbol, false, decl.Name.Literal, decl.Name.Pos())
 	}
 }
 
@@ -68,7 +68,7 @@ func (v *symChecker) VisitFuncDecl(decl *ir.FuncDecl) {
 	}
 
 	if decl.Sym == nil {
-		decl.Sym = v.c.insert(v.c.scope, ir.FuncSymbol, isPublic(decl.Visibility), decl.Name.Literal, decl.Name.Pos)
+		decl.Sym = v.c.insert(v.c.scope, ir.FuncSymbol, isPublic(decl.Visibility), decl.Name.Literal, decl.Name.Pos())
 		v.c.mapTopDecl(decl.Sym, decl)
 	}
 
@@ -93,12 +93,12 @@ func (v *symChecker) VisitFuncDecl(decl *ir.FuncDecl) {
 
 	if decl.SignatureOnly() {
 		if !public {
-			v.c.error(decl.Name.Pos, "'%s' is not declared as public", decl.Name.Literal)
+			v.c.error(decl.Name.Pos(), "'%s' is not declared as public", decl.Name.Literal)
 			return
 		}
 	} else {
 		decl.Sym.Flags |= ir.SymFlagDefined
-		decl.Sym.DefPos = v.c.newSymPos(decl.Name.Pos)
+		decl.Sym.DefPos = decl.Name.Pos()
 	}
 
 	if public != decl.Sym.Public {
@@ -106,15 +106,15 @@ func (v *symChecker) VisitFuncDecl(decl *ir.FuncDecl) {
 		if decl.Sym.Public {
 			vis = "public"
 		}
-		v.c.error(decl.Name.Pos, "redeclaration of '%s' (previously declared as %s at %s)",
-			decl.Name.Literal, vis, v.c.fmtSymPos(decl.Sym.DeclPos))
+		v.c.error(decl.Name.Pos(), "redeclaration of '%s' (previously declared as %s at %s)",
+			decl.Name.Literal, vis, decl.Sym.DeclPos)
 	}
 }
 
 func (v *symChecker) VisitStructDecl(decl *ir.StructDecl) {
 	decl.Deps = make(ir.DeclDependencyGraph)
 
-	decl.Sym = v.c.insert(v.c.scope, ir.TypeSymbol, isPublic(decl.Visibility), decl.Name.Literal, decl.Name.Pos)
+	decl.Sym = v.c.insert(v.c.scope, ir.TypeSymbol, isPublic(decl.Visibility), decl.Name.Literal, decl.Name.Pos())
 	decl.Scope = ir.NewScope(ir.FieldScope, nil)
 
 	if decl.Sym != nil {

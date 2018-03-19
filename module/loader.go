@@ -16,11 +16,11 @@ import (
 
 const fileExtension = ".dg"
 
-var emptyPath = requirePath{"", ""}
+var emptyPath = requirePath{token.NoPosition, token.NoPosition}
 
 type requirePath struct {
-	canonical string // Used to determine if two paths refer to the same file
-	actual    string // The actual (cleaned) path in the code
+	canonical token.Position // Used to determine if two paths refer to the same file
+	actual    token.Position // The actual (cleaned) path in the code
 }
 
 type fileDependency struct {
@@ -77,16 +77,16 @@ func newLoader() *loader {
 }
 
 func (l *loader) loadModule(path requirePath) *ir.Module {
-	rootFile, rootDecls, err := parser.ParseFile(path.actual)
+	rootFile, rootDecls, err := parser.ParseFile(path.actual.Filename)
 	if err != nil {
-		l.errors.AddGeneric3(path.actual, token.NoPosition, err)
+		l.errors.AddGeneric3(path.actual, err)
 		return nil
 	}
 
 	mod := &ir.Module{}
 	mod.FQN = ""
-	if rootFile.Ctx.ModName != nil {
-		mod.FQN = ir.ExprToModuleFQN(rootFile.Ctx.ModName)
+	if rootFile.ModName != nil {
+		mod.FQN = ir.ExprToModuleFQN(rootFile.ModName)
 	}
 	mod.Path = path.actual
 	mod.Files = append(mod.Files, rootFile)
@@ -107,9 +107,9 @@ func (l *loader) loadModule(path requirePath) *ir.Module {
 				continue
 			}
 
-			depFile, depDecls, err := parser.ParseFile(dep.path.actual)
+			depFile, depDecls, err := parser.ParseFile(dep.path.actual.Filename)
 			if err != nil {
-				l.errors.AddGeneric3(dep.path.actual, token.NoPosition, err)
+				l.errors.AddGeneric3(dep.path.actual, err)
 				continue
 			}
 
@@ -128,54 +128,60 @@ func (l *loader) loadModule(path requirePath) *ir.Module {
 }
 
 func normalizePath(cwd string, rel string, path string) (requirePath, error) {
-	normPath := emptyPath
+	actual := ""
+	canonical := ""
 	if filepath.IsAbs(path) {
-		normPath.actual = filepath.Clean(path)
-		normPath.canonical = normPath.actual
+		actual = filepath.Clean(path)
+		canonical = actual
 	} else {
-		normPath.actual = filepath.Join(rel, path)
-		if !strings.HasPrefix(normPath.actual, ".") {
-			normPath.actual = "./" + normPath.actual
+		actual = filepath.Join(rel, path)
+		if !strings.HasPrefix(actual, ".") {
+			actual = "./" + actual
 		}
-		normPath.canonical = filepath.Join(cwd, rel, path)
+		canonical = filepath.Join(cwd, rel, path)
 	}
 
-	stat, err := os.Stat(normPath.actual)
+	stat, err := os.Stat(actual)
 	if err == nil {
 		if stat.IsDir() {
-			return emptyPath, fmt.Errorf("%s is a directory", normPath.actual)
+			return emptyPath, fmt.Errorf("%s is a directory", actual)
 		}
+
+		normPath := requirePath{}
+		normPath.actual = token.NewPosition1(actual)
+		normPath.canonical = token.NewPosition1(canonical)
+
 		return normPath, nil
 	} else if !os.IsNotExist(err) {
 		return emptyPath, err
 	}
 
 	// Failed to find file
-	return emptyPath, fmt.Errorf("failed to find file %s", normPath.actual)
+	return emptyPath, fmt.Errorf("failed to find file %s", actual)
 }
 
 func (l *loader) createDependencyList(loadedFile *file) bool {
-	parentDir := filepath.Dir(loadedFile.path.actual)
+	parentDir := filepath.Dir(loadedFile.path.actual.Filename)
 
 	for _, dep := range loadedFile.file.FileDeps {
-		unquoted, err := strconv.Unquote(dep.Literal.Literal)
+		unquoted, err := strconv.Unquote(dep.Literal)
 		if err != nil {
-			l.errors.AddGeneric3(loadedFile.path.actual, dep.Literal.Pos, err)
+			l.errors.AddGeneric3(dep.Tok.Pos, err)
 			break
 		}
 
 		if len(unquoted) == 0 {
-			l.errors.AddTrace(loadedFile.path.actual, dep.Literal.Pos, dep.Literal.Pos, l.getRequiredByTrace(loadedFile), "invalid path")
+			l.errors.AddTrace(dep.Tok.Pos, l.getRequiredByTrace(loadedFile), "invalid path")
 			continue
 		}
 
 		normPath, err := normalizePath(l.cwd, parentDir, unquoted)
 		if err != nil {
-			l.errors.AddGeneric3(loadedFile.path.actual, dep.Literal.Pos, err)
+			l.errors.AddGeneric3(dep.Tok.Pos, err)
 			continue
 		}
 
-		foundFile := l.findLoadedFile(normPath.canonical)
+		foundFile := l.findLoadedFile(normPath.canonical.Filename)
 		loadedFile.deps = append(loadedFile.deps, &fileDependency{file: foundFile, dep: dep, path: normPath})
 	}
 
@@ -188,7 +194,7 @@ func (l *loader) createDependencyList(loadedFile *file) bool {
 
 func (l *loader) findLoadedFile(path string) *file {
 	for _, file := range l.loadedFiles {
-		if file.path.canonical == path {
+		if file.path.canonical.Filename == path {
 			return file
 		}
 	}
@@ -198,7 +204,7 @@ func (l *loader) findLoadedFile(path string) *file {
 func (l *loader) getRequiredByTrace(loadedFile *file) common.Trace {
 	var trace []string
 	for file := loadedFile; file != nil; {
-		trace = append(trace, file.path.actual)
+		trace = append(trace, file.path.actual.Filename)
 		file = file.requiredBy
 	}
 	return common.NewTrace("required by:", trace)

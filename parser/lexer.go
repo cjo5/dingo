@@ -30,13 +30,13 @@ func (l *lexer) init(src []byte, filename string, errors *common.ErrorList) {
 	l.next()
 }
 
-func (l *lexer) lex() token.Token {
+func (l *lexer) lex() (token.Token, string) {
 	l.skipWhitespace(false)
 
 	startOffset := 0
+	literal := ""
 	tok := token.Token{
-		Literal: "",
-		ID:      token.Invalid,
+		ID: token.Invalid,
 	}
 
 	// Insert semicolon if needed
@@ -47,9 +47,10 @@ func (l *lexer) lex() token.Token {
 			tok.Pos = l.newPos()
 			startOffset = l.chOffset
 			l.next()
-			tok.Literal = string(l.src[startOffset:l.chOffset])
+			literal = string(l.src[startOffset:l.chOffset])
+			tok.Pos.Length = len(literal)
 			l.prev = tok.ID
-			return tok
+			return tok, literal
 		}
 
 		l.skipWhitespace(true)
@@ -61,7 +62,7 @@ func (l *lexer) lex() token.Token {
 
 	switch ch1 := l.ch; {
 	case isLetter(ch1):
-		tok.ID, tok.Literal = l.lexIdent()
+		tok.ID, literal = l.lexIdent()
 	case isDigit(ch1, 10):
 		tok.ID = l.lexNumber(false, pos)
 	case ch1 == '"':
@@ -156,12 +157,13 @@ func (l *lexer) lex() token.Token {
 		}
 	}
 
-	if len(tok.Literal) == 0 {
-		tok.Literal = string(l.src[startOffset:l.chOffset])
+	if len(literal) == 0 {
+		literal = string(l.src[startOffset:l.chOffset])
 	}
 
+	tok.Pos.Length = len(literal)
 	l.prev = tok.ID
-	return tok
+	return tok, literal
 }
 
 func isLineTerminator(id token.ID) bool {
@@ -224,11 +226,11 @@ func (l *lexer) newPos() token.Position {
 	if col <= 0 {
 		col = 1
 	}
-	return token.Position{Line: l.lineCount, Column: col, Offset: l.chOffset}
+	return token.Position{Filename: l.filename, Offset: l.chOffset, Length: 0, Line: l.lineCount, Column: col}
 }
 
 func (l *lexer) error(pos token.Position, msg string) {
-	l.errors.Add(l.filename, pos, pos, msg)
+	l.errors.Add(pos, msg)
 }
 
 func (l *lexer) skipWhitespace(newline bool) {

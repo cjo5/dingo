@@ -1,6 +1,7 @@
 package token
 
 import (
+	"bytes"
 	"fmt"
 	"strconv"
 )
@@ -202,20 +203,38 @@ func (tok ID) String() string {
 
 // Position of token in a file.
 type Position struct {
-	Offset int
-	Line   int
-	Column int
+	Filename string
+	Offset   int
+	Length   int
+	Line     int
+	Column   int
 }
 
-func NewPosition(line, column int) Position {
-	return Position{Line: line, Column: column}
+func NewPosition1(filename string) Position {
+	return Position{Filename: filename, Offset: 0, Length: 0, Line: -1, Column: -1}
 }
 
 // NoPosition means it wasn't part of a file.
-var NoPosition = Position{-1, -1, 0}
+var NoPosition = Position{Filename: "", Offset: 0, Length: 0, Line: -1, Column: -1}
 
 func (p Position) String() string {
-	return fmt.Sprintf("%d:%d", p.Line, p.Column)
+	var buf bytes.Buffer
+	if len(p.Filename) > 0 {
+		buf.WriteString(p.Filename)
+	}
+
+	if p.Line > -1 {
+		if buf.Len() > 0 {
+			buf.WriteString(":")
+		}
+		buf.WriteString(fmt.Sprintf("%d:%d", p.Line, p.Column))
+	}
+
+	if buf.Len() > 0 {
+		return buf.String()
+	}
+
+	return "-"
 }
 
 // IsValid returns true if it's a valid file position.
@@ -225,25 +244,21 @@ func (p Position) IsValid() bool {
 
 // Token struct.
 type Token struct {
-	ID      ID
-	Literal string
-	Pos     Position
+	ID  ID
+	Pos Position
 }
 
 // Synthetic creates a token that does not have a representation in the source code.
-func Synthetic(id ID, literal string) Token {
-	return Token{ID: id, Literal: literal, Pos: Position{Line: -1, Column: -1}}
+func Synthetic(id ID) Token {
+	return Token{ID: id, Pos: NoPosition}
 }
 
 func (t Token) String() string {
-	if t.ID == Ident || t.ID == String || t.ID == Integer || t.ID == Float {
-		return fmt.Sprintf("%s: %s", t.Pos, t.Literal)
-	}
 	return fmt.Sprintf("%s: %v", t.Pos, t.ID)
 }
 
-func (t Token) Quote() string {
-	s := strconv.Quote(t.Literal)
+func Quote(literal string) string {
+	s := strconv.Quote(literal)
 	i := len(s) - 1
 	return s[1:i]
 }
@@ -277,19 +292,4 @@ func (t Token) OneOf(ids ...ID) bool {
 // Is returns true if ID matches.
 func (t Token) Is(id ID) bool {
 	return t.ID == id
-}
-
-// EndPos returns the position of the last literal character.
-func (t Token) EndPos() Position {
-	if !t.Pos.IsValid() {
-		return t.Pos
-	}
-
-	n := len(t.Literal)
-	if n > 0 {
-		n--
-	}
-
-	pos := Position{Line: t.Pos.Line, Column: t.Pos.Column + n, Offset: t.Pos.Offset + n}
-	return pos
 }

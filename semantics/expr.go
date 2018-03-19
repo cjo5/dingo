@@ -58,16 +58,16 @@ func (v *typeChecker) tryMakeTypedLit(expr ir.Expr, target ir.Type) bool {
 			}
 
 			if castResult == numericCastOverflows {
-				v.c.error(lit.Value.Pos, "constant expression %s overflows %s", lit.Value.Literal, target)
+				v.c.error(lit.Tok.Pos, "constant expression %s overflows %s", lit.Value, target)
 			} else if castResult == numericCastTruncated {
-				v.c.error(lit.Value.Pos, "type mismatch: constant float expression %s not compatible with %s", lit.Value.Literal, target)
+				v.c.error(lit.Tok.Pos, "type mismatch: constant float expression %s not compatible with %s", lit.Value, target)
 			} else {
 				panic(fmt.Sprintf("Unhandled numeric cast result %d", castResult))
 			}
 
 			return false
 		} else if ir.IsTypeID(expr.Type(), ir.TPointer) && ir.IsTypeID(target, ir.TSlice, ir.TPointer, ir.TFunc) {
-			common.Assert(lit.Value.ID == token.Null, "pointer literal should be null")
+			common.Assert(lit.Tok.ID == token.Null, "pointer literal should be null")
 			tpointer := expr.Type().(*ir.PointerType)
 			if ir.IsUntyped(tpointer.Underlying) {
 				switch ttarget := target.(type) {
@@ -141,7 +141,7 @@ func tryDeref(expr ir.Expr) ir.Expr {
 		}
 	}
 	if tres != nil {
-		star := token.Synthetic(token.Mul, token.Mul.String())
+		star := token.Synthetic(token.Mul)
 		starX := &ir.UnaryExpr{Op: star, X: expr}
 		starX.T = tres
 		return starX
@@ -374,15 +374,15 @@ func (v *typeChecker) VisitBinaryExpr(expr *ir.BinaryExpr) ir.Expr {
 				if ir.IsTypeID(typeNotSupported, ir.TUntyped) {
 					if boolOp {
 						if boolRes {
-							leftLit.Value.ID = token.True
+							leftLit.Tok.ID = token.True
 						} else {
-							leftLit.Value.ID = token.False
+							leftLit.Tok.ID = token.False
 						}
 						leftLit.T = ir.NewBasicType(ir.TBool)
 						leftLit.Raw = nil
 					}
 
-					leftLit.Value.Literal = "(" + leftLit.Value.Literal + " " + expr.Op.Literal + " " + rightLit.Value.Literal + ")"
+					leftLit.Value = "(" + leftLit.Value + " " + expr.Op.String() + " " + rightLit.Value + ")"
 					leftLit.Rewrite++
 					return leftLit
 				}
@@ -406,8 +406,8 @@ func (v *typeChecker) VisitBinaryExpr(expr *ir.BinaryExpr) ir.Expr {
 
 			leftPtr := leftType.(*ir.PointerType)
 			rightPtr := rightType.(*ir.PointerType)
-			leftNull := leftLit != nil && leftLit.Value.Is(token.Null)
-			rightNull := rightLit != nil && rightLit.Value.Is(token.Null)
+			leftNull := leftLit != nil && leftLit.Tok.Is(token.Null)
+			rightNull := rightLit != nil && rightLit.Tok.Is(token.Null)
 
 			if leftNull && rightNull {
 				leftLit.T = ir.NewPointerType(ir.NewBasicType(ir.TUInt8), false)
@@ -469,11 +469,11 @@ func (v *typeChecker) VisitUnaryExpr(expr *ir.UnaryExpr) ir.Expr {
 				panic(fmt.Sprintf("Unhandled raw type %T", n))
 			}
 
-			lit.Value.Pos = expr.Op.Pos
+			lit.Tok.Pos = expr.Op.Pos
 			if lit.Rewrite > 0 {
-				lit.Value.Literal = "(" + lit.Value.Literal + ")"
+				lit.Value = "(" + lit.Value + ")"
 			}
-			lit.Value.Literal = expr.Op.Literal + lit.Value.Literal
+			lit.Value = expr.Op.String() + lit.Value
 			lit.Rewrite++
 			lit.Raw = raw
 			return lit
@@ -570,29 +570,29 @@ func removeUnderscores(lit string) string {
 }
 
 func (v *typeChecker) VisitBasicLit(expr *ir.BasicLit) ir.Expr {
-	if expr.Value.ID == token.False || expr.Value.ID == token.True {
+	if expr.Tok.ID == token.False || expr.Tok.ID == token.True {
 		expr.T = ir.TBuiltinBool
-	} else if expr.Value.ID == token.String {
+	} else if expr.Tok.ID == token.String {
 		if expr.Raw == nil {
-			raw := unescapeStringLiteral(expr.Value.Literal)
+			raw := unescapeStringLiteral(expr.Value)
 			if expr.Prefix == nil {
 				expr.T = ir.NewSliceType(ir.TBuiltinInt8, true, true)
 				expr.Raw = raw
-			} else if expr.Prefix.Literal() == "c" {
+			} else if expr.Prefix.Literal == "c" {
 				expr.T = ir.NewPointerType(ir.TBuiltinInt8, true)
 				expr.Raw = raw
 			} else {
-				v.c.error(expr.Prefix.Pos(), "invalid string prefix '%s'", expr.Prefix.Literal())
+				v.c.error(expr.Prefix.Pos(), "invalid string prefix '%s'", expr.Prefix.Literal)
 				expr.T = ir.TBuiltinUntyped
 			}
 		}
-	} else if expr.Value.ID == token.Integer {
+	} else if expr.Tok.ID == token.Integer {
 		if expr.Raw == nil {
 			base := ir.TBigInt
 			target := ir.TBigInt
 
 			if expr.Suffix != nil {
-				switch expr.Suffix.Literal() {
+				switch expr.Suffix.Literal {
 				case ir.TFloat64.String():
 					base = ir.TBigFloat
 					target = ir.TFloat64
@@ -616,13 +616,13 @@ func (v *typeChecker) VisitBasicLit(expr *ir.BasicLit) ir.Expr {
 				case ir.TInt8.String():
 					target = ir.TInt8
 				default:
-					v.c.error(expr.Suffix.Pos(), "invalid int suffix '%s'", expr.Suffix.Literal())
+					v.c.error(expr.Suffix.Pos(), "invalid int suffix '%s'", expr.Suffix.Literal)
 					base = ir.TUntyped
 				}
 			}
 
 			if base != ir.TUntyped {
-				normalized := removeUnderscores(expr.Value.Literal)
+				normalized := removeUnderscores(expr.Value)
 
 				if base == ir.TBigInt {
 					val := big.NewInt(0)
@@ -644,7 +644,7 @@ func (v *typeChecker) VisitBasicLit(expr *ir.BasicLit) ir.Expr {
 						v.tryMakeTypedLit(expr, ir.NewBasicType(target))
 					}
 				} else {
-					v.c.error(expr.Value.Pos, "unable to interpret int literal '%s'", normalized)
+					v.c.error(expr.Tok.Pos, "unable to interpret int literal '%s'", normalized)
 				}
 			}
 
@@ -652,26 +652,26 @@ func (v *typeChecker) VisitBasicLit(expr *ir.BasicLit) ir.Expr {
 				expr.T = ir.TBuiltinUntyped
 			}
 		}
-	} else if expr.Value.ID == token.Float {
+	} else if expr.Tok.ID == token.Float {
 		if expr.Raw == nil {
 			base := ir.TBigFloat
 			target := ir.TBigFloat
 
 			if expr.Suffix != nil {
-				switch expr.Suffix.Literal() {
+				switch expr.Suffix.Literal {
 				case ir.TFloat64.String():
 					target = ir.TFloat64
 				case ir.TFloat32.String():
 					target = ir.TFloat32
 				default:
-					v.c.error(expr.Suffix.Pos(), "invalid float suffix '%s'", expr.Suffix.Literal())
+					v.c.error(expr.Suffix.Pos(), "invalid float suffix '%s'", expr.Suffix.Literal)
 					base = ir.TUntyped
 				}
 			}
 
 			if base != ir.TUntyped {
 				val := big.NewFloat(0)
-				normalized := removeUnderscores(expr.Value.Literal)
+				normalized := removeUnderscores(expr.Value)
 				_, ok := val.SetString(normalized)
 				if ok {
 					expr.T = ir.NewBasicType(base)
@@ -681,7 +681,7 @@ func (v *typeChecker) VisitBasicLit(expr *ir.BasicLit) ir.Expr {
 						v.tryMakeTypedLit(expr, ir.NewBasicType(target))
 					}
 				} else {
-					v.c.error(expr.Value.Pos, "unable to interpret float literal '%s'", normalized)
+					v.c.error(expr.Tok.Pos, "unable to interpret float literal '%s'", normalized)
 				}
 			}
 
@@ -689,10 +689,10 @@ func (v *typeChecker) VisitBasicLit(expr *ir.BasicLit) ir.Expr {
 				expr.T = ir.TBuiltinUntyped
 			}
 		}
-	} else if expr.Value.ID == token.Null {
+	} else if expr.Tok.ID == token.Null {
 		expr.T = ir.NewPointerType(ir.TBuiltinUntyped, false)
 	} else {
-		panic(fmt.Sprintf("Unhandled literal %s", expr.Value.ID))
+		panic(fmt.Sprintf("Unhandled literal %s", expr.Tok.ID))
 	}
 
 	return expr
@@ -723,7 +723,7 @@ func (v *typeChecker) VisitStructLit(expr *ir.StructLit) ir.Expr {
 	for _, kv := range expr.Initializers {
 		if existing, ok := inits[kv.Key.Literal]; ok {
 			if existing != nil {
-				v.c.error(kv.Key.Pos, "duplicate field key '%s'", kv.Key.Literal)
+				v.c.error(kv.Key.Pos(), "duplicate field key '%s'", kv.Key.Literal)
 			}
 			inits[kv.Key.Literal] = nil
 			err = true
@@ -732,7 +732,7 @@ func (v *typeChecker) VisitStructLit(expr *ir.StructLit) ir.Expr {
 
 		fieldSym := structt.Scope.Lookup(kv.Key.Literal)
 		if fieldSym == nil {
-			v.c.error(kv.Key.Pos, "'%s' undefined struct field", kv.Key.Literal)
+			v.c.error(kv.Key.Pos(), "'%s' undefined struct field", kv.Key.Literal)
 			inits[kv.Key.Literal] = nil
 			err = true
 			continue
@@ -747,7 +747,7 @@ func (v *typeChecker) VisitStructLit(expr *ir.StructLit) ir.Expr {
 		}
 
 		if !checkTypes(v.c, fieldSym.T, kv.Value.Type()) {
-			v.c.error(kv.Key.Pos, "type mismatch: field '%s' expects type %s but got %s",
+			v.c.error(kv.Key.Pos(), "type mismatch: field '%s' expects type %s but got %s",
 				kv.Key.Literal, fieldSym.T, kv.Value.Type())
 			inits[kv.Key.Literal] = nil
 			err = true
@@ -838,26 +838,26 @@ func createDefaultLit(t ir.Type) ir.Expr {
 func createDefaultBasicLit(t ir.Type) *ir.BasicLit {
 	var lit *ir.BasicLit
 	if ir.IsTypeID(t, ir.TBool) {
-		lit = &ir.BasicLit{Value: token.Synthetic(token.False, token.False.String())}
+		lit = &ir.BasicLit{Tok: token.Synthetic(token.False), Value: token.False.String()}
 		lit.T = ir.NewBasicType(ir.TBool)
 	} else if ir.IsTypeID(t, ir.TUInt64, ir.TInt64, ir.TUInt32, ir.TInt32, ir.TUInt16, ir.TInt16, ir.TUInt8, ir.TInt8) {
-		lit = &ir.BasicLit{Value: token.Synthetic(token.Integer, "0")}
+		lit = &ir.BasicLit{Tok: token.Synthetic(token.Integer), Value: "0"}
 		lit.Raw = ir.BigIntZero
 		lit.T = ir.NewBasicType(t.ID())
 	} else if ir.IsTypeID(t, ir.TFloat64, ir.TFloat32) {
-		lit = &ir.BasicLit{Value: token.Synthetic(token.Float, "0")}
+		lit = &ir.BasicLit{Tok: token.Synthetic(token.Float), Value: "0"}
 		lit.Raw = ir.BigFloatZero
 		lit.T = ir.NewBasicType(t.ID())
 	} else if ir.IsTypeID(t, ir.TSlice) {
-		lit = &ir.BasicLit{Value: token.Synthetic(token.Null, token.Null.String())}
+		lit = &ir.BasicLit{Tok: token.Synthetic(token.Null), Value: token.Null.String()}
 		slice := t.(*ir.SliceType)
 		lit.T = ir.NewSliceType(slice.Elem, true, true)
 	} else if ir.IsTypeID(t, ir.TPointer) {
-		lit = &ir.BasicLit{Value: token.Synthetic(token.Null, token.Null.String())}
+		lit = &ir.BasicLit{Tok: token.Synthetic(token.Null), Value: token.Null.String()}
 		ptr := t.(*ir.PointerType)
 		lit.T = ir.NewPointerType(ptr.Underlying, true)
 	} else if ir.IsTypeID(t, ir.TFunc) {
-		lit = &ir.BasicLit{Value: token.Synthetic(token.Null, token.Null.String())}
+		lit = &ir.BasicLit{Tok: token.Synthetic(token.Null), Value: token.Null.String()}
 		fun := t.(*ir.FuncType)
 		lit.T = ir.NewFuncType(fun.Params, fun.Return, fun.C)
 	} else if !ir.IsTypeID(t, ir.TUntyped) {
@@ -869,10 +869,10 @@ func createDefaultBasicLit(t ir.Type) *ir.BasicLit {
 func createStructLit(structt *ir.StructType, lit *ir.StructLit) *ir.StructLit {
 	var initializers []*ir.KeyValue
 	for _, f := range structt.Fields {
-		key := f.Name()
+		name := f.Name()
 		found := false
 		for _, init := range lit.Initializers {
-			if init.Key.Literal == key {
+			if init.Key.Literal == name {
 				initializers = append(initializers, init)
 				found = true
 				break
@@ -882,7 +882,7 @@ func createStructLit(structt *ir.StructType, lit *ir.StructLit) *ir.StructLit {
 			continue
 		}
 		kv := &ir.KeyValue{}
-		kv.Key = token.Synthetic(token.Ident, key)
+		kv.Key = ir.NewIdent2(token.Synthetic(token.Ident), name)
 
 		kv.Value = createDefaultLit(f.T)
 		initializers = append(initializers, kv)
@@ -892,9 +892,9 @@ func createStructLit(structt *ir.StructType, lit *ir.StructLit) *ir.StructLit {
 }
 
 func (v *typeChecker) VisitIdent(expr *ir.Ident) ir.Expr {
-	sym := v.c.lookup(expr.Name.Literal)
+	sym := v.c.lookup(expr.Literal)
 	if sym == nil || sym.T == nil {
-		v.c.error(expr.Pos(), "'%s' undefined", expr.Name.Literal)
+		v.c.error(expr.Pos(), "'%s' undefined", expr.Literal)
 		expr.T = ir.TBuiltinUntyped
 	} else if v.exprMode == exprModeType && sym.ID != ir.TypeSymbol {
 		v.c.error(expr.Pos(), "'%s' is not a type", sym.Name)
@@ -1168,7 +1168,7 @@ func (v *typeChecker) VisitSliceExpr(expr *ir.SliceExpr) ir.Expr {
 
 			if expr.End == nil {
 				len := &ir.LenExpr{
-					Len: token.Synthetic(token.Lenof, token.Lenof.String()),
+					Len: token.Synthetic(token.Lenof),
 					X:   expr.X,
 				}
 				len.T = ir.TBuiltinInt32

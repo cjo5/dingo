@@ -108,7 +108,7 @@ func newBuilder(config *common.BuildConfig) *llvmCodeBuilder {
 func (cb *llvmCodeBuilder) validateModuleSet(set *ir.ModuleSet) {
 	for _, mod := range set.Modules {
 		if len(mod.FQN) == 0 {
-			cb.errors.Add(mod.Path, token.NoPosition, token.NoPosition, "no module name")
+			cb.errors.Add(mod.Path, "no module name")
 		}
 	}
 
@@ -137,10 +137,10 @@ func (cb *llvmCodeBuilder) validateMainFunc(mod *ir.Module) {
 		}
 
 		if len(msg) > 0 {
-			cb.errors.Add(mainFunc.DefPos.Filename, mainFunc.DefPos.Pos, mainFunc.DefPos.Pos, msg)
+			cb.errors.Add(mainFunc.DefPos, msg)
 		}
 	} else {
-		cb.errors.Add(mod.Path, token.NoPosition, token.NoPosition, "no main function")
+		cb.errors.Add(mod.Path, "no main function")
 	}
 }
 
@@ -204,8 +204,8 @@ func (cb *llvmCodeBuilder) finalizeModule(mod *ir.Module) {
 		cb.mod.Dump()
 	}
 
-	_, filename := filepath.Split(mod.Path)
-	filename = strings.TrimSuffix(filename, filepath.Ext(mod.Path))
+	_, filename := filepath.Split(mod.Path.Filename)
+	filename = strings.TrimSuffix(filename, filepath.Ext(mod.Path.Filename))
 
 	objectfile := filename + ".o"
 	outputmode := llvm.ObjectFile
@@ -801,7 +801,7 @@ func (cb *llvmCodeBuilder) buildUnaryExpr(expr *ir.UnaryExpr, load bool) llvm.Va
 }
 
 func (cb *llvmCodeBuilder) buildBasicLit(expr *ir.BasicLit) llvm.Value {
-	if expr.Value.ID == token.String {
+	if expr.Tok.ID == token.String {
 		raw := expr.AsString()
 		strLen := len(raw)
 		var ptr llvm.Value
@@ -839,11 +839,11 @@ func (cb *llvmCodeBuilder) buildBasicLit(expr *ir.BasicLit) llvm.Value {
 		return val
 	} else if ir.IsFloatingType(expr.T) {
 		return llvm.ConstFloat(llvmType, expr.AsF64())
-	} else if expr.Value.ID == token.True {
+	} else if expr.Tok.ID == token.True {
 		return llvm.ConstInt(llvmType, 1, false)
-	} else if expr.Value.ID == token.False {
+	} else if expr.Tok.ID == token.False {
 		return llvm.ConstInt(llvmType, 0, false)
-	} else if expr.Value.ID == token.Null {
+	} else if expr.Tok.ID == token.Null {
 		switch t := expr.T.(type) {
 		case *ir.SliceType:
 			tptr := llvm.PointerType(cb.toLLVMType(t.Elem), 0)
@@ -855,7 +855,7 @@ func (cb *llvmCodeBuilder) buildBasicLit(expr *ir.BasicLit) llvm.Value {
 		}
 	}
 
-	panic(fmt.Sprintf("Unhandled basic lit %s, type %s", expr.Value.ID, expr.T))
+	panic(fmt.Sprintf("Unhandled basic lit %s, type %s", expr.Tok.ID, expr.T))
 }
 
 func (cb *llvmCodeBuilder) buildStructLit(expr *ir.StructLit) llvm.Value {
@@ -926,7 +926,7 @@ func (cb *llvmCodeBuilder) buildDotExpr(expr *ir.DotExpr, load bool) llvm.Value 
 			val = cb.createTempStorage(val)
 		}
 
-		index := t.FieldIndex(expr.Name.Literal())
+		index := t.FieldIndex(expr.Name.Literal)
 		gep := cb.b.CreateStructGEP(val, index, "")
 		if load {
 			return cb.b.CreateLoad(gep, "")

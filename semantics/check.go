@@ -29,7 +29,7 @@ const (
 var builtinScope = ir.NewScope(ir.RootScope, nil)
 
 func addBuiltinType(t ir.Type) {
-	sym := ir.NewSymbol(ir.TypeSymbol, builtinScope, true, t.ID().String(), ir.NewPosition("", token.NoPosition))
+	sym := ir.NewSymbol(ir.TypeSymbol, builtinScope, true, t.ID().String(), token.NoPosition)
 	sym.T = t
 	builtinScope.Insert(sym)
 }
@@ -111,53 +111,27 @@ func (c *context) topDecl() ir.TopDecl {
 	return nil
 }
 
-func (c *context) fileCtx() *ir.FileContext {
-	n := len(c.declTrace)
-	if n > 0 {
-		return c.declTrace[n-1].FileContext()
-	}
-	return nil
-}
-
-func (c *context) filename() string {
-	ctx := c.fileCtx()
-	if ctx != nil {
-		return ctx.Path
-	}
-	return ""
-}
-
-func (c *context) newSymPos(pos token.Position) ir.Position {
-	return ir.NewPosition(c.filename(), pos)
-}
-
-func (c *context) fmtSymPos(pos ir.Position) string {
-	if c.filename() != pos.Filename {
-		return pos.String()
-	}
-	return pos.Pos.String()
-}
-
 func (c *context) error(pos token.Position, format string, args ...interface{}) {
-	c.errors.Add(c.filename(), pos, pos, format, args...)
-}
-
-func (c *context) errorInterval(pos token.Position, endPos token.Position, format string, args ...interface{}) {
-	c.errors.Add(c.filename(), pos, endPos, format, args...)
+	c.errors.Add(pos, format, args...)
 }
 
 func (c *context) errorExpr(expr ir.Expr, format string, args ...interface{}) {
-	c.errorInterval(expr.Pos(), expr.EndPos(), format, args...)
+	pos := expr.Pos()
+	endPos := expr.EndPos()
+	endPos.Offset += endPos.Length
+	endPos.Column += endPos.Length
+	endPos.Length = 0
+	c.errors.AddRange(pos, endPos, format, args...)
 }
 
 func (c *context) warning(pos token.Position, format string, args ...interface{}) {
-	c.errors.AddWarning(c.filename(), pos, pos, format, args...)
+	c.errors.AddWarning(pos, format, args...)
 }
 
 func (c *context) insert(scope *ir.Scope, id ir.SymbolID, public bool, name string, pos token.Position) *ir.Symbol {
-	sym := ir.NewSymbol(id, scope, public, name, c.newSymPos(pos))
+	sym := ir.NewSymbol(id, scope, public, name, pos)
 	if existing := scope.Insert(sym); existing != nil {
-		msg := fmt.Sprintf("redefinition of '%s' (previously defined at %s)", name, c.fmtSymPos(existing.DefPos))
+		msg := fmt.Sprintf("redefinition of '%s' (previously defined at %s)", name, existing.DefPos)
 		c.error(pos, msg)
 		return nil
 	}
