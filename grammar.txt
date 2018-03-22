@@ -4,32 +4,33 @@
 # a? : 0 or 1 a
 # a | b : a or b
 
-File = ['module' ModName ';'] Require* TopDecl*
+File = ['module' ModName ';'] Require* TopLevel*
+ModName = IDENT | DotExpr 
+EOS = ';' | EOF
 
-ModName = IDENT | DotExpr
-End = ';' | EOF
-Require = 'require' STRING ';'
-TopDecl = Directive* Visibility? Directive* (Import | Decl) End
+Require = 'require' STRING EOS
+TopLevel = Directive* Visibility? Directive* (Import | Decl)
 Visibility = 'pub' | 'priv' 
 Directive = '@' IDENT
-Import = 'import' ModName End
-Decl = ValDecl | FuncDecl | StructDecl
+Import = 'import' ModName EOS
+Decl = (ValDecl | FuncDecl | StructDecl) EOS
 ValDecl = ('val' | 'var') IDENT (Type | (Type? '=' Expr))
-FuncDecl = 'fun' ['[' IDENT ']'] IDENT FuncSignature (Block | End)
-StructDecl = 'struct' IDENT Struct
+FuncDecl = 'fun' ['[' IDENT ']'] IDENT FuncSignature Block?
+StructDecl = 'struct' IDENT Struct 
 
 Field = (['val' | 'var'] (IDENT | '_'))? Type
 Struct= '{' {Field ';'} '}'
 FuncSignature = '(' [Field {',' Field} ','?] ')' Type?
 
-Type = PointerType | ArrayType | FuncType | IDENT | '(' Type ')'
+Type = PointerType | ArrayType | FuncType | NamedType | '(' Type ')'
+NamedType = IDENT | DotExpr
 PointerType = '*' ['val' | 'var'] Type
 ArrayType = '[' Type [INTEGER ':'] ']'
 FuncType 'fun' ['[' IDENT ']'] FuncSignature
 
 Block = '{' Stmt* '}'
 Stmt = [Block | ValDecl | Expr | AssignStmt | 'if' IfStmt | WhileStmt |
-        ForStmt | ReturnStmt | 'break' | 'continue'] End
+        ForStmt | ReturnStmt | 'break' | 'continue'] EOS
 AssignStmt = Expr ('++' | '--' | (('=' | '+=' | '-=' | '*=' | '/=' | '%=' ) Expr))
 IfStmt = Condition Block [('elif' IfStmt) | ('else' Block)]
 WhileStmt = 'while' Condition Block

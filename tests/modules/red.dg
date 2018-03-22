@@ -1,0 +1,11 @@
+module red
+
+pub import green
+
+pub struct Foo {
+    a i32
+}
+
+pub fun mupp() i32 {
+    return 99
+}

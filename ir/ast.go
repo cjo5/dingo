@@ -81,9 +81,14 @@ const (
 	BlackColor
 )
 
-type DeclDependencyGraph map[TopDecl][]DeclDependencyEdge
+type DeclDependencyGraph map[TopDecl]*DeclDependency
 
-type DeclDependencyEdge struct {
+type DeclDependency struct {
+	Weak  bool
+	Links []DeclDependencyLink
+}
+
+type DeclDependencyLink struct {
 	Sym    *Symbol
 	IsType bool
 	Pos    token.Position
@@ -128,12 +133,19 @@ type File struct {
 	Decl     token.Token
 	ModName  Expr
 	FileDeps []*FileDependency
+	ModDeps  []*ModuleDependency
 }
 
 type FileDependency struct {
 	Decl    token.Token
-	Tok     token.Token
-	Literal string
+	Literal *BasicLit
+}
+
+type ModuleDependency struct {
+	Directives []Directive
+	Visibility token.Token
+	Decl       token.Token
+	ModName    Expr
 }
 
 type ValDeclSpec struct {
@@ -571,6 +583,8 @@ func (x *Ident) SetSymbol(sym *Symbol) {
 	x.Sym = sym
 	if sym != nil {
 		x.T = sym.T
+	} else {
+		x.T = nil
 	}
 }
 

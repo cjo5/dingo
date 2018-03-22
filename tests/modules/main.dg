@@ -1,0 +1,10 @@
+module main
+
+require "../common.dg"
+
+import red
+
+fun[c] main() {
+    putiln(red.mupp())
+    putiln(red.green.bupp())
+}

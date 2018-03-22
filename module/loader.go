@@ -42,38 +42,58 @@ type loader struct {
 	loadedFiles []*file
 }
 
-// Load module and includes.
-//
-func Load(path string) (*ir.Module, error) {
-	if !strings.HasSuffix(path, fileExtension) {
-		return nil, fmt.Errorf("%s does not have file extension %s", path, fileExtension)
-	}
-
-	cwd, err := os.Getwd()
-	if err != nil {
-		return nil, err
-	}
-
-	normPath, err := normalizePath(cwd, "", path)
-	if err != nil {
-		return nil, err
-	}
-
+// Load modules.
+func Load(filenames []string) (*ir.ModuleSet, error) {
 	loader := newLoader()
-	loader.cwd = cwd
+	set := ir.NewModuleSet()
 
-	mod := loader.loadModule(normPath)
-	if mod == nil || loader.errors.IsError() {
+	for _, filename := range filenames {
+		mod := loader.load(filename)
+		if mod != nil {
+			if existing, ok := set.Modules[mod.FQN]; ok {
+				loader.errors.Add(token.NoPosition, "name conflict for module '%s': %s and %s",
+					mod.FQN, existing.Path.Filename, mod.Path.Filename)
+			} else {
+				set.Modules[mod.FQN] = mod
+			}
+		}
+	}
+
+	if set == nil || loader.errors.IsError() {
 		return nil, loader.errors
 	}
 
-	return mod, loader.errors
+	return set, nil
 }
 
 func newLoader() *loader {
 	l := &loader{}
 	l.errors = &common.ErrorList{}
 	return l
+}
+
+func (l *loader) load(filename string) *ir.Module {
+	if !strings.HasSuffix(filename, fileExtension) {
+		err := fmt.Errorf("%s does not have file extension %s", filename, fileExtension)
+		l.errors.AddGeneric1(err)
+		return nil
+	}
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		l.errors.AddGeneric1(err)
+		return nil
+	}
+
+	normPath, err := normalizePath(cwd, "", filename)
+	if err != nil {
+		l.errors.AddGeneric1(err)
+		return nil
+	}
+
+	l.cwd = cwd
+	l.loadedFiles = nil
+	return l.loadModule(normPath)
 }
 
 func (l *loader) loadModule(path requirePath) *ir.Module {
@@ -164,20 +184,20 @@ func (l *loader) createDependencyList(loadedFile *file) bool {
 	parentDir := filepath.Dir(loadedFile.path.actual.Filename)
 
 	for _, dep := range loadedFile.file.FileDeps {
-		unquoted, err := strconv.Unquote(dep.Literal)
+		unquoted, err := strconv.Unquote(dep.Literal.Value)
 		if err != nil {
-			l.errors.AddGeneric3(dep.Tok.Pos, err)
+			l.errors.AddGeneric3(dep.Literal.Tok.Pos, err)
 			break
 		}
 
 		if len(unquoted) == 0 {
-			l.errors.AddTrace(dep.Tok.Pos, l.getRequiredByTrace(loadedFile), "invalid path")
+			l.errors.AddTrace(dep.Literal.Tok.Pos, l.getRequiredByTrace(loadedFile), "invalid path")
 			continue
 		}
 
 		normPath, err := normalizePath(l.cwd, parentDir, unquoted)
 		if err != nil {
-			l.errors.AddGeneric3(dep.Tok.Pos, err)
+			l.errors.AddGeneric3(dep.Literal.Tok.Pos, err)
 			continue
 		}
 

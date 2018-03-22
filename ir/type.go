@@ -35,6 +35,7 @@ const (
 	TBigFloat
 	//
 
+	TModule
 	TStruct
 	TArray
 	TSlice
@@ -58,6 +59,7 @@ var types = [...]string{
 	TFloat64:  "f64",
 	TBigInt:   "int",
 	TBigFloat: "float",
+	TModule:   "module",
 	TStruct:   "struct",
 	TArray:    "array",
 	TSlice:    "slice",
@@ -180,6 +182,20 @@ func (f *Field) Name() string {
 		return f.Sym.Name
 	}
 	return "<anon>"
+}
+
+type ModuleType struct {
+	baseType
+	FQN   string
+	Scope *Scope
+}
+
+func (t *ModuleType) Equals(other Type) bool {
+	return false
+}
+
+func (t *ModuleType) String() string {
+	return fmt.Sprintf("%s", t.FQN)
 }
 
 type StructType struct {
@@ -374,6 +390,12 @@ func (t *FuncType) String() string {
 func NewBasicType(id TypeID) Type {
 	t := &BasicType{}
 	t.id = id
+	return t
+}
+
+func NewModuleType(fqn string, scope *Scope) Type {
+	t := &ModuleType{FQN: fqn, Scope: scope}
+	t.id = TModule
 	return t
 }
 

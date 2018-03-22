@@ -2,7 +2,7 @@ package ir
 
 import "fmt"
 
-// Visitor interface is used when walking the ast.
+// Visitor interface.
 type Visitor interface {
 	Module(mod *Module)
 
@@ -53,10 +53,6 @@ func (v *BaseVisitor) Module(mod *Module) {
 
 func (v *BaseVisitor) VisitBadDecl(decl *BadDecl) {
 	panic("VisitBadDecl")
-}
-
-func (v *BaseVisitor) VisitFileDependency(decl *FileDependency) {
-	panic("VisitFileDependency")
 }
 
 func (v *BaseVisitor) VisitValTopDecl(decl *ValTopDecl) {}

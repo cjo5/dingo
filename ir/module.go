@@ -6,18 +6,19 @@ import (
 
 // A ModuleSet is a collection of modules that make up the program.
 type ModuleSet struct {
-	Modules []*Module
+	Modules map[string]*Module
+}
+
+func NewModuleSet() *ModuleSet {
+	set := &ModuleSet{}
+	set.Modules = make(map[string]*Module)
+	return set
 }
 
 func (m *ModuleSet) Pos() token.Position { return token.NoPosition }
 
 func (m *ModuleSet) FindModule(fqn string) *Module {
-	for _, mod := range m.Modules {
-		if mod.FQN == fqn {
-			return mod
-		}
-	}
-	return nil
+	return m.Modules[fqn]
 }
 
 func (m *ModuleSet) ResetDeclColors() {
@@ -28,7 +29,6 @@ func (m *ModuleSet) ResetDeclColors() {
 
 // A Module is a collection of files sharing the same namespace.
 type Module struct {
-	ID    int
 	Path  token.Position
 	FQN   string
 	Scope *Scope

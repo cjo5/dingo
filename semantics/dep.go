@@ -20,17 +20,18 @@ func depCheck(c *context) {
 }
 
 func sortDecls(c *context) {
-	c.set.ResetDeclColors()
-
+outer:
 	for _, mod := range c.set.Modules {
 		var sortedDecls []ir.TopDecl
+		c.set.ResetDeclColors()
+
 		for _, decl := range mod.Decls {
 			if decl.Symbol() == nil {
 				continue
 			}
 
 			var cycleTrace []ir.TopDecl
-			if !sortDeclDependencies(decl, &cycleTrace, &sortedDecls) {
+			if !sortDeclDependencies(mod.FQN, decl, &cycleTrace, &sortedDecls) {
 				cycleTrace = append(cycleTrace, decl)
 
 				// Find most specific cycle
@@ -52,14 +53,15 @@ func sortDecls(c *context) {
 				}
 
 				c.errors.AddTrace(sym.DefPos, trace, "cycle detected")
+				break outer
 			}
 		}
+
 		mod.Decls = sortedDecls
 	}
 }
 
-// Returns false if cycle
-func sortDeclDependencies(decl ir.TopDecl, trace *[]ir.TopDecl, sortedDecls *[]ir.TopDecl) bool {
+func sortDeclDependencies(fqn string, decl ir.TopDecl, trace *[]ir.TopDecl, sortedDecls *[]ir.TopDecl) bool {
 	color := decl.Color()
 	if color == ir.BlackColor {
 		return true
@@ -69,10 +71,20 @@ func sortDeclDependencies(decl ir.TopDecl, trace *[]ir.TopDecl, sortedDecls *[]i
 
 	sortOK := true
 	decl.SetColor(ir.GrayColor)
-	graph := *decl.DependencyGraph()
 
-	for dep := range graph {
-		if !sortDeclDependencies(dep, trace, sortedDecls) {
+	graph := *decl.DependencyGraph()
+	sym := decl.Symbol()
+
+	for dep, node := range graph {
+		depSym := dep.Symbol()
+
+		if sym.FQN() != fqn && depSym.ID != ir.TypeSymbol {
+			continue
+		} else if dep.Color() == ir.GrayColor && node.Weak {
+			continue
+		}
+
+		if !sortDeclDependencies(fqn, dep, trace, sortedDecls) {
 			*trace = append(*trace, dep)
 			sortOK = false
 			break
@@ -98,7 +110,10 @@ func checkCycle2(decl ir.TopDecl, visited []ir.TopDecl) bool {
 	visited = append(visited, decl)
 	graph := *decl.DependencyGraph()
 
-	for dep := range graph {
+	for dep, node := range graph {
+		if node.Weak {
+			continue
+		}
 		if checkCycle2(dep, visited) {
 			return true
 		}
@@ -109,7 +124,6 @@ func checkCycle2(decl ir.TopDecl, visited []ir.TopDecl) bool {
 }
 
 func (v *depChecker) Module(mod *ir.Module) {
-	v.c.mod = mod
 	v.c.scope = mod.Scope
 	for _, decl := range mod.Decls {
 		v.c.pushTopDecl(decl)
@@ -258,6 +272,7 @@ func (v *depChecker) VisitArrayLit(expr *ir.ArrayLit) ir.Expr {
 
 func (v *depChecker) VisitIdent(expr *ir.Ident) ir.Expr {
 	sym := v.c.lookup(expr.Literal)
+	expr.SetSymbol(sym)
 	v.tryAddDependency(sym, expr.Tok.Pos)
 	return expr
 }
@@ -265,27 +280,32 @@ func (v *depChecker) VisitIdent(expr *ir.Ident) ir.Expr {
 func (v *depChecker) tryAddDependency(sym *ir.Symbol, pos token.Position) {
 	if sym != nil {
 		if decl, ok := v.c.decls[sym]; ok {
-			edge := ir.DeclDependencyEdge{Sym: v.declSym}
-			edge.IsType = v.exprMode == exprModeType
-			edge.Pos = pos
+			link := ir.DeclDependencyLink{Sym: v.declSym}
+			link.IsType = v.exprMode == exprModeType
+			link.Pos = pos
+
 			graph := v.c.topDecl().DependencyGraph()
-			(*graph)[decl] = append((*graph)[decl], edge)
+			dep := (*graph)[decl]
+			if dep == nil {
+				dep = &ir.DeclDependency{}
+			}
+			dep.Links = append(dep.Links, link)
+
+			(*graph)[decl] = dep
 		}
 	}
 }
 
 func (v *depChecker) VisitDotExpr(expr *ir.DotExpr) ir.Expr {
-	if ident, ok := expr.X.(*ir.Ident); ok {
-		sym := v.c.lookup(ident.Literal)
-		if sym != nil && sym.ID == ir.ModuleSymbol {
-			defer setScope(setScope(v.c, sym.Parent))
-			v.VisitIdent(expr.Name)
-		} else {
-			v.tryAddDependency(sym, ident.Tok.Pos)
-		}
-	} else {
-		ir.VisitExpr(v, expr.X)
+	ir.VisitExpr(v, expr.X)
+	sym := ir.ExprSymbol(expr.X)
+
+	if sym != nil && sym.ID == ir.ModuleSymbol {
+		tmod := sym.T.(*ir.ModuleType)
+		defer setScope(setScope(v.c, tmod.Scope))
+		v.VisitIdent(expr.Name)
 	}
+
 	return expr
 }
 

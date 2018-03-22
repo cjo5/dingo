@@ -1,31 +1,63 @@
 package semantics
 
 import (
+	"strings"
+
 	"github.com/jhnl/dingo/ir"
 	"github.com/jhnl/dingo/token"
 )
 
 type symChecker struct {
 	ir.BaseVisitor
-	c *context
+	c   *context
+	fqn string
 }
 
 func symCheck(c *context) {
 	v := &symChecker{c: c}
+	registerModules(c)
 	ir.VisitModuleSet(v, c.set)
 	c.resetWalkState()
 }
 
+func registerModules(c *context) {
+	for _, mod := range c.set.Modules {
+		c.openScope(ir.TopScope, mod.FQN)
+		mod.Scope = c.scope
+		c.closeScope()
+	}
+
+	for _, mod := range c.set.Modules {
+		for _, file := range mod.Files {
+			for _, dep := range file.ModDeps {
+				fqn := ir.ExprToModuleFQN(dep.ModName)
+				if fqn == mod.FQN {
+					c.error(dep.ModName.Pos(), "module '%s' cannot import itself", fqn)
+				} else if moddep, ok := c.set.Modules[fqn]; ok {
+					parts := strings.Split(fqn, ".")
+					name := parts[len(parts)-1]
+
+					sym := c.insert(mod.Scope, ir.ModuleSymbol, isPublic(dep.Visibility), name, dep.ModName.Pos())
+					if sym != nil {
+						sym.T = ir.NewModuleType(fqn, moddep.Scope)
+					}
+				} else {
+					c.error(dep.ModName.Pos(), "module '%s' not found", fqn)
+				}
+			}
+		}
+	}
+}
+
 func (v *symChecker) Module(mod *ir.Module) {
-	v.c.openScope(ir.TopScope)
-	mod.Scope = v.c.scope
-	v.c.mod = mod
+	v.fqn = mod.FQN
+	v.c.scope = mod.Scope
 	for _, decl := range mod.Decls {
 		v.c.pushTopDecl(decl)
 		ir.VisitDecl(v, decl)
 		v.c.popTopDecl()
 	}
-	v.c.closeScope()
+	v.c.scope = nil
 }
 
 func (v *symChecker) isTypeName(name *ir.Ident) bool {
@@ -72,7 +104,7 @@ func (v *symChecker) VisitFuncDecl(decl *ir.FuncDecl) {
 		v.c.mapTopDecl(decl.Sym, decl)
 	}
 
-	v.c.openScope(ir.LocalScope)
+	v.c.openScope(ir.LocalScope, v.fqn)
 	defer v.c.closeScope()
 	decl.Scope = v.c.scope
 
@@ -115,7 +147,7 @@ func (v *symChecker) VisitStructDecl(decl *ir.StructDecl) {
 	decl.Deps = make(ir.DeclDependencyGraph)
 
 	decl.Sym = v.c.insert(v.c.scope, ir.TypeSymbol, isPublic(decl.Visibility), decl.Name.Literal, decl.Name.Pos())
-	decl.Scope = ir.NewScope(ir.FieldScope, nil)
+	decl.Scope = ir.NewScope(ir.FieldScope, v.fqn, nil)
 
 	if decl.Sym != nil {
 		decl.Sym.T = ir.NewIncompleteStructType(decl)
@@ -130,7 +162,7 @@ func (v *symChecker) VisitStructDecl(decl *ir.StructDecl) {
 }
 
 func (v *symChecker) VisitBlockStmt(stmt *ir.BlockStmt) {
-	v.c.openScope(ir.LocalScope)
+	v.c.openScope(ir.LocalScope, v.fqn)
 	stmt.Scope = v.c.scope
 	ir.VisitStmtList(v, stmt.Stmts)
 	v.c.closeScope()
@@ -148,7 +180,7 @@ func (v *symChecker) VisitIfStmt(stmt *ir.IfStmt) {
 }
 
 func (v *symChecker) VisitForStmt(stmt *ir.ForStmt) {
-	v.c.openScope(ir.LocalScope)
+	v.c.openScope(ir.LocalScope, v.fqn)
 	stmt.Scope = v.c.scope
 
 	if stmt.Init != nil {

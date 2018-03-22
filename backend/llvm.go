@@ -24,7 +24,6 @@ type llvmCodeBuilder struct {
 	target         llvm.TargetMachine
 	b              llvm.Builder
 	mod            llvm.Module
-	mangledFQN     string
 	inFunction     bool
 	signature      bool
 	values         map[*ir.Symbol]llvm.Value
@@ -33,6 +32,7 @@ type llvmCodeBuilder struct {
 	loopExits      []llvm.BasicBlock
 }
 
+// Field indexes for slice struct.
 const ptrFieldIndex = 0
 const lenFieldIndex = 1
 
@@ -44,12 +44,6 @@ func Build(set *ir.ModuleSet, config *common.BuildConfig) error {
 
 	if err := llvm.InitializeNativeAsmPrinter(); err != nil {
 		panic(err)
-	}
-
-	if len(set.Modules) == 1 {
-		if set.Modules[0].FQN == "" {
-			set.Modules[0].FQN = "main"
-		}
 	}
 
 	cb := newBuilder(config)
@@ -69,15 +63,12 @@ func Build(set *ir.ModuleSet, config *common.BuildConfig) error {
 		return cb.errors
 	}
 
-	objects := ""
-	for i, object := range cb.objectfiles {
-		objects += object
-		if (i + 1) < len(cb.objectfiles) {
-			objects += " "
-		}
-	}
+	var args []string
+	args = append(args, "-o")
+	args = append(args, config.Exe)
+	args = append(args, cb.objectfiles...)
 
-	cmd := exec.Command("cc", objects, "-o", config.Exe)
+	cmd := exec.Command("cc", args...)
 	if linkOutput, linkErr := cmd.CombinedOutput(); linkErr != nil {
 		panic(fmt.Sprintf("Err: %s\nOutput: %s", linkErr, linkOutput))
 	}
@@ -160,7 +151,7 @@ func (cb *llvmCodeBuilder) mangle(sym *ir.Symbol) string {
 
 	var b bytes.Buffer
 	b.WriteString("_ZN")
-	b.WriteString(cb.mangledFQN)
+	b.WriteString(mangleFQN(sym.FQN()))
 	b.WriteString(fmt.Sprintf("%d", len(sym.Name)))
 	b.WriteString(sym.Name)
 	b.WriteString("E")
@@ -179,7 +170,6 @@ func mangleFQN(fqn string) string {
 
 func (cb *llvmCodeBuilder) buildModule(mod *ir.Module) {
 	cb.mod = llvm.NewModule(mod.FQN)
-	cb.mangledFQN = mangleFQN(mod.FQN)
 	cb.inFunction = false
 
 	cb.signature = true
@@ -189,7 +179,11 @@ func (cb *llvmCodeBuilder) buildModule(mod *ir.Module) {
 
 	cb.signature = false
 	for _, decl := range mod.Decls {
-		cb.buildDecl(decl)
+		sym := decl.Symbol()
+
+		if sym.ID == ir.TypeSymbol || sym.FQN() == mod.FQN {
+			cb.buildDecl(decl)
+		}
 	}
 
 	cb.finalizeModule(mod)
@@ -920,6 +914,8 @@ func (cb *llvmCodeBuilder) createSliceSize(size int) llvm.Value {
 
 func (cb *llvmCodeBuilder) buildDotExpr(expr *ir.DotExpr, load bool) llvm.Value {
 	switch t := expr.X.Type().(type) {
+	case *ir.ModuleType:
+		return cb.buildIdent(expr.Name, load)
 	case *ir.StructType:
 		val := cb.buildExprPtr(expr.X)
 		if val.Type().TypeKind() != llvm.PointerTypeKind {

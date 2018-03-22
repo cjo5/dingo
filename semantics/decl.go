@@ -11,7 +11,6 @@ func (v *typeChecker) visitModuleSet(set *ir.ModuleSet, signature bool) {
 	set.ResetDeclColors()
 	v.signature = signature
 	for _, mod := range set.Modules {
-		v.c.mod = mod
 		v.c.scope = mod.Scope
 		for _, decl := range mod.Decls {
 			// Nil symbol means a redeclaration
@@ -21,49 +20,58 @@ func (v *typeChecker) visitModuleSet(set *ir.ModuleSet, signature bool) {
 			v.visitTopDecl(decl)
 		}
 	}
+	if v.signature {
+		for _, mod := range set.Modules {
+			for _, file := range mod.Files {
+				for _, dep := range file.ModDeps {
+					v.warnUnusedDirectives(dep.Directives)
+				}
+			}
+		}
+	}
 }
 
 func (v *typeChecker) visitDependencies(decl ir.TopDecl) {
 	graph := *decl.DependencyGraph()
-	for dep := range graph {
-		v.visitTopDecl(dep)
+	for dep, node := range graph {
+		if !node.Weak {
+			v.visitTopDecl(dep)
+		}
 	}
 }
 
-func (v *typeChecker) removeFalseDependencies(decl ir.TopDecl) {
+func (v *typeChecker) setWeakDependencies(decl ir.TopDecl) {
 	graph := *decl.DependencyGraph()
 
 	switch decl.(type) {
 	case *ir.FuncDecl:
-		for dep := range graph {
-			sym := dep.Symbol()
+		for k, v := range graph {
+			sym := k.Symbol()
 			if sym.ID == ir.FuncSymbol {
-				delete(graph, dep)
+				v.Weak = true
 			}
 		}
 	case *ir.ValTopDecl:
-		for dep := range graph {
-			sym := dep.Symbol()
+		for k, v := range graph {
+			sym := k.Symbol()
 			if sym.ID == ir.ValSymbol || sym.ID == ir.FuncSymbol {
-				delete(graph, dep)
+				v.Weak = true
 			}
 		}
 	case *ir.StructDecl:
-		for dep, edges := range graph {
-			for i := 0; i < len(edges); i++ {
-				edge := edges[i]
-				if edge.IsType && edge.Sym != nil && edge.Sym.T != nil {
-					t := edge.Sym.T
+		for _, v := range graph {
+			weakCount := 0
+			for i := 0; i < len(v.Links); i++ {
+				link := v.Links[i]
+				if link.IsType && link.Sym != nil && link.Sym.T != nil {
+					t := link.Sym.T
 					if t.ID() == ir.TPointer || t.ID() == ir.TSlice || t.ID() == ir.TFunc {
-						edges = append(edges[:i], edges[i+1:]...)
-						i--
+						weakCount++
 					}
 				}
 			}
-			if len(edges) > 0 {
-				graph[dep] = edges
-			} else {
-				delete(graph, dep)
+			if weakCount == len(v.Links) {
+				v.Weak = true
 			}
 		}
 	default:
@@ -88,7 +96,7 @@ func (v *typeChecker) VisitValTopDecl(decl *ir.ValTopDecl) {
 		return
 	}
 
-	v.removeFalseDependencies(decl)
+	v.setWeakDependencies(decl)
 	v.visitDependencies(decl)
 
 	v.warnUnusedDirectives(decl.Directives)
@@ -133,9 +141,7 @@ func (v *typeChecker) visitValDeclSpec(sym *ir.Symbol, decl *ir.ValDeclSpec, def
 	var t ir.Type
 
 	if decl.Type != nil {
-		v.exprMode = exprModeType
-		decl.Type = ir.VisitExpr(v, decl.Type)
-		v.exprMode = exprModeNone
+		decl.Type = v.visitType(decl.Type)
 		t = decl.Type.Type()
 
 		if t.ID() == ir.TVoid {
@@ -208,9 +214,7 @@ func (v *typeChecker) VisitFuncDecl(decl *ir.FuncDecl) {
 			}
 		}
 
-		v.exprMode = exprModeType
-		decl.Return.Type = ir.VisitExpr(v, decl.Return.Type)
-		v.exprMode = exprModeNone
+		decl.Return.Type = v.visitType(decl.Return.Type)
 
 		v.warnUnusedDirectives(decl.Directives)
 
@@ -239,7 +243,7 @@ func (v *typeChecker) VisitFuncDecl(decl *ir.FuncDecl) {
 	}
 
 	v.visitDependencies(decl)
-	v.removeFalseDependencies(decl)
+	v.setWeakDependencies(decl)
 
 	defer setScope(setScope(v.c, decl.Scope))
 	v.VisitBlockStmt(decl.Body)
@@ -282,7 +286,7 @@ func (v *typeChecker) VisitStructDecl(decl *ir.StructDecl) {
 		}
 	}
 
-	v.removeFalseDependencies(decl)
+	v.setWeakDependencies(decl)
 
 	if untyped {
 		decl.Sym.T = ir.TBuiltinUntyped

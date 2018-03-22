@@ -1,3 +1,5 @@
+module main
+
 require "common.dg"
 
 fun[c] main() {

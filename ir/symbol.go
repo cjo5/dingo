@@ -20,12 +20,6 @@ const (
 	SymFlagDefined  = 1 << 2
 )
 
-// Position for symbol.
-type Position struct {
-	Filename string
-	Pos      token.Position
-}
-
 // Symbol represents a unique symbol/identifier.
 type Symbol struct {
 	ID      SymbolID
@@ -58,13 +52,6 @@ func (s SymbolID) String() string {
 	}
 }
 
-func (p Position) String() string {
-	if len(p.Filename) > 0 {
-		return fmt.Sprintf("%s:%s", p.Filename, p.Pos)
-	}
-	return p.Pos.String()
-}
-
 func (s *Symbol) String() string {
 	return fmt.Sprintf("%s:%s:%s", s.ID, s.DeclPos, s.Name)
 }
@@ -82,4 +69,8 @@ func (s *Symbol) Untyped() bool {
 		return true
 	}
 	return false
+}
+
+func (s *Symbol) FQN() string {
+	return s.Parent.FQN
 }

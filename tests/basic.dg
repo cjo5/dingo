@@ -1,10 +1,19 @@
+module main
+
+//require "common.dg"
+
+//import red
+
+fun[c] main() {
+    //red.mupp()
+}
+
 struct Foo {
+    a i32
     b Bar
 }
 
 struct Bar {
-    f *Foo
-}
-
-fun[c] main() {
+    c i32
+    f *var Foo
 }

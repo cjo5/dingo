@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/jhnl/dingo/ir"
-
 	"flag"
 
 	"github.com/jhnl/dingo/backend"
@@ -33,7 +31,7 @@ func main() {
 	}
 
 	errors := &common.ErrorList{}
-	build(flag.Args()[0:1], config, errors)
+	build(flag.Args()[0:], config, errors)
 	printErrors(errors)
 }
 
@@ -54,16 +52,9 @@ func printErrors(errors *common.ErrorList) {
 	}
 }
 
-func build(files []string, config *common.BuildConfig, errors *common.ErrorList) {
-	set := &ir.ModuleSet{}
-
-	for _, file := range files {
-		mod, err := module.Load(file)
-		addError(err, errors)
-		if mod != nil {
-			set.Modules = append(set.Modules, mod)
-		}
-	}
+func build(filenames []string, config *common.BuildConfig, errors *common.ErrorList) {
+	set, err := module.Load(filenames)
+	addError(err, errors)
 
 	if errors.IsError() {
 		return
@@ -81,7 +72,7 @@ func build(files []string, config *common.BuildConfig, errors *common.ErrorList)
 		}
 	}
 
-	err := semantics.Check(set)
+	err = semantics.Check(set)
 	addError(err, errors)
 
 	if errors.IsError() {

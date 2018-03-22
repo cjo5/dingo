@@ -1,0 +1,9 @@
+module green
+
+pub struct Bar {
+    b i32
+}
+
+pub fun bupp() i32 {
+    return 101
+}

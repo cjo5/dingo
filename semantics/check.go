@@ -26,7 +26,7 @@ const (
 	exprModeFunc = 2
 )
 
-var builtinScope = ir.NewScope(ir.RootScope, nil)
+var builtinScope = ir.NewScope(ir.RootScope, "-", nil)
 
 func addBuiltinType(t ir.Type) {
 	sym := ir.NewSymbol(ir.TypeSymbol, builtinScope, true, t.ID().String(), token.NoPosition)
@@ -56,7 +56,6 @@ type context struct {
 
 	// State that can change during node visits
 	scope     *ir.Scope
-	mod       *ir.Module
 	declTrace []ir.TopDecl
 }
 
@@ -68,16 +67,15 @@ func newContext(set *ir.ModuleSet) *context {
 }
 
 func (c *context) resetWalkState() {
-	c.mod = nil
 	c.declTrace = nil
 }
 
-func (c *context) openScope(id ir.ScopeID) {
-	c.scope = ir.NewScope(id, c.scope)
+func (c *context) openScope(id ir.ScopeID, fqn string) {
+	c.scope = ir.NewScope(id, fqn, c.scope)
 }
 
 func (c *context) closeScope() {
-	c.scope = c.scope.Outer
+	c.scope = c.scope.Parent
 }
 
 func setScope(c *context, scope *ir.Scope) (*context, *ir.Scope) {

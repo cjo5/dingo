@@ -10,6 +10,35 @@ import (
 	"github.com/jhnl/dingo/token"
 )
 
+func (v *typeChecker) visitType(expr ir.Expr) ir.Expr {
+	prevMode := v.exprMode
+	v.exprMode = exprModeType
+	expr = ir.VisitExpr(v, expr)
+	v.exprMode = prevMode
+
+	var sym *ir.Symbol
+
+	switch named := expr.(type) {
+	case *ir.Ident:
+		if named.Sym.ID != ir.TypeSymbol {
+			named.SetSymbol(nil)
+			named.T = ir.TBuiltinUntyped
+			sym = named.Sym
+		}
+	case *ir.DotExpr:
+		if named.Name.Sym.ID != ir.TypeSymbol {
+			named.T = ir.TBuiltinUntyped
+			sym = named.Name.Sym
+		}
+	}
+
+	if sym != nil {
+		v.c.error(expr.Pos(), "'%s' is not a type", sym.Name)
+	}
+
+	return expr
+}
+
 func (v *typeChecker) makeTypedExpr(expr ir.Expr, t ir.Type) ir.Expr {
 	expr = ir.VisitExpr(v, expr)
 	if ir.IsUntyped(expr.Type()) || (t != nil && ir.IsUntyped(t)) {
@@ -699,12 +728,9 @@ func (v *typeChecker) VisitBasicLit(expr *ir.BasicLit) ir.Expr {
 }
 
 func (v *typeChecker) VisitStructLit(expr *ir.StructLit) ir.Expr {
-	prevMode := v.exprMode
-	v.exprMode = exprModeType
-	expr.Name = ir.VisitExpr(v, expr.Name)
-	v.exprMode = prevMode
-
+	expr.Name = v.visitType(expr.Name)
 	t := expr.Name.Type()
+
 	if ir.IsUntyped(t) {
 		expr.T = ir.TBuiltinUntyped
 		return expr
@@ -892,12 +918,15 @@ func createStructLit(structt *ir.StructType, lit *ir.StructLit) *ir.StructLit {
 }
 
 func (v *typeChecker) VisitIdent(expr *ir.Ident) ir.Expr {
-	sym := v.c.lookup(expr.Literal)
+	sym := expr.Sym
+	if sym == nil {
+		sym = v.c.lookup(expr.Literal)
+	} else {
+		expr.SetSymbol(nil)
+	}
+
 	if sym == nil || sym.T == nil {
 		v.c.error(expr.Pos(), "'%s' undefined", expr.Literal)
-		expr.T = ir.TBuiltinUntyped
-	} else if v.exprMode == exprModeType && sym.ID != ir.TypeSymbol {
-		v.c.error(expr.Pos(), "'%s' is not a type", sym.Name)
 		expr.T = ir.TBuiltinUntyped
 	} else if v.exprMode != exprModeType && sym.ID == ir.TypeSymbol {
 		v.c.error(expr.Pos(), "type %s cannot be used in an expression", sym.T)
@@ -905,7 +934,13 @@ func (v *typeChecker) VisitIdent(expr *ir.Ident) ir.Expr {
 	} else if sym.Untyped() {
 		expr.T = ir.TBuiltinUntyped
 	} else {
-		expr.SetSymbol(sym)
+		decl := v.c.topDecl()
+		if !sym.Public && sym.FQN() != decl.Symbol().FQN() {
+			v.c.error(expr.Pos(), "'%s' is not public", expr.Literal)
+			expr.T = ir.TBuiltinUntyped
+		} else {
+			expr.SetSymbol(sym)
+		}
 	}
 	return expr
 }
@@ -922,6 +957,8 @@ func (v *typeChecker) VisitDotExpr(expr *ir.DotExpr) ir.Expr {
 
 	expr.X = tryDeref(expr.X)
 	switch t := expr.X.Type().(type) {
+	case *ir.ModuleType:
+		scope = t.Scope
 	case *ir.StructType:
 		scope = t.Scope
 	case *ir.BasicType:

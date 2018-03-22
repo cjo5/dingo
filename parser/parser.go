@@ -184,9 +184,26 @@ func (p *parser) parseFile() (*ir.File, []ir.TopDecl) {
 	}
 
 	for !p.token.Is(token.EOF) {
-		decl := p.parseTopDecl()
-		if decl != nil {
-			p.decls = append(p.decls, decl)
+		directives := p.parseDirectives(nil)
+
+		visibility := token.Synthetic(token.Private)
+		if p.token.OneOf(token.Public, token.Private) {
+			visibility = p.token
+			p.next()
+		}
+
+		directives = p.parseDirectives(directives)
+
+		if p.token.Is(token.Import) {
+			dep := p.parseImport(directives, visibility)
+			if dep != nil {
+				p.file.ModDeps = append(p.file.ModDeps, dep)
+			}
+		} else {
+			decl := p.parseTopDecl(directives, visibility)
+			if decl != nil {
+				p.decls = append(p.decls, decl)
+			}
 		}
 	}
 
@@ -210,10 +227,37 @@ func (p *parser) parseRequire() *ir.FileDependency {
 		return nil
 	}
 	p.expectSemi1(false)
-	return &ir.FileDependency{Decl: decl, Tok: tok, Literal: lit}
+	return &ir.FileDependency{Decl: decl, Literal: &ir.BasicLit{Tok: tok, Value: lit}}
 }
 
-func (p *parser) parseTopDecl() (decl ir.TopDecl) {
+func (p *parser) parseImport(directives []ir.Directive, visibility token.Token) (dep *ir.ModuleDependency) {
+	defer func() {
+		if r := recover(); r != nil {
+			if _, ok := r.(parseError); ok {
+				p.sync()
+				dep = nil
+			} else {
+				panic(r)
+			}
+		}
+	}()
+
+	decl := p.token
+	p.next()
+
+	var name ir.Expr
+	name = p.parseIdent()
+	if p.token.Is(token.Dot) {
+		name = p.parseDotExpr(name)
+	}
+
+	p.expectSemi()
+	dep = &ir.ModuleDependency{Directives: directives, Visibility: visibility, Decl: decl, ModName: name}
+
+	return dep
+}
+
+func (p *parser) parseTopDecl(directives []ir.Directive, visibility token.Token) (decl ir.TopDecl) {
 	defer func() {
 		if r := recover(); r != nil {
 			if _, ok := r.(parseError); ok {
@@ -225,23 +269,13 @@ func (p *parser) parseTopDecl() (decl ir.TopDecl) {
 		}
 	}()
 
-	directives := p.parseDirectives(nil)
-
-	visibility := token.Synthetic(token.Private)
-	if p.token.OneOf(token.Public, token.Private) {
-		visibility = p.token
-		p.next()
-	}
-
-	directives = p.parseDirectives(directives)
-
-	if p.token.ID == token.Var || p.token.ID == token.Val {
+	if p.token.OneOf(token.Var, token.Val) {
 		decl = p.parseValTopDecl(visibility, directives)
 		p.expectSemi()
-	} else if p.token.ID == token.Func {
+	} else if p.token.Is(token.Func) {
 		decl = p.parseFuncDecl(visibility, directives)
 		p.expectSemi()
-	} else if p.token.ID == token.Struct {
+	} else if p.token.Is(token.Struct) {
 		decl = p.parseStructDecl(visibility, directives)
 		p.expectSemi()
 	} else {
@@ -625,7 +659,11 @@ func (p *parser) parseType(optional bool) ir.Expr {
 	} else if p.token.OneOf(token.Func) {
 		return p.parseFuncType()
 	} else if p.token.Is(token.Ident) {
-		return p.parseIdent()
+		var expr ir.Expr = p.parseIdent()
+		for p.token.Is(token.Dot) {
+			expr = p.parseDotExpr(expr)
+		}
+		return expr
 	} else if p.token.Is(token.Lparen) {
 		p.next()
 		t := p.parseType(optional)
