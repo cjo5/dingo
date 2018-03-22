@@ -176,8 +176,8 @@ func (p *parser) parseFile() (*ir.File, []ir.TopDecl) {
 		p.file.Decl = token.Synthetic(token.Module)
 	}
 
-	for p.token.Is(token.Require) {
-		dep := p.parseRequire()
+	for p.token.Is(token.Include) {
+		dep := p.parseInclude()
 		if dep != nil {
 			p.file.FileDeps = append(p.file.FileDeps, dep)
 		}
@@ -218,7 +218,7 @@ func (p *parser) parseModName() ir.Expr {
 	return ident
 }
 
-func (p *parser) parseRequire() *ir.FileDependency {
+func (p *parser) parseInclude() *ir.FileDependency {
 	decl := p.token
 	p.next()
 	tok := p.token

@@ -4,11 +4,11 @@
 # a? : 0 or 1 a
 # a | b : a or b
 
-File = ['module' ModName ';'] Require* TopLevel*
+File = ['module' ModName ';'] Include* TopLevel*
 ModName = IDENT | DotExpr 
 EOS = ';' | EOF
 
-Require = 'require' STRING EOS
+Include = 'Include' STRING EOS
 TopLevel = Directive* Visibility? Directive* (Import | Decl)
 Visibility = 'pub' | 'priv' 
 Directive = '@' IDENT

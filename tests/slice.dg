@@ -1,6 +1,6 @@
 module main
 
-require "common.dg"
+include "common.dg"
 
 fun[c] main() {
     var arr = [0, 1, 2, 3, 4]

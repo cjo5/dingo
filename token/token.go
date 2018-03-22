@@ -80,7 +80,7 @@ const (
 	Cast
 	Lenof
 	Module
-	Require
+	Include
 	Import
 	Var
 	Val
@@ -158,7 +158,7 @@ var tokens = [...]string{
 	Cast:     "cast",
 	Lenof:    "lenof",
 	Module:   "module",
-	Require:  "require",
+	Include:  "include",
 	Import:   "import",
 	Var:      "var",
 	Val:      "val",

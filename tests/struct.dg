@@ -1,6 +1,6 @@
 module main
 
-require "common.dg"
+include "common.dg"
 
 /* Output:
 9

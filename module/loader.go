@@ -16,22 +16,22 @@ import (
 
 const fileExtension = ".dg"
 
-var emptyPath = requirePath{token.NoPosition, token.NoPosition}
+var emptyPath = includePath{token.NoPosition, token.NoPosition}
 
-type requirePath struct {
+type includePath struct {
 	canonical token.Position // Used to determine if two paths refer to the same file
 	actual    token.Position // The actual (cleaned) path in the code
 }
 
 type fileDependency struct {
 	dep  *ir.FileDependency
-	path requirePath
+	path includePath
 	file *file
 }
 
 type file struct {
 	file       *ir.File
-	path       requirePath
+	path       includePath
 	requiredBy *file
 	deps       []*fileDependency
 }
@@ -96,7 +96,7 @@ func (l *loader) load(filename string) *ir.Module {
 	return l.loadModule(normPath)
 }
 
-func (l *loader) loadModule(path requirePath) *ir.Module {
+func (l *loader) loadModule(path includePath) *ir.Module {
 	rootFile, rootDecls, err := parser.ParseFile(path.actual.Filename)
 	if err != nil {
 		l.errors.AddGeneric3(path.actual, err)
@@ -147,7 +147,7 @@ func (l *loader) loadModule(path requirePath) *ir.Module {
 	return mod
 }
 
-func normalizePath(cwd string, rel string, path string) (requirePath, error) {
+func normalizePath(cwd string, rel string, path string) (includePath, error) {
 	actual := ""
 	canonical := ""
 	if filepath.IsAbs(path) {
@@ -167,7 +167,7 @@ func normalizePath(cwd string, rel string, path string) (requirePath, error) {
 			return emptyPath, fmt.Errorf("%s is a directory", actual)
 		}
 
-		normPath := requirePath{}
+		normPath := includePath{}
 		normPath.actual = token.NewPosition1(actual)
 		normPath.canonical = token.NewPosition1(canonical)
 
