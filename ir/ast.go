@@ -523,9 +523,9 @@ func (x *BasicLit) AsF64() float64 {
 
 type KeyValue struct {
 	baseNode
-	Key   *Ident
-	Equal token.Token
-	Value Expr
+	Key    *Ident
+	Assign token.Token
+	Value  Expr
 }
 
 func (k *KeyValue) Pos() token.Position { return k.Key.Pos() }

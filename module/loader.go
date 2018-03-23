@@ -103,11 +103,12 @@ func (l *loader) loadModule(path includePath) *ir.Module {
 		return nil
 	}
 
-	mod := &ir.Module{}
-	mod.FQN = ""
-	if rootFile.ModName != nil {
-		mod.FQN = ir.ExprToModuleFQN(rootFile.ModName)
+	if rootFile.ModName == nil {
+		rootFile.ModName = ir.NewIdent2(token.Synthetic(token.Ident), "main")
 	}
+
+	mod := &ir.Module{}
+	mod.FQN = ir.ExprToModuleFQN(rootFile.ModName)
 	mod.Path = path.actual
 	mod.Files = append(mod.Files, rootFile)
 	mod.Decls = append(mod.Decls, rootDecls...)

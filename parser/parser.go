@@ -196,7 +196,9 @@ func (p *parser) parseFile() (*ir.File, []ir.TopDecl) {
 
 		directives = p.parseDirectives(directives)
 
-		if p.token.Is(token.Import) {
+		if p.token.Is(token.Semicolon) {
+			p.next()
+		} else if p.token.Is(token.Import) {
 			dep := p.parseImport(directives, visibility)
 			if dep != nil {
 				p.file.ModDeps = append(p.file.ModDeps, dep)
@@ -498,7 +500,7 @@ func (p *parser) parseStmt() (stmt ir.Stmt, sync bool) {
 		tok := p.token
 		p.next()
 		stmt = &ir.BranchStmt{Tok: tok}
-	} else {
+	} else if !p.token.Is(token.Semicolon) {
 		stmt = p.parseExprOrAssignStmt()
 	}
 	p.expectSemi()
@@ -926,10 +928,10 @@ func (p *parser) parseBasicLit(prefix *ir.Ident) ir.Expr {
 
 func (p *parser) parseKeyValue() *ir.KeyValue {
 	key := p.parseIdent()
-	equal := p.token
-	p.expect(token.Assign)
+	assign := p.token
+	p.expect(token.Colon)
 	value := p.parseExpr()
-	return &ir.KeyValue{Key: key, Equal: equal, Value: value}
+	return &ir.KeyValue{Key: key, Assign: assign, Value: value}
 }
 
 func (p *parser) parseStructLit(name ir.Expr) ir.Expr {

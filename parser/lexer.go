@@ -114,7 +114,6 @@ func (l *lexer) lex() (token.Token, string) {
 				for l.ch != '\n' && l.ch != -1 {
 					l.next()
 				}
-				l.next()
 				tok.ID = token.Comment
 			} else if l.ch == '*' {
 				// Multi-line comment
@@ -172,7 +171,8 @@ func isLineTerminator(id token.ID) bool {
 		token.Integer, token.Float, token.String, token.True, token.False, token.Null,
 		token.Rparen, token.Rbrace, token.Rbrack,
 		token.Continue, token.Break, token.Return,
-		token.Inc, token.Dec:
+		token.Inc, token.Dec,
+		token.Comment, token.MultiComment:
 		return true
 	default:
 		return false

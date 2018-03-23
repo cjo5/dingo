@@ -6,8 +6,6 @@ Note this project is still a work in progress.
 
 ## Example
 ```rust
-module main
-
 // C function declarations
 fun[c] abs(i32) i32
 fun[c] putchar(i32) i32
