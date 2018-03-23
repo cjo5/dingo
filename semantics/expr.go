@@ -20,19 +20,19 @@ func (v *typeChecker) visitType(expr ir.Expr) ir.Expr {
 
 	switch named := expr.(type) {
 	case *ir.Ident:
-		if named.Sym.ID != ir.TypeSymbol {
+		sym = named.Sym
+		if sym != nil && sym.ID != ir.TypeSymbol {
 			named.SetSymbol(nil)
 			named.T = ir.TBuiltinUntyped
-			sym = named.Sym
 		}
 	case *ir.DotExpr:
-		if named.Name.Sym.ID != ir.TypeSymbol {
+		sym = named.Name.Sym
+		if sym != nil && sym.ID != ir.TypeSymbol {
 			named.T = ir.TBuiltinUntyped
-			sym = named.Name.Sym
 		}
 	}
 
-	if sym != nil {
+	if sym != nil && sym.ID != ir.TypeSymbol {
 		v.c.error(expr.Pos(), "'%s' is not a type", sym.Name)
 	}
 

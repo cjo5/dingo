@@ -111,8 +111,8 @@ func (p *parser) sync() {
 }
 
 func (p *parser) expect3(expected token.ID, alts []token.ID, sync bool) bool {
+	ok := true
 	tok := p.token
-	p.next()
 	if !tok.Is(expected) {
 		var buf bytes.Buffer
 		buf.WriteString(fmt.Sprintf("'%s'", expected))
@@ -131,9 +131,10 @@ func (p *parser) expect3(expected token.ID, alts []token.ID, sync bool) bool {
 			panic(parseError{tok})
 		}
 
-		return false
+		ok = false
 	}
-	return true
+	p.next()
+	return ok
 }
 
 func (p *parser) expect(id token.ID, alts ...token.ID) bool {
@@ -141,23 +142,24 @@ func (p *parser) expect(id token.ID, alts ...token.ID) bool {
 }
 
 func (p *parser) expectSemi1(sync bool) bool {
+	ok := true
 	if !p.token.OneOf(token.Rbrace, token.Rbrack) {
 		tok := p.token
-		p.next()
 
 		if !tok.OneOf(token.Semicolon, token.EOF) {
 			p.error(tok, "expected semicolon or newline")
 			if sync {
 				panic(parseError{tok})
 			}
-			return false
+			ok = false
 		}
 
+		p.next()
 		for p.token.Is(token.Semicolon) {
 			p.next()
 		}
 	}
-	return true
+	return ok
 }
 
 func (p *parser) expectSemi() bool {
@@ -783,12 +785,16 @@ func (p *parser) parseOperand() ir.Expr {
 		expr = p.parseFuncLit()
 	} else if p.token.Is(token.Ident) {
 		ident := p.parseIdent()
-		if !p.inCondition && p.token.Is(token.Lbrace) {
-			expr = p.parseStructLit(ident)
-		} else if p.token.Is(token.String) {
+		if p.token.Is(token.String) {
 			expr = p.parseBasicLit(ident)
 		} else {
 			expr = ident
+			for p.token.Is(token.Dot) {
+				expr = p.parseDotExpr(expr)
+			}
+			if !p.inCondition && p.token.Is(token.Lbrace) {
+				expr = p.parseStructLit(expr)
+			}
 		}
 	} else {
 		expr = p.parseBasicLit(nil)

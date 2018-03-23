@@ -58,6 +58,6 @@ Literal = BasicLit | StructLit | ArrayLit | FuncLit
 BasicLit = Number | (IDENT? STRING) | 'true' | 'false' | 'null'
 Number = (INTEGER | FLOAT) IDENT?
 KeyValue = IDENT '=' Expr
-StructLit = IDENT '{' [KeyValue {',' KeyValue} ','?] '}'
+StructLit = NamedType '{' [KeyValue {',' KeyValue} ','?] '}'
 ArrayLit  = '[' [Expr {',' Expr} ','?] ']'
 FuncLit = 'fun' ['[' IDENT ']'] FuncSignature Block
