@@ -2,19 +2,17 @@ module main
 
 include "common.dg"
 
-/* Output:
-9
-11
-13
-*/
 fun[c] main() {
     var f1 = Foo{}
     var f2 = Foo{a=9,b=Bar{c=11, f=&var f1}}
 
     printFoo(&f2)
+    // expect:
+    // 9
+    // 11
 
     f2.b.f.a = 13
-    putiln(f1.a)
+    putiln(f1.a) // expect: 13
 }
 
 fun printFoo(f *Foo) {

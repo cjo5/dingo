@@ -935,7 +935,8 @@ func (v *typeChecker) VisitIdent(expr *ir.Ident) ir.Expr {
 		expr.T = ir.TBuiltinUntyped
 	} else {
 		decl := v.c.topDecl()
-		if !sym.Public && sym.FQN() != decl.Symbol().FQN() {
+		// Check symbol in other module is public (struct fields are exempted).
+		if !sym.Public && sym.FQN() != decl.Symbol().FQN() && sym.Parent.ID != ir.FieldScope {
 			v.c.error(expr.Pos(), "'%s' is not public", expr.Literal)
 			expr.T = ir.TBuiltinUntyped
 		} else {
@@ -1050,7 +1051,7 @@ func (v *typeChecker) VisitFuncCall(expr *ir.FuncCall) ir.Expr {
 	}
 
 	if t.ID() != ir.TFunc {
-		v.c.error(expr.X.Pos(), "expression is not callable (has type %s)", t)
+		v.c.errorExpr(expr.X, "expression is not callable (has type %s)", t)
 		expr.T = ir.TBuiltinUntyped
 		return expr
 	}

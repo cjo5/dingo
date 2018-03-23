@@ -31,7 +31,7 @@ func main() {
 	}
 
 	errors := &common.ErrorList{}
-	build(flag.Args()[0:], config, errors)
+	build(flag.Args(), config, errors)
 	printErrors(errors)
 }
 

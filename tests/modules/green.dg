@@ -1,9 +1,11 @@
 module green
 
-pub struct Bar {
-    b i32
+pub struct Foo {
+    a i32
 }
 
-pub fun bupp() i32 {
-    return 101
+pub val bar i32 = 20
+
+pub fun zoo() i32 {
+    return 21
 }

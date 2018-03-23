@@ -2,23 +2,19 @@ module main
 
 include "common.dg"
 
-/* Output:
-Hello!
-10
-Good bye!
-*/
 fun[c] main() {
     val sayHello fun[c]() = fun[c]() {
         puts(c"Hello!")
     }
 
-    sayHello()
+    sayHello() // expect: Hello!
 
     doOperation(5, 2, fun(arg1 i32, arg2 i32) i32 {
         return arg1 * arg2
-    })
+    }) 
+    // expect: 10
 
-    sayGoodBye()
+    sayGoodBye() // expect: Good bye!
 }
 
 val sayGoodBye = fun() {
