@@ -1,16 +1,17 @@
-include "common.dg"
+include "../common.dg"
 
-fun[c] main() {
+fun[c] main() i32 {
     var f1 = Foo{}
     var f2 = Foo{a: 9, b: Bar{c: 11, f: &var f1}}
 
     printFoo(&f2)
-    // expect:
-    // 9
-    // 11
+    // expect: 9
+    // expect: 11
 
     f2.b.f.a = 13
     putiln(f1.a) // expect: 13
+
+    return 0
 }
 
 fun printFoo(f *Foo) {

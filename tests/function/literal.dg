@@ -1,6 +1,6 @@
-include "common.dg"
+include "../common.dg"
 
-fun[c] main() {
+fun[c] main() i32 {
     val sayHello fun[c]() = fun[c]() {
         puts(c"Hello!")
     }
@@ -13,6 +13,8 @@ fun[c] main() {
     // expect: 10
 
     sayGoodBye() // expect: Good bye!
+
+    return 0
 }
 
 val sayGoodBye = fun() {

@@ -23,17 +23,14 @@ func Parse(src []byte) (*ir.File, []ir.TopDecl, error) {
 }
 
 func parse(src []byte, filepath string) (*ir.File, []ir.TopDecl, error) {
-	var p parser
-	p.init(src, filepath)
-	p.next()
-
-	file, decls := p.parseFile()
+	p := newParser(src, filepath)
+	p.parseFile()
 
 	if p.errors.IsError() {
-		return file, decls, p.errors
+		return p.file, p.decls, p.errors
 	}
 
-	return file, decls, nil
+	return p.file, p.decls, nil
 }
 
 type parseError struct {
@@ -59,17 +56,23 @@ type parser struct {
 	globalAnonCount int
 }
 
-func (p *parser) init(src []byte, filename string) {
+func newParser(src []byte, filename string) *parser {
+	p := &parser{}
 	p.errors = &common.ErrorList{}
+	p.file = &ir.File{Filename: filename}
 	p.funcName = ""
 	p.lexer.init(src, filename, p.errors)
+	p.next()
+	return p
 }
 
 func (p *parser) next() {
 	for {
 		p.prev = p.token
 		p.token, p.literal = p.lexer.lex()
-		if p.token.ID != token.Comment && p.token.ID != token.MultiComment {
+		if p.token.OneOf(token.Comment, token.MultiComment) {
+			p.file.Comments = append(p.file.Comments, &ir.Comment{Tok: p.token, Literal: p.literal})
+		} else {
 			break
 		}
 	}
@@ -166,9 +169,7 @@ func (p *parser) expectSemi() bool {
 	return p.expectSemi1(true)
 }
 
-func (p *parser) parseFile() (*ir.File, []ir.TopDecl) {
-	p.file = &ir.File{Filename: p.lexer.filename}
-
+func (p *parser) parseFile() {
 	if p.token.Is(token.Module) {
 		p.file.Decl = p.token
 		p.next()
@@ -210,8 +211,6 @@ func (p *parser) parseFile() (*ir.File, []ir.TopDecl) {
 			}
 		}
 	}
-
-	return p.file, p.decls
 }
 
 func (p *parser) parseModName() ir.Expr {

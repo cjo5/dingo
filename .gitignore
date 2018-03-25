@@ -1,5 +1,5 @@
 .vscode/*
 *.o
 .DS_Store
-dingo
 dgexe
+main

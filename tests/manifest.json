@@ -1,0 +1,50 @@
+[
+    {
+        "dir": "number",
+        "tests": [
+            {
+                "name": "literals",
+                "files": ["literals.dg"]
+            },
+            {
+                "name": "arithmetic",
+                "files": ["arithmetic.dg"]
+            }
+        ]
+    },
+    {
+        "dir": "if",
+        "tests": [
+            {
+                "name": "if",
+                "files": ["if.dg"]
+            }
+        ]
+    },
+    {
+        "dir": "function",
+        "tests": [
+            {
+                "name": "literal",
+                "files": ["literal.dg"]
+            }
+        ]
+    },
+    {
+        "dir": "module",
+        "files": ["main.dg", "red.dg", "green.dg"]
+    },
+    {
+        "name": "slice",
+        "files": ["slice.dg"]
+    },
+    {
+        "dir": "struct",
+        "tests": [
+            {
+                "name": "struct",
+                "files": ["struct.dg"]
+            }
+        ]
+    }
+]

@@ -121,8 +121,8 @@ func (cb *llvmCodeBuilder) validateMainFunc(mod *ir.Module) {
 			msg = fmt.Sprintf("invalid main function (not declared as C function)")
 		} else if len(tmain.Params) > 0 {
 			msg = fmt.Sprintf("invalid main function (expected 0 parameters, got %d)", len(tmain.Params))
-		} else if tmain.Return.ID() != ir.TVoid {
-			msg = fmt.Sprintf("invalid main function (expected return type %s, got %s)", ir.TVoid, tmain.Return)
+		} else if tmain.Return.ID() != ir.TInt32 {
+			msg = fmt.Sprintf("invalid main function (expected return type %s, got %s)", ir.TInt32, tmain.Return)
 		} else if !mainFunc.Public {
 			msg = fmt.Sprintf("invalid main function (not declared as public)")
 		}

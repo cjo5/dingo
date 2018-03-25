@@ -127,6 +127,11 @@ type BadDecl struct {
 
 func (d *BadDecl) Pos() token.Position { return d.From.Pos }
 
+type Comment struct {
+	Tok     token.Token
+	Literal string
+}
+
 type File struct {
 	baseNode
 	Filename string
@@ -134,6 +139,7 @@ type File struct {
 	ModName  Expr
 	FileDeps []*FileDependency
 	ModDeps  []*ModuleDependency
+	Comments []*Comment
 }
 
 type FileDependency struct {

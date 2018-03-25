@@ -1,17 +1,8 @@
-//include "common.dg"
+fun stuff(a i32) {
 
-//import red
-
-fun[c] main() {
-    //red.mupp()
 }
 
-struct Foo {
-    a i32
-    b Bar
-}
-
-struct Bar {
-    c i32
-    f *var Foo
+fun[c] main() i32 {
+    stuff(-123)
+    return 0
 }

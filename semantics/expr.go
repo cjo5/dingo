@@ -1062,7 +1062,8 @@ func (v *typeChecker) VisitFuncCall(expr *ir.FuncCall) ir.Expr {
 		v.c.error(expr.Lparen.Pos, "function takes %d argument(s) but called with %d", len(tfun.Params), len(expr.Args))
 	} else {
 		for i, arg := range expr.Args {
-			expr.Args[i] = v.makeTypedExpr(arg, tfun.Params[i])
+			arg = v.makeTypedExpr(arg, tfun.Params[i])
+			expr.Args[i] = arg
 			tparam := tfun.Params[i]
 
 			targ := arg.Type()

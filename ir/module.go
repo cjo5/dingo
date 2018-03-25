@@ -38,6 +38,16 @@ type Module struct {
 
 func (m *Module) Pos() token.Position { return m.Path }
 
+func (m *Module) FindFileWithFQN(fqn string) *File {
+	for _, file := range m.Files {
+		fileFQN := ExprToModuleFQN(file.ModName)
+		if fileFQN == fqn {
+			return file
+		}
+	}
+	return nil
+}
+
 func (m *Module) FindFuncSymbol(name string) *Symbol {
 	for _, decl := range m.Decls {
 		sym := decl.Symbol()

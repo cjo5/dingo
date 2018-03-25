@@ -13,7 +13,7 @@ import (
 )
 
 func main() {
-	config := &common.BuildConfig{}
+	config := common.NewBuildConfig()
 
 	flag.Usage = func() {
 		fmt.Printf("Usage of %s: [options] file\n", os.Args[0])

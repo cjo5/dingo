@@ -6,3 +6,9 @@ type BuildConfig struct {
 	LLVMIR  bool
 	Exe     string
 }
+
+func NewBuildConfig() *BuildConfig {
+	config := &BuildConfig{}
+	config.Exe = ""
+	return config
+}
