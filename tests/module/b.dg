@@ -1,4 +1,4 @@
-module green
+module b
 
 pub struct Foo {
     a i32

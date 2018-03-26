@@ -1,0 +1,9 @@
+include "../common.dg"
+
+import a as mod
+
+fun[c] main() i32 {
+    putiln(mod.bar) // expect: 10
+
+    return 0
+}

@@ -1,8 +1,6 @@
 package semantics
 
 import (
-	"strings"
-
 	"github.com/jhnl/dingo/ir"
 	"github.com/jhnl/dingo/token"
 )
@@ -34,10 +32,7 @@ func registerModules(c *context) {
 				if fqn == mod.FQN {
 					c.error(dep.ModName.Pos(), "module '%s' cannot import itself", fqn)
 				} else if moddep, ok := c.set.Modules[fqn]; ok {
-					parts := strings.Split(fqn, ".")
-					name := parts[len(parts)-1]
-
-					sym := c.insert(mod.Scope, ir.ModuleSymbol, isPublic(dep.Visibility), name, dep.ModName.Pos())
+					sym := c.insert(mod.Scope, ir.ModuleSymbol, isPublic(dep.Visibility), dep.Alias.Literal, dep.ModName.Pos())
 					if sym != nil {
 						sym.T = ir.NewModuleType(fqn, moddep.Scope)
 					}

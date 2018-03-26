@@ -11,6 +11,10 @@
                 "files": ["function_val.dg"]
             },
             {
+                "name": "parameter",
+                "files": ["parameter.dg"]
+            },
+            {
                 "name": "structs",
                 "files": ["structs.dg"]
             },
@@ -53,7 +57,16 @@
     },
     {
         "dir": "module",
-        "files": ["main.dg", "red.dg", "green.dg"]
+        "tests": [
+            {
+                "name": "import",
+                "files": ["import.dg", "a.dg", "b.dg"]
+            },
+            {
+                "name": "import_alias",
+                "files": ["import_alias.dg", "a.dg", "b.dg"]
+            }
+        ]
     },
     {
         "name": "slice",

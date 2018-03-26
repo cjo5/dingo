@@ -165,6 +165,7 @@ type ModuleDependency struct {
 	Visibility token.Token
 	Decl       token.Token
 	ModName    Expr
+	Alias      *Ident
 }
 
 type ValDeclSpec struct {

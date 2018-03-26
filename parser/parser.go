@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
+	"strings"
 
 	"github.com/jhnl/dingo/common"
 	"github.com/jhnl/dingo/ir"
@@ -248,14 +249,23 @@ func (p *parser) parseImport(directives []ir.Directive, visibility token.Token) 
 	decl := p.token
 	p.next()
 
-	var name ir.Expr
-	name = p.parseIdent()
+	var modname ir.Expr
+	modname = p.parseIdent()
 	if p.token.Is(token.Dot) {
-		name = p.parseDotExpr(name)
+		modname = p.parseDotExpr(modname)
+	}
+
+	dep = &ir.ModuleDependency{Directives: directives, Visibility: visibility, Decl: decl, ModName: modname}
+
+	if p.token.Is(token.As) {
+		p.next()
+		dep.Alias = p.parseIdent()
+	} else {
+		parts := strings.Split(ir.ExprToModuleFQN(dep.ModName), ".")
+		dep.Alias = ir.NewIdent2(token.Synthetic(token.Ident), parts[len(parts)-1])
 	}
 
 	p.expectSemi()
-	dep = &ir.ModuleDependency{Directives: directives, Visibility: visibility, Decl: decl, ModName: name}
 
 	return dep
 }

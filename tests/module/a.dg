@@ -1,6 +1,6 @@
-module red
+module a
 
-pub import green
+pub import b
 
 pub struct Foo {
     a i32
