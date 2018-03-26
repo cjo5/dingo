@@ -63,7 +63,9 @@ func (v *typeChecker) setWeakDependencies(decl ir.TopDecl) {
 			weakCount := 0
 			for i := 0; i < len(v.Links); i++ {
 				link := v.Links[i]
-				if link.IsType && link.Sym != nil && link.Sym.T != nil {
+				if link.Sym == nil || link.Sym.T == nil {
+					weakCount++
+				} else if link.IsType {
 					t := link.Sym.T
 					if t.ID() == ir.TPointer || t.ID() == ir.TSlice || t.ID() == ir.TFunc {
 						weakCount++
@@ -291,11 +293,7 @@ func (v *typeChecker) VisitStructDecl(decl *ir.StructDecl) {
 	if untyped {
 		decl.Sym.T = ir.TBuiltinUntyped
 	} else {
-		if checkCycle(decl) {
-			decl.Sym.T = ir.TBuiltinUntyped
-		} else {
-			structt := decl.Sym.T.(*ir.StructType)
-			structt.SetBody(decl)
-		}
+		structt := decl.Sym.T.(*ir.StructType)
+		structt.SetBody(decl)
 	}
 }

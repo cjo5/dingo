@@ -165,7 +165,7 @@ func normalizePath(cwd string, rel string, path string) (includePath, error) {
 	stat, err := os.Stat(actual)
 	if err == nil {
 		if stat.IsDir() {
-			return emptyPath, fmt.Errorf("%s is a directory", actual)
+			return emptyPath, fmt.Errorf("'%s' is a directory", actual)
 		}
 
 		normPath := includePath{}
@@ -178,7 +178,7 @@ func normalizePath(cwd string, rel string, path string) (includePath, error) {
 	}
 
 	// Failed to find file
-	return emptyPath, fmt.Errorf("failed to find file %s", actual)
+	return emptyPath, fmt.Errorf("failed to find file '%s'", actual)
 }
 
 func (l *loader) createDependencyList(loadedFile *file) bool {

@@ -1,0 +1,14 @@
+struct Foo {
+    b Bar
+}
+
+struct Bar {
+    f Foo
+}
+
+// compiler: error: cycle detected
+// compiler: BEGIN TRACE
+// compiler: re: .*:1:8:Foo
+// compiler: re: .*:5:8:Bar
+// compiler: re: .*:1:8:Foo
+// compiler: END TRACE

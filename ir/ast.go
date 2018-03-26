@@ -81,6 +81,19 @@ const (
 	BlackColor
 )
 
+func (c Color) String() string {
+	switch c {
+	case WhiteColor:
+		return "White"
+	case GrayColor:
+		return "Gray"
+	case BlackColor:
+		return "Black"
+	default:
+		return "-"
+	}
+}
+
 type DeclDependencyGraph map[TopDecl]*DeclDependency
 
 type DeclDependency struct {

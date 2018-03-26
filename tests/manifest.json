@@ -1,5 +1,26 @@
 [
     {
+        "dir": "dep",
+        "tests": [
+            {
+                "name": "functions",
+                "files": ["functions.dg"]
+            },
+            {
+                "name": "function_val",
+                "files": ["function_val.dg"]
+            },
+            {
+                "name": "structs",
+                "files": ["structs.dg"]
+            },
+            {
+                "name": "struct_cycle",
+                "files": ["struct_cycle.dg"]
+            }
+        ]
+    },
+    {
         "dir": "number",
         "tests": [
             {
@@ -37,14 +58,5 @@
     {
         "name": "slice",
         "files": ["slice.dg"]
-    },
-    {
-        "dir": "struct",
-        "tests": [
-            {
-                "name": "struct",
-                "files": ["struct.dg"]
-            }
-        ]
     }
 ]

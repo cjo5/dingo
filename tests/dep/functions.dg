@@ -1,0 +1,24 @@
+include "../common.dg"
+
+fun[c] main() i32 {
+    foo(2)
+    // expect: foo
+    // expect: bar
+    // expect: foo
+    // expect: bar
+    
+    return 0
+}
+
+fun foo(i i32) {
+    if i <= 0 {
+        return
+    }
+    puts(c"foo")
+    bar(i-1)
+}
+
+fun bar(i i32) {
+    puts(c"bar")
+    foo(i-1)
+}

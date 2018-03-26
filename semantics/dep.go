@@ -75,12 +75,16 @@ func sortDeclDependencies(fqn string, decl ir.TopDecl, trace *[]ir.TopDecl, sort
 	graph := *decl.DependencyGraph()
 	sym := decl.Symbol()
 
+	var weak []ir.TopDecl
+
 	for dep, node := range graph {
 		depSym := dep.Symbol()
 
 		if sym.FQN() != fqn && depSym.ID != ir.TypeSymbol {
+			// Only type symbols from other modules are needed
 			continue
-		} else if dep.Color() == ir.GrayColor && node.Weak {
+		} else if node.Weak {
+			weak = append(weak, dep)
 			continue
 		}
 
@@ -90,37 +94,24 @@ func sortDeclDependencies(fqn string, decl ir.TopDecl, trace *[]ir.TopDecl, sort
 			break
 		}
 	}
+
 	decl.SetColor(ir.BlackColor)
 	*sortedDecls = append(*sortedDecls, decl)
+
+	if sortOK {
+		for _, dep := range weak {
+			if dep.Color() == ir.WhiteColor {
+				// Ensure dependencies from other modules are included
+				if !sortDeclDependencies(fqn, dep, trace, sortedDecls) {
+					*trace = append(*trace, dep)
+					sortOK = false
+					break
+				}
+			}
+		}
+	}
+
 	return sortOK
-}
-
-func checkCycle(decl ir.TopDecl) bool {
-	var visited []ir.TopDecl
-	return checkCycle2(decl, visited)
-}
-
-func checkCycle2(decl ir.TopDecl, visited []ir.TopDecl) bool {
-	for _, v := range visited {
-		if v == decl {
-			return true
-		}
-	}
-
-	visited = append(visited, decl)
-	graph := *decl.DependencyGraph()
-
-	for dep, node := range graph {
-		if node.Weak {
-			continue
-		}
-		if checkCycle2(dep, visited) {
-			return true
-		}
-	}
-
-	visited = visited[:len(visited)-1]
-	return false
 }
 
 func (v *depChecker) Module(mod *ir.Module) {

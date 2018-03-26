@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/jhnl/dingo/backend"
@@ -23,17 +24,20 @@ import (
 )
 
 func main() {
+	var manifest string
+
+	flag.StringVar(&manifest, "manifest", "", "Test manifest")
 	flag.Parse()
 
-	if len(flag.Args()) == 0 {
-		abort(fmt.Errorf("no test manifest"))
-	}
-
-	manifest := flag.Args()[0]
-	tests := readTestManifest(manifest)
-
+	var tests []*testCase
 	tester := &testRunner{}
-	tester.baseDir = filepath.Dir(manifest)
+
+	if len(manifest) > 0 {
+		tests = readTestManifest(manifest)
+		tester.baseDir = filepath.Dir(manifest)
+	} else {
+		tests = createTests(flag.Args())
+	}
 
 	tester.runTests("", "", tests)
 	fmt.Printf("\nFINISHED: total: %d success: %d fail: %d skip: %d\n\n",
@@ -123,12 +127,30 @@ func readTestManifest(manifest string) []*testCase {
 	return tests
 }
 
+func createTests(testFiles []string) []*testCase {
+	var tests []*testCase
+
+	for _, testFile := range testFiles {
+		test := &testCase{}
+		test.Dir = ""
+		test.Files = append(test.Files, testFile)
+
+		name := filepath.Base(testFile)
+		ext := filepath.Ext(testFile)
+		name = name[:len(name)-len(ext)]
+		test.Name = name
+
+		tests = append(tests, test)
+	}
+
+	return tests
+}
+
 func (t *testRunner) runTests(baseName string, baseDir string, tests []*testCase) {
 	for _, test := range tests {
 		name := ""
 		if len(baseDir) > 0 {
 			name = baseName + "/"
-
 		}
 
 		if len(test.Name) > 0 {
@@ -257,8 +279,20 @@ func addError(newError error, errors *common.ErrorList) bool {
 func addCompilerOutput(errors []*common.Error, output *[]*testOutput) {
 	for _, err := range errors {
 		pos := err.Pos
-		err.Pos = token.NoPosition
-		*output = append(*output, &testOutput{pos: pos, text: fmt.Sprintf("%s", err)})
+
+		msg := fmt.Sprintf("%s: %s", err.ID, err.Msg)
+		*output = append(*output, &testOutput{pos: pos, text: msg})
+
+		if len(err.Trace.Lines) > 0 {
+			*output = append(*output, &testOutput{pos: pos, text: "BEGIN TRACE"})
+			if len(err.Trace.Title) > 0 {
+				*output = append(*output, &testOutput{pos: pos, text: err.Trace.Title})
+			}
+			for _, line := range err.Trace.Lines {
+				*output = append(*output, &testOutput{pos: pos, text: line})
+			}
+			*output = append(*output, &testOutput{pos: pos, text: "END TRACE"})
+		}
 	}
 }
 
@@ -276,6 +310,7 @@ func addExeOutput(bytes []byte, output *[]*testOutput) {
 func compareOutput(expectedOutput []*testOutput, actualOutput []*testOutput, result *testResult) {
 	expectedIdx := 0
 	actualIdx := 0
+	regexPrefix := "re:"
 
 	for ; expectedIdx < len(expectedOutput); expectedIdx++ {
 		expected := expectedOutput[expectedIdx]
@@ -286,19 +321,35 @@ func compareOutput(expectedOutput []*testOutput, actualOutput []*testOutput, res
 
 		actual := actualOutput[actualIdx]
 		actualIdx++
+		match := true
 
-		if actual.text != expected.text {
-			result.addReason("got: %s: %s; expected: %s: %s", actual.pos, actual.text, expected.pos, expected.text)
+		if strings.HasPrefix(expected.text, regexPrefix) {
+			pattern := strings.TrimSpace(expected.text[len(regexPrefix):])
+			regex, err := regexp.Compile(pattern)
+			if err != nil {
+				result.addReason("bad regex: %s: %s", expected.pos, err)
+			} else {
+				match = regex.MatchString(actual.text)
+			}
+		} else {
+			match = expected.text == actual.text
+		}
+
+		if !match {
+			result.addReason("expected(%s): %s", expected.pos, expected.text)
+			result.addReason("  got(%s): %s", actual.pos, actual.text)
 		}
 	}
 
 	if actualIdx < len(actualOutput) {
 		for i := actualIdx; i < len(actualOutput); i++ {
-			result.addReason("got: %s: %s", actualOutput[i].pos, actualOutput[i].text)
+			result.addReason("got(%s): %s", actualOutput[i].pos, actualOutput[i].text)
 		}
-	} else if expectedIdx < len(expectedOutput) {
+	}
+
+	if expectedIdx < len(expectedOutput) {
 		for i := expectedIdx; i < len(expectedOutput); i++ {
-			result.addReason("expected: %s: %s", expectedOutput[i].pos, expectedOutput[i].text)
+			result.addReason("expected(%s): %s", expectedOutput[i].pos, expectedOutput[i].text)
 		}
 	}
 }

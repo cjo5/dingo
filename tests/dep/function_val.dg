@@ -1,0 +1,11 @@
+include "../common.dg"
+
+val foo i32 = 8
+
+fun[c] main() i32 {
+    putiln(bar) // expect: 9
+    putiln(foo) // expect: 8
+    return 0
+}
+
+val bar i32 = 9

@@ -15,7 +15,10 @@ func Check(set *ir.ModuleSet) error {
 	symCheck(c)
 	depCheck(c)
 	typeCheck(c)
-	sortDecls(c)
+
+	if !c.errors.IsError() {
+		sortDecls(c)
+	}
 
 	return c.errors
 }

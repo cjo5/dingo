@@ -1,8 +1,15 @@
-fun stuff(a i32) {
-
+fun[c] main() i32 {
+    //var f1 = Foo{}
+    //var f2 = Foo{a: 9, b: Bar{c: 11, f: &var f1}}
+    return 0
 }
 
-fun[c] main() i32 {
-    stuff(-123)
-    return 0
+struct Bar {
+    c i32
+    f *var Foo
+}
+
+struct Foo {
+    a i32
+    b Bar
 }
