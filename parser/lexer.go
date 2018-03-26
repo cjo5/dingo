@@ -64,14 +64,17 @@ func (l *lexer) lex() (token.Token, string) {
 	case isLetter(ch1):
 		tok.ID, literal = l.lexIdent()
 	case isDigit(ch1, 10):
-		tok.ID = l.lexNumber(false, pos)
+		tok.ID = l.lexNumber(false)
+	case ch1 == '\'':
+		l.lexChar()
+		tok.ID = token.Char
 	case ch1 == '"':
-		l.lexString(pos)
+		l.lexString()
 		tok.ID = token.String
 	case ch1 == '.':
 		l.next()
 		if isDigit(l.ch, 10) {
-			tok.ID = l.lexNumber(true, pos)
+			tok.ID = l.lexNumber(true)
 		} else {
 			tok.ID = token.Dot
 		}
@@ -168,7 +171,7 @@ func (l *lexer) lex() (token.Token, string) {
 func isLineTerminator(id token.ID) bool {
 	switch id {
 	case token.Ident,
-		token.Integer, token.Float, token.String, token.True, token.False, token.Null,
+		token.Integer, token.Float, token.Char, token.String, token.True, token.False, token.Null,
 		token.Rparen, token.Rbrace, token.Rbrack,
 		token.Continue, token.Break, token.Return,
 		token.Inc, token.Dec,
@@ -298,7 +301,7 @@ func isFractionOrExponent(ch rune) bool {
 	return ch == '.' || ch == 'e' || ch == 'E'
 }
 
-func (l *lexer) lexNumber(float bool, pos token.Position) token.ID {
+func (l *lexer) lexNumber(float bool) token.ID {
 	// Floating numbers can only be interpreted in base 10.
 
 	id := token.Integer
@@ -313,17 +316,17 @@ func (l *lexer) lexNumber(float bool, pos token.Position) token.ID {
 				// Hex
 				l.next()
 				if l.lexDigits(16) == 0 {
-					l.error(pos, "invalid hexadecimal literal")
+					l.error(l.newPos(), "invalid hexadecimal literal")
 				} else if isFractionOrExponent(l.ch) {
-					l.error(pos, "hexadecimal float literal is not supported")
+					l.error(l.newPos(), "hexadecimal float literal is not supported")
 				}
 			} else {
 				// Octal
 				l.lexDigits(8)
 				if isDigit(l.ch, 10) {
-					l.error(pos, "invalid octal literal")
+					l.error(l.newPos(), "invalid octal literal")
 				} else if isFractionOrExponent(l.ch) {
-					l.error(pos, "octal float literal is not supported")
+					l.error(l.newPos(), "octal float literal is not supported")
 				}
 			}
 
@@ -337,7 +340,7 @@ func (l *lexer) lexNumber(float bool, pos token.Position) token.ID {
 			l.next()
 
 			if l.ch == '_' {
-				l.error(pos, "decimal point '.' in float literal can not be followed by '_'")
+				l.error(l.newPos(), "decimal point '.' in float literal can not be followed by '_'")
 				return id
 			}
 
@@ -356,21 +359,48 @@ func (l *lexer) lexNumber(float bool, pos token.Position) token.ID {
 		if isDigit(l.ch, 10) {
 			l.lexDigits(10)
 		} else {
-			l.error(pos, "invalid exponent in float literal")
+			l.error(l.newPos(), "invalid exponent in float literal")
 		}
 	}
 
 	return id
 }
 
-func (l *lexer) lexString(pos token.Position) {
+func (l *lexer) lexChar() {
+	l.next()
+	start := l.chOffset
+
+	if l.ch == '\\' {
+		l.next()
+	}
+
+	if l.ch != '\'' {
+		if l.ch == '\n' {
+			l.error(l.newPos(), "newline in char literal")
+			return
+		}
+		l.next()
+	}
+
+	if l.ch == '\'' {
+		if (l.chOffset - start) > 0 {
+			l.next()
+		} else {
+			l.error(l.newPos(), "empty char literal")
+		}
+	} else {
+		l.error(l.newPos(), "char literal not terminated")
+	}
+}
+
+func (l *lexer) lexString() {
 	l.next()
 
 	for {
 		ch := l.ch
 
 		if ch == '\n' {
-			l.error(pos, "string literal not terminated")
+			l.error(l.newPos(), "newline in string literal")
 			break
 		}
 

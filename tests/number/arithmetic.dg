@@ -10,6 +10,7 @@ fun[c] main() i32 {
     putiln(-25/5) // expect: -5
     putiln(5*2+1) // expect: 11
     putiln(5*(2+1)) // expect: 15
+    putchar('a'+2) // expect: c
 
     return 0
 }

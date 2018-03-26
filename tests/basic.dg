@@ -1,15 +1,7 @@
+include "common.dg"
+
 fun[c] main() i32 {
-    //var f1 = Foo{}
-    //var f2 = Foo{a: 9, b: Bar{c: 11, f: &var f1}}
+    val a = '\t'
+    putchar(a)
     return 0
-}
-
-struct Bar {
-    c i32
-    f *var Foo
-}
-
-struct Foo {
-    a i32
-    b Bar
 }

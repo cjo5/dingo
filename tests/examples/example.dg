@@ -48,10 +48,10 @@ fun puti(i i32) {
     val i2 = abs(i)
     if i2 < 10 {
         if i < 0 {
-            putchar(45)
+            putchar('-')
         }
     } else {
         puti(i/10)
     }
-    putchar(48 + i2%10)
+    putchar('0' + i2%10)
 }

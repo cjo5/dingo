@@ -546,12 +546,9 @@ func (v *typeChecker) VisitUnaryExpr(expr *ir.UnaryExpr) ir.Expr {
 	return expr
 }
 
-func unescapeStringLiteral(lit string) string {
-	// TODO:
-	// - Handle more escape sequences
-	// - Improve rune handling
-
-	escaped := []rune(lit)
+// TODO: Move to lexer and add better support for escape sequences.
+func (v *typeChecker) unescapeStringLiteral(lit *ir.BasicLit) (string, bool) {
+	escaped := []rune(lit.Value)
 	var unescaped []rune
 
 	start := 0
@@ -584,13 +581,14 @@ func unescapeStringLiteral(lit string) string {
 			} else if ch2 == 'v' {
 				ch1 = 0x0b
 			} else {
-				ch1 = ch2
+				v.c.error(lit.Tok.Pos, "invalid escape sequence '\\%c'", ch2)
+				return "", false
 			}
 		}
 		unescaped = append(unescaped, ch1)
 	}
 
-	return string(unescaped)
+	return string(unescaped), true
 }
 
 func removeUnderscores(lit string) string {
@@ -601,17 +599,33 @@ func removeUnderscores(lit string) string {
 func (v *typeChecker) VisitBasicLit(expr *ir.BasicLit) ir.Expr {
 	if expr.Tok.ID == token.False || expr.Tok.ID == token.True {
 		expr.T = ir.TBuiltinBool
+	} else if expr.Tok.ID == token.Char {
+		if expr.Raw == nil {
+			if raw, ok := v.unescapeStringLiteral(expr); ok {
+				common.Assert(len(raw) == 1, "Unexpected length on char literal")
+
+				val := big.NewInt(0)
+				val.SetUint64(uint64(raw[0]))
+				expr.Raw = val
+				expr.T = ir.NewBasicType(ir.TBigInt)
+			} else {
+				expr.T = ir.TBuiltinUntyped
+			}
+		}
 	} else if expr.Tok.ID == token.String {
 		if expr.Raw == nil {
-			raw := unescapeStringLiteral(expr.Value)
-			if expr.Prefix == nil {
-				expr.T = ir.NewSliceType(ir.TBuiltinInt8, true, true)
-				expr.Raw = raw
-			} else if expr.Prefix.Literal == "c" {
-				expr.T = ir.NewPointerType(ir.TBuiltinInt8, true)
-				expr.Raw = raw
+			if raw, ok := v.unescapeStringLiteral(expr); ok {
+				if expr.Prefix == nil {
+					expr.T = ir.NewSliceType(ir.TBuiltinInt8, true, true)
+					expr.Raw = raw
+				} else if expr.Prefix.Literal == "c" {
+					expr.T = ir.NewPointerType(ir.TBuiltinInt8, true)
+					expr.Raw = raw
+				} else {
+					v.c.error(expr.Prefix.Pos(), "invalid string prefix '%s'", expr.Prefix.Literal)
+					expr.T = ir.TBuiltinUntyped
+				}
 			} else {
-				v.c.error(expr.Prefix.Pos(), "invalid string prefix '%s'", expr.Prefix.Literal)
 				expr.T = ir.TBuiltinUntyped
 			}
 		}

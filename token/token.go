@@ -20,6 +20,7 @@ const (
 	Ident
 	Integer
 	Float
+	Char
 	String
 
 	Lparen
@@ -104,6 +105,7 @@ var tokens = [...]string{
 	Ident:   "ident",
 	Integer: "integer",
 	Float:   "float",
+	Char:    "char",
 	String:  "string",
 
 	Lparen:     "(",

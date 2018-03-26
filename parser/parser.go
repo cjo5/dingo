@@ -916,7 +916,7 @@ func (p *parser) parseFuncCall(expr ir.Expr) ir.Expr {
 
 func (p *parser) parseBasicLit(prefix *ir.Ident) ir.Expr {
 	switch p.token.ID {
-	case token.Integer, token.Float, token.String, token.True, token.False, token.Null:
+	case token.Integer, token.Float, token.Char, token.String, token.True, token.False, token.Null:
 		tok := p.token
 		lit := p.literal
 		p.next()

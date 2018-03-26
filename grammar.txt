@@ -55,7 +55,7 @@ DotExpr = '.' IDENT Primary
 
 # StructLit is ignored when parsing Condition
 Literal = BasicLit | StructLit | ArrayLit | FuncLit
-BasicLit = Number | (IDENT? STRING) | 'true' | 'false' | 'null'
+BasicLit = Number | CHAR | (IDENT? STRING) | 'true' | 'false' | 'null'
 Number = (INTEGER | FLOAT) IDENT?
 KeyValue = IDENT ':' Expr
 StructLit = NamedType '{' [KeyValue {',' KeyValue} ','?] '}'

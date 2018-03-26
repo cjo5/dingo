@@ -5,6 +5,7 @@ fun[c] main() i32 {
     putiln(-123) // expect: -123
     putiln(100_000) // expect: 100000
     putiln(0x23) // expect: 35
+    putchar('k') // expect: k
 
     .23
     2e2
