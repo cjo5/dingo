@@ -1,100 +1,85 @@
 [
     {
-        "dir": "dep",
+        "testDir": "dep",
         "tests": [
             {
-                "name": "functions",
-                "files": ["functions.dg"]
+                "file": "functions.dg"
             },
             {
-                "name": "function_val",
-                "files": ["function_val.dg"]
+                "file": "function_val.dg"
             },
             {
-                "name": "parameter",
-                "files": ["parameter.dg"]
+                "file": "parameter.dg"
             },
             {
-                "name": "structs",
-                "files": ["structs.dg"]
+                "file": "structs.dg"
             },
             {
-                "name": "struct_cycle",
-                "files": ["struct_cycle.dg"]
+                "file": "struct_cycle.dg"
             }
         ]
     },
     {
-        "dir": "primitives",
+        "testDir": "primitives",
         "tests": [
             {
-                "name": "literals",
-                "files": ["literals.dg"]
+                "file": "literals.dg"
             },
             {
-                "name": "arithmetic",
-                "files": ["arithmetic.dg"]
+                "file": "arithmetic.dg"
             },
             {
-                "name": "comparison",
-                "files": ["comparison.dg"]
+                "file": "comparison.dg"
             },
             {
-                "name": "logic",
-                "files": ["logic.dg"]
+                "file": "logic.dg"
             }
         ]
     },
     {
-        "dir": "if",
+        "testDir": "if",
         "tests": [
             {
-                "name": "if",
-                "files": ["if.dg"]
+                "file": "if.dg"
             }
         ]
     },
     {
-        "dir": "loop",
+        "testDir": "loop",
         "tests": [
             {
-                "name": "for",
-                "files": ["for.dg"]
+                "file": "for.dg"
             },
             {
-                "name": "nested_for",
-                "files": ["nested_for.dg"]
+                "file": "nested_for.dg"
             },
             {
-                "name": "while",
-                "files": ["while.dg"]
+                "file": "while.dg"
             }
         ]
     },
     {
-        "dir": "function",
+        "testDir": "function",
         "tests": [
             {
-                "name": "literal",
-                "files": ["literal.dg"]
+                "file": "literal.dg"
             }
         ]
     },
     {
-        "dir": "module",
+        "testDir": "module",
         "tests": [
             {
-                "name": "import",
-                "files": ["import.dg", "a.dg", "b.dg"]
+                "file": "import.dg",
+                "modules": ["a.dg", "b.dg"]
             },
             {
-                "name": "import_alias",
-                "files": ["import_alias.dg", "a.dg", "b.dg"]
+                "file": "import_alias.dg",
+                "modules": ["a.dg", "b.dg"]
             }
         ]
     },
     {
-        "name": "slice",
-        "files": ["slice.dg"]
+        "file": "slice.dg"
     }
 ]

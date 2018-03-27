@@ -39,9 +39,9 @@ func main() {
 		tests = createTests(flag.Args())
 	}
 
-	tester.runTests("", "", tests)
-	fmt.Printf("\nFINISHED: total: %d success: %d fail: %d skip: %d\n\n",
-		tester.total, tester.success, tester.fail, tester.skip)
+	tester.runTests("", tests)
+	fmt.Printf("\nFINISHED: total: %d success: %d fail: %d skip: %d bad: %d\n\n",
+		tester.total, tester.success, tester.fail, tester.skip, tester.bad)
 }
 
 type testRunner struct {
@@ -52,13 +52,14 @@ type testRunner struct {
 	success int
 	skip    int
 	fail    int
+	bad     int
 }
 
 type testCase struct {
 	Disable bool
-	Name    string
-	Dir     string
-	Files   []string
+	File    string
+	Modules []string
+	TestDir string
 	Tests   []*testCase
 }
 
@@ -91,6 +92,7 @@ const (
 	statusSuccess status = iota
 	statusFail
 	statusSkip
+	statusBad
 )
 
 func (t status) String() string {
@@ -101,6 +103,8 @@ func (t status) String() string {
 		return "FAIL"
 	case statusSkip:
 		return "SKIP"
+	case statusBad:
+		return "BAD"
 	default:
 		return "-"
 	}
@@ -132,13 +136,8 @@ func createTests(testFiles []string) []*testCase {
 
 	for _, testFile := range testFiles {
 		test := &testCase{}
-		test.Dir = ""
-		test.Files = append(test.Files, testFile)
-
-		name := filepath.Base(testFile)
-		ext := filepath.Ext(testFile)
-		name = name[:len(name)-len(ext)]
-		test.Name = name
+		test.File = testFile
+		test.TestDir = ""
 
 		tests = append(tests, test)
 	}
@@ -146,32 +145,36 @@ func createTests(testFiles []string) []*testCase {
 	return tests
 }
 
-func (t *testRunner) runTests(baseName string, baseDir string, tests []*testCase) {
+func (t *testRunner) runTests(baseDir string, tests []*testCase) {
 	for _, test := range tests {
-		name := ""
-		if len(baseDir) > 0 {
-			name = baseName + "/"
-		}
+		validTest := false
 
-		if len(test.Name) > 0 {
-			name += test.Name
-		} else {
-			name += test.Dir
-		}
+		if len(test.File) > 0 {
+			validTest = true
 
-		dir := filepath.Join(baseDir, test.Dir)
+			ext := filepath.Ext(test.File)
+			baseName := filepath.Base(test.File)
+			baseName = baseName[:len(baseName)-len(ext)]
+			testName := filepath.Join(baseDir, baseName)
 
-		if len(test.Tests) > 0 {
-			t.runTests(name, dir, test.Tests)
-		} else {
-			result := t.runTest(name, dir, test)
+			result := t.runTest(testName, baseDir, test)
 			t.updateStats(result.status)
 
-			fmt.Printf("test %s%s[%s]\n", name, strings.Repeat(".", 50-len(name)), result.status)
+			fmt.Printf("test %s%s[%s]\n", testName, strings.Repeat(".", 50-len(testName)), result.status)
 
 			for _, txt := range result.reason {
 				fmt.Printf("  >> %s\n", txt)
 			}
+		}
+
+		if len(test.Tests) > 0 {
+			validTest = true
+			testDir := filepath.Join(baseDir, test.TestDir)
+			t.runTests(testDir, test.Tests)
+		}
+
+		if !validTest {
+			t.updateStats(statusBad)
 		}
 	}
 }
@@ -185,6 +188,8 @@ func (t *testRunner) updateStats(res status) {
 		t.fail++
 	case statusSkip:
 		t.skip++
+	case statusBad:
+		t.bad++
 	}
 }
 
@@ -194,19 +199,13 @@ func (t *testRunner) runTest(testName string, testDir string, test *testCase) *t
 	if test.Disable {
 		result.status = statusSkip
 		return result
-	} else if len(test.Files) == 0 {
-		result.status = statusSkip
-		result.addReason("no files")
-		return result
-	} else if len(testName) == 0 {
-		result.status = statusSkip
-		result.addReason("no test name")
-		return result
 	}
 
 	var filenames []string
-	for _, f := range test.Files {
-		filename := filepath.Join(t.baseDir, testDir, f)
+	filenames = append(filenames, filepath.Join(t.baseDir, testDir, test.File))
+
+	for _, mod := range test.Modules {
+		filename := filepath.Join(t.baseDir, testDir, mod)
 		filenames = append(filenames, filename)
 	}
 
