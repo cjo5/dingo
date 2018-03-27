@@ -24,3 +24,11 @@ fun puti(i i32) {
     }
     putchar(48 + i2%10)
 }
+
+fun putbool(b bool) {
+    if b {
+        puts(c"true")
+    } else {
+        puts(c"false")
+    }
+}

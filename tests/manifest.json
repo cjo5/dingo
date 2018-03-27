@@ -25,7 +25,7 @@
         ]
     },
     {
-        "dir": "number",
+        "dir": "primitives",
         "tests": [
             {
                 "name": "literals",
@@ -34,6 +34,14 @@
             {
                 "name": "arithmetic",
                 "files": ["arithmetic.dg"]
+            },
+            {
+                "name": "comparison",
+                "files": ["comparison.dg"]
+            },
+            {
+                "name": "logic",
+                "files": ["logic.dg"]
             }
         ]
     },
@@ -43,6 +51,23 @@
             {
                 "name": "if",
                 "files": ["if.dg"]
+            }
+        ]
+    },
+    {
+        "dir": "loop",
+        "tests": [
+            {
+                "name": "for",
+                "files": ["for.dg"]
+            },
+            {
+                "name": "nested_for",
+                "files": ["nested_for.dg"]
+            },
+            {
+                "name": "while",
+                "files": ["while.dg"]
             }
         ]
     },

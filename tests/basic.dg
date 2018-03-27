@@ -1,7 +1,9 @@
-include "common.dg"
-
 fun[c] main() i32 {
-    val a = '\t'
-    putchar(a)
+    val a = false
+    val b = true
+    val c = true
+
+    val d = (a && c) || (b && c)
+
     return 0
 }

@@ -1,0 +1,30 @@
+include "../common.dg"
+
+fun[c] main() i32 {
+    putbool(true && true) // expect: true
+    putbool(true && false) // expect: false
+    putbool(false && false) // expect: false
+    putbool(true || true) // expect: true
+    putbool(true || false) // expect: true
+    putbool(false || false) // expect: false
+    putbool(!true) // expect: false
+    putbool(!false) // expect: true
+    putbool((true && false) || (true && true)) // expect: true
+    putbool((true && false) || !(true && true)) // expect: false
+
+    val t = true
+    val f = false
+
+    putbool(t && t) // expect: true
+    putbool(t && f) // expect: false
+    putbool(f && f) // expect: false
+    putbool(t || t) // expect: true
+    putbool(t || f) // expect: true
+    putbool(f || f) // expect: false
+    putbool(!t) // expect: false
+    putbool(!f) // expect: true
+    putbool((t && f) || (t && t)) // expect: true
+    putbool((t && f) || !(t && t)) // expect: false
+
+    return 0
+}

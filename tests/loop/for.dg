@@ -1,0 +1,14 @@
+include "../common.dg"
+
+fun[c] main() i32 {
+    for i = 0; i < 5; i++ {
+        putiln(i)
+    }
+    // expect: 0
+    // expect: 1
+    // expect: 2
+    // expect: 3
+    // expect: 4
+
+    return 0
+}

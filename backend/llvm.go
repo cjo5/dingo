@@ -190,12 +190,12 @@ func (cb *llvmCodeBuilder) buildModule(mod *ir.Module) {
 }
 
 func (cb *llvmCodeBuilder) finalizeModule(mod *ir.Module) {
-	if err := llvm.VerifyModule(cb.mod, llvm.ReturnStatusAction); err != nil {
-		panic(err)
-	}
-
 	if cb.config.LLVMIR {
 		cb.mod.Dump()
+	}
+
+	if err := llvm.VerifyModule(cb.mod, llvm.ReturnStatusAction); err != nil {
+		panic(err)
 	}
 
 	_, filename := filepath.Split(mod.Path.Filename)
@@ -591,7 +591,12 @@ func (cb *llvmCodeBuilder) toLLVMType(t ir.Type) llvm.Type {
 		return llvm.StructType([]llvm.Type{tptr, tsize}, false)
 	case ir.TPointer:
 		tptr := t.(*ir.PointerType)
-		tunderlying := cb.toLLVMType(tptr.Underlying)
+		var tunderlying llvm.Type
+		if tptr.Underlying.ID() == ir.TUntyped {
+			tunderlying = llvm.Int32Type()
+		} else {
+			tunderlying = cb.toLLVMType(tptr.Underlying)
+		}
 		return llvm.PointerType(tunderlying, 0)
 	case ir.TFunc:
 		tfun := t.(*ir.FuncType)
@@ -723,9 +728,9 @@ func intPredicate(op token.ID, t ir.Type) llvm.IntPredicate {
 		return llvm.IntULT
 	case token.LtEq:
 		if ir.IsSignedType(t) {
-			return llvm.IntSLT
+			return llvm.IntSLE
 		}
-		return llvm.IntULT
+		return llvm.IntULE
 	}
 	panic(fmt.Sprintf("Unhandled int predicate %s", op))
 }
@@ -758,11 +763,18 @@ func (cb *llvmCodeBuilder) buildBinaryExpr(expr *ir.BinaryExpr) llvm.Value {
 			case1 = llvm.ConstInt(llvm.Int1Type(), 1, false)
 		}
 
+		last := fun.LastBasicBlock()
+		rightBlock.MoveAfter(last)
 		cb.b.SetInsertPointAtEnd(rightBlock)
+
 		right := cb.buildExprVal(expr.Right)
+		rightBlock = cb.b.GetInsertBlock()
 		cb.b.CreateBr(join)
 
+		last = fun.LastBasicBlock()
+		join.MoveAfter(last)
 		cb.b.SetInsertPointAtEnd(join)
+
 		phi := cb.b.CreatePHI(cb.toLLVMType(expr.T), "")
 		phi.AddIncoming([]llvm.Value{case1, right}, []llvm.BasicBlock{leftBlock, rightBlock})
 		return phi
