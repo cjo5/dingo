@@ -4,6 +4,7 @@ fun[c] main() i32 {
     for i = 0; i < 5; i++ {
         putiln(i)
     }
+    
     // expect: 0
     // expect: 1
     // expect: 2

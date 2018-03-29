@@ -62,10 +62,9 @@ func (t Trace) write(buf *bytes.Buffer) {
 		buf.WriteString(fmt.Sprintf("\n    %s", t.Title))
 	}
 
-	for num, l := range t.Lines {
+	for _, l := range t.Lines {
 		buf.WriteString("\n")
-		buf.WriteString("    ")
-		buf.WriteString(fmt.Sprintf("[%d] %s", num+1, l))
+		buf.WriteString(l)
 	}
 }
 

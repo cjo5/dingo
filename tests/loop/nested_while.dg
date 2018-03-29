@@ -1,16 +1,20 @@
 include "../common.dg"
 
 fun[c] main() i32 {
-    for i = 1; i <= 2; i++ {
-        for j = 1; j <= 2; j++ {
+    var i = 2
+    while i >= 1 {
+        var j = 2
+        while j >= 1 {
             putiln(i+j)
+            j--
         }
+        i--
     }
     
-    // expect: 2
-    // expect: 3
-    // expect: 3
     // expect: 4
+    // expect: 3
+    // expect: 3
+    // expect: 2
 
     return 0
 }

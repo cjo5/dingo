@@ -1,6 +1,8 @@
 package semantics
 
 import (
+	"fmt"
+
 	"github.com/jhnl/dingo/common"
 	"github.com/jhnl/dingo/ir"
 	"github.com/jhnl/dingo/token"
@@ -46,9 +48,9 @@ outer:
 				sym := cycleTrace[0].Symbol()
 
 				trace := common.NewTrace("", nil)
-				for i := len(cycleTrace) - 1; i >= 0; i-- {
+				for i, j := len(cycleTrace)-1, 0; i >= 0; i, j = i-1, j+1 {
 					s := cycleTrace[i].Symbol()
-					line := s.DefPos.String() + ":" + s.Name
+					line := fmt.Sprintf("[%d] %s:%s", j, s.DefPos, s.Name)
 					trace.Lines = append(trace.Lines, line)
 				}
 
@@ -181,6 +183,8 @@ func (v *depChecker) VisitIfStmt(stmt *ir.IfStmt) {
 }
 
 func (v *depChecker) VisitForStmt(stmt *ir.ForStmt) {
+	defer setScope(setScope(v.c, stmt.Body.Scope))
+
 	if stmt.Init != nil {
 		v.VisitValDecl(stmt.Init)
 	}
@@ -193,7 +197,7 @@ func (v *depChecker) VisitForStmt(stmt *ir.ForStmt) {
 		ir.VisitStmt(v, stmt.Inc)
 	}
 
-	v.VisitBlockStmt(stmt.Body)
+	ir.VisitStmtList(v, stmt.Body.Stmts)
 }
 
 func (v *depChecker) VisitReturnStmt(stmt *ir.ReturnStmt) {

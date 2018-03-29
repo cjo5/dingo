@@ -6,6 +6,7 @@ fun[c] main() i32 {
         putiln(i)
         i--
     }
+    
     // expect: 5
     // expect: 4
     // expect: 3

@@ -1,0 +1,49 @@
+include "../common.dg"
+
+fun[c] main() i32 {
+    for i = 1; i <= 5; i++ {
+        for j = 1; j <= 5; j++ {
+            putiln(i+j)
+            if j == 2 {
+                break
+            }
+        }
+        if i == 3 {
+            break
+        }
+    }
+
+    // expect: 2
+    // expect: 3
+    // expect: 3
+    // expect: 4
+    // expect: 4
+    // expect: 5
+    
+    var i = 5
+    while i >= 1 {
+        var j = 5
+        while j >= 1 {
+            putiln(i+j)
+            if j == 2 {
+                break
+            }
+            j--
+        }
+        if i == 4 {
+            break
+        }
+        i--
+    }
+
+    // expect: 10
+    // expect: 9
+    // expect: 8
+    // expect: 7
+    // expect: 9
+    // expect: 8
+    // expect: 7
+    // expect: 6
+    
+    return 0
+}

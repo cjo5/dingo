@@ -279,7 +279,7 @@ func addCompilerOutput(errors []*common.Error, output *[]*testOutput) {
 	for _, err := range errors {
 		pos := err.Pos
 
-		msg := fmt.Sprintf("%s: %s", err.ID, err.Msg)
+		msg := fmt.Sprintf("%s(%d:%d): %s", err.ID, pos.Line, pos.Column, err.Msg)
 		*output = append(*output, &testOutput{pos: pos, text: msg})
 
 		if len(err.Trace.Lines) > 0 {
@@ -300,7 +300,7 @@ func addExeOutput(bytes []byte, output *[]*testOutput) {
 	for i, line := range tmp {
 		line = strings.TrimSpace(line)
 		if len(line) > 0 {
-			pos := token.Position{Line: i}
+			pos := token.Position{Line: i + 1, Column: 1}
 			*output = append(*output, &testOutput{pos: pos, text: line})
 		}
 	}

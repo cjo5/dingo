@@ -70,7 +70,9 @@ func Build(set *ir.ModuleSet, config *common.BuildConfig) error {
 
 	cmd := exec.Command("cc", args...)
 	if linkOutput, linkErr := cmd.CombinedOutput(); linkErr != nil {
-		panic(fmt.Sprintf("Err: %s\nOutput: %s", linkErr, linkOutput))
+		lines := strings.Split(string(linkOutput), "\n")
+		trace := common.NewTrace("", lines)
+		cb.errors.AddTrace(token.NoPosition, trace, "link: %s", linkErr)
 	}
 
 	return cb.errors

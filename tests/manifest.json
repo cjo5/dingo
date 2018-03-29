@@ -51,10 +51,19 @@
                 "file": "for.dg"
             },
             {
+                "file": "while.dg"
+            },
+            {
                 "file": "nested_for.dg"
             },
             {
-                "file": "while.dg"
+                "file": "nested_while.dg"
+            },
+            {
+                "file": "break.dg"
+            },
+            {
+                "file": "continue.dg"
             }
         ]
     },

@@ -1,9 +1,21 @@
-fun[c] main() i32 {
-    val a = false
-    val b = true
-    val c = true
+include "common.dg"
 
-    val d = (a && c) || (b && c)
+fun[c] main() i32 {
+    var i = 5
+    while i >= 1 {
+        var j = 5
+        while j >= 1 {
+            putiln(i+j)
+            if j == 2 {
+                break
+            }
+            j--
+        }
+        if i == 4 {
+            break
+        }
+        i--
+    }
 
     return 0
 }

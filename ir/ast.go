@@ -281,12 +281,11 @@ func (s *IfStmt) Pos() token.Position { return s.If.Pos }
 
 type ForStmt struct {
 	baseStmt
-	For   token.Token
-	Scope *Scope
-	Init  *ValDecl
-	Inc   Stmt
-	Cond  Expr
-	Body  *BlockStmt
+	For  token.Token
+	Init *ValDecl
+	Inc  Stmt
+	Cond Expr
+	Body *BlockStmt
 }
 
 func (s *ForStmt) Pos() token.Position { return s.For.Pos }

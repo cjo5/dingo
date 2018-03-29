@@ -176,12 +176,12 @@ func (v *symChecker) VisitIfStmt(stmt *ir.IfStmt) {
 
 func (v *symChecker) VisitForStmt(stmt *ir.ForStmt) {
 	v.c.openScope(ir.LocalScope, v.fqn)
-	stmt.Scope = v.c.scope
+	stmt.Body.Scope = v.c.scope
 
 	if stmt.Init != nil {
-		ir.VisitDecl(v, stmt.Init)
+		v.VisitValDecl(stmt.Init)
 	}
 
-	v.VisitBlockStmt(stmt.Body)
+	ir.VisitStmtList(v, stmt.Body.Stmts)
 	v.c.closeScope()
 }

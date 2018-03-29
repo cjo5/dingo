@@ -27,7 +27,7 @@ func (v *typeChecker) VisitIfStmt(stmt *ir.IfStmt) {
 	}
 }
 func (v *typeChecker) VisitForStmt(stmt *ir.ForStmt) {
-	defer setScope(setScope(v.c, stmt.Scope))
+	defer setScope(setScope(v.c, stmt.Body.Scope))
 
 	if stmt.Init != nil {
 		v.VisitValDecl(stmt.Init)
@@ -44,7 +44,7 @@ func (v *typeChecker) VisitForStmt(stmt *ir.ForStmt) {
 		ir.VisitStmt(v, stmt.Inc)
 	}
 
-	v.VisitBlockStmt(stmt.Body)
+	ir.VisitStmtList(v, stmt.Body.Stmts)
 }
 
 func (v *typeChecker) VisitReturnStmt(stmt *ir.ReturnStmt) {
