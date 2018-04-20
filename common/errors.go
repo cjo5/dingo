@@ -11,11 +11,6 @@ import (
 	"github.com/jhnl/dingo/token"
 )
 
-type Trace struct {
-	Title string
-	Lines []string
-}
-
 // MessageID represents the type of error message.
 type MessageID int
 
@@ -40,7 +35,6 @@ type Error struct {
 	EndPos  token.Position
 	ID      MessageID
 	Msg     string
-	Trace   Trace
 	Context []string
 }
 
@@ -49,23 +43,8 @@ type ErrorList struct {
 	Errors   []*Error
 }
 
-func NewTrace(title string, lines []string) Trace {
-	return Trace{Title: title, Lines: lines}
-}
-
 func NewError(pos token.Position, endPos token.Position, id MessageID, msg string) *Error {
 	return &Error{Pos: pos, EndPos: endPos, ID: id, Msg: msg}
-}
-
-func (t Trace) write(buf *bytes.Buffer) {
-	if len(t.Title) > 0 {
-		buf.WriteString(fmt.Sprintf("\n    %s", t.Title))
-	}
-
-	for _, l := range t.Lines {
-		buf.WriteString("\n")
-		buf.WriteString(l)
-	}
 }
 
 func (e Error) Error() string {
@@ -82,13 +61,9 @@ func (e Error) Error() string {
 	var buf bytes.Buffer
 	buf.WriteString(msg)
 
-	if len(e.Trace.Lines) > 0 {
-		e.Trace.write(&buf)
-	} else if len(e.Context) > 0 {
-		for _, l := range e.Context {
-			buf.WriteString("\n")
-			buf.WriteString(l)
-		}
+	for _, l := range e.Context {
+		buf.WriteString("\n")
+		buf.WriteString(l)
 	}
 
 	return buf.String()
@@ -104,9 +79,9 @@ func (e *ErrorList) AddRange(pos token.Position, endPos token.Position, format s
 	e.Errors = append(e.Errors, err)
 }
 
-func (e *ErrorList) AddTrace(pos token.Position, trace Trace, format string, args ...interface{}) {
+func (e *ErrorList) AddContext(pos token.Position, context []string, format string, args ...interface{}) {
 	err := NewError(pos, pos, ErrorMsg, fmt.Sprintf(format, args...))
-	err.Trace = trace
+	err.Context = context
 	e.Errors = append(e.Errors, err)
 }
 
@@ -157,7 +132,10 @@ func loadContext1(errors []*Error) {
 	filename := ""
 
 	for _, e := range errors {
-		e.Context = nil
+		if len(e.Context) > 0 {
+			continue
+		}
+
 		if e.Pos.IsValid() {
 			if e.Pos.Filename != filename {
 				buf = nil

@@ -147,6 +147,11 @@ func createTests(testFiles []string) []*testCase {
 
 func (t *testRunner) runTests(baseDir string, tests []*testCase) {
 	for _, test := range tests {
+		if test.Disable {
+			t.updateStats(statusSkip)
+			continue
+		}
+
 		validTest := false
 
 		if len(test.File) > 0 {
@@ -194,13 +199,6 @@ func (t *testRunner) updateStats(res status) {
 }
 
 func (t *testRunner) runTest(testName string, testDir string, test *testCase) *testResult {
-	result := &testResult{status: statusSuccess}
-
-	if test.Disable {
-		result.status = statusSkip
-		return result
-	}
-
 	var filenames []string
 	filenames = append(filenames, filepath.Join(t.baseDir, testDir, test.File))
 
@@ -213,6 +211,7 @@ func (t *testRunner) runTest(testName string, testDir string, test *testCase) *t
 	var expectedExeOutput []*testOutput
 	errors := &common.ErrorList{}
 
+	result := &testResult{status: statusSuccess}
 	set, err := module.Load(filenames)
 
 	if set != nil {
@@ -282,15 +281,8 @@ func addCompilerOutput(errors []*common.Error, output *[]*testOutput) {
 		msg := fmt.Sprintf("%s(%d:%d): %s", err.ID, pos.Line, pos.Column, err.Msg)
 		*output = append(*output, &testOutput{pos: pos, text: msg})
 
-		if len(err.Trace.Lines) > 0 {
-			*output = append(*output, &testOutput{pos: pos, text: "BEGIN TRACE"})
-			if len(err.Trace.Title) > 0 {
-				*output = append(*output, &testOutput{pos: pos, text: err.Trace.Title})
-			}
-			for _, line := range err.Trace.Lines {
-				*output = append(*output, &testOutput{pos: pos, text: line})
-			}
-			*output = append(*output, &testOutput{pos: pos, text: "END TRACE"})
+		for _, line := range err.Context {
+			*output = append(*output, &testOutput{pos: pos, text: line})
 		}
 	}
 }

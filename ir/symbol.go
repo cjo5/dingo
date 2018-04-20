@@ -71,6 +71,6 @@ func (s *Symbol) Untyped() bool {
 	return false
 }
 
-func (s *Symbol) FQN() string {
+func (s *Symbol) ModFQN() string {
 	return s.Parent.FQN
 }

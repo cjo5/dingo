@@ -3,7 +3,6 @@ package semantics
 import (
 	"fmt"
 
-	"github.com/jhnl/dingo/common"
 	"github.com/jhnl/dingo/ir"
 	"github.com/jhnl/dingo/token"
 )
@@ -47,14 +46,14 @@ outer:
 				cycleTrace = cycleTrace[:j+1]
 				sym := cycleTrace[0].Symbol()
 
-				trace := common.NewTrace("", nil)
+				var lines []string
 				for i, j := len(cycleTrace)-1, 0; i >= 0; i, j = i-1, j+1 {
 					s := cycleTrace[i].Symbol()
 					line := fmt.Sprintf("[%d] %s:%s", j, s.DefPos, s.Name)
-					trace.Lines = append(trace.Lines, line)
+					lines = append(lines, line)
 				}
 
-				c.errors.AddTrace(sym.DefPos, trace, "cycle detected")
+				c.errors.AddContext(sym.DefPos, lines, "cycle detected")
 				break outer
 			}
 		}
@@ -82,7 +81,7 @@ func sortDeclDependencies(fqn string, decl ir.TopDecl, trace *[]ir.TopDecl, sort
 	for dep, node := range graph {
 		depSym := dep.Symbol()
 
-		if sym.FQN() != fqn && depSym.ID != ir.TypeSymbol {
+		if sym.ModFQN() != fqn && depSym.ID != ir.TypeSymbol {
 			// Only type symbols from other modules are needed
 			continue
 		} else if node.Weak {

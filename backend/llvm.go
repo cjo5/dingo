@@ -71,8 +71,7 @@ func Build(set *ir.ModuleSet, config *common.BuildConfig) error {
 	cmd := exec.Command("cc", args...)
 	if linkOutput, linkErr := cmd.CombinedOutput(); linkErr != nil {
 		lines := strings.Split(string(linkOutput), "\n")
-		trace := common.NewTrace("", lines)
-		cb.errors.AddTrace(token.NoPosition, trace, "link: %s", linkErr)
+		cb.errors.AddContext(token.NoPosition, lines, "link: %s", linkErr)
 	}
 
 	return cb.errors
@@ -153,7 +152,7 @@ func (cb *llvmCodeBuilder) mangle(sym *ir.Symbol) string {
 
 	var b bytes.Buffer
 	b.WriteString("_ZN")
-	b.WriteString(mangleFQN(sym.FQN()))
+	b.WriteString(mangleFQN(sym.ModFQN()))
 	b.WriteString(fmt.Sprintf("%d", len(sym.Name)))
 	b.WriteString(sym.Name)
 	b.WriteString("E")
@@ -183,7 +182,7 @@ func (cb *llvmCodeBuilder) buildModule(mod *ir.Module) {
 	for _, decl := range mod.Decls {
 		sym := decl.Symbol()
 
-		if sym.ID == ir.TypeSymbol || sym.FQN() == mod.FQN {
+		if sym.ID == ir.TypeSymbol || sym.ModFQN() == mod.FQN {
 			cb.buildDecl(decl)
 		}
 	}

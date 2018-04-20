@@ -192,7 +192,7 @@ func (l *loader) createDependencyList(loadedFile *file) bool {
 		}
 
 		if len(unquoted) == 0 {
-			l.errors.AddTrace(dep.Literal.Tok.Pos, l.getRequiredByTrace(loadedFile), "invalid path")
+			l.errors.AddContext(dep.Literal.Tok.Pos, l.getRequiredByTrace(loadedFile), "invalid path")
 			continue
 		}
 
@@ -222,11 +222,11 @@ func (l *loader) findLoadedFile(path string) *file {
 	return nil
 }
 
-func (l *loader) getRequiredByTrace(loadedFile *file) common.Trace {
+func (l *loader) getRequiredByTrace(loadedFile *file) []string {
 	var trace []string
 	for file := loadedFile; file != nil; {
 		trace = append(trace, file.path.actual.Filename)
 		file = file.requiredBy
 	}
-	return common.NewTrace("required by:", trace)
+	return trace
 }

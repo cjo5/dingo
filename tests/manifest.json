@@ -45,7 +45,7 @@
         ]
     },
     {
-        "testDir": "loop",
+        "testDir": "loops",
         "tests": [
             {
                 "file": "for.dg"
@@ -68,7 +68,7 @@
         ]
     },
     {
-        "testDir": "function",
+        "testDir": "functions",
         "tests": [
             {
                 "file": "literal.dg"
@@ -76,7 +76,7 @@
         ]
     },
     {
-        "testDir": "module",
+        "testDir": "modules",
         "tests": [
             {
                 "file": "import.dg",
@@ -90,5 +90,12 @@
     },
     {
         "file": "slice.dg"
+    },
+    {
+        "testDir": "types",
+        "disable": true,
+        "tests": [
+
+        ]
     }
 ]
