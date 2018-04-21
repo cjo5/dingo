@@ -1,0 +1,4 @@
+fun bar() {
+    var a void
+    // compiler: error(2:11): void cannot be used as a type 
+}

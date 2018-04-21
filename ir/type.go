@@ -131,7 +131,6 @@ type Type interface {
 }
 
 type baseType struct {
-	Type
 	id TypeID
 }
 
@@ -141,10 +140,6 @@ func (t *baseType) ID() TypeID {
 
 func (t *baseType) ImplicitCastOK(other Type) bool {
 	return false
-}
-
-func (t *baseType) ExplicitCastOK(other Type) bool {
-	return t.Equals(other)
 }
 
 type BasicType struct {
@@ -194,6 +189,10 @@ func (t *ModuleType) Equals(other Type) bool {
 	return false
 }
 
+func (t *ModuleType) ExplicitCastOK(other Type) bool {
+	return false
+}
+
 func (t *ModuleType) String() string {
 	return fmt.Sprintf("%s", t.FQN)
 }
@@ -210,6 +209,10 @@ func (t *StructType) Equals(other Type) bool {
 		return t.Sym == t2.Sym
 	}
 	return false
+}
+
+func (t *StructType) ExplicitCastOK(other Type) bool {
+	return t.Equals(other)
 }
 
 func (t *StructType) String() string {
@@ -250,6 +253,10 @@ func (t *ArrayType) Equals(other Type) bool {
 	return t.Elem.Equals(otherArray.Elem)
 }
 
+func (t *ArrayType) ExplicitCastOK(other Type) bool {
+	return t.Equals(other)
+}
+
 func (t *ArrayType) String() string {
 	return fmt.Sprintf("[%s:%d]", t.Elem.String(), t.Size)
 }
@@ -276,6 +283,18 @@ func (t *SliceType) ImplicitCastOK(other Type) bool {
 		case t.Equals(otherSlice):
 			return true
 		case !t.ReadOnly && t.Elem.Equals(otherSlice.Elem):
+			return true
+		}
+	}
+	return false
+}
+
+func (t *SliceType) ExplicitCastOK(other Type) bool {
+	if otherSlice, ok := other.(*SliceType); ok {
+		switch {
+		case t.Equals(otherSlice):
+			return true
+		case t.Elem.Equals(otherSlice.Elem):
 			return true
 		}
 	}
@@ -364,6 +383,10 @@ func (t *FuncType) Equals(other Type) bool {
 		return true
 	}
 	return false
+}
+
+func (t *FuncType) ExplicitCastOK(other Type) bool {
+	return t.Equals(other)
 }
 
 func (t *FuncType) String() string {

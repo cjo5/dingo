@@ -358,7 +358,7 @@ func (v *typeChecker) VisitCastExpr(expr *ir.CastExpr) ir.Expr {
 		if t2.ExplicitCastOK(t1) {
 			expr.T = t1
 		} else {
-			v.c.error(expr.X.Pos(), "type mismatch: %s cannot be converted to %s", t2, t1)
+			v.c.error(expr.X.Pos(), "type mismatch: %s cannot be cast to %s", t2, t1)
 		}
 	}
 

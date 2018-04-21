@@ -93,9 +93,16 @@
     },
     {
         "testDir": "types",
-        "disable": true,
         "tests": [
-
+            {
+                "file": "void.dg"
+            },
+            {
+                "file": "bad_cast.dg"
+            },
+            {
+                "file": "type_in_expr.dg"
+            }
         ]
     }
 ]
