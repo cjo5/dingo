@@ -1,10 +1,10 @@
 // std
-fun[c] atoi(*i8) i32
+fun[c] atoi(&i8) i32
 fun[c] exit(i32)
 fun[c] abs(i32) i32
 
 // stdio
-fun[c] puts(*i8) i32
+fun[c] puts(&i8) i32
 fun[c] putchar(i32) i32
 
 fun putiln(i i32) {

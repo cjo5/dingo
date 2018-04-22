@@ -146,10 +146,7 @@ func (v *typeChecker) visitValDeclSpec(sym *ir.Symbol, decl *ir.ValDeclSpec, def
 		decl.Type = v.visitType(decl.Type)
 		t = decl.Type.Type()
 
-		if t.ID() == ir.TVoid {
-			v.c.error(decl.Type.Pos(), "%s cannot be used as a type", t)
-			t = ir.TBuiltinUntyped
-		} else if !checkCompleteType(t) {
+		if !checkCompleteType(t, false, nil) {
 			v.c.error(decl.Type.Pos(), "incomplete type %s", t)
 			t = ir.TBuiltinUntyped
 		}

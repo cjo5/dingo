@@ -1,0 +1,12 @@
+fun bar() {
+    var a &void
+    var b &[i32]
+    var c void // compiler: error(4:11): incomplete type void
+    var d [void:5] // compiler: error(5:11): incomplete type [void:5]
+    var e &[void] // compiler: error(6:11): incomplete type &[void]
+    var f [i32] // compiler: error(7:11): incomplete type [i32]
+
+    var g = [1, 2]
+    var h = g[:] // compiler: error(10:13): expression has incomplete type [i32]
+
+}

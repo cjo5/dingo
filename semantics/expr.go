@@ -51,7 +51,7 @@ func (v *typeChecker) makeTypedExpr(expr ir.Expr, t ir.Type) ir.Expr {
 		}
 	}
 
-	if !checkCompleteType(expr.Type()) {
+	if !checkCompleteType(expr.Type(), true, nil) {
 		v.c.error(expr.Pos(), "expression has incomplete type %s", expr.Type())
 		switch t2 := expr.(type) {
 		case *ir.SliceExpr:
@@ -340,14 +340,12 @@ func (v *typeChecker) VisitCastExpr(expr *ir.CastExpr) ir.Expr {
 	expr.ToTyp = ir.VisitExpr(v, expr.ToTyp)
 	v.exprMode = prevMode
 
+	err := false
 	sym := ir.ExprSymbol(expr.ToTyp)
-	err := true
-	if sym != nil {
-		if sym.ID != ir.TypeSymbol {
-			v.c.error(expr.ToTyp.Pos(), "'%s' is not a type", sym.Name)
-		} else {
-			err = false
-		}
+
+	if sym != nil && sym.ID != ir.TypeSymbol {
+		v.c.error(expr.ToTyp.Pos(), "'%s' is not a type", sym.Name)
+		err = true
 	}
 
 	expr.X = ir.VisitExpr(v, expr.X)
@@ -355,6 +353,7 @@ func (v *typeChecker) VisitCastExpr(expr *ir.CastExpr) ir.Expr {
 	if !err {
 		t1 := expr.ToTyp.Type()
 		t2 := expr.X.Type()
+
 		if t2.ExplicitCastOK(t1) {
 			expr.T = t1
 		} else {

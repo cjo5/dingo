@@ -1,21 +1,8 @@
 include "common.dg"
 
 fun[c] main() i32 {
-    var i = 5
-    while i >= 1 {
-        var j = 5
-        while j >= 1 {
-            putiln(i+j)
-            if j == 2 {
-                break
-            }
-            j--
-        }
-        if i == 4 {
-            break
-        }
-        i--
-    }
+    var a = 5
+    var b &void = &a
 
     return 0
 }

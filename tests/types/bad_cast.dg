@@ -1,5 +1,5 @@
 fun foo() {
     var a = "a"
     var b = cast(u32, a)
-    // compiler: error(3:23): type mismatch: *[i8] cannot be cast to u32
+    // compiler: error(3:23): type mismatch: &[i8] cannot be cast to u32
 }

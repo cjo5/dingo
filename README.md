@@ -9,7 +9,7 @@ Note this project is still a work in progress.
 // C function declarations
 fun[c] abs(i32) i32
 fun[c] putchar(i32) i32
-fun[c] puts(*i8) i32
+fun[c] puts(&i8) i32
 
 /*
     Comment
@@ -28,13 +28,13 @@ fun[c] main() i32 {
     return 0
 }
 
-fun swap(x *var i32, y *var i32) {
+fun swap(x &var i32, y &var i32) {
     val tmp = *x
     *x = *y
     *y = tmp
 }
 
-fun bubbleSort(slice *var [i32]) {
+fun bubbleSort(slice &var [i32]) {
     for i = 0; i < lenof(slice)-1; i++ {
         for j = 0; j < lenof(slice)-1; j++ {
             if slice[j] > slice[j+1] {
@@ -44,7 +44,7 @@ fun bubbleSort(slice *var [i32]) {
     }
 }
 
-fun printSlice(slice *[i32]) {
+fun printSlice(slice &[i32]) {
     for i = 0; i < lenof(slice); i++ {
         puti(slice[i])
         puts(c"")

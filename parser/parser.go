@@ -336,6 +336,10 @@ func (p *parser) parseValDeclSpec() ir.ValDeclSpec {
 	if p.token.Is(token.Assign) {
 		p.next()
 		decl.Initializer = p.parseExpr()
+	} else if decl.Type == nil {
+		p.error(p.token, "expected type or assignment")
+		p.next()
+		panic(parseError{p.token})
 	}
 
 	return decl
@@ -665,7 +669,7 @@ func (p *parser) parseExprOrAssignStmt() ir.Stmt {
 }
 
 func (p *parser) parseType(optional bool) ir.Expr {
-	if p.token.Is(token.Mul) {
+	if p.token.Is(token.Pointer) {
 		return p.parsePointerType()
 	} else if p.token.Is(token.Lbrack) {
 		return p.parseArrayType()
@@ -694,7 +698,7 @@ func (p *parser) parseType(optional bool) ir.Expr {
 
 func (p *parser) parsePointerType() ir.Expr {
 	tok := p.token
-	p.expect(token.Mul)
+	p.expect(token.Pointer)
 	decl := p.token
 	if p.token.OneOf(token.Var, token.Val) {
 		p.next()

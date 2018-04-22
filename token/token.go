@@ -97,6 +97,11 @@ const (
 	keywordEnd
 )
 
+// Alias
+const (
+	Pointer ID = And
+)
+
 var tokens = [...]string{
 	Invalid: "invalid",
 	EOF:     "eof",

@@ -13,7 +13,7 @@ fun[c] main() i32 {
 
     val a1 = true
     val a2 = false
-    val a3 *i32 = null
+    val a3 &i32 = null
     val a4 = .23
     val a5 = 2e2
 

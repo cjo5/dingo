@@ -593,8 +593,8 @@ func (cb *llvmCodeBuilder) toLLVMType(t ir.Type) llvm.Type {
 	case ir.TPointer:
 		tptr := t.(*ir.PointerType)
 		var tunderlying llvm.Type
-		if tptr.Underlying.ID() == ir.TUntyped {
-			tunderlying = llvm.Int32Type()
+		if tptr.Underlying.ID() == ir.TUntyped || tptr.Underlying.ID() == ir.TVoid {
+			tunderlying = llvm.Int8Type()
 		} else {
 			tunderlying = cb.toLLVMType(tptr.Underlying)
 		}
@@ -951,8 +951,10 @@ func (cb *llvmCodeBuilder) buildCastExpr(expr *ir.CastExpr) llvm.Value {
 
 	to := expr.Type()
 	from := expr.X.Type()
-	if from.Equals(to) || (from.ID() == ir.TPointer && to.ID() == ir.TPointer) {
+	if from.Equals(to) {
 		return val
+	} else if from.ID() == ir.TPointer && to.ID() == ir.TPointer {
+		return cb.b.CreateBitCast(val, cb.toLLVMType(to), "")
 	}
 
 	cmpBitSize := ir.CompareBitSize(to, from)

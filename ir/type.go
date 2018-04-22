@@ -304,7 +304,7 @@ func (t *SliceType) ExplicitCastOK(other Type) bool {
 func (t *SliceType) String() string {
 	extra := ""
 	if t.Ptr {
-		extra = "*"
+		extra = token.Pointer.String()
 		if !t.ReadOnly {
 			extra += token.Var.String() + " "
 		}
@@ -325,24 +325,28 @@ func (t *PointerType) Equals(other Type) bool {
 	return false
 }
 
-func (t *PointerType) ImplicitCastOK(other Type) bool {
-	if otherPtr, ok := other.(*PointerType); ok {
+func (t *PointerType) ImplicitCastOK(to Type) bool {
+	if toPtr, ok := to.(*PointerType); ok {
 		switch {
-		case t.Equals(otherPtr):
+		case t.Equals(toPtr):
 			return true
-		case !t.ReadOnly && t.Underlying.Equals(otherPtr.Underlying):
-			return true
+		case !t.ReadOnly || toPtr.ReadOnly:
+			if toPtr.Underlying.ID() == TVoid || t.Underlying.Equals(toPtr.Underlying) {
+				return true
+			}
 		}
 	}
 	return false
 }
 
-func (t *PointerType) ExplicitCastOK(other Type) bool {
-	if otherPtr, ok := other.(*PointerType); ok {
+func (t *PointerType) ExplicitCastOK(to Type) bool {
+	if toPtr, ok := to.(*PointerType); ok {
 		switch {
-		case t.Equals(otherPtr):
+		case t.Equals(toPtr):
 			return true
-		case t.Underlying.Equals(otherPtr.Underlying):
+		case t.Underlying.ID() == TVoid || toPtr.Underlying.ID() == TVoid:
+			return true
+		case t.Underlying.Equals(toPtr.Underlying):
 			return true
 		}
 	}
@@ -354,7 +358,7 @@ func (t *PointerType) String() string {
 	if !t.ReadOnly {
 		extra = token.Var.String() + " "
 	}
-	return fmt.Sprintf("*%s%s", extra, t.Underlying)
+	return fmt.Sprintf("%s%s%s", token.Pointer.String(), extra, t.Underlying)
 }
 
 type FuncType struct {

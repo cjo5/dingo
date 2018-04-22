@@ -11,7 +11,7 @@ fun f1(f Foo) {
     putiln(f.a)
 }
 
-fun f2(f *Foo) {
+fun f2(f &Foo) {
     putiln(f.a)
 }
 

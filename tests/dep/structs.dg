@@ -14,7 +14,7 @@ fun[c] main() i32 {
     return 0
 }
 
-fun printFoo(f *Foo) {
+fun printFoo(f &Foo) {
     putiln(f.a)
     putiln(f.b.c)
 }
@@ -26,5 +26,5 @@ struct Foo {
 
 struct Bar {
     c i32
-    f *var Foo
+    f &var Foo
 }

@@ -95,13 +95,16 @@
         "testDir": "types",
         "tests": [
             {
-                "file": "void.dg"
+                "file": "incomplete.dg"
             },
             {
                 "file": "bad_cast.dg"
             },
             {
                 "file": "type_in_expr.dg"
+            },
+            {
+                "file": "void.dg"
             }
         ]
     }
