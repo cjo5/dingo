@@ -1,0 +1,111 @@
+[
+    {
+        "testDir": "dep",
+        "tests": [
+            {
+                "file": "functions.dg"
+            },
+            {
+                "file": "function_val.dg"
+            },
+            {
+                "file": "parameter.dg"
+            },
+            {
+                "file": "structs.dg"
+            },
+            {
+                "file": "struct_cycle.dg"
+            }
+        ]
+    },
+    {
+        "testDir": "primitives",
+        "tests": [
+            {
+                "file": "literals.dg"
+            },
+            {
+                "file": "arithmetic.dg"
+            },
+            {
+                "file": "comparison.dg"
+            },
+            {
+                "file": "logic.dg"
+            }
+        ]
+    },
+    {
+        "testDir": "if",
+        "tests": [
+            {
+                "file": "if.dg"
+            }
+        ]
+    },
+    {
+        "testDir": "loop",
+        "tests": [
+            {
+                "file": "for.dg"
+            },
+            {
+                "file": "while.dg"
+            },
+            {
+                "file": "nested_for.dg"
+            },
+            {
+                "file": "nested_while.dg"
+            },
+            {
+                "file": "break.dg"
+            },
+            {
+                "file": "continue.dg"
+            }
+        ]
+    },
+    {
+        "testDir": "function",
+        "tests": [
+            {
+                "file": "literal.dg"
+            }
+        ]
+    },
+    {
+        "testDir": "module",
+        "tests": [
+            {
+                "file": "import.dg",
+                "modules": ["a.dg", "b.dg"]
+            },
+            {
+                "file": "import_alias.dg",
+                "modules": ["a.dg", "b.dg"]
+            }
+        ]
+    },
+    {
+        "file": "slice.dg"
+    },
+    {
+        "testDir": "type",
+        "tests": [
+            {
+                "file": "incomplete.dg"
+            },
+            {
+                "file": "bad_cast.dg"
+            },
+            {
+                "file": "type_in_expr.dg"
+            },
+            {
+                "file": "void.dg"
+            }
+        ]
+    }
+]

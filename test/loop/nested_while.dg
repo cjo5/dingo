@@ -1,0 +1,20 @@
+include "../common.dg"
+
+fun[c] main() i32 {
+    var i = 2
+    while i >= 1 {
+        var j = 2
+        while j >= 1 {
+            putiln(i+j)
+            j--
+        }
+        i--
+    }
+    
+    // expect-exe: 4
+    // expect-exe: 3
+    // expect-exe: 3
+    // expect-exe: 2
+
+    return 0
+}

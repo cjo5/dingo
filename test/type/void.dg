@@ -1,0 +1,12 @@
+include "../common.dg"
+
+fun[c] main() i32 {
+    var data = 5
+    var a &i32 = &data
+    var b &void = a
+    var c &i32 = cast(&i32, b)
+
+    putiln(*c) // expect-exe: 5
+
+    return 0
+}

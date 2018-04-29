@@ -1,0 +1,17 @@
+include "../common.dg"
+
+import a
+
+fun[c] main() i32 {
+    val f1 = a.Foo{a: 1}
+    putiln(f1.a) // expect-exe: 1
+    putiln(a.bar) // expect-exe: 10
+    putiln(a.zoo()) // expect-exe: 11
+
+    val f2 = a.b.Foo{a: 2}
+    putiln(f2.a) // expect-exe: 2
+    putiln(a.b.bar) // expect-exe: 20
+    putiln(a.b.zoo()) // expect-exe: 21
+
+    return 0
+}

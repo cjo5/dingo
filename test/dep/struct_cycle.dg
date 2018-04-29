@@ -1,0 +1,12 @@
+struct Foo {
+    b Bar
+}
+
+struct Bar {
+    f Foo
+}
+
+// expect-dgc: error(1:8): cycle detected
+// expect-dgc: re: .*:1:8:Foo
+// expect-dgc: re: .*:5:8:Bar
+// expect-dgc: re: .*:1:8:Foo

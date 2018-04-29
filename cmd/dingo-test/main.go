@@ -346,8 +346,8 @@ func compareOutput(expectedOutput []*testOutput, actualOutput []*testOutput, res
 }
 
 func parseTestDescription(comments []*ir.Comment) (compiler []*testOutput, exe []*testOutput) {
-	compilerPrefix := "compiler:"
-	exePrefix := "expect:"
+	compilerPrefix := "expect-dgc:"
+	exePrefix := "expect-exe:"
 
 	for _, comment := range comments {
 		// Ignore multi-line comments

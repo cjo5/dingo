@@ -1,0 +1,15 @@
+include "../common.dg"
+
+fun[c] main() i32 {
+    for i = 0; i < 5; i++ {
+        putiln(i)
+    }
+    
+    // expect-exe: 0
+    // expect-exe: 1
+    // expect-exe: 2
+    // expect-exe: 3
+    // expect-exe: 4
+
+    return 0
+}

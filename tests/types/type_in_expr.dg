@@ -1,4 +1,0 @@
-fun foo() {
-    var a = u32 + 9
-    // compiler: error(2:13): type u32 cannot be used in an expression
-}

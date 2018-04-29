@@ -1,0 +1,10 @@
+include "common.dg"
+
+fun[c] malloc(u32) &var void
+
+fun[c] main() i32 {
+    val a = cast(&var u8, malloc(5))
+    val t = a[:4]
+
+    return 0
+}

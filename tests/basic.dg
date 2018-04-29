@@ -1,8 +1,0 @@
-include "common.dg"
-
-fun[c] main() i32 {
-    var a = 5
-    var b &void = &a
-
-    return 0
-}
