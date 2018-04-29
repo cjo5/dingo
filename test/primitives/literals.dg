@@ -14,8 +14,9 @@ fun[c] main() i32 {
     val a1 = true
     val a2 = false
     val a3 &i32 = null
-    val a4 = .23
-    val a5 = 2e2
+    val a4 &[i32] = null
+    val a5 = .23
+    val a6 = 2e2
 
     return 0
 }

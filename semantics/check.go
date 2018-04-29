@@ -119,8 +119,8 @@ func (c *context) error(pos token.Position, format string, args ...interface{}) 
 func (c *context) errorExpr(expr ir.Expr, format string, args ...interface{}) {
 	pos := expr.Pos()
 	endPos := expr.EndPos()
-	endPos.Offset += endPos.Length
-	endPos.Column += endPos.Length
+	endPos.Offset += endPos.Length - 1
+	endPos.Column += endPos.Length - 1
 	endPos.Length = 0
 	c.errors.AddRange(pos, endPos, format, args...)
 }

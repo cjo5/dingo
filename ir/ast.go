@@ -487,13 +487,10 @@ func (x *SliceExpr) Lvalue() bool {
 }
 
 func (x *SliceExpr) ReadOnly() bool {
-	t := x.X.Type()
-	if t != nil {
-		if tslice, ok := t.(*SliceType); ok {
-			return tslice.ReadOnly
-		}
+	if t, ok := x.T.(*SliceType); ok {
+		return t.ReadOnly
 	}
-	return x.X.ReadOnly()
+	return false
 }
 
 type BasicLit struct {

@@ -146,7 +146,7 @@ func (v *typeChecker) visitValDeclSpec(sym *ir.Symbol, decl *ir.ValDeclSpec, def
 		decl.Type = v.visitType(decl.Type)
 		t = decl.Type.Type()
 
-		if !checkCompleteType(t, false, nil) {
+		if !checkCompleteType(t, nil) {
 			v.c.error(decl.Type.Pos(), "incomplete type %s", t)
 			t = ir.TBuiltinUntyped
 		}
@@ -167,9 +167,6 @@ func (v *typeChecker) visitValDeclSpec(sym *ir.Symbol, decl *ir.ValDeclSpec, def
 					v.c.error(decl.Initializer.Pos(), "impossible to infer type from initializer")
 					t = ir.TBuiltinUntyped
 				}
-			} else if tinit.ID() == ir.TVoid {
-				v.c.error(decl.Initializer.Pos(), "initializer has invalid type %s", tinit)
-				t = ir.TBuiltinUntyped
 			}
 
 			if t == nil {

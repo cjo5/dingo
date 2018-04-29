@@ -1,0 +1,15 @@
+include "../common.dg"
+
+fun[c] main() i32 {
+    var data = 9
+    var ptr = &var data
+    val slice = &var ptr[:1]
+
+    putiln(lenof(slice)) // expect-exe: 1
+    putiln(slice[0]) // expect-exe: 9
+
+    slice[0]++
+    putiln(data) // expect-exe: 10
+
+    return 0
+}

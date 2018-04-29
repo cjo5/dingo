@@ -89,7 +89,21 @@
         ]
     },
     {
-        "file": "slice.dg"
+        "testDir": "slice",
+        "tests": [
+            {
+                "file": "offset.dg"
+            },
+            {
+                "file": "pointer.dg"
+            },
+            {
+                "file": "read_only.dg"
+            },
+            {
+                "file": "pointer_end_index.dg"
+            }
+        ]
     },
     {
         "testDir": "type",

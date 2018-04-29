@@ -613,11 +613,13 @@ func (cb *llvmCodeBuilder) toLLVMType(t ir.Type) llvm.Type {
 }
 
 func (cb *llvmCodeBuilder) buildExprVal(expr ir.Expr) llvm.Value {
-	return cb.buildExpr(expr, true)
+	val := cb.buildExpr(expr, true)
+	return val
 }
 
 func (cb *llvmCodeBuilder) buildExprPtr(expr ir.Expr) llvm.Value {
-	return cb.buildExpr(expr, false)
+	val := cb.buildExpr(expr, false)
+	return val
 }
 
 func (cb *llvmCodeBuilder) buildExpr(expr ir.Expr, load bool) llvm.Value {
@@ -856,7 +858,7 @@ func (cb *llvmCodeBuilder) buildBasicLit(expr *ir.BasicLit) llvm.Value {
 			tptr := llvm.PointerType(cb.toLLVMType(t.Elem), 0)
 			ptr := llvm.ConstPointerNull(tptr)
 			size := cb.createSliceSize(0)
-			return cb.createSliceStruct(ptr, size, expr.T)
+			return cb.createSliceStruct(ptr, size, t)
 		case *ir.PointerType, *ir.FuncType:
 			return llvm.ConstPointerNull(llvmType)
 		}
@@ -953,8 +955,6 @@ func (cb *llvmCodeBuilder) buildCastExpr(expr *ir.CastExpr) llvm.Value {
 	from := expr.X.Type()
 	if from.Equals(to) {
 		return val
-	} else if from.ID() == ir.TPointer && to.ID() == ir.TPointer {
-		return cb.b.CreateBitCast(val, cb.toLLVMType(to), "")
 	}
 
 	cmpBitSize := ir.CompareBitSize(to, from)
@@ -999,7 +999,19 @@ func (cb *llvmCodeBuilder) buildCastExpr(expr *ir.CastExpr) llvm.Value {
 			unhandled = true
 		}
 	default:
-		unhandled = true
+		if from.ID() == ir.TPointer && to.ID() == ir.TPointer {
+			res = cb.b.CreateBitCast(val, cb.toLLVMType(to), "")
+		} else if from.ID() == ir.TSlice && to.ID() == ir.TSlice {
+			slice1 := from.(*ir.SliceType)
+			slice2 := to.(*ir.SliceType)
+			if slice1.Elem.Equals(slice2.Elem) {
+				res = val
+			} else {
+				unhandled = true
+			}
+		} else {
+			unhandled = true
+		}
 	}
 
 	if unhandled {
@@ -1037,7 +1049,8 @@ func (cb *llvmCodeBuilder) buildFuncCall(expr *ir.FuncCall) llvm.Value {
 }
 
 func (cb *llvmCodeBuilder) buildAddressExpr(expr *ir.AddressExpr, load bool) llvm.Value {
-	return cb.buildExprPtr(expr.X)
+	val := cb.buildExprPtr(expr.X)
+	return val
 }
 
 func (cb *llvmCodeBuilder) buildIndexExpr(expr *ir.IndexExpr, load bool) llvm.Value {
@@ -1082,6 +1095,10 @@ func (cb *llvmCodeBuilder) buildSliceExpr(expr *ir.SliceExpr) llvm.Value {
 		slicePtr = cb.b.CreateLoad(slicePtr, "")
 		gep = cb.b.CreateInBoundsGEP(slicePtr, []llvm.Value{start}, "")
 		tptr = llvm.PointerType(cb.toLLVMType(t.Elem), 0)
+	case *ir.PointerType:
+		tmp := cb.b.CreateLoad(val, "")
+		gep = cb.b.CreateInBoundsGEP(tmp, []llvm.Value{start}, "")
+		tptr = llvm.PointerType(cb.toLLVMType(t.Underlying), 0)
 	default:
 		panic(fmt.Sprintf("Unhandled slice type %T", t))
 	}

@@ -95,9 +95,7 @@ func (v *typeChecker) VisitAssignStmt(stmt *ir.AssignStmt) {
 		return
 	}
 
-	if !checkCompleteType(left.Type(), false, nil) {
-		v.c.error(left.Pos(), "incomplete type %s is not assignable", left.Type())
-	} else if !checkTypes(v.c, left.Type(), stmt.Right.Type()) {
+	if !checkTypes(v.c, left.Type(), stmt.Right.Type()) {
 		v.c.error(left.Pos(), "type mismatch %s and %s", left.Type(), stmt.Right.Type())
 	}
 

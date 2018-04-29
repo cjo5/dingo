@@ -269,11 +269,8 @@ func (v *typeChecker) VisitUnaryExpr(expr *ir.UnaryExpr) ir.Expr {
 			switch t := expr.T.(type) {
 			case *ir.PointerType:
 				expr.T = t.Underlying
-			case *ir.SliceType:
-				tslice := ir.NewSliceType(t.Elem, t.ReadOnly, false)
-				v.c.error(expr.X.Pos(), "expression cannot be dereferenced (underlying type %s is incomplete)", tslice)
 			default:
-				v.c.error(expr.X.Pos(), "type %s cannot be dereferenced", expr.T)
+				v.c.error(expr.X.Pos(), "expression cannot be dereferenced (has type %s)", expr.T)
 			}
 		}
 

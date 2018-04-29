@@ -1,4 +1,4 @@
-include "common.dg"
+include "../common.dg"
 
 fun[c] main() i32 {
     var arr = [0, 1, 2, 3, 4]
