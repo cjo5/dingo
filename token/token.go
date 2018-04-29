@@ -78,12 +78,11 @@ const (
 	Return
 	Continue
 	Break
-	Cast
+	As
 	Lenof
 	Module
 	Include
 	Import
-	As
 	Var
 	Val
 	Func
@@ -163,12 +162,11 @@ var tokens = [...]string{
 	Return:   "return",
 	Continue: "continue",
 	Break:    "break",
-	Cast:     "cast",
+	As:       "as",
 	Lenof:    "lenof",
 	Module:   "module",
 	Include:  "include",
 	Import:   "import",
-	As:       "as",
 	Var:      "var",
 	Val:      "val",
 	Func:     "fun",

@@ -627,15 +627,13 @@ func (x *DotExpr) ReadOnly() bool {
 
 type CastExpr struct {
 	baseExpr
-	Cast   token.Token
-	Lparen token.Token
-	ToTyp  Expr
-	X      Expr
-	Rparen token.Token
+	Cast  token.Token
+	ToTyp Expr
+	X     Expr
 }
 
 func (x *CastExpr) Pos() token.Position    { return x.Cast.Pos }
-func (x *CastExpr) EndPos() token.Position { return x.Rparen.Pos }
+func (x *CastExpr) EndPos() token.Position { return x.ToTyp.EndPos() }
 
 type LenExpr struct {
 	baseExpr

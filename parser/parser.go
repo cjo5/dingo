@@ -762,11 +762,13 @@ func (p *parser) parseBinaryExpr(prec int) ir.Expr {
 }
 
 func (p *parser) parseUnaryExpr() ir.Expr {
+	var expr ir.Expr
+
 	if p.token.OneOf(token.Sub, token.Lnot, token.Mul) {
 		op := p.token
 		p.next()
-		x := p.parseOperand()
-		return &ir.UnaryExpr{Op: op, X: x}
+		expr = p.parseOperand()
+		expr = &ir.UnaryExpr{Op: op, X: expr}
 	} else if p.token.Is(token.And) {
 		and := p.token
 		p.expect(token.And)
@@ -778,17 +780,27 @@ func (p *parser) parseUnaryExpr() ir.Expr {
 			decl = token.Synthetic(token.Val)
 		}
 
-		x := p.parseOperand()
-		return &ir.AddressExpr{And: and, Decl: decl, X: x}
+		expr = p.parseOperand()
+		expr = &ir.AddressExpr{And: and, Decl: decl, X: expr}
+	} else {
+		expr = p.parseOperand()
 	}
-	return p.parseOperand()
+
+	if p.token.Is(token.As) {
+		cast := &ir.CastExpr{}
+		cast.X = expr
+		cast.Cast = p.token
+		p.next()
+		cast.ToTyp = p.parseType(false)
+		expr = cast
+	}
+
+	return expr
 }
 
 func (p *parser) parseOperand() ir.Expr {
 	var expr ir.Expr
-	if p.token.Is(token.Cast) {
-		expr = p.parseCastExpr()
-	} else if p.token.Is(token.Lenof) {
+	if p.token.Is(token.Lenof) {
 		expr = p.parseLenExpr()
 	} else if p.token.Is(token.Lparen) {
 		p.next()
@@ -815,20 +827,6 @@ func (p *parser) parseOperand() ir.Expr {
 		expr = p.parseBasicLit(nil)
 	}
 	return p.parsePrimary(expr)
-}
-
-func (p *parser) parseCastExpr() *ir.CastExpr {
-	cast := &ir.CastExpr{}
-	cast.Cast = p.token
-	p.next()
-	cast.Lparen = p.token
-	p.expect(token.Lparen)
-	cast.ToTyp = p.parseType(false)
-	p.expect(token.Comma)
-	cast.X = p.parseExpr()
-	cast.Rparen = p.token
-	p.expect(token.Rparen)
-	return cast
 }
 
 func (p *parser) parseLenExpr() *ir.LenExpr {
