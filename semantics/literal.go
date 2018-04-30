@@ -26,7 +26,7 @@ func (v *typeChecker) VisitBinaryExpr(expr *ir.BinaryExpr) ir.Expr {
 
 	if expr.Op.OneOf(token.Land, token.Lor) {
 		if leftType.ID() != ir.TBool || rightType.ID() != ir.TBool {
-			v.c.errorExpr(expr, "type mismatch: expression has types %s and %s (expected %s)", leftType, rightType, ir.TBool)
+			v.c.errorExpr(expr, "operation '%s' expects type %s (got types %s and %s)", expr.Op.ID, ir.TBool, leftType, rightType)
 		} else {
 			binType = ir.TBool
 		}
@@ -225,7 +225,7 @@ func (v *typeChecker) VisitUnaryExpr(expr *ir.UnaryExpr) ir.Expr {
 	switch expr.Op.ID {
 	case token.Sub:
 		if !ir.IsNumericType(expr.T) {
-			v.c.error(expr.Op.Pos, "type mismatch: expression has type %s (expected integer or float)", expr.T)
+			v.c.error(expr.Op.Pos, "operation '%s' expects type int or float (got type %s)", token.Sub, expr.T)
 		} else if lit, ok := expr.X.(*ir.BasicLit); ok {
 			var raw interface{}
 
@@ -249,7 +249,7 @@ func (v *typeChecker) VisitUnaryExpr(expr *ir.UnaryExpr) ir.Expr {
 		}
 	case token.Lnot:
 		if expr.T.ID() != ir.TBool {
-			v.c.error(expr.Op.Pos, "type mismatch: expression has type %s (expected %s)", expr.T, ir.TBuiltinBool)
+			v.c.error(expr.Op.Pos, "operation '%s' expects type %s (got type %s)", token.Lnot, ir.TBuiltinBool, expr.T)
 		}
 	case token.Mul:
 		lvalue := false
@@ -524,7 +524,7 @@ func (v *typeChecker) VisitStructLit(expr *ir.StructLit) ir.Expr {
 		}
 
 		if !checkTypes(v.c, fieldSym.T, kv.Value.Type()) {
-			v.c.error(kv.Key.Pos(), "type mismatch: field '%s' expects type %s but got %s",
+			v.c.error(kv.Key.Pos(), "field '%s' expects type %s (got type %s)",
 				kv.Key.Literal, fieldSym.T, kv.Value.Type())
 			inits[kv.Key.Literal] = nil
 			err = true
@@ -573,7 +573,7 @@ func (v *typeChecker) VisitArrayLit(expr *ir.ArrayLit) ir.Expr {
 			if ir.IsUntyped(init.Type()) {
 				t = ir.TBuiltinUntyped
 			} else if !checkTypes(v.c, t, init.Type()) {
-				v.c.error(init.Pos(), "type mismatch: array elements must be of the same type (expected %s, got %s)", t, init.Type())
+				v.c.error(init.Pos(), "array elements must be of the same type (expected type %s, got type %s)", t, init.Type())
 				t = ir.TBuiltinUntyped
 				break
 			}

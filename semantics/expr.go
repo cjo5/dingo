@@ -94,9 +94,9 @@ func (v *typeChecker) tryMakeTypedLit(expr ir.Expr, target ir.Type) bool {
 			}
 
 			if castResult == numericCastOverflows {
-				v.c.error(lit.Tok.Pos, "constant expression %s overflows %s", lit.Value, target)
+				v.c.error(lit.Tok.Pos, "constant expression '%s' overflows %s", lit.Value, target)
 			} else if castResult == numericCastTruncated {
-				v.c.error(lit.Tok.Pos, "type mismatch: constant float expression %s not compatible with %s", lit.Value, target)
+				v.c.error(lit.Tok.Pos, "constant float expression '%s' is not compatible with %s", lit.Value, target)
 			} else {
 				panic(fmt.Sprintf("Unhandled numeric cast result %d", castResult))
 			}
@@ -374,7 +374,7 @@ func (v *typeChecker) VisitCastExpr(expr *ir.CastExpr) ir.Expr {
 		if t2.ExplicitCastOK(t1) {
 			expr.T = t1
 		} else {
-			v.c.error(expr.X.Pos(), "type mismatch: %s cannot be cast to %s", t2, t1)
+			v.c.error(expr.X.Pos(), "type %s cannot be cast to %s", t2, t1)
 		}
 	}
 
@@ -435,7 +435,7 @@ func (v *typeChecker) VisitFuncCall(expr *ir.FuncCall) ir.Expr {
 
 			targ := arg.Type()
 			if !checkTypes(v.c, targ, tparam) {
-				v.c.errorExpr(arg, "type mismatch: argument %d expects type %s (got type %s)", i, tparam, targ)
+				v.c.errorExpr(arg, "argument %d expects type %s (got type %s)", i, tparam, targ)
 			}
 		}
 		expr.T = tfun.Return

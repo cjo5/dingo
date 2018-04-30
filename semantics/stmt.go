@@ -72,7 +72,7 @@ func (v *typeChecker) VisitReturnStmt(stmt *ir.ReturnStmt) {
 	}
 
 	if mismatch {
-		v.c.error(stmt.Return.Pos, "type mismatch: return with type %s is different from function signature with return type %s", exprType, retType)
+		v.c.errorExpr(stmt.X, "function has return type %s (got type %s)", retType, exprType)
 	}
 }
 
@@ -101,7 +101,7 @@ func (v *typeChecker) VisitAssignStmt(stmt *ir.AssignStmt) {
 
 	if stmt.Assign.ID != token.Assign {
 		if !ir.IsNumericType(left.Type()) {
-			v.c.error(left.Pos(), "type mismatch: type %s is not numeric", left.Type())
+			v.c.error(left.Pos(), "type %s is not numeric", left.Type())
 		}
 	}
 }

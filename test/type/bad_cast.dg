@@ -1,5 +1,5 @@
 fun foo() {
     var a = "a"
     var b = a as u32
-    // expect-dgc: error(3:13): type mismatch: &[i8] cannot be cast to u32
+    // expect-dgc: error(3:13): type &[i8] cannot be cast to u32
 }
