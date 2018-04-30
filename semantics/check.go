@@ -27,6 +27,7 @@ const (
 	exprModeNone = 0
 	exprModeType = 1
 	exprModeFunc = 2
+	exprModeDot  = 3
 )
 
 var builtinScope = ir.NewScope(ir.RootScope, "-", nil)

@@ -13,27 +13,6 @@ func (v *typeChecker) visitType(expr ir.Expr) ir.Expr {
 	v.exprMode = exprModeType
 	expr = ir.VisitExpr(v, expr)
 	v.exprMode = prevMode
-
-	var sym *ir.Symbol
-
-	switch named := expr.(type) {
-	case *ir.Ident:
-		sym = named.Sym
-		if sym != nil && sym.ID != ir.TypeSymbol {
-			named.SetSymbol(nil)
-			named.T = ir.TBuiltinUntyped
-		}
-	case *ir.DotExpr:
-		sym = named.Name.Sym
-		if sym != nil && sym.ID != ir.TypeSymbol {
-			named.T = ir.TBuiltinUntyped
-		}
-	}
-
-	if sym != nil && sym.ID != ir.TypeSymbol {
-		v.c.error(expr.Pos(), "'%s' is not a type", sym.Name)
-	}
-
 	return expr
 }
 
@@ -285,13 +264,24 @@ func (v *typeChecker) VisitIdent(expr *ir.Ident) ir.Expr {
 		expr.SetSymbol(nil)
 	}
 
+	err := false
+
 	if sym == nil || sym.T == nil {
 		v.c.error(expr.Pos(), "'%s' undefined", expr.Literal)
-		expr.T = ir.TBuiltinUntyped
-	} else if v.exprMode != exprModeType && sym.ID == ir.TypeSymbol {
-		v.c.error(expr.Pos(), "type %s cannot be used in an expression", sym.T)
-		expr.T = ir.TBuiltinUntyped
+		err = true
 	} else if sym.Untyped() {
+		err = true
+	} else if v.exprMode != exprModeDot {
+		if v.exprMode != exprModeType && sym.ID == ir.TypeSymbol {
+			v.c.error(expr.Pos(), "type %s cannot be used in an expression", sym.T)
+			err = true
+		} else if v.exprMode == exprModeType && sym.ID != ir.TypeSymbol {
+			v.c.error(expr.Pos(), "'%s' is not a type", sym.Name)
+			err = true
+		}
+	}
+
+	if err {
 		expr.T = ir.TBuiltinUntyped
 	} else {
 		decl := v.c.topDecl()
@@ -303,11 +293,16 @@ func (v *typeChecker) VisitIdent(expr *ir.Ident) ir.Expr {
 			expr.SetSymbol(sym)
 		}
 	}
+
 	return expr
 }
 
 func (v *typeChecker) VisitDotExpr(expr *ir.DotExpr) ir.Expr {
+	prevMode := v.exprMode
+	v.exprMode = exprModeDot
 	expr.X = ir.VisitExpr(v, expr.X)
+	v.exprMode = prevMode
+
 	if ir.IsUntyped(expr.X.Type()) {
 		expr.T = ir.TBuiltinUntyped
 		return expr
