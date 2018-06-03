@@ -146,7 +146,7 @@ func (v *typeChecker) visitValDeclSpec(sym *ir.Symbol, decl *ir.ValDeclSpec, def
 		decl.Type = v.visitType(decl.Type)
 		t = decl.Type.Type()
 
-		if !checkCompleteType(t, nil) {
+		if incompleteType(t, nil) {
 			v.c.error(decl.Type.Pos(), "incomplete type %s", t)
 			t = ir.TBuiltinUntyped
 		}

@@ -643,6 +643,17 @@ type LenExpr struct {
 func (x *LenExpr) Pos() token.Position    { return x.Len.Pos }
 func (x *LenExpr) EndPos() token.Position { return x.Rparen.Pos }
 
+type SizeExpr struct {
+	baseExpr
+	Size   token.Token
+	Lparen token.Token
+	X      Expr
+	Rparen token.Token
+}
+
+func (x *SizeExpr) Pos() token.Position    { return x.Size.Pos }
+func (x *SizeExpr) EndPos() token.Position { return x.Rparen.Pos }
+
 type FuncCall struct {
 	baseExpr
 	X      Expr

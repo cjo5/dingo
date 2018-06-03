@@ -119,6 +119,12 @@
             },
             {
                 "file": "void.dg"
+            },
+            {
+                "file": "sizeof.dg"
+            },
+            {
+                "file": "bad_sizeof.dg"
             }
         ]
     }

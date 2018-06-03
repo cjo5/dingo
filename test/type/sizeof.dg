@@ -1,0 +1,35 @@
+include "../common.dg"
+
+fun[c] main() i32 {
+    putiln(sizeof(i8)) // expect-exe: 1
+    putiln(sizeof(i16)) // expect-exe: 2
+    putiln(sizeof(i32)) // expect-exe: 4
+    putiln(sizeof(i64)) // expect-exe: 8
+
+    putiln(sizeof(u8)) // expect-exe: 1
+    putiln(sizeof(u16)) // expect-exe: 2
+    putiln(sizeof(u32)) // expect-exe: 4
+    putiln(sizeof(u64)) // expect-exe: 8
+    
+    putiln(sizeof(f32)) // expect-exe: 4
+    putiln(sizeof(f64)) // expect-exe: 8
+
+    putiln(sizeof(bool)) // expect-exe: 1
+
+    putiln(sizeof([i32:5])) // expect-exe: 20
+
+    putiln(sizeof([i32])) // expect-exe: 16
+
+    putiln(sizeof(Foo)) // expect-exe: 16
+
+    putiln(sizeof(&Foo)) // expect-exe: 8
+    putiln(sizeof(&u8)) // expect-exe: 8
+    putiln(sizeof(&i32)) // expect-exe: 8
+
+    return 0
+}
+
+struct Foo {
+    a i32
+    b f64
+}

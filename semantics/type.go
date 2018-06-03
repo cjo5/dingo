@@ -20,27 +20,27 @@ func typeCheck(c *context) {
 	v.visitModuleSet(c.set, false)
 }
 
-func checkCompleteType(t1 ir.Type, outer ir.Type) bool {
-	complete := true
+func incompleteType(t1 ir.Type, outer ir.Type) bool {
+	incomplete := false
 	switch t2 := t1.(type) {
 	case *ir.BasicType:
 		if t2.ID() == ir.TVoid {
 			if outer == nil || outer.ID() != ir.TPointer {
-				complete = false
+				incomplete = true
 			}
 		}
 	case *ir.SliceType:
 		if !t2.Ptr {
-			complete = false
+			incomplete = true
 		} else {
-			complete = checkCompleteType(t2.Elem, t2)
+			incomplete = incompleteType(t2.Elem, t2)
 		}
 	case *ir.ArrayType:
-		complete = checkCompleteType(t2.Elem, t2)
+		incomplete = incompleteType(t2.Elem, t2)
 	case *ir.PointerType:
-		complete = checkCompleteType(t2.Underlying, t2)
+		incomplete = incompleteType(t2.Underlying, t2)
 	}
-	return complete
+	return incomplete
 }
 
 // Returns false if an error should be reported

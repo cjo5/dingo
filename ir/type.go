@@ -130,6 +130,10 @@ type Type interface {
 	String() string
 }
 
+type Target interface {
+	Sizeof(Type) int
+}
+
 type baseType struct {
 	id TypeID
 }
@@ -531,9 +535,4 @@ func IsNumericType(t Type) bool {
 		return true
 	}
 	return false
-}
-
-func CompareBitSize(t1 Type, t2 Type) int {
-	// TODO: Handle incompatible types
-	return int(t1.ID() - t2.ID())
 }

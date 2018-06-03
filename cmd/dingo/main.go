@@ -72,14 +72,16 @@ func build(filenames []string, config *common.BuildConfig, errors *common.ErrorL
 		}
 	}
 
-	err = semantics.Check(set)
+	target := backend.NewLLVMTarget()
+
+	err = semantics.Check(set, target)
 	addError(err, errors)
 
 	if errors.IsError() {
 		return
 	}
 
-	err = backend.Build(set, config)
+	err = backend.BuildLLVM(set, target, config)
 	addError(err, errors)
 }
 

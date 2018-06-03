@@ -802,6 +802,8 @@ func (p *parser) parseOperand() ir.Expr {
 	var expr ir.Expr
 	if p.token.Is(token.Lenof) {
 		expr = p.parseLenExpr()
+	} else if p.token.Is(token.Sizeof) {
+		expr = p.parseSizeExpr()
 	} else if p.token.Is(token.Lparen) {
 		p.next()
 		expr = p.parseExpr()
@@ -839,6 +841,18 @@ func (p *parser) parseLenExpr() *ir.LenExpr {
 	lenof.Rparen = p.token
 	p.expect(token.Rparen)
 	return lenof
+}
+
+func (p *parser) parseSizeExpr() *ir.SizeExpr {
+	sizeof := &ir.SizeExpr{}
+	sizeof.Size = p.token
+	p.next()
+	sizeof.Lparen = p.token
+	p.expect(token.Lparen)
+	sizeof.X = p.parseType(false)
+	sizeof.Rparen = p.token
+	p.expect(token.Rparen)
+	return sizeof
 }
 
 func (p *parser) parsePrimary(expr ir.Expr) ir.Expr {

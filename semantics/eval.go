@@ -3,6 +3,7 @@ package semantics
 import (
 	"fmt"
 	"math/big"
+	"strconv"
 	"strings"
 
 	"github.com/jhnl/dingo/common"
@@ -593,6 +594,25 @@ func (v *typeChecker) VisitArrayLit(expr *ir.ArrayLit) ir.Expr {
 	return expr
 }
 
+func (v *typeChecker) VisitSizeExpr(expr *ir.SizeExpr) ir.Expr {
+	expr.X = v.visitType(expr.X)
+	t := expr.X.Type()
+
+	if ir.IsUntyped(t) {
+		expr.T = ir.TBuiltinUntyped
+		return expr
+	}
+
+	if t.ID() == ir.TModule || t.ID() == ir.TVoid {
+		v.c.errorExpr(expr.X, "type %s does not have a size", t)
+		expr.T = ir.TBuiltinUntyped
+		return expr
+	}
+
+	size := v.c.target.Sizeof(t)
+	return createIntLit(size, ir.TBigInt)
+}
+
 func createDefaultLit(t ir.Type) ir.Expr {
 	if t.ID() == ir.TStruct {
 		tstruct := t.(*ir.StructType)
@@ -612,15 +632,24 @@ func createDefaultLit(t ir.Type) ir.Expr {
 	return createDefaultBasicLit(t)
 }
 
+func createIntLit(val int, tid ir.TypeID) *ir.BasicLit {
+	lit := &ir.BasicLit{Tok: token.Synthetic(token.Integer), Value: strconv.FormatInt(int64(val), 10)}
+	lit.T = ir.NewBasicType(tid)
+	if val == 0 {
+		lit.Raw = ir.BigIntZero
+	} else {
+		lit.Raw = big.NewInt(int64(val))
+	}
+	return lit
+}
+
 func createDefaultBasicLit(t ir.Type) *ir.BasicLit {
 	var lit *ir.BasicLit
 	if ir.IsTypeID(t, ir.TBool) {
 		lit = &ir.BasicLit{Tok: token.Synthetic(token.False), Value: token.False.String()}
 		lit.T = ir.NewBasicType(ir.TBool)
 	} else if ir.IsTypeID(t, ir.TUInt64, ir.TInt64, ir.TUInt32, ir.TInt32, ir.TUInt16, ir.TInt16, ir.TUInt8, ir.TInt8) {
-		lit = &ir.BasicLit{Tok: token.Synthetic(token.Integer), Value: "0"}
-		lit.Raw = ir.BigIntZero
-		lit.T = ir.NewBasicType(t.ID())
+		lit = createIntLit(0, t.ID())
 	} else if ir.IsTypeID(t, ir.TFloat64, ir.TFloat32) {
 		lit = &ir.BasicLit{Tok: token.Synthetic(token.Float), Value: "0"}
 		lit.Raw = ir.BigFloatZero

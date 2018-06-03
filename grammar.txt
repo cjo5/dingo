@@ -44,8 +44,9 @@ BinaryOp = '||' | '&&' | '!=' | '==' | '>' | '>=' | '<' | '<='
                 | '-' | '+' | '/' | '%' | '*'
 UnaryExpr = [('!' | '-' | '*') | ('&' ['val' | 'var'])] Operand AsExpr?
 AsExpr = 'as' Type
-Operand = (LenExpr | IDENT | Literal | '(' Expr ')') Primary
+Operand = (LenExpr | SizeExpr | IDENT | Literal | '(' Expr ')') Primary
 LenExpr = 'lenof' '(' Expr ')'
+SizeExpr = 'sizeof' '(' Type ')'
 
 Primary = [SliceExpr | IndexExpr | FuncCall | DotExpr]
 SliceExpr = '[' Expr? ':' Expr? ']'

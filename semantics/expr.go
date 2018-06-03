@@ -34,15 +34,15 @@ func (v *typeChecker) makeTypedExpr(expr ir.Expr, ttarget ir.Type) ir.Expr {
 
 	switch expr2 := expr.(type) {
 	case *ir.SliceExpr:
-		if !checkCompleteType(expr.Type(), nil) {
+		if incompleteType(expr.Type(), nil) {
 			expr2.T = ir.TBuiltinUntyped
 		}
 	case *ir.UnaryExpr:
-		if !checkCompleteType(expr.Type(), nil) {
+		if incompleteType(expr.Type(), nil) {
 			expr2.T = ir.TBuiltinUntyped
 		}
 	case *ir.AddressExpr:
-		if !checkCompleteType(expr.Type(), nil) {
+		if incompleteType(expr.Type(), nil) {
 			expr2.T = ir.TBuiltinUntyped
 		}
 	}

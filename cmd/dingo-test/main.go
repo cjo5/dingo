@@ -229,9 +229,10 @@ func (t *testRunner) runTest(testName string, testDir string, test *testCase) *t
 	config.Exe = filepath.Join(os.TempDir(), strings.Replace(testName, "/", "_", -1))
 
 	if !addError(err, errors) {
-		err = semantics.Check(set)
+		target := backend.NewLLVMTarget()
+		err = semantics.Check(set, target)
 		if !addError(err, errors) {
-			err = backend.Build(set, config)
+			err = backend.BuildLLVM(set, target, config)
 			addError(err, errors)
 		}
 	}

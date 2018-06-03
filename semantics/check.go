@@ -9,8 +9,8 @@ import (
 )
 
 // Check will resolve identifiers, look for cyclic dependencies between identifiers, and type check.
-func Check(set *ir.ModuleSet) error {
-	c := newContext(set)
+func Check(set *ir.ModuleSet, target ir.Target) error {
+	c := newContext(set, target)
 
 	symCheck(c)
 	depCheck(c)
@@ -55,6 +55,7 @@ func init() {
 
 type context struct {
 	set    *ir.ModuleSet
+	target ir.Target
 	errors *common.ErrorList
 	decls  map[*ir.Symbol]ir.TopDecl
 
@@ -63,8 +64,8 @@ type context struct {
 	declTrace []ir.TopDecl
 }
 
-func newContext(set *ir.ModuleSet) *context {
-	c := &context{set: set, scope: builtinScope}
+func newContext(set *ir.ModuleSet, target ir.Target) *context {
+	c := &context{set: set, target: target, scope: builtinScope}
 	c.errors = &common.ErrorList{}
 	c.decls = make(map[*ir.Symbol]ir.TopDecl)
 	return c

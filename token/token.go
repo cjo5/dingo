@@ -80,6 +80,7 @@ const (
 	Break
 	As
 	Lenof
+	Sizeof
 	Module
 	Include
 	Import
@@ -164,6 +165,7 @@ var tokens = [...]string{
 	Break:    "break",
 	As:       "as",
 	Lenof:    "lenof",
+	Sizeof:   "sizeof",
 	Module:   "module",
 	Include:  "include",
 	Import:   "import",
