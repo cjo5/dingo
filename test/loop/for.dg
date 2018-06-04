@@ -5,11 +5,11 @@ fun[c] main() i32 {
         putiln(i)
     }
     
-    // expect-exe: 0
-    // expect-exe: 1
-    // expect-exe: 2
-    // expect-exe: 3
-    // expect-exe: 4
+    // expect-output: 0
+    // expect-output: 1
+    // expect-output: 2
+    // expect-output: 3
+    // expect-output: 4
 
     return 0
 }

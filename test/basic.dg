@@ -1,6 +1,19 @@
-//include "common.dg"
+include "common.dg"
 
 fun[c] main() i32 {
-    val a = sizeof(i32)
+    val a = malloc(sizeof([i32:5])) as &var [i32:5]
+
+    if a == null {
+        
+    }
+
+    a[4] = 99
+    putiln(a[4])
+    putiln(lenof(a))
+
+    putiln(sizeof(i32)*7)
+    putiln(sizeof([i32:7]))
+    putiln(sizeof([i8:3]))
+
     return 0
 }

@@ -7,11 +7,11 @@ fun[c] main() i32 {
         i--
     }
     
-    // expect-exe: 5
-    // expect-exe: 4
-    // expect-exe: 3
-    // expect-exe: 2
-    // expect-exe: 1
+    // expect-output: 5
+    // expect-output: 4
+    // expect-output: 3
+    // expect-output: 2
+    // expect-output: 1
 
     return 0
 }

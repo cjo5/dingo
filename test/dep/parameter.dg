@@ -2,8 +2,8 @@ include "../common.dg"
 
 fun[c] main() i32 {
     val foo = Foo{a: 5}
-    f1(foo) // expect-exe: 5
-    f2(&foo) // expect-exe: 5
+    f1(foo) // expect-output: 5
+    f2(&foo) // expect-output: 5
     return 0
 }
 

@@ -5,11 +5,11 @@ fun[c] main() i32 {
     var f2 = Foo{a: 9, b: Bar{c: 11, f: &var f1}}
 
     printFoo(&f2)
-    // expect-exe: 9
-    // expect-exe: 11
+    // expect-output: 9
+    // expect-output: 11
 
     f2.b.f.a = 13
-    putiln(f1.a) // expect-exe: 13
+    putiln(f1.a) // expect-output: 13
 
     return 0
 }

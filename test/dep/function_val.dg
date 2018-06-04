@@ -3,8 +3,8 @@ include "../common.dg"
 val foo i32 = 8
 
 fun[c] main() i32 {
-    putiln(bar) // expect-exe: 9
-    putiln(foo) // expect-exe: 8
+    putiln(bar) // expect-output: 9
+    putiln(foo) // expect-output: 8
     return 0
 }
 

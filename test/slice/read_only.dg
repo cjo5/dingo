@@ -1,10 +1,10 @@
 fun foo() {
     val a = [1, 2, 3]
-    val b = &var a[:] // expect-dgc: error(3:18): expression is read-only
+    val b = &var a[:] // expect-error: expression is read-only
 
     var c &i32
-    val d = &var c[:1] // expect-dgc: error(6:18): expression is read-only
+    val d = &var c[:1] // expect-error: expression is read-only
 
     var e &[i32]
-    val f = &var e[:] // expect-dgc: error(9:18): expression is read-only
+    val f = &var e[:] // expect-error: expression is read-only
 }

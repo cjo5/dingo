@@ -3,22 +3,22 @@ include "../common.dg"
 fun[c] main() i32 {
     var arr = [0, 1, 2, 3, 4]
 
-    puts(c"arr[:]") // expect-exe: arr[:]
-    printSlice(&arr[:]) // expect-exe: 0, 1, 2, 3, 4
+    puts(c"arr[:]") // expect-output: arr[:]
+    printSlice(&arr[:]) // expect-output: 0, 1, 2, 3, 4
 
-    puts(c"\narr[1:3]") // expect-exe: arr[1:3]
-    printSlice(&arr[1:3]) // expect-exe: 1, 2
+    puts(c"\narr[1:3]") // expect-output: arr[1:3]
+    printSlice(&arr[1:3]) // expect-output: 1, 2
 
-    puts(c"\narr[1:]") // expect-exe: arr[1:]
-    printSlice(&arr[1:]) // expect-exe: 1, 2, 3, 4
+    puts(c"\narr[1:]") // expect-output: arr[1:]
+    printSlice(&arr[1:]) // expect-output: 1, 2, 3, 4
 
-    puts(c"\narr[:3]") // expect-exe: arr[:3]
-    printSlice(&arr[:3]) // expect-exe: 0, 1, 2
+    puts(c"\narr[:3]") // expect-output: arr[:3]
+    printSlice(&arr[:3]) // expect-output: 0, 1, 2
 
     reverse(&var arr[:])
 
-    puts(c"\nreverse arr[:]") // expect-exe: reverse arr[:]
-    printSlice(&arr[:]) // expect-exe: 4, 3, 2, 1, 0
+    puts(c"\nreverse arr[:]") // expect-output: reverse arr[:]
+    printSlice(&arr[:]) // expect-output: 4, 3, 2, 1, 0
 
     puts(c"")
 

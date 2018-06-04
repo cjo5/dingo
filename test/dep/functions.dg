@@ -2,10 +2,10 @@ include "../common.dg"
 
 fun[c] main() i32 {
     foo(2)
-    // expect-exe: foo
-    // expect-exe: bar
-    // expect-exe: foo
-    // expect-exe: bar
+    // expect-output: foo
+    // expect-output: bar
+    // expect-output: foo
+    // expect-output: bar
     
     return 0
 }

@@ -13,12 +13,12 @@ fun[c] main() i32 {
         }
     }
 
-    // expect-exe: 2
-    // expect-exe: 3
-    // expect-exe: 3
-    // expect-exe: 4
-    // expect-exe: 4
-    // expect-exe: 5
+    // expect-output: 2
+    // expect-output: 3
+    // expect-output: 3
+    // expect-output: 4
+    // expect-output: 4
+    // expect-output: 5
     
     var i = 5
     while i >= 1 {
@@ -36,14 +36,14 @@ fun[c] main() i32 {
         i--
     }
 
-    // expect-exe: 10
-    // expect-exe: 9
-    // expect-exe: 8
-    // expect-exe: 7
-    // expect-exe: 9
-    // expect-exe: 8
-    // expect-exe: 7
-    // expect-exe: 6
+    // expect-output: 10
+    // expect-output: 9
+    // expect-output: 8
+    // expect-output: 7
+    // expect-output: 9
+    // expect-output: 8
+    // expect-output: 7
+    // expect-output: 6
     
     return 0
 }

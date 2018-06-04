@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/jhnl/dingo/backend"
@@ -40,8 +41,10 @@ func main() {
 	}
 
 	tester.runTests("", tests)
-	fmt.Printf("\nFINISHED: total: %d success: %d fail: %d skip: %d bad: %d\n\n",
-		tester.total, tester.success, tester.fail, tester.skip, tester.bad)
+	fmt.Printf("\nFinished %d test(s)\n%s: %d %s: %d %s: %d %s: %d\n\n",
+		tester.total, common.BoldGreen(statusSuccess.String()), tester.success,
+		common.BoldYellow(statusSkip.String()), tester.skip, common.BoldRed(statusFail.String()), tester.fail,
+		common.BoldRed(statusBad.String()), tester.bad)
 }
 
 type testRunner struct {
@@ -98,13 +101,13 @@ const (
 func (t status) String() string {
 	switch t {
 	case statusSuccess:
-		return "OK"
+		return common.BoldGreen("OK")
 	case statusFail:
-		return "FAIL"
+		return common.BoldRed("FAIL")
 	case statusSkip:
-		return "SKIP"
+		return common.BoldYellow("SKIP")
 	case statusBad:
-		return "BAD"
+		return common.BoldRed("BAD")
 	default:
 		return "-"
 	}
@@ -165,7 +168,7 @@ func (t *testRunner) runTests(baseDir string, tests []*testCase) {
 			result := t.runTest(testName, baseDir, test)
 			t.updateStats(result.status)
 
-			fmt.Printf("test %s%s[%s]\n", testName, strings.Repeat(".", 50-len(testName)), result.status)
+			fmt.Printf("TEST %s%s[%s]\n", testName, strings.Repeat(".", 50-len(testName)), result.status)
 
 			for _, txt := range result.reason {
 				fmt.Printf("  >> %s\n", txt)
@@ -217,10 +220,13 @@ func (t *testRunner) runTest(testName string, testDir string, test *testCase) *t
 	if set != nil {
 		if mod := set.FindModule("main"); mod != nil {
 			file := mod.FindFileWithFQN("main")
-			expectedCompilerOutput, expectedExeOutput = parseTestDescription(file.Comments)
+			expectedCompilerOutput, expectedExeOutput = parseTestDescription(file.Comments, result)
 		} else {
 			result.status = statusFail
-			result.addReason("internal error: no main module")
+			result.addReason("no main module")
+		}
+
+		if result.status != statusSuccess {
 			return result
 		}
 	}
@@ -279,7 +285,7 @@ func addCompilerOutput(errors []*common.Error, output *[]*testOutput) {
 	for _, err := range errors {
 		pos := err.Pos
 
-		msg := fmt.Sprintf("%s(%d:%d): %s", err.ID, pos.Line, pos.Column, err.Msg)
+		msg := fmt.Sprintf("%s(%d): %s", err.ID, pos.Line, err.Msg)
 		*output = append(*output, &testOutput{pos: pos, text: msg})
 
 		for _, line := range err.Context {
@@ -329,7 +335,7 @@ func compareOutput(expectedOutput []*testOutput, actualOutput []*testOutput, res
 
 		if !match {
 			result.addReason("expected(%s): %s", expected.pos, expected.text)
-			result.addReason("  got(%s): %s", actual.pos, actual.text)
+			result.addReason("     got(%s): %s", actual.pos, actual.text)
 		}
 	}
 
@@ -346,22 +352,70 @@ func compareOutput(expectedOutput []*testOutput, actualOutput []*testOutput, res
 	}
 }
 
-func parseTestDescription(comments []*ir.Comment) (compiler []*testOutput, exe []*testOutput) {
-	compilerPrefix := "expect-dgc:"
-	exePrefix := "expect-exe:"
+var lineNumRegex *regexp.Regexp
 
+func init() {
+	var err error
+	lineNumRegex, err = regexp.Compile("\\((?:\\+|-)?\\d+\\)")
+	if err != nil {
+		panic(err)
+	}
+}
+
+func match(lit *string, prefix string) bool {
+	if strings.HasPrefix(*lit, prefix) {
+		(*lit) = (*lit)[len(prefix):]
+		return true
+	}
+	return false
+}
+
+func parseTestDescription(comments []*ir.Comment, result *testResult) (compiler []*testOutput, exe []*testOutput) {
 	for _, comment := range comments {
-		// Ignore multi-line comments
+		// Only check single-line comments
 		if comment.Tok.Is(token.Comment) {
 			lit := comment.Literal[2:]
 			lit = strings.TrimSpace(lit)
 
-			if strings.HasPrefix(lit, compilerPrefix) {
-				lit = strings.TrimSpace(lit[len(compilerPrefix):])
-				compiler = append(compiler, &testOutput{pos: comment.Tok.Pos, text: lit})
-			} else if strings.HasPrefix(lit, exePrefix) {
-				lit = strings.TrimSpace(lit[len(exePrefix):])
-				exe = append(exe, &testOutput{pos: comment.Tok.Pos, text: lit})
+			if match(&lit, "expect-") {
+				ok := false
+
+				if match(&lit, "output:") {
+					lit = strings.TrimSpace(lit)
+					exe = append(exe, &testOutput{pos: comment.Tok.Pos, text: lit})
+					ok = true
+				} else if match(&lit, "dgc:") {
+					lit = strings.TrimSpace(lit)
+					compiler = append(compiler, &testOutput{pos: comment.Tok.Pos, text: lit})
+					ok = true
+				} else if match(&lit, "error") {
+					lineNum := comment.Tok.Pos.Line
+
+					rematch := lineNumRegex.FindString(lit)
+					if len(rematch) > 0 {
+						lit = lit[len(rematch):]
+						rematch = rematch[1 : len(rematch)-1]
+
+						res, _ := strconv.ParseInt(rematch, 10, 32)
+						if strings.HasPrefix(rematch, "+") || strings.HasPrefix(rematch, "-") {
+							lineNum += int(res)
+						} else {
+							lineNum = int(res)
+						}
+					}
+
+					if match(&lit, ":") {
+						lit = strings.TrimSpace(lit)
+						lit = fmt.Sprintf("%s(%d): %s", common.ErrorMsg, lineNum, lit)
+						compiler = append(compiler, &testOutput{pos: comment.Tok.Pos, text: lit})
+						ok = true
+					}
+				}
+
+				if !ok {
+					result.status = statusBad
+					result.addReason("bad test description at '%s'", comment.Tok.Pos)
+				}
 			}
 		}
 	}
