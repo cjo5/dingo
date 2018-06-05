@@ -282,7 +282,7 @@ func (p *parser) parseTopDecl(directives []ir.Directive, visibility token.Token)
 		}
 	}()
 
-	if p.token.OneOf(token.Var, token.Val) {
+	if p.token.OneOf(token.Const, token.Var, token.Val) {
 		decl = p.parseValTopDecl(visibility, directives)
 		p.expectSemi()
 	} else if p.token.Is(token.Func) {
@@ -490,21 +490,21 @@ func (p *parser) parseStmt() (stmt ir.Stmt, sync bool) {
 
 	sync = false
 
-	if p.token.ID == token.Semicolon {
+	if p.token.Is(token.Semicolon) {
 		stmt = nil
-	} else if p.token.ID == token.Lbrace {
+	} else if p.token.Is(token.Lbrace) {
 		stmt = p.parseBlockStmt()
-	} else if p.token.ID == token.Var || p.token.ID == token.Val {
+	} else if p.token.OneOf(token.Const, token.Var, token.Val) {
 		stmt = p.parseValDeclStmt()
-	} else if p.token.ID == token.If {
+	} else if p.token.Is(token.If) {
 		stmt = p.parseIfStmt()
-	} else if p.token.ID == token.While {
+	} else if p.token.Is(token.While) {
 		stmt = p.parseWhileStmt()
-	} else if p.token.ID == token.For {
+	} else if p.token.Is(token.For) {
 		stmt = p.parseForStmt()
-	} else if p.token.ID == token.Return {
+	} else if p.token.Is(token.Return) {
 		stmt = p.parseReturnStmt()
-	} else if p.token.ID == token.Break || p.token.ID == token.Continue {
+	} else if p.token.OneOf(token.Break, token.Continue) {
 		if p.loopCount == 0 {
 			// TODO: This should be done in type checker
 			p.error(p.token, "%s can only be used in a loop", token.Quote(p.literal))

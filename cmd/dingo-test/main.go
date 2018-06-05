@@ -327,7 +327,8 @@ func compareOutput(expectedOutput []*testOutput, actualOutput []*testOutput, res
 			if err != nil {
 				result.addReason("bad regex: %s: %s", expected.pos, err)
 			} else {
-				match = regex.MatchString(actual.text)
+				found := regex.FindString(actual.text)
+				match = found == actual.text
 			}
 		} else {
 			match = expected.text == actual.text

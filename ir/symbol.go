@@ -9,6 +9,7 @@ type SymbolID int
 // Symbol IDs.
 const (
 	ValSymbol SymbolID = iota
+	ConstSymbol
 	FuncSymbol
 	ModuleSymbol
 	TypeSymbol

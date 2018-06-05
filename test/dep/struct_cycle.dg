@@ -7,6 +7,5 @@ struct Bar {
 }
 
 // expect-error(1): cycle detected
-// expect-dgc: re: .*:1:8:Foo
-// expect-dgc: re: .*:5:8:Bar
-// expect-dgc: re: .*:1:8:Foo
+// expect-dgc: re: .*:1:8:Foo uses \[1\]
+// expect-dgc: re: .*:5:8:Bar uses \[0\]

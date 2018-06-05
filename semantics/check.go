@@ -15,10 +15,7 @@ func Check(set *ir.ModuleSet, target ir.Target) error {
 	symCheck(c)
 	depCheck(c)
 	typeCheck(c)
-
-	if !c.errors.IsError() {
-		sortDecls(c)
-	}
+	sortDecls(c)
 
 	return c.errors
 }
@@ -54,10 +51,11 @@ func init() {
 }
 
 type context struct {
-	set    *ir.ModuleSet
-	target ir.Target
-	errors *common.ErrorList
-	decls  map[*ir.Symbol]ir.TopDecl
+	set        *ir.ModuleSet
+	target     ir.Target
+	errors     *common.ErrorList
+	decls      map[*ir.Symbol]ir.TopDecl
+	constExprs map[*ir.Symbol]ir.Expr
 
 	// State that can change during node visits
 	scope     *ir.Scope
@@ -68,6 +66,7 @@ func newContext(set *ir.ModuleSet, target ir.Target) *context {
 	c := &context{set: set, target: target, scope: builtinScope}
 	c.errors = &common.ErrorList{}
 	c.decls = make(map[*ir.Symbol]ir.TopDecl)
+	c.constExprs = make(map[*ir.Symbol]ir.Expr)
 	return c
 }
 

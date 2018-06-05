@@ -1,5 +1,11 @@
 [
     {
+        "testDir": "const",
+        "tests": [
+            
+        ]
+    },
+    {
         "testDir": "dep",
         "tests": [
             {
@@ -16,6 +22,9 @@
             },
             {
                 "file": "struct_cycle.dg"
+            },
+            {
+                "file": "const_cycle.dg"
             }
         ]
     },

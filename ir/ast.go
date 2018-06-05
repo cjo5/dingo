@@ -615,7 +615,7 @@ func (x *DotExpr) Pos() token.Position    { return x.X.Pos() }
 func (x *DotExpr) EndPos() token.Position { return x.Name.EndPos() }
 
 func (x *DotExpr) Lvalue() bool {
-	return x.X.Lvalue()
+	return x.Name.Lvalue()
 }
 
 func (x *DotExpr) ReadOnly() bool {

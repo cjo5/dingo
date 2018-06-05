@@ -104,10 +104,10 @@ func (v *typeChecker) VisitValTopDecl(decl *ir.ValTopDecl) {
 	v.warnUnusedDirectives(decl.Directives)
 	v.visitValDeclSpec(decl.Sym, &decl.ValDeclSpec, true)
 
-	if !ir.IsUntyped(decl.Sym.T) {
+	if !ir.IsUntyped(decl.Sym.T) && decl.Sym.ID != ir.ConstSymbol {
 		init := decl.Initializer
 		if !v.checkCompileTimeConstant(init) {
-			v.c.error(init.Pos(), "initializer is not a compile-time constant")
+			v.c.error(init.Pos(), "top-level initializer must be a compile-time constant")
 		}
 	}
 }
@@ -136,7 +136,7 @@ func (v *typeChecker) checkCABI(abi *ir.Ident) bool {
 }
 
 func (v *typeChecker) visitValDeclSpec(sym *ir.Symbol, decl *ir.ValDeclSpec, defaultInit bool) {
-	if decl.Decl.Is(token.Val) {
+	if decl.Decl.OneOf(token.Const, token.Val) {
 		sym.Flags |= ir.SymFlagReadOnly
 	}
 
@@ -180,6 +180,13 @@ func (v *typeChecker) visitValDeclSpec(sym *ir.Symbol, decl *ir.ValDeclSpec, def
 				t = ir.TBuiltinUntyped
 			}
 		}
+
+		if decl.Decl.Is(token.Const) && !ir.IsUntyped(t) {
+			if !v.checkCompileTimeConstant(decl.Initializer) {
+				v.c.error(decl.Initializer.Pos(), "const initializer must be a compile-time constant")
+				t = ir.TBuiltinUntyped
+			}
+		}
 	} else if decl.Type == nil {
 		v.c.error(decl.Name.Pos(), "missing type or initializer")
 		t = ir.TBuiltinUntyped
@@ -189,6 +196,10 @@ func (v *typeChecker) visitValDeclSpec(sym *ir.Symbol, decl *ir.ValDeclSpec, def
 
 	// Wait to set type until the final step in order to be able to detect cycles
 	sym.T = t
+
+	if decl.Decl.Is(token.Const) && !ir.IsUntyped(t) {
+		v.c.constExprs[sym] = decl.Initializer
+	}
 }
 
 func (v *typeChecker) VisitFuncDecl(decl *ir.FuncDecl) {

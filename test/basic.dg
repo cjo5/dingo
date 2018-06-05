@@ -1,19 +1,11 @@
 include "common.dg"
 
+const foo = 2
+const bar = foo * 5
+
 fun[c] main() i32 {
-    val a = malloc(sizeof([i32:5])) as &var [i32:5]
-
-    if a == null {
-        
-    }
-
-    a[4] = 99
-    putiln(a[4])
+    val a = malloc(sizeof([i32:bar])) as &var [i32:bar] 
     putiln(lenof(a))
-
-    putiln(sizeof(i32)*7)
-    putiln(sizeof([i32:7]))
-    putiln(sizeof([i8:3]))
 
     return 0
 }

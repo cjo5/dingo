@@ -190,7 +190,10 @@ func (v *typeChecker) VisitArrayTypeExpr(expr *ir.ArrayTypeExpr) ir.Expr {
 	size := 0
 
 	if expr.Size != nil {
+		prevMode := v.exprMode
+		v.exprMode = exprModeNone
 		expr.Size = v.makeTypedExpr(expr.Size, ir.TBuiltinInt32)
+		v.exprMode = prevMode
 		sizeType := expr.Size.Type()
 
 		err := false
@@ -266,10 +269,11 @@ func (v *typeChecker) VisitIdent(expr *ir.Ident) ir.Expr {
 
 	err := false
 
-	if sym == nil || sym.T == nil {
+	if sym == nil {
 		v.c.error(expr.Pos(), "'%s' undefined", expr.Literal)
 		err = true
-	} else if sym.Untyped() {
+	} else if sym.T == nil || sym.Untyped() {
+		// Cycle or an error has already occurred
 		err = true
 	} else if v.exprMode != exprModeDot {
 		if v.exprMode != exprModeType && sym.ID == ir.TypeSymbol {
@@ -289,9 +293,14 @@ func (v *typeChecker) VisitIdent(expr *ir.Ident) ir.Expr {
 		if !sym.Public && sym.ModFQN() != decl.Symbol().ModFQN() && sym.Parent.ID != ir.FieldScope {
 			v.c.error(expr.Pos(), "'%s' is not public", expr.Literal)
 			expr.T = ir.TBuiltinUntyped
+			err = true
 		} else {
 			expr.SetSymbol(sym)
 		}
+	}
+
+	if !err && sym.ID == ir.ConstSymbol {
+		return v.c.constExprs[sym]
 	}
 
 	return expr

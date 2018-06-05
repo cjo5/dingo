@@ -1,0 +1,10 @@
+fun foo() {
+    val a1 = 15
+    const a2 = a1 // expect-error: const initializer must be a compile-time constant
+
+    const b1 = 30
+    val b2 = &b1 // expect-error: expression is not an lvalue
+
+    const c1 = 45
+    c1 = 46
+}

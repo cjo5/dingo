@@ -84,6 +84,7 @@ const (
 	Module
 	Include
 	Import
+	Const
 	Var
 	Val
 	Func
@@ -169,6 +170,7 @@ var tokens = [...]string{
 	Module:   "module",
 	Include:  "include",
 	Import:   "import",
+	Const:    "const",
 	Var:      "var",
 	Val:      "val",
 	Func:     "fun",

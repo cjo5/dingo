@@ -14,7 +14,7 @@ Visibility = 'pub' | 'priv'
 Directive = '@' IDENT
 Import = 'import' ModName ['as' Ident]
 Decl = ValDecl | FuncDecl | StructDecl
-ValDecl = ('val' | 'var') IDENT (Type | (Type? '=' Expr))
+ValDecl = ('const' | 'val' | 'var') IDENT (Type | (Type? '=' Expr))
 FuncDecl = 'fun' ['[' IDENT ']'] IDENT FuncSignature Block?
 StructDecl = 'struct' IDENT Struct 
 

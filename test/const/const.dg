@@ -1,0 +1,7 @@
+include "../common.dg"
+
+fun[c] main() i32 {
+    const a = 15
+    putiln(a)
+    return 0
+}

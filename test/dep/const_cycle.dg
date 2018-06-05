@@ -1,0 +1,6 @@
+const a1 i32 = a2
+const a2 i32 = a1
+
+// expect-error(1): cycle detected
+// expect-dgc: re: .*:1:7:a1 uses \[1\]
+// expect-dgc: re: .*:2:7:a2 uses \[0\]

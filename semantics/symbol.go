@@ -69,19 +69,26 @@ func isPublic(tok token.Token) bool {
 	return tok.Is(token.Public)
 }
 
+func valOrConstID(tok token.Token) ir.SymbolID {
+	if tok.Is(token.Const) {
+		return ir.ConstSymbol
+	}
+	return ir.ValSymbol
+}
+
 func (v *symChecker) VisitValTopDecl(decl *ir.ValTopDecl) {
 	decl.Deps = make(ir.DeclDependencyGraph)
 	if !v.isTypeName(decl.Name) {
-		decl.Sym = v.c.insert(v.c.scope, ir.ValSymbol, isPublic(decl.Visibility), decl.Name.Literal, decl.Name.Pos())
+		decl.Sym = v.c.insert(v.c.scope, valOrConstID(decl.Decl), isPublic(decl.Visibility), decl.Name.Literal, decl.Name.Pos())
 		v.c.mapTopDecl(decl.Sym, decl)
 	}
 }
 
 func (v *symChecker) VisitValDecl(decl *ir.ValDecl) {
 	if decl.Name.Tok.ID == token.Underscore {
-		decl.Sym = ir.NewSymbol(ir.ValSymbol, nil, false, decl.Name.Literal, decl.Name.Pos())
+		decl.Sym = ir.NewSymbol(valOrConstID(decl.Decl), nil, false, decl.Name.Literal, decl.Name.Pos())
 	} else if !v.isTypeName(decl.Name) {
-		decl.Sym = v.c.insert(v.c.scope, ir.ValSymbol, false, decl.Name.Literal, decl.Name.Pos())
+		decl.Sym = v.c.insert(v.c.scope, valOrConstID(decl.Decl), false, decl.Name.Literal, decl.Name.Pos())
 	}
 }
 

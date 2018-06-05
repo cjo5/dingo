@@ -47,9 +47,14 @@ outer:
 				sym := cycleTrace[0].Symbol()
 
 				var lines []string
-				for i, j := len(cycleTrace)-1, 0; i >= 0; i, j = i-1, j+1 {
+				for i, j := len(cycleTrace)-1, 0; i > 0; i, j = i-1, j+1 {
+					next := j + 1
+					if next == len(cycleTrace)-1 {
+						next = 0
+					}
+
 					s := cycleTrace[i].Symbol()
-					line := fmt.Sprintf("[%d] %s:%s", j, s.DefPos, s.Name)
+					line := fmt.Sprintf("  >> [%d] %s:%s uses [%d]", j, s.DefPos, s.Name, next)
 					lines = append(lines, line)
 				}
 
