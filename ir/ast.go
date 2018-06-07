@@ -624,13 +624,13 @@ func (x *DotExpr) ReadOnly() bool {
 
 type CastExpr struct {
 	baseExpr
-	Cast  token.Token
-	ToTyp Expr
-	X     Expr
+	Cast   token.Token
+	ToType Expr
+	X      Expr
 }
 
 func (x *CastExpr) Pos() token.Position    { return x.Cast.Pos }
-func (x *CastExpr) EndPos() token.Position { return x.ToTyp.EndPos() }
+func (x *CastExpr) EndPos() token.Position { return x.ToType.EndPos() }
 
 type LenExpr struct {
 	baseExpr
@@ -684,6 +684,8 @@ func TypeExprToIdent(expr Expr) *Ident {
 	switch t := expr.(type) {
 	case *Ident:
 		return t
+	case *DotExpr:
+		return t.Name
 	case *PointerTypeExpr:
 		return TypeExprToIdent(t.X)
 	case *ArrayTypeExpr:

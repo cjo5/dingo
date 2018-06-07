@@ -563,29 +563,29 @@ func (cb *llvmCodeBuilder) buildExpr(expr ir.Expr, load bool) llvm.Value {
 func (cb *llvmCodeBuilder) createArithmeticOp(op token.ID, t ir.Type, left llvm.Value, right llvm.Value) llvm.Value {
 	switch op {
 	case token.Add, token.AddAssign:
-		if ir.IsFloatingType(t) {
+		if ir.IsFloatType(t) {
 			return cb.b.CreateFAdd(left, right, "")
 		}
 		return cb.b.CreateAdd(left, right, "")
 	case token.Sub, token.SubAssign:
-		if ir.IsFloatingType(t) {
+		if ir.IsFloatType(t) {
 			return cb.b.CreateFSub(left, right, "")
 		}
 		return cb.b.CreateSub(left, right, "")
 	case token.Mul, token.MulAssign:
-		if ir.IsFloatingType(t) {
+		if ir.IsFloatType(t) {
 			return cb.b.CreateFMul(left, right, "")
 		}
 		return cb.b.CreateMul(left, right, "")
 	case token.Div:
-		if ir.IsFloatingType(t) {
+		if ir.IsFloatType(t) {
 			return cb.b.CreateFDiv(left, right, "")
 		} else if ir.IsUnsignedType(t) {
 			return cb.b.CreateUDiv(left, right, "")
 		}
 		return cb.b.CreateSDiv(left, right, "")
 	case token.Mod:
-		if ir.IsFloatingType(t) {
+		if ir.IsFloatType(t) {
 			return cb.b.CreateFRem(left, right, "")
 		} else if ir.IsUnsignedType(t) {
 			return cb.b.CreateURem(left, right, "")
@@ -652,7 +652,7 @@ func (cb *llvmCodeBuilder) buildBinaryExpr(expr *ir.BinaryExpr) llvm.Value {
 		return cb.createArithmeticOp(expr.Op.ID, expr.T, left, right)
 	case token.Eq, token.Neq, token.Gt, token.GtEq, token.Lt, token.LtEq:
 		right := cb.buildExprVal(expr.Right)
-		if ir.IsFloatingType(expr.T) {
+		if ir.IsFloatType(expr.T) {
 			return cb.b.CreateFCmp(floatPredicate(expr.Op.ID), left, right, "")
 		}
 		return cb.b.CreateICmp(intPredicate(expr.Op.ID, expr.Left.Type()), left, right, "")
@@ -695,7 +695,7 @@ func (cb *llvmCodeBuilder) buildUnaryExpr(expr *ir.UnaryExpr, load bool) llvm.Va
 	switch expr.Op.ID {
 	case token.Sub:
 		val := cb.buildExprVal(expr.X)
-		if ir.IsFloatingType(expr.T) {
+		if ir.IsFloatType(expr.T) {
 			return cb.b.CreateFNeg(val, "")
 		}
 		return cb.b.CreateNeg(val, "")
@@ -751,7 +751,7 @@ func (cb *llvmCodeBuilder) buildBasicLit(expr *ir.BasicLit) llvm.Value {
 			return cb.b.CreateNeg(val, "")
 		}
 		return val
-	} else if ir.IsFloatingType(expr.T) {
+	} else if ir.IsFloatType(expr.T) {
 		return llvm.ConstFloat(llvmType, expr.AsF64())
 	} else if expr.Tok.ID == token.True {
 		return llvm.ConstInt(llvmType, 1, false)
@@ -871,9 +871,9 @@ func (cb *llvmCodeBuilder) buildCastExpr(expr *ir.CastExpr) llvm.Value {
 	unhandled := false
 
 	switch {
-	case ir.IsFloatingType(from):
+	case ir.IsFloatType(from):
 		switch {
-		case ir.IsFloatingType(to):
+		case ir.IsFloatType(to):
 			if cmpBitSize > 0 {
 				res = cb.b.CreateFPExt(val, toLLVM, "")
 			} else {
@@ -890,7 +890,7 @@ func (cb *llvmCodeBuilder) buildCastExpr(expr *ir.CastExpr) llvm.Value {
 		}
 	case ir.IsIntegerType(from):
 		switch {
-		case ir.IsFloatingType(to):
+		case ir.IsFloatType(to):
 			if ir.IsUnsignedType(from) {
 				res = cb.b.CreateUIToFP(val, toLLVM, "")
 			} else {

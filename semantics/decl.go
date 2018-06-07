@@ -140,76 +140,81 @@ func (v *typeChecker) visitValDeclSpec(sym *ir.Symbol, decl *ir.ValDeclSpec, def
 		sym.Flags |= ir.SymFlagReadOnly
 	}
 
-	var t ir.Type
+	var tdecl ir.Type
 
 	if decl.Type != nil {
 		decl.Type = v.visitType(decl.Type)
-		t = decl.Type.Type()
+		tdecl = decl.Type.Type()
 
-		if incompleteType(t, nil) {
-			v.c.error(decl.Type.Pos(), "incomplete type %s", t)
-			t = ir.TBuiltinUntyped
+		if ir.IsIncompleteType(tdecl, nil) {
+			v.c.error(decl.Type.Pos(), "incomplete type %s", tdecl)
+			tdecl = ir.TBuiltinUntyped
 		}
 
-		if ir.IsUntyped(t) {
-			sym.T = t
+		if ir.IsUntyped(tdecl) {
+			sym.T = tdecl
 			return
 		}
 	}
 
-	if decl.Initializer != nil {
-		decl.Initializer = v.makeTypedExpr(decl.Initializer, t)
-		tinit := decl.Initializer.Type()
+	init := decl.Initializer
+
+	if init != nil {
+		init = v.makeTypedExpr(init, tdecl)
+		tinit := init.Type()
 
 		if decl.Type == nil {
 			if ptr, ok := tinit.(*ir.PointerType); ok {
 				if ir.IsTypeID(ptr.Underlying, ir.TUntyped) {
 					v.c.error(decl.Initializer.Pos(), "impossible to infer type from initializer")
-					t = ir.TBuiltinUntyped
+					tdecl = ir.TBuiltinUntyped
 				}
 			}
 
-			if t == nil {
-				t = tinit
+			if tdecl == nil {
+				tdecl = tinit
 			}
 		} else {
-			if ir.IsUntyped(t) || ir.IsUntyped(tinit) {
-				t = ir.TBuiltinUntyped
-			} else if !checkTypes(v.c, t, tinit) {
-				v.c.error(decl.Initializer.Pos(), "type mismatch %s and %s", t, tinit)
-				t = ir.TBuiltinUntyped
+			if ir.IsUntyped(tdecl) || ir.IsUntyped(tinit) {
+				tdecl = ir.TBuiltinUntyped
+			} else if !checkTypes(v.c, tdecl, tinit) {
+				v.c.error(decl.Initializer.Pos(), "type mismatch %s and %s", tdecl, tinit)
+				tdecl = ir.TBuiltinUntyped
 			}
 		}
 
-		if decl.Decl.Is(token.Const) && !ir.IsUntyped(t) {
-			if !v.checkCompileTimeConstant(decl.Initializer) {
+		if decl.Decl.Is(token.Const) && !ir.IsUntyped(tdecl) {
+			if !v.checkCompileTimeConstant(init) {
 				v.c.error(decl.Initializer.Pos(), "const initializer must be a compile-time constant")
-				t = ir.TBuiltinUntyped
+				tdecl = ir.TBuiltinUntyped
 			}
 		}
 	} else if decl.Type == nil {
 		v.c.error(decl.Name.Pos(), "missing type or initializer")
-		t = ir.TBuiltinUntyped
+		tdecl = ir.TBuiltinUntyped
 	} else if defaultInit {
-		decl.Initializer = createDefaultLit(t)
+		init = createDefaultLit(tdecl)
 	}
 
-	// Wait to set type until the final step in order to be able to detect cycles
-	sym.T = t
+	decl.Initializer = init
 
-	if decl.Decl.Is(token.Const) && !ir.IsUntyped(t) {
+	// Wait to set type until the final step in order to be able to detect cycles
+	sym.T = tdecl
+
+	if decl.Decl.Is(token.Const) && !ir.IsUntyped(tdecl) {
 		v.c.constExprs[sym] = decl.Initializer
 	}
 }
 
 func (v *typeChecker) VisitFuncDecl(decl *ir.FuncDecl) {
 	if v.signature {
+		c := v.checkCABI(decl.ABI)
+		v.VisitIdent(decl.Name)
+
 		defer setScope(setScope(v.c, decl.Scope))
 
-		c := v.checkCABI(decl.ABI)
-		untyped := false
-
 		var tparams []ir.Type
+		untyped := false
 
 		for _, param := range decl.Params {
 			v.VisitValDecl(param)

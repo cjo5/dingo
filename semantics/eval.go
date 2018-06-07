@@ -11,257 +11,301 @@ import (
 	"github.com/jhnl/dingo/token"
 )
 
-// TODO: Evaluate constant boolean expressions
-
 func (v *typeChecker) VisitBinaryExpr(expr *ir.BinaryExpr) ir.Expr {
-	expr.Left = ir.VisitExpr(v, expr.Left)
-	expr.Right = ir.VisitExpr(v, expr.Right)
+	left := ir.VisitExpr(v, expr.Left)
+	right := ir.VisitExpr(v, expr.Right)
 
-	leftType := expr.Left.Type()
-	rightType := expr.Right.Type()
+	defer func() {
+		expr.Left = left
+		expr.Right = right
 
-	binType := ir.TUntyped
-	boolOp := expr.Op.OneOf(token.Eq, token.Neq, token.Gt, token.GtEq, token.Lt, token.LtEq)
-	arithOp := expr.Op.OneOf(token.Add, token.Sub, token.Mul, token.Div, token.Mod)
-	typeNotSupported := ir.TBuiltinUntyped
-
-	if expr.Op.OneOf(token.Land, token.Lor) {
-		if leftType.ID() != ir.TBool || rightType.ID() != ir.TBool {
-			v.c.errorExpr(expr, "operation '%s' expects type %s (got types %s and %s)", expr.Op.ID, ir.TBool, leftType, rightType)
-		} else {
-			binType = ir.TBool
+		if expr.T == nil {
+			expr.T = ir.TBuiltinUntyped
 		}
-	} else if boolOp || arithOp {
-		leftLit, _ := expr.Left.(*ir.BasicLit)
-		rightLit, _ := expr.Right.(*ir.BasicLit)
+	}()
 
-		if ir.IsNumericType(leftType) && ir.IsNumericType(rightType) {
-			var leftBigInt *big.Int
-			var leftBigFloat *big.Float
-			var rightBigInt *big.Int
-			var rightBigFloat *big.Float
-
-			if leftLit != nil {
-				leftBigInt, _ = leftLit.Raw.(*big.Int)
-				leftBigFloat, _ = leftLit.Raw.(*big.Float)
-			}
-
-			if rightLit != nil {
-				rightBigInt, _ = rightLit.Raw.(*big.Int)
-				rightBigFloat, _ = rightLit.Raw.(*big.Float)
-			}
-
-			// Check division by zero
-
-			if expr.Op.ID == token.Div || expr.Op.ID == token.Mod {
-				if (rightBigInt != nil && rightBigInt.Cmp(ir.BigIntZero) == 0) ||
-					(rightBigFloat != nil && rightBigFloat.Cmp(ir.BigFloatZero) == 0) {
-					v.c.errorExpr(rightLit, "division by zero")
-					expr.T = ir.NewBasicType(ir.TUntyped)
-					return expr
-				}
-			}
-
-			// Convert integer literals to floats
-
-			if leftBigInt != nil && rightBigFloat != nil {
-				leftBigFloat = big.NewFloat(0)
-				leftBigFloat.SetInt(leftBigInt)
-				leftLit.Raw = leftBigFloat
-				leftLit.T = ir.NewBasicType(ir.TBigFloat)
-				leftType = leftLit.T
-				leftBigInt = nil
-			}
-
-			if rightBigInt != nil && leftBigFloat != nil {
-				rightBigFloat = big.NewFloat(0)
-				rightBigFloat.SetInt(rightBigInt)
-				rightLit.Raw = rightBigFloat
-				rightLit.T = ir.NewBasicType(ir.TBigFloat)
-				rightType = rightLit.T
-				rightBigInt = nil
-			}
-
-			bigIntOperands := (leftBigInt != nil && rightBigInt != nil)
-			bigFloatOperands := (leftBigFloat != nil && rightBigFloat != nil)
-
-			if bigIntOperands || bigFloatOperands {
-				cmpRes := 0
-				if bigIntOperands {
-					cmpRes = leftBigInt.Cmp(rightBigInt)
-				} else {
-					cmpRes = leftBigFloat.Cmp(rightBigFloat)
-				}
-
-				boolRes := false
-				switch expr.Op.ID {
-				case token.Eq:
-					boolRes = (cmpRes == 0)
-				case token.Neq:
-					boolRes = (cmpRes != 0)
-				case token.Gt:
-					boolRes = (cmpRes > 0)
-				case token.GtEq:
-					boolRes = (cmpRes >= 0)
-				case token.Lt:
-					boolRes = (cmpRes < 0)
-				case token.LtEq:
-					boolRes = (cmpRes <= 0)
-				default:
-					if bigIntOperands {
-						switch expr.Op.ID {
-						case token.Add:
-							leftBigInt.Add(leftBigInt, rightBigInt)
-						case token.Sub:
-							leftBigInt.Sub(leftBigInt, rightBigInt)
-						case token.Mul:
-							leftBigInt.Mul(leftBigInt, rightBigInt)
-						case token.Div:
-							leftBigInt.Div(leftBigInt, rightBigInt)
-						case token.Mod:
-							leftBigInt.Mod(leftBigInt, rightBigInt)
-						default:
-							panic(fmt.Sprintf("Unhandled binop %s", expr.Op.ID))
-						}
-					} else {
-						switch expr.Op.ID {
-						case token.Add:
-							leftBigFloat.Add(leftBigFloat, rightBigFloat)
-						case token.Sub:
-							leftBigFloat.Sub(leftBigFloat, rightBigFloat)
-						case token.Mul:
-							leftBigFloat.Mul(leftBigFloat, rightBigFloat)
-						case token.Div:
-							leftBigFloat.Quo(leftBigFloat, rightBigFloat)
-						case token.Mod:
-							typeNotSupported = leftType
-						default:
-							panic(fmt.Sprintf("Unhandled binop %s", expr.Op.ID))
-						}
-					}
-				}
-
-				if ir.IsTypeID(typeNotSupported, ir.TUntyped) {
-					if boolOp {
-						if boolRes {
-							leftLit.Tok.ID = token.True
-						} else {
-							leftLit.Tok.ID = token.False
-						}
-						leftLit.T = ir.NewBasicType(ir.TBool)
-						leftLit.Raw = nil
-					}
-
-					leftLit.Value = "(" + leftLit.Value + " " + expr.Op.String() + " " + rightLit.Value + ")"
-					leftLit.Rewrite++
-					return leftLit
-				}
-			} else if leftBigInt != nil && rightBigInt == nil {
-				typeCastNumericLit(leftLit, rightType)
-				leftType = leftLit.T
-			} else if leftBigInt == nil && rightBigInt != nil {
-				typeCastNumericLit(rightLit, leftType)
-				rightType = rightLit.T
-			} else if leftBigFloat != nil && rightBigFloat == nil {
-				typeCastNumericLit(leftLit, rightType)
-				leftType = leftLit.T
-			} else if leftBigFloat == nil && rightBigFloat != nil {
-				typeCastNumericLit(rightLit, leftType)
-				rightType = rightLit.T
-			}
-		} else if leftType.ID() == ir.TPointer && rightType.ID() == ir.TPointer {
-			if arithOp {
-				typeNotSupported = leftType
-			}
-
-			leftPtr := leftType.(*ir.PointerType)
-			rightPtr := rightType.(*ir.PointerType)
-			leftNull := leftLit != nil && leftLit.Tok.Is(token.Null)
-			rightNull := rightLit != nil && rightLit.Tok.Is(token.Null)
-
-			if leftNull && rightNull {
-				leftLit.T = ir.NewPointerType(ir.NewBasicType(ir.TUInt8), false)
-				leftType = leftLit.T
-				rightLit.T = ir.NewPointerType(ir.NewBasicType(ir.TUInt8), false)
-				rightType = rightLit.T
-			} else if leftNull {
-				leftLit.T = ir.NewPointerType(rightPtr.Underlying, false)
-				leftType = leftLit.T
-			} else if rightNull {
-				rightLit.T = ir.NewPointerType(leftPtr.Underlying, false)
-				rightType = rightLit.T
-			}
-		} else if leftType.ID() == ir.TBool && rightType.ID() == ir.TBool {
-			if arithOp || expr.Op.OneOf(token.Gt, token.GtEq, token.Lt, token.LtEq) {
-				typeNotSupported = leftType
-			}
-		} else if leftType.Equals(rightType) {
-			typeNotSupported = leftType
-		}
-
-		if !checkTypes(v.c, leftType, rightType) {
-			v.c.errorExpr(expr, "type mismatch %s and %s", leftType, rightType)
-		} else if !ir.IsUntyped(leftType) && !ir.IsUntyped(rightType) {
-			if !ir.IsTypeID(typeNotSupported, ir.TUntyped) {
-				v.c.errorExpr(expr, "operation '%s' cannot be performed on type %s", expr.Op.ID.String(), typeNotSupported)
-			} else {
-				if boolOp {
-					binType = ir.TBool
-				} else {
-					binType = leftType.ID()
-				}
-			}
-		}
-	} else {
-		panic(fmt.Sprintf("Unhandled binop %s", expr.Op.ID))
+	if ir.IsUntyped(left.Type()) || ir.IsUntyped(right.Type()) {
+		return expr
 	}
 
-	expr.T = ir.NewBasicType(binType)
+	// Attempt to set concrete/compatible types for the operands before checking them
+	err := false
+
+	if !ir.IsCompilerType(left.Type()) {
+		if !v.tryMakeTypedLit(right, left.Type()) {
+			err = true
+		}
+	} else if !ir.IsCompilerType(right.Type()) {
+		if !v.tryMakeTypedLit(left, right.Type()) {
+			err = true
+		}
+	} else if ir.IsTypeID(left.Type(), ir.TBigInt, ir.TBigFloat) && ir.IsTypeID(right.Type(), ir.TBigInt, ir.TBigFloat) {
+		// If needed, promote BigInt to BigFloat
+		if ir.IsTypeID(left.Type(), ir.TBigFloat) && ir.IsTypeID(right.Type(), ir.TBigInt) {
+			lit := right.(*ir.BasicLit)
+			lit.Raw = toBigFloat(lit.Raw.(*big.Int))
+			lit.T = ir.NewBasicType(ir.TBigFloat)
+
+		} else if ir.IsTypeID(right.Type(), ir.TBigFloat) && ir.IsTypeID(left.Type(), ir.TBigInt) {
+			lit := left.(*ir.BasicLit)
+			lit.Raw = toBigFloat(lit.Raw.(*big.Int))
+			lit.T = ir.NewBasicType(ir.TBigFloat)
+		}
+	}
+
+	if err {
+		return expr
+	}
+
+	// Check types are compatible/equal
+
+	tleft := left.Type()
+	tright := right.Type()
+
+	if tleft.Equals(tright) {
+		// OK
+	} else if tleft.ImplicitCastOK(tright) {
+		cast := &ir.CastExpr{}
+		cast.X = left
+		cast.T = tright
+		left = cast
+	} else if tright.ImplicitCastOK(tleft) {
+		cast := &ir.CastExpr{}
+		cast.X = right
+		cast.T = tleft
+		right = cast
+	} else {
+		v.c.errorExpr(expr, "type mismatch %s and %s", left.Type(), right.Type())
+		return expr
+	}
+
+	// Check if operation can be performed on the type, and attempt constant folding.
+
+	badop := false
+	logicop := expr.Op.OneOf(token.Land, token.Lor)
+	eqop := expr.Op.OneOf(token.Eq, token.Neq)
+	orderop := expr.Op.OneOf(token.Gt, token.GtEq, token.Lt, token.LtEq)
+	mathop := expr.Op.OneOf(token.Add, token.Sub, token.Mul, token.Div, token.Mod)
+
+	toperand := expr.Left.Type() // Left and right should have same type at this point
+	texpr := toperand
+	if logicop || eqop || orderop {
+		texpr = ir.TBuiltinBool
+	}
+
+	fold := false
+	foldCmpRes := 0
+	foldLogicRes := false
+	var foldMathRes interface{}
+
+	leftLit, _ := left.(*ir.BasicLit)
+	rightLit, _ := right.(*ir.BasicLit)
+
+	if ir.IsNumericType(toperand) {
+		if logicop {
+			badop = true
+		} else if leftLit != nil && rightLit != nil {
+			if ir.IsIntegerType(toperand) {
+				leftInt := leftLit.Raw.(*big.Int)
+				rightInt := rightLit.Raw.(*big.Int)
+				if eqop || orderop {
+					foldCmpRes = leftInt.Cmp(rightInt)
+					fold = true
+				} else if expr.Op.OneOf(token.Div, token.Mod) && rightInt.Cmp(ir.BigIntZero) == 0 {
+					v.c.errorExpr(expr, "division by zero")
+					err = true
+				} else {
+					intRes := big.NewInt(0)
+					switch expr.Op.ID {
+					case token.Add:
+						intRes.Add(leftInt, rightInt)
+					case token.Sub:
+						intRes.Sub(leftInt, rightInt)
+					case token.Mul:
+						intRes.Mul(leftInt, rightInt)
+					case token.Div:
+						intRes.Div(leftInt, rightInt)
+					case token.Mod:
+						intRes.Mod(leftInt, rightInt)
+					}
+					foldMathRes = intRes
+					fold = true
+					if integerOverflows(intRes, toperand.ID()) {
+						v.c.errorExpr(expr, "result from operation '%s' overflows type %s", expr.Op.ID, toperand)
+					}
+				}
+			} else if ir.IsFloatType(toperand) {
+				leftFloat := leftLit.Raw.(*big.Float)
+				rightFloat := rightLit.Raw.(*big.Float)
+				if eqop || orderop {
+					foldCmpRes = leftFloat.Cmp(rightFloat)
+					fold = true
+				} else if expr.Op.Is(token.Div) && rightFloat.Cmp(ir.BigFloatZero) == 0 {
+					v.c.errorExpr(expr, "division by zero")
+					err = true
+				} else if expr.Op.Is(token.Mod) {
+					badop = true
+				} else {
+					floatRes := big.NewFloat(0)
+					switch expr.Op.ID {
+					case token.Add:
+						floatRes.Add(leftFloat, rightFloat)
+					case token.Sub:
+						floatRes.Sub(leftFloat, rightFloat)
+					case token.Mul:
+						floatRes.Mul(leftFloat, rightFloat)
+					case token.Div:
+						floatRes.Quo(leftFloat, rightFloat)
+					}
+					foldMathRes = floatRes
+					fold = true
+					if floatOverflows(floatRes, toperand.ID()) {
+						v.c.errorExpr(expr, "result from operation '%s' overflows type %s", expr.Op.ID, toperand)
+					}
+				}
+			}
+		}
+	} else if ir.IsTypeID(toperand, ir.TBool) {
+		if orderop || mathop {
+			badop = true
+		} else if leftLit != nil && rightLit != nil {
+			leftTrue := leftLit.Tok.Is(token.True)
+			rightTrue := rightLit.Tok.Is(token.True)
+			switch expr.Op.ID {
+			case token.Land:
+				foldLogicRes = leftTrue && rightTrue
+			case token.Lor:
+				foldLogicRes = leftTrue || rightTrue
+			case token.Eq:
+				foldCmpRes = 1
+				if leftTrue == rightTrue {
+					foldCmpRes = 0
+				}
+			case token.Neq:
+				foldCmpRes = 1
+				if leftTrue != rightTrue {
+					foldCmpRes = 0
+				}
+			}
+			fold = true
+		}
+	} else if ir.IsTypeID(toperand, ir.TPointer) {
+		if orderop || mathop {
+			badop = true
+		}
+	} else {
+		badop = true
+	}
+
+	if badop {
+		v.c.errorExpr(expr, "operator '%s' cannot be performed on type %s", expr.Op.ID, toperand)
+	} else if !err {
+		expr.T = texpr
+		if fold {
+			litRes := &ir.BasicLit{Value: ""}
+			litRes.T = texpr
+			litRes.Tok = token.Token{ID: token.Placeholder, Pos: left.Pos()}
+			litRes.Rewrite = 1
+			if mathop {
+				litRes.Raw = foldMathRes
+			} else {
+				litRes.Raw = nil
+				istrue := false
+				if logicop {
+					istrue = foldLogicRes
+				} else if eqop || orderop {
+					switch expr.Op.ID {
+					case token.Eq:
+						istrue = (foldCmpRes == 0)
+					case token.Neq:
+						istrue = (foldCmpRes != 0)
+					case token.Gt:
+						istrue = (foldCmpRes > 0)
+					case token.GtEq:
+						istrue = (foldCmpRes >= 0)
+					case token.Lt:
+						istrue = (foldCmpRes < 0)
+					case token.LtEq:
+						istrue = (foldCmpRes <= 0)
+					}
+				}
+				if istrue {
+					litRes.Tok.ID = token.True
+				} else {
+					litRes.Tok.ID = token.False
+				}
+			}
+			return litRes
+		}
+	}
+
 	return expr
 }
 
 func (v *typeChecker) VisitUnaryExpr(expr *ir.UnaryExpr) ir.Expr {
-	expr.X = ir.VisitExpr(v, expr.X)
-	expr.T = expr.X.Type()
+	x := ir.VisitExpr(v, expr.X)
+	expr.T = x.Type()
+
 	switch expr.Op.ID {
 	case token.Sub:
 		if !ir.IsNumericType(expr.T) {
-			v.c.error(expr.Op.Pos, "operation '%s' expects type int or float (got type %s)", token.Sub, expr.T)
-		} else if lit, ok := expr.X.(*ir.BasicLit); ok {
+			v.c.error(expr.Op.Pos, "additive inverse '%s' cannot be performed on type", expr.T)
+		} else if lit, ok := x.(*ir.BasicLit); ok {
 			var raw interface{}
+			overflow := false
 
 			switch n := lit.Raw.(type) {
 			case *big.Int:
-				raw = n.Neg(n)
+				intRes := big.NewInt(0)
+				raw = intRes.Neg(n)
+				if integerOverflows(intRes, lit.T.ID()) {
+					overflow = true
+				}
 			case *big.Float:
-				raw = n.Neg(n)
+				floatRes := big.NewFloat(0)
+				raw = floatRes.Neg(n)
+				if floatOverflows(floatRes, lit.T.ID()) {
+					overflow = true
+				}
 			default:
 				panic(fmt.Sprintf("Unhandled raw type %T", n))
 			}
 
-			lit.Tok.Pos = expr.Op.Pos
-			if lit.Rewrite > 0 {
-				lit.Value = "(" + lit.Value + ")"
+			if overflow {
+				v.c.errorExpr(expr, "result from additive inverse '%s' overflows type %s", expr.Op.ID, lit.T)
 			}
-			lit.Value = expr.Op.String() + lit.Value
-			lit.Rewrite++
-			lit.Raw = raw
-			return lit
+
+			litRes := &ir.BasicLit{Value: ""}
+			litRes.Tok = token.Token{ID: token.Placeholder, Pos: expr.Pos()}
+			litRes.Rewrite = 1
+			litRes.Raw = raw
+			litRes.T = x.Type()
+			return litRes
 		}
 	case token.Lnot:
 		if expr.T.ID() != ir.TBool {
 			v.c.error(expr.Op.Pos, "operation '%s' expects type %s (got type %s)", token.Lnot, ir.TBuiltinBool, expr.T)
+		} else if lit, ok := x.(*ir.BasicLit); ok {
+			litRes := &ir.BasicLit{Value: ""}
+			litRes.Tok = token.Token{ID: token.True, Pos: expr.Pos()}
+			if lit.Tok.Is(token.True) {
+				litRes.Tok.ID = token.False
+			}
+			litRes.Rewrite = 1
+			litRes.Raw = nil
+			litRes.T = x.Type()
+			return litRes
 		}
 	case token.Mul:
 		lvalue := false
 
-		if deref, ok := expr.X.(*ir.UnaryExpr); ok {
+		if deref, ok := x.(*ir.UnaryExpr); ok {
 			if deref.Op.ID == token.And {
 				// Inverse
 				lvalue = deref.X.Lvalue()
 			}
 		} else {
-			lvalue = expr.X.Lvalue()
+			lvalue = x.Lvalue()
 		}
 
 		if !lvalue {
@@ -281,6 +325,9 @@ func (v *typeChecker) VisitUnaryExpr(expr *ir.UnaryExpr) ir.Expr {
 	default:
 		panic(fmt.Sprintf("Unhandled unary op %s", expr.Op.ID))
 	}
+
+	expr.X = x
+
 	return expr
 }
 
@@ -480,136 +527,150 @@ func (v *typeChecker) VisitBasicLit(expr *ir.BasicLit) ir.Expr {
 }
 
 func (v *typeChecker) VisitStructLit(expr *ir.StructLit) ir.Expr {
-	expr.Name = v.visitType(expr.Name)
-	t := expr.Name.Type()
+	name := v.visitType(expr.Name)
+	tname := expr.Name.Type()
 
-	if ir.IsUntyped(t) {
-		expr.T = ir.TBuiltinUntyped
-		return expr
+	err := false
+
+	if ir.IsUntyped(tname) {
+		err = true
 	} else if typeSym := ir.ExprSymbol(expr.Name); typeSym != nil {
 		if typeSym.ID != ir.TypeSymbol && typeSym.T.ID() != ir.TStruct {
 			v.c.error(expr.Name.Pos(), "'%s' is not a struct", typeSym.Name)
-			expr.T = ir.TBuiltinUntyped
-			return expr
+			err = true
 		}
 	}
 
-	err := false
-	inits := make(map[string]ir.Expr)
-	structt, _ := t.(*ir.StructType)
+	var tstruct *ir.StructType
 
-	for _, kv := range expr.Initializers {
-		if existing, ok := inits[kv.Key.Literal]; ok {
-			if existing != nil {
-				v.c.error(kv.Key.Pos(), "duplicate field key '%s'", kv.Key.Literal)
+	if !err {
+		inits := make(map[string]ir.Expr)
+		tstruct = tname.(*ir.StructType)
+
+		for _, kv := range expr.Initializers {
+			if existing, ok := inits[kv.Key.Literal]; ok {
+				if existing != nil {
+					v.c.error(kv.Key.Pos(), "duplicate field key '%s'", kv.Key.Literal)
+				}
+				inits[kv.Key.Literal] = nil
+				err = true
+				continue
 			}
-			inits[kv.Key.Literal] = nil
-			err = true
-			continue
-		}
 
-		fieldSym := structt.Scope.Lookup(kv.Key.Literal)
-		if fieldSym == nil {
-			v.c.error(kv.Key.Pos(), "'%s' undefined struct field", kv.Key.Literal)
-			inits[kv.Key.Literal] = nil
-			err = true
-			continue
-		}
+			fieldSym := tstruct.Scope.Lookup(kv.Key.Literal)
+			if fieldSym == nil {
+				v.c.error(kv.Key.Pos(), "'%s' undefined struct field", kv.Key.Literal)
+				inits[kv.Key.Literal] = nil
+				err = true
+				continue
+			}
 
-		kv.Value = v.makeTypedExpr(kv.Value, fieldSym.T)
+			kv.Value = v.makeTypedExpr(kv.Value, fieldSym.T)
 
-		if ir.IsUntyped(fieldSym.T) || ir.IsUntyped(kv.Value.Type()) {
-			inits[kv.Key.Literal] = nil
-			err = true
-			continue
-		}
+			if ir.IsUntyped(fieldSym.T) || ir.IsUntyped(kv.Value.Type()) {
+				inits[kv.Key.Literal] = nil
+				err = true
+				continue
+			}
 
-		if !checkTypes(v.c, fieldSym.T, kv.Value.Type()) {
-			v.c.error(kv.Key.Pos(), "field '%s' expects type %s (got type %s)",
-				kv.Key.Literal, fieldSym.T, kv.Value.Type())
-			inits[kv.Key.Literal] = nil
-			err = true
-			continue
+			if !checkTypes(v.c, fieldSym.T, kv.Value.Type()) {
+				v.c.error(kv.Key.Pos(), "field '%s' expects type %s (got type %s)",
+					kv.Key.Literal, fieldSym.T, kv.Value.Type())
+				inits[kv.Key.Literal] = nil
+				err = true
+				continue
+			}
+
+			inits[kv.Key.Literal] = kv.Value
 		}
-		inits[kv.Key.Literal] = kv.Value
 	}
+
+	expr.Name = name
+	expr.T = tstruct
 
 	if err {
 		expr.T = ir.TBuiltinUntyped
 		return expr
 	}
 
-	expr.T = structt
-	return createStructLit(structt, expr)
+	return createStructLit(tstruct, expr)
 }
 
 func (v *typeChecker) VisitArrayLit(expr *ir.ArrayLit) ir.Expr {
-	t := ir.TBuiltinUntyped
-	backup := ir.TBuiltinUntyped
+	texpr := ir.TBuiltinUntyped
+	tbackup := ir.TBuiltinUntyped
 
-	for i, init := range expr.Initializers {
+	var inits []ir.Expr
+
+	for _, init := range expr.Initializers {
 		init = ir.VisitExpr(v, init)
-		expr.Initializers[i] = init
+		inits = append(inits, init)
 
-		if t == ir.TBuiltinUntyped && ir.IsActualType(init.Type()) {
-			t = init.Type()
+		if ir.IsUntyped(texpr) && !ir.IsCompilerType(init.Type()) {
+			texpr = init.Type()
 		}
-		if backup == ir.TBuiltinUntyped && !ir.IsUntyped(init.Type()) {
-			backup = init.Type()
+		if ir.IsUntyped(tbackup) && !ir.IsUntyped(init.Type()) {
+			tbackup = init.Type()
 		}
 	}
 
-	if t != ir.TBuiltinUntyped {
-		for _, init := range expr.Initializers {
-			if !v.tryMakeTypedLit(init, t) {
-				break
-			}
-		}
+	if ir.IsUntyped(texpr) {
+		texpr = tbackup
 	} else {
-		t = backup
-	}
-
-	if t != ir.TBuiltinUntyped {
-		for _, init := range expr.Initializers {
-			if ir.IsUntyped(init.Type()) {
-				t = ir.TBuiltinUntyped
-			} else if !checkTypes(v.c, t, init.Type()) {
-				v.c.error(init.Pos(), "array elements must be of the same type (expected type %s, got type %s)", t, init.Type())
-				t = ir.TBuiltinUntyped
+		for _, init := range inits {
+			if !v.tryMakeTypedLit(init, texpr) {
 				break
 			}
+		}
+	}
+
+	if !ir.IsUntyped(texpr) {
+		for i, init := range inits {
+			if ir.IsUntyped(init.Type()) {
+				texpr = ir.TBuiltinUntyped
+			} else if !checkTypes(v.c, texpr, init.Type()) {
+				v.c.error(init.Pos(), "array elements must be of the same type (expected type %s, got type %s)", texpr, init.Type())
+				texpr = ir.TBuiltinUntyped
+				break
+			}
+			expr.Initializers[i] = init
 		}
 	}
 
 	if len(expr.Initializers) == 0 {
 		v.c.error(expr.Lbrack.Pos, "array literal cannot have 0 elements")
-		t = ir.TBuiltinUntyped
+		texpr = ir.TBuiltinUntyped
 	}
 
-	if t == ir.TBuiltinUntyped {
-		expr.T = t
+	if ir.IsUntyped(texpr) {
+		expr.T = texpr
 	} else {
-		expr.T = ir.NewArrayType(t, len(expr.Initializers))
+		expr.T = ir.NewArrayType(texpr, len(expr.Initializers))
 	}
+
 	return expr
 }
 
 func (v *typeChecker) VisitSizeExpr(expr *ir.SizeExpr) ir.Expr {
-	expr.X = v.visitType(expr.X)
-	t := expr.X.Type()
+	x := v.visitType(expr.X)
+	tx := x.Type()
 
-	if ir.IsUntyped(t) {
+	err := false
+
+	if ir.IsUntyped(tx) {
+		err = true
+	} else if tx.ID() == ir.TModule || tx.ID() == ir.TVoid {
+		v.c.errorExpr(expr.X, "type %s does not have a size", tx)
+		err = true
+	}
+
+	if err {
+		expr.X = x
 		expr.T = ir.TBuiltinUntyped
 		return expr
 	}
 
-	if t.ID() == ir.TModule || t.ID() == ir.TVoid {
-		v.c.errorExpr(expr.X, "type %s does not have a size", t)
-		expr.T = ir.TBuiltinUntyped
-		return expr
-	}
-
-	size := v.c.target.Sizeof(t)
+	size := v.c.target.Sizeof(tx)
 	return createIntLit(size, ir.TBigInt)
 }
 
@@ -672,9 +733,9 @@ func createDefaultBasicLit(t ir.Type) *ir.BasicLit {
 	return lit
 }
 
-func createStructLit(structt *ir.StructType, lit *ir.StructLit) *ir.StructLit {
+func createStructLit(tstruct *ir.StructType, lit *ir.StructLit) *ir.StructLit {
 	var initializers []*ir.KeyValue
-	for _, f := range structt.Fields {
+	for _, f := range tstruct.Fields {
 		name := f.Name()
 		found := false
 		for _, init := range lit.Initializers {

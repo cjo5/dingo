@@ -16,10 +16,12 @@ func (v *typeChecker) VisitDeclStmt(stmt *ir.DeclStmt) {
 }
 
 func (v *typeChecker) VisitIfStmt(stmt *ir.IfStmt) {
-	stmt.Cond = ir.VisitExpr(v, stmt.Cond)
-	if !checkTypes(v.c, stmt.Cond.Type(), ir.TBuiltinBool) {
-		v.c.error(stmt.Cond.Pos(), "condition has type %s (expected %s)", stmt.Cond.Type(), ir.TBool)
+	cond := ir.VisitExpr(v, stmt.Cond)
+	if !checkTypes(v.c, cond.Type(), ir.TBuiltinBool) {
+		v.c.error(stmt.Cond.Pos(), "condition has type %s (expected %s)", cond.Type(), ir.TBool)
 	}
+
+	stmt.Cond = cond
 
 	v.VisitBlockStmt(stmt.Body)
 	if stmt.Else != nil {
@@ -34,10 +36,11 @@ func (v *typeChecker) VisitForStmt(stmt *ir.ForStmt) {
 	}
 
 	if stmt.Cond != nil {
-		stmt.Cond = ir.VisitExpr(v, stmt.Cond)
-		if !checkTypes(v.c, stmt.Cond.Type(), ir.TBuiltinBool) {
-			v.c.error(stmt.Cond.Pos(), "condition has type %s (expected %s)", stmt.Cond.Type(), ir.TBool)
+		cond := ir.VisitExpr(v, stmt.Cond)
+		if !checkTypes(v.c, cond.Type(), ir.TBuiltinBool) {
+			v.c.error(stmt.Cond.Pos(), "condition has type %s (expected %s)", cond.Type(), ir.TBool)
 		}
+		stmt.Cond = cond
 	}
 
 	if stmt.Inc != nil {
@@ -52,21 +55,22 @@ func (v *typeChecker) VisitReturnStmt(stmt *ir.ReturnStmt) {
 
 	funDecl, _ := v.c.topDecl().(*ir.FuncDecl)
 	retType := funDecl.Return.Type.Type()
-	if retType.ID() == ir.TUntyped {
+	if ir.IsUntyped(retType) {
 		return
 	}
 
-	exprType := ir.TVoid
+	exprType := ir.TBuiltinVoid
+	x := stmt.X
 
-	if stmt.X == nil {
+	if x == nil {
 		if retType.ID() != ir.TVoid {
 			mismatch = true
 		}
 	} else {
-		stmt.X = v.makeTypedExpr(stmt.X, retType)
+		x = v.makeTypedExpr(x, retType)
 
-		if !checkTypes(v.c, stmt.X.Type(), retType) {
-			exprType = stmt.X.Type().ID()
+		if !checkTypes(v.c, x.Type(), retType) {
+			exprType = x.Type()
 			mismatch = true
 		}
 	}
@@ -74,42 +78,40 @@ func (v *typeChecker) VisitReturnStmt(stmt *ir.ReturnStmt) {
 	if mismatch {
 		v.c.errorExpr(stmt.X, "function has return type %s (got type %s)", retType, exprType)
 	}
+
+	stmt.X = x
 }
 
 func (v *typeChecker) VisitAssignStmt(stmt *ir.AssignStmt) {
-	stmt.Left = ir.VisitExpr(v, stmt.Left)
-	if stmt.Left.Type().ID() == ir.TUntyped {
-		return
-	}
+	left := ir.VisitExpr(v, stmt.Left)
 
-	left := stmt.Left
-	if !left.Lvalue() {
+	if ir.IsUntyped(left.Type()) {
+		// Do nothing
+	} else if !left.Lvalue() {
 		v.c.error(stmt.Left.Pos(), "expression is not an lvalue")
-		return
-	}
-
-	stmt.Right = v.makeTypedExpr(stmt.Right, left.Type())
-
-	if stmt.Left.ReadOnly() {
+	} else if stmt.Left.ReadOnly() {
 		v.c.error(stmt.Left.Pos(), "expression is read-only")
-		return
 	}
 
-	if !checkTypes(v.c, left.Type(), stmt.Right.Type()) {
-		v.c.error(left.Pos(), "type mismatch %s and %s", left.Type(), stmt.Right.Type())
+	right := v.makeTypedExpr(stmt.Right, left.Type())
+
+	if !checkTypes(v.c, left.Type(), right.Type()) {
+		v.c.error(stmt.Assign.Pos, "type mismatch %s and %s", left.Type(), stmt.Right.Type())
 	}
 
 	if stmt.Assign.ID != token.Assign {
 		if !ir.IsNumericType(left.Type()) {
-			v.c.error(left.Pos(), "type %s is not numeric", left.Type())
+			v.c.errorExpr(stmt.Left, "type %s is not numeric", left.Type())
 		}
 	}
+
+	stmt.Left = left
+	stmt.Right = right
 }
 
 func (v *typeChecker) VisitExprStmt(stmt *ir.ExprStmt) {
 	stmt.X = v.makeTypedExpr(stmt.X, nil)
-	texpr := stmt.X.Type()
-	if texpr.ID() == ir.TUntyped {
+	if stmt.X.Type().ID() == ir.TUntyped {
 		common.Assert(v.c.errors.IsError(), "expr is untyped and no error was reported")
 	}
 }

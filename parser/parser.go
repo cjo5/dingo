@@ -791,7 +791,7 @@ func (p *parser) parseUnaryExpr() ir.Expr {
 		cast.X = expr
 		cast.Cast = p.token
 		p.next()
-		cast.ToTyp = p.parseType(false)
+		cast.ToType = p.parseType(false)
 		expr = cast
 	}
 

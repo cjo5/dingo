@@ -309,7 +309,7 @@ func (v *depChecker) VisitDotExpr(expr *ir.DotExpr) ir.Expr {
 }
 
 func (v *depChecker) VisitCastExpr(expr *ir.CastExpr) ir.Expr {
-	ir.VisitExpr(v, expr.ToTyp)
+	ir.VisitExpr(v, expr.ToType)
 	ir.VisitExpr(v, expr.X)
 	return expr
 }

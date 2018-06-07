@@ -2,7 +2,12 @@
     {
         "testDir": "const",
         "tests": [
-            
+           {
+               "file": "const.dg"
+           },
+           {
+               "file": "bad_const.dg"
+           }
         ]
     },
     {

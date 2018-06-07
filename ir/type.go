@@ -477,14 +477,37 @@ func IsTypeID(t Type, ids ...TypeID) bool {
 	return false
 }
 
-func IsActualType(t1 Type) bool {
+func IsIncompleteType(t1 Type, outer Type) bool {
+	incomplete := false
+	switch t2 := t1.(type) {
+	case *BasicType:
+		if t2.ID() == TVoid {
+			if outer == nil || outer.ID() != TPointer {
+				incomplete = true
+			}
+		}
+	case *SliceType:
+		if !t2.Ptr {
+			incomplete = true
+		} else {
+			incomplete = IsIncompleteType(t2.Elem, t2)
+		}
+	case *ArrayType:
+		incomplete = IsIncompleteType(t2.Elem, t2)
+	case *PointerType:
+		incomplete = IsIncompleteType(t2.Underlying, t2)
+	}
+	return incomplete
+}
+
+func IsCompilerType(t1 Type) bool {
 	switch t2 := t1.(type) {
 	case *PointerType:
-		return IsActualType(t2.Underlying)
+		return IsUntyped(t2.Underlying)
 	case *ArrayType:
-		return IsActualType(t2.Elem)
+		return IsCompilerType(t2.Elem)
 	case *BasicType:
-		return !IsTypeID(t2, TUntyped, TBigInt, TBigFloat)
+		return IsTypeID(t2, TUntyped, TBigInt, TBigFloat)
 	default:
 		return true
 	}
@@ -492,6 +515,13 @@ func IsActualType(t1 Type) bool {
 
 func IsUntyped(t Type) bool {
 	return t.ID() == TUntyped
+}
+
+func IsUntypedPointer(t Type) bool {
+	if tptr, ok := t.(*PointerType); ok {
+		return IsUntyped(tptr.Underlying)
+	}
+	return false
 }
 
 func IsSignedType(t Type) bool {
@@ -521,7 +551,7 @@ func IsIntegerType(t Type) bool {
 	}
 }
 
-func IsFloatingType(t Type) bool {
+func IsFloatType(t Type) bool {
 	switch t.ID() {
 	case TBigFloat, TFloat64, TFloat32:
 		return true
@@ -531,7 +561,7 @@ func IsFloatingType(t Type) bool {
 }
 
 func IsNumericType(t Type) bool {
-	if IsIntegerType(t) || IsFloatingType(t) {
+	if IsIntegerType(t) || IsFloatType(t) {
 		return true
 	}
 	return false

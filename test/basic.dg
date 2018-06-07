@@ -1,11 +1,7 @@
-include "common.dg"
-
-const foo = 2
-const bar = foo * 5
+//include "common.dg"
 
 fun[c] main() i32 {
-    val a = malloc(sizeof([i32:bar])) as &var [i32:bar] 
-    putiln(lenof(a))
-
+    const a = true
+    const b = a && false
     return 0
 }

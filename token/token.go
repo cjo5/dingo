@@ -13,6 +13,7 @@ type ID int
 //
 const (
 	Invalid ID = iota
+	Placeholder
 	EOF
 	Comment
 	MultiComment
@@ -104,9 +105,10 @@ const (
 )
 
 var tokens = [...]string{
-	Invalid: "invalid",
-	EOF:     "eof",
-	Comment: "comment",
+	Invalid:     "invalid",
+	Placeholder: "placeholder",
+	EOF:         "eof",
+	Comment:     "comment",
 
 	Ident:   "ident",
 	Integer: "integer",

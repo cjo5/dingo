@@ -1,7 +1,23 @@
 include "../common.dg"
 
 fun[c] main() i32 {
-    const a = 15
-    putiln(a)
+    const a1 = 15
+    putiln(a1) // expect-output: 15
+
+    const a2 = a1 + 3
+    putiln(a2) // expect-output: 18
+
+    const a3 = -a2
+    putiln(a3) // expect-output: -18
+
+    const b1 = true
+    putbool(b1) // expect-output: true
+
+    const b2 = b1 && false
+    putbool(b2) // expect-output: false
+
+    const b3 = !b2
+    putbool(b3) // expect-output: true
+
     return 0
 }
