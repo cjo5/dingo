@@ -75,7 +75,7 @@ func (v *typeChecker) VisitBinaryExpr(expr *ir.BinaryExpr) ir.Expr {
 		cast.T = tleft
 		right = cast
 	} else {
-		v.c.errorExpr(expr, "type mismatch %s and %s", left.Type(), right.Type())
+		v.c.errorNode(expr, "type mismatch %s and %s", left.Type(), right.Type())
 		return expr
 	}
 
@@ -112,11 +112,11 @@ func (v *typeChecker) VisitBinaryExpr(expr *ir.BinaryExpr) ir.Expr {
 					foldCmpRes = leftInt.Cmp(rightInt)
 					fold = true
 				} else if expr.Op.OneOf(token.Div, token.Mod) && rightInt.Cmp(ir.BigIntZero) == 0 {
-					v.c.errorExpr(expr, "division by zero")
+					v.c.errorNode(expr, "division by zero")
 					err = true
 				} else {
 					intRes := big.NewInt(0)
-					switch expr.Op.ID {
+					switch expr.Op {
 					case token.Add:
 						intRes.Add(leftInt, rightInt)
 					case token.Sub:
@@ -131,7 +131,7 @@ func (v *typeChecker) VisitBinaryExpr(expr *ir.BinaryExpr) ir.Expr {
 					foldMathRes = intRes
 					fold = true
 					if integerOverflows(intRes, toperand.ID()) {
-						v.c.errorExpr(expr, "result from operation '%s' overflows type %s", expr.Op.ID, toperand)
+						v.c.errorNode(expr, "result from operation '%s' overflows type %s", expr.Op, toperand)
 					}
 				}
 			} else if ir.IsFloatType(toperand) {
@@ -141,13 +141,13 @@ func (v *typeChecker) VisitBinaryExpr(expr *ir.BinaryExpr) ir.Expr {
 					foldCmpRes = leftFloat.Cmp(rightFloat)
 					fold = true
 				} else if expr.Op.Is(token.Div) && rightFloat.Cmp(ir.BigFloatZero) == 0 {
-					v.c.errorExpr(expr, "division by zero")
+					v.c.errorNode(expr, "division by zero")
 					err = true
 				} else if expr.Op.Is(token.Mod) {
 					badop = true
 				} else {
 					floatRes := big.NewFloat(0)
-					switch expr.Op.ID {
+					switch expr.Op {
 					case token.Add:
 						floatRes.Add(leftFloat, rightFloat)
 					case token.Sub:
@@ -160,7 +160,7 @@ func (v *typeChecker) VisitBinaryExpr(expr *ir.BinaryExpr) ir.Expr {
 					foldMathRes = floatRes
 					fold = true
 					if floatOverflows(floatRes, toperand.ID()) {
-						v.c.errorExpr(expr, "result from operation '%s' overflows type %s", expr.Op.ID, toperand)
+						v.c.errorNode(expr, "result from operation '%s' overflows type %s", expr.Op, toperand)
 					}
 				}
 			}
@@ -171,7 +171,7 @@ func (v *typeChecker) VisitBinaryExpr(expr *ir.BinaryExpr) ir.Expr {
 		} else if leftLit != nil && rightLit != nil {
 			leftTrue := leftLit.Tok.Is(token.True)
 			rightTrue := rightLit.Tok.Is(token.True)
-			switch expr.Op.ID {
+			switch expr.Op {
 			case token.Land:
 				foldLogicRes = leftTrue && rightTrue
 			case token.Lor:
@@ -198,13 +198,14 @@ func (v *typeChecker) VisitBinaryExpr(expr *ir.BinaryExpr) ir.Expr {
 	}
 
 	if badop {
-		v.c.errorExpr(expr, "operator '%s' cannot be performed on type %s", expr.Op.ID, toperand)
+		v.c.errorNode(expr, "operator '%s' cannot be performed on type %s", expr.Op, toperand)
 	} else if !err {
 		expr.T = texpr
 		if fold {
 			litRes := &ir.BasicLit{Value: ""}
+			litRes.SetRange(left.Pos(), right.EndPos())
 			litRes.T = texpr
-			litRes.Tok = token.Token{ID: token.Placeholder, Pos: left.Pos()}
+			litRes.Tok = leftLit.Tok
 			litRes.Rewrite = 1
 			if mathop {
 				litRes.Raw = foldMathRes
@@ -214,7 +215,7 @@ func (v *typeChecker) VisitBinaryExpr(expr *ir.BinaryExpr) ir.Expr {
 				if logicop {
 					istrue = foldLogicRes
 				} else if eqop || orderop {
-					switch expr.Op.ID {
+					switch expr.Op {
 					case token.Eq:
 						istrue = (foldCmpRes == 0)
 					case token.Neq:
@@ -230,9 +231,9 @@ func (v *typeChecker) VisitBinaryExpr(expr *ir.BinaryExpr) ir.Expr {
 					}
 				}
 				if istrue {
-					litRes.Tok.ID = token.True
+					litRes.Tok = token.True
 				} else {
-					litRes.Tok.ID = token.False
+					litRes.Tok = token.False
 				}
 			}
 			return litRes
@@ -246,10 +247,10 @@ func (v *typeChecker) VisitUnaryExpr(expr *ir.UnaryExpr) ir.Expr {
 	x := ir.VisitExpr(v, expr.X)
 	expr.T = x.Type()
 
-	switch expr.Op.ID {
+	switch expr.Op {
 	case token.Sub:
 		if !ir.IsNumericType(expr.T) {
-			v.c.error(expr.Op.Pos, "additive inverse '%s' cannot be performed on type", expr.T)
+			v.c.error(expr.Pos(), "additive inverse '%s' cannot be performed on type", expr.T)
 		} else if lit, ok := x.(*ir.BasicLit); ok {
 			var raw interface{}
 			overflow := false
@@ -272,11 +273,11 @@ func (v *typeChecker) VisitUnaryExpr(expr *ir.UnaryExpr) ir.Expr {
 			}
 
 			if overflow {
-				v.c.errorExpr(expr, "result from additive inverse '%s' overflows type %s", expr.Op.ID, lit.T)
+				v.c.errorNode(expr, "result from additive inverse '%s' overflows type %s", expr.Op, lit.T)
 			}
 
 			litRes := &ir.BasicLit{Value: ""}
-			litRes.Tok = token.Token{ID: token.Placeholder, Pos: expr.Pos()}
+			litRes.Tok = lit.Tok
 			litRes.Rewrite = 1
 			litRes.Raw = raw
 			litRes.T = x.Type()
@@ -284,12 +285,13 @@ func (v *typeChecker) VisitUnaryExpr(expr *ir.UnaryExpr) ir.Expr {
 		}
 	case token.Lnot:
 		if expr.T.ID() != ir.TBool {
-			v.c.error(expr.Op.Pos, "operation '%s' expects type %s (got type %s)", token.Lnot, ir.TBuiltinBool, expr.T)
+			v.c.error(expr.Pos(), "operation '%s' expects type %s (got type %s)", token.Lnot, ir.TBuiltinBool, expr.T)
 		} else if lit, ok := x.(*ir.BasicLit); ok {
 			litRes := &ir.BasicLit{Value: ""}
-			litRes.Tok = token.Token{ID: token.True, Pos: expr.Pos()}
+			litRes.SetRange(expr.Pos(), expr.EndPos())
+			litRes.Tok = token.True
 			if lit.Tok.Is(token.True) {
-				litRes.Tok.ID = token.False
+				litRes.Tok = token.False
 			}
 			litRes.Rewrite = 1
 			litRes.Raw = nil
@@ -300,7 +302,7 @@ func (v *typeChecker) VisitUnaryExpr(expr *ir.UnaryExpr) ir.Expr {
 		lvalue := false
 
 		if deref, ok := x.(*ir.UnaryExpr); ok {
-			if deref.Op.ID == token.And {
+			if deref.Op == token.And {
 				// Inverse
 				lvalue = deref.X.Lvalue()
 			}
@@ -323,7 +325,7 @@ func (v *typeChecker) VisitUnaryExpr(expr *ir.UnaryExpr) ir.Expr {
 			expr.T = ir.TBuiltinUntyped
 		}
 	default:
-		panic(fmt.Sprintf("Unhandled unary op %s", expr.Op.ID))
+		panic(fmt.Sprintf("Unhandled unary op %s", expr.Op))
 	}
 
 	expr.X = x
@@ -366,7 +368,7 @@ func (v *typeChecker) unescapeStringLiteral(lit *ir.BasicLit) (string, bool) {
 			} else if ch2 == 'v' {
 				ch1 = 0x0b
 			} else {
-				v.c.error(lit.Tok.Pos, "invalid escape sequence '\\%c'", ch2)
+				v.c.error(lit.Pos(), "invalid escape sequence '\\%c'", ch2)
 				return "", false
 			}
 		}
@@ -382,9 +384,9 @@ func removeUnderscores(lit string) string {
 }
 
 func (v *typeChecker) VisitBasicLit(expr *ir.BasicLit) ir.Expr {
-	if expr.Tok.ID == token.False || expr.Tok.ID == token.True {
+	if expr.Tok == token.False || expr.Tok == token.True {
 		expr.T = ir.TBuiltinBool
-	} else if expr.Tok.ID == token.Char {
+	} else if expr.Tok == token.Char {
 		if expr.Raw == nil {
 			if raw, ok := v.unescapeStringLiteral(expr); ok {
 				common.Assert(len(raw) == 1, "Unexpected length on char literal")
@@ -397,7 +399,7 @@ func (v *typeChecker) VisitBasicLit(expr *ir.BasicLit) ir.Expr {
 				expr.T = ir.TBuiltinUntyped
 			}
 		}
-	} else if expr.Tok.ID == token.String {
+	} else if expr.Tok == token.String {
 		if expr.Raw == nil {
 			if raw, ok := v.unescapeStringLiteral(expr); ok {
 				if expr.Prefix == nil {
@@ -414,7 +416,7 @@ func (v *typeChecker) VisitBasicLit(expr *ir.BasicLit) ir.Expr {
 				expr.T = ir.TBuiltinUntyped
 			}
 		}
-	} else if expr.Tok.ID == token.Integer {
+	} else if expr.Tok == token.Integer {
 		if expr.Raw == nil {
 			base := ir.TBigInt
 			target := ir.TBigInt
@@ -472,7 +474,7 @@ func (v *typeChecker) VisitBasicLit(expr *ir.BasicLit) ir.Expr {
 						v.tryMakeTypedLit(expr, ir.NewBasicType(target))
 					}
 				} else {
-					v.c.error(expr.Tok.Pos, "unable to interpret int literal '%s'", normalized)
+					v.c.error(expr.Pos(), "unable to interpret int literal '%s'", normalized)
 				}
 			}
 
@@ -480,7 +482,7 @@ func (v *typeChecker) VisitBasicLit(expr *ir.BasicLit) ir.Expr {
 				expr.T = ir.TBuiltinUntyped
 			}
 		}
-	} else if expr.Tok.ID == token.Float {
+	} else if expr.Tok == token.Float {
 		if expr.Raw == nil {
 			base := ir.TBigFloat
 			target := ir.TBigFloat
@@ -509,7 +511,7 @@ func (v *typeChecker) VisitBasicLit(expr *ir.BasicLit) ir.Expr {
 						v.tryMakeTypedLit(expr, ir.NewBasicType(target))
 					}
 				} else {
-					v.c.error(expr.Tok.Pos, "unable to interpret float literal '%s'", normalized)
+					v.c.error(expr.Pos(), "unable to interpret float literal '%s'", normalized)
 				}
 			}
 
@@ -517,10 +519,10 @@ func (v *typeChecker) VisitBasicLit(expr *ir.BasicLit) ir.Expr {
 				expr.T = ir.TBuiltinUntyped
 			}
 		}
-	} else if expr.Tok.ID == token.Null {
+	} else if expr.Tok == token.Null {
 		expr.T = ir.NewPointerType(ir.TBuiltinUntyped, false)
 	} else {
-		panic(fmt.Sprintf("Unhandled literal %s", expr.Tok.ID))
+		panic(fmt.Sprintf("Unhandled literal %s at %s", expr.Tok, expr.Pos()))
 	}
 
 	return expr
@@ -638,7 +640,7 @@ func (v *typeChecker) VisitArrayLit(expr *ir.ArrayLit) ir.Expr {
 	}
 
 	if len(expr.Initializers) == 0 {
-		v.c.error(expr.Lbrack.Pos, "array literal cannot have 0 elements")
+		v.c.error(expr.Pos(), "array literal cannot have 0 elements")
 		texpr = ir.TBuiltinUntyped
 	}
 
@@ -660,7 +662,7 @@ func (v *typeChecker) VisitSizeExpr(expr *ir.SizeExpr) ir.Expr {
 	if ir.IsUntyped(tx) {
 		err = true
 	} else if tx.ID() == ir.TModule || tx.ID() == ir.TVoid {
-		v.c.errorExpr(expr.X, "type %s does not have a size", tx)
+		v.c.errorNode(expr.X, "type %s does not have a size", tx)
 		err = true
 	}
 
@@ -694,7 +696,7 @@ func createDefaultLit(t ir.Type) ir.Expr {
 }
 
 func createIntLit(val int, tid ir.TypeID) *ir.BasicLit {
-	lit := &ir.BasicLit{Tok: token.Synthetic(token.Integer), Value: strconv.FormatInt(int64(val), 10)}
+	lit := &ir.BasicLit{Tok: token.Integer, Value: strconv.FormatInt(int64(val), 10)}
 	lit.T = ir.NewBasicType(tid)
 	if val == 0 {
 		lit.Raw = ir.BigIntZero
@@ -707,24 +709,24 @@ func createIntLit(val int, tid ir.TypeID) *ir.BasicLit {
 func createDefaultBasicLit(t ir.Type) *ir.BasicLit {
 	var lit *ir.BasicLit
 	if ir.IsTypeID(t, ir.TBool) {
-		lit = &ir.BasicLit{Tok: token.Synthetic(token.False), Value: token.False.String()}
+		lit = &ir.BasicLit{Tok: token.False, Value: token.False.String()}
 		lit.T = ir.NewBasicType(ir.TBool)
 	} else if ir.IsTypeID(t, ir.TUInt64, ir.TInt64, ir.TUInt32, ir.TInt32, ir.TUInt16, ir.TInt16, ir.TUInt8, ir.TInt8) {
 		lit = createIntLit(0, t.ID())
 	} else if ir.IsTypeID(t, ir.TFloat64, ir.TFloat32) {
-		lit = &ir.BasicLit{Tok: token.Synthetic(token.Float), Value: "0"}
+		lit = &ir.BasicLit{Tok: token.Float, Value: "0"}
 		lit.Raw = ir.BigFloatZero
 		lit.T = ir.NewBasicType(t.ID())
 	} else if ir.IsTypeID(t, ir.TSlice) {
-		lit = &ir.BasicLit{Tok: token.Synthetic(token.Null), Value: token.Null.String()}
+		lit = &ir.BasicLit{Tok: token.Null, Value: token.Null.String()}
 		slice := t.(*ir.SliceType)
 		lit.T = ir.NewSliceType(slice.Elem, true, true)
 	} else if ir.IsTypeID(t, ir.TPointer) {
-		lit = &ir.BasicLit{Tok: token.Synthetic(token.Null), Value: token.Null.String()}
+		lit = &ir.BasicLit{Tok: token.Null, Value: token.Null.String()}
 		ptr := t.(*ir.PointerType)
 		lit.T = ir.NewPointerType(ptr.Underlying, true)
 	} else if ir.IsTypeID(t, ir.TFunc) {
-		lit = &ir.BasicLit{Tok: token.Synthetic(token.Null), Value: token.Null.String()}
+		lit = &ir.BasicLit{Tok: token.Null, Value: token.Null.String()}
 		fun := t.(*ir.FuncType)
 		lit.T = ir.NewFuncType(fun.Params, fun.Return, fun.C)
 	} else if !ir.IsTypeID(t, ir.TUntyped) {
@@ -749,7 +751,7 @@ func createStructLit(tstruct *ir.StructType, lit *ir.StructLit) *ir.StructLit {
 			continue
 		}
 		kv := &ir.KeyValue{}
-		kv.Key = ir.NewIdent2(token.Synthetic(token.Ident), name)
+		kv.Key = ir.NewIdent2(token.Ident, name)
 
 		kv.Value = createDefaultLit(f.T)
 		initializers = append(initializers, kv)

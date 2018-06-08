@@ -120,7 +120,7 @@ func (v *typeChecker) VisitValDecl(decl *ir.ValDecl) {
 
 func (v *typeChecker) warnUnusedDirectives(directives []ir.Directive) {
 	for _, dir := range directives {
-		v.c.warning(dir.Directive.Pos, "unused directive %s%s", dir.Directive.String(), dir.Name.Literal)
+		v.c.warning(dir.Name.Pos(), "unused directive '%s'", dir.Name.Literal)
 	}
 }
 
@@ -271,10 +271,10 @@ func (v *typeChecker) VisitFuncDecl(decl *ir.FuncDecl) {
 
 	if !endsWithReturn {
 		if decl.Return.Type.Type().ID() != ir.TVoid {
-			v.c.error(decl.Body.Rbrace.Pos, "missing return")
+			v.c.error(decl.Body.EndPos(), "missing return")
 		} else {
-			tok := token.Synthetic(token.Return)
-			returnStmt := &ir.ReturnStmt{Return: tok}
+			returnStmt := &ir.ReturnStmt{}
+			returnStmt.SetRange(token.NoPosition, token.NoPosition)
 			decl.Body.Stmts = append(decl.Body.Stmts, returnStmt)
 		}
 	}

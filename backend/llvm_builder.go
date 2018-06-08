@@ -229,7 +229,7 @@ func (cb *llvmCodeBuilder) buildValTopDecl(decl *ir.ValTopDecl) {
 	if cb.signature {
 		loc := llvm.AddGlobal(cb.mod, cb.llvmType(sym.T), mangle(sym))
 
-		switch decl.Visibility.ID {
+		switch decl.Visibility {
 		case token.Public:
 			loc.SetLinkage(llvm.ExternalLinkage)
 		case token.Private:
@@ -274,7 +274,7 @@ func (cb *llvmCodeBuilder) buildFuncDecl(decl *ir.FuncDecl) {
 		funType := llvm.FunctionType(retType, paramTypes, false)
 		fun = llvm.AddFunction(cb.mod, name, funType)
 
-		switch decl.Visibility.ID {
+		switch decl.Visibility {
 		case token.Public:
 			fun.SetLinkage(llvm.ExternalLinkage)
 		case token.Private:
@@ -479,10 +479,10 @@ func (cb *llvmCodeBuilder) buildReturnStmt(stmt *ir.ReturnStmt) {
 }
 
 func (cb *llvmCodeBuilder) buildBranchStmt(stmt *ir.BranchStmt) {
-	if stmt.Tok.ID == token.Continue {
+	if stmt.Tok == token.Continue {
 		block := cb.loopConditions[len(cb.loopConditions)-1]
 		cb.b.CreateBr(block)
-	} else if stmt.Tok.ID == token.Break {
+	} else if stmt.Tok == token.Break {
 		block := cb.loopExits[len(cb.loopExits)-1]
 		cb.b.CreateBr(block)
 	} else {
@@ -497,10 +497,10 @@ func (cb *llvmCodeBuilder) buildAssignStmt(stmt *ir.AssignStmt) {
 	loc := cb.buildExprPtr(stmt.Left)
 	val := cb.buildExprVal(stmt.Right)
 
-	switch stmt.Assign.ID {
+	switch stmt.Assign {
 	case token.AddAssign, token.SubAssign, token.MulAssign, token.DivAssign, token.ModAssign:
 		left := cb.b.CreateLoad(loc, "")
-		val = cb.createArithmeticOp(stmt.Assign.ID, stmt.Left.Type(), left, val)
+		val = cb.createMathOp(stmt.Assign, stmt.Left.Type(), left, val)
 	}
 
 	cb.b.CreateStore(val, loc)
@@ -560,7 +560,7 @@ func (cb *llvmCodeBuilder) buildExpr(expr ir.Expr, load bool) llvm.Value {
 	}
 }
 
-func (cb *llvmCodeBuilder) createArithmeticOp(op token.ID, t ir.Type, left llvm.Value, right llvm.Value) llvm.Value {
+func (cb *llvmCodeBuilder) createMathOp(op token.Token, t ir.Type, left llvm.Value, right llvm.Value) llvm.Value {
 	switch op {
 	case token.Add, token.AddAssign:
 		if ir.IsFloatType(t) {
@@ -595,7 +595,7 @@ func (cb *llvmCodeBuilder) createArithmeticOp(op token.ID, t ir.Type, left llvm.
 	panic(fmt.Sprintf("Unhandled arithmetic op %s", op))
 }
 
-func floatPredicate(op token.ID) llvm.FloatPredicate {
+func floatPredicate(op token.Token) llvm.FloatPredicate {
 	switch op {
 	case token.Eq:
 		return llvm.FloatUEQ
@@ -613,7 +613,7 @@ func floatPredicate(op token.ID) llvm.FloatPredicate {
 	panic(fmt.Sprintf("Unhandled float predicate %s", op))
 }
 
-func intPredicate(op token.ID, t ir.Type) llvm.IntPredicate {
+func intPredicate(op token.Token, t ir.Type) llvm.IntPredicate {
 	switch op {
 	case token.Eq:
 		return llvm.IntEQ
@@ -646,16 +646,16 @@ func intPredicate(op token.ID, t ir.Type) llvm.IntPredicate {
 func (cb *llvmCodeBuilder) buildBinaryExpr(expr *ir.BinaryExpr) llvm.Value {
 	left := cb.buildExprVal(expr.Left)
 
-	switch expr.Op.ID {
+	switch expr.Op {
 	case token.Add, token.Sub, token.Mul, token.Div, token.Mod:
 		right := cb.buildExprVal(expr.Right)
-		return cb.createArithmeticOp(expr.Op.ID, expr.T, left, right)
+		return cb.createMathOp(expr.Op, expr.T, left, right)
 	case token.Eq, token.Neq, token.Gt, token.GtEq, token.Lt, token.LtEq:
 		right := cb.buildExprVal(expr.Right)
 		if ir.IsFloatType(expr.T) {
-			return cb.b.CreateFCmp(floatPredicate(expr.Op.ID), left, right, "")
+			return cb.b.CreateFCmp(floatPredicate(expr.Op), left, right, "")
 		}
-		return cb.b.CreateICmp(intPredicate(expr.Op.ID, expr.Left.Type()), left, right, "")
+		return cb.b.CreateICmp(intPredicate(expr.Op, expr.Left.Type()), left, right, "")
 	case token.Land, token.Lor:
 		fun := cb.b.GetInsertBlock().Parent()
 		leftBlock := cb.b.GetInsertBlock()
@@ -663,7 +663,7 @@ func (cb *llvmCodeBuilder) buildBinaryExpr(expr *ir.BinaryExpr) llvm.Value {
 		join := llvm.AddBasicBlock(fun, "")
 
 		var case1 llvm.Value
-		if expr.Op.ID == token.Land {
+		if expr.Op == token.Land {
 			cb.b.CreateCondBr(left, rightBlock, join)
 			case1 = llvm.ConstInt(llvm.Int1Type(), 0, false)
 		} else { // Lor
@@ -688,11 +688,11 @@ func (cb *llvmCodeBuilder) buildBinaryExpr(expr *ir.BinaryExpr) llvm.Value {
 		return phi
 	}
 
-	panic(fmt.Sprintf("Unhandled binary op %s", expr.Op.ID))
+	panic(fmt.Sprintf("Unhandled binary op %s", expr.Op))
 }
 
 func (cb *llvmCodeBuilder) buildUnaryExpr(expr *ir.UnaryExpr, load bool) llvm.Value {
-	switch expr.Op.ID {
+	switch expr.Op {
 	case token.Sub:
 		val := cb.buildExprVal(expr.X)
 		if ir.IsFloatType(expr.T) {
@@ -710,12 +710,12 @@ func (cb *llvmCodeBuilder) buildUnaryExpr(expr *ir.UnaryExpr, load bool) llvm.Va
 		}
 		return val
 	default:
-		panic(fmt.Sprintf("Unhandled unary op %s", expr.Op.ID))
+		panic(fmt.Sprintf("Unhandled unary op %s", expr.Op))
 	}
 }
 
 func (cb *llvmCodeBuilder) buildBasicLit(expr *ir.BasicLit) llvm.Value {
-	if expr.Tok.ID == token.String {
+	if expr.Tok == token.String {
 		raw := expr.AsString()
 		strLen := len(raw)
 		var ptr llvm.Value
@@ -753,11 +753,11 @@ func (cb *llvmCodeBuilder) buildBasicLit(expr *ir.BasicLit) llvm.Value {
 		return val
 	} else if ir.IsFloatType(expr.T) {
 		return llvm.ConstFloat(llvmType, expr.AsF64())
-	} else if expr.Tok.ID == token.True {
+	} else if expr.Tok == token.True {
 		return llvm.ConstInt(llvmType, 1, false)
-	} else if expr.Tok.ID == token.False {
+	} else if expr.Tok == token.False {
 		return llvm.ConstInt(llvmType, 0, false)
-	} else if expr.Tok.ID == token.Null {
+	} else if expr.Tok == token.Null {
 		switch t := expr.T.(type) {
 		case *ir.SliceType:
 			tptr := llvm.PointerType(cb.llvmType(t.Elem), 0)
@@ -769,7 +769,7 @@ func (cb *llvmCodeBuilder) buildBasicLit(expr *ir.BasicLit) llvm.Value {
 		}
 	}
 
-	panic(fmt.Sprintf("Unhandled basic lit %s, type %s", expr.Tok.ID, expr.T))
+	panic(fmt.Sprintf("Unhandled basic lit %s, type %s", expr.Tok, expr.T))
 }
 
 func (cb *llvmCodeBuilder) buildStructLit(expr *ir.StructLit) llvm.Value {

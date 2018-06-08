@@ -272,7 +272,7 @@ func (v *depChecker) VisitArrayLit(expr *ir.ArrayLit) ir.Expr {
 func (v *depChecker) VisitIdent(expr *ir.Ident) ir.Expr {
 	sym := v.c.lookup(expr.Literal)
 	expr.SetSymbol(sym)
-	v.tryAddDependency(sym, expr.Tok.Pos)
+	v.tryAddDependency(sym, expr.Pos())
 	return expr
 }
 

@@ -14,7 +14,7 @@ type lexer struct {
 	lineOffset int
 	lineCount  int
 	readOffset int
-	prev       token.ID
+	prev       token.Token
 }
 
 func (l *lexer) init(src []byte, filename string, errors *common.ErrorList) {
@@ -30,86 +30,82 @@ func (l *lexer) init(src []byte, filename string, errors *common.ErrorList) {
 	l.next()
 }
 
-func (l *lexer) lex() (token.Token, string) {
+func (l *lexer) lex() (token.Token, token.Position, string) {
 	l.skipWhitespace(false)
 
 	startOffset := 0
 	literal := ""
-	tok := token.Token{
-		ID: token.Invalid,
-	}
+	tok := token.Invalid
 
 	// Insert semicolon if needed
 
 	if l.ch == '\n' {
 		if isLineTerminator(l.prev) {
-			tok.ID = token.Semicolon
-			tok.Pos = l.newPos()
+			tok = token.Semicolon
+			pos := l.newPos()
 			startOffset = l.chOffset
 			l.next()
 			literal = string(l.src[startOffset:l.chOffset])
-			tok.Pos.Length = len(literal)
-			l.prev = tok.ID
-			return tok, literal
+			l.prev = tok
+			return tok, pos, literal
 		}
 
 		l.skipWhitespace(true)
 	}
 
 	pos := l.newPos()
-	tok.Pos = pos
 	startOffset = l.chOffset
 
 	switch ch1 := l.ch; {
 	case isLetter(ch1):
-		tok.ID, literal = l.lexIdent()
+		tok, literal = l.lexIdent()
 	case isDigit(ch1, 10):
-		tok.ID = l.lexNumber(false)
+		tok = l.lexNumber(false)
 	case ch1 == '\'':
 		l.lexChar()
-		tok.ID = token.Char
+		tok = token.Char
 	case ch1 == '"':
 		l.lexString()
-		tok.ID = token.String
+		tok = token.String
 	case ch1 == '.':
 		l.next()
 		if isDigit(l.ch, 10) {
-			tok.ID = l.lexNumber(true)
+			tok = l.lexNumber(true)
 		} else {
-			tok.ID = token.Dot
+			tok = token.Dot
 		}
 	default:
 		l.next()
 
 		switch ch1 {
 		case -1:
-			tok.ID = token.EOF
+			tok = token.EOF
 		case '(':
-			tok.ID = token.Lparen
+			tok = token.Lparen
 		case ')':
-			tok.ID = token.Rparen
+			tok = token.Rparen
 		case '{':
-			tok.ID = token.Lbrace
+			tok = token.Lbrace
 		case '}':
-			tok.ID = token.Rbrace
+			tok = token.Rbrace
 		case '[':
-			tok.ID = token.Lbrack
+			tok = token.Lbrack
 		case ']':
-			tok.ID = token.Rbrack
+			tok = token.Rbrack
 		case ',':
-			tok.ID = token.Comma
+			tok = token.Comma
 		case ';':
-			tok.ID = token.Semicolon
+			tok = token.Semicolon
 		case ':':
-			tok.ID = token.Colon
+			tok = token.Colon
 		case '@':
-			tok.ID = token.Directive
+			tok = token.Directive
 		case '+':
-			tok.ID = l.lexAlt3('=', token.AddAssign, '+', token.Inc, token.Add)
+			tok = l.lexAlt3('=', token.AddAssign, '+', token.Inc, token.Add)
 		case '-':
-			tok.ID = l.lexAlt3('=', token.SubAssign, '-', token.Dec, token.Sub)
+			tok = l.lexAlt3('=', token.SubAssign, '-', token.Dec, token.Sub)
 		case '*':
-			tok.ID = l.lexAltEqual(token.MulAssign, token.Mul)
+			tok = l.lexAltEqual(token.MulAssign, token.Mul)
 		case '/':
 			if l.ch == '/' {
 				// Single-line comment
@@ -117,7 +113,7 @@ func (l *lexer) lex() (token.Token, string) {
 				for l.ch != '\n' && l.ch != -1 {
 					l.next()
 				}
-				tok.ID = token.Comment
+				tok = token.Comment
 			} else if l.ch == '*' {
 				// Multi-line comment
 				l.next()
@@ -136,26 +132,26 @@ func (l *lexer) lex() (token.Token, string) {
 				if nested > 0 {
 					l.error(pos, "multi-line comment not closed")
 				}
-				tok.ID = token.MultiComment
+				tok = token.MultiComment
 			} else {
-				tok.ID = l.lexAltEqual(token.DivAssign, token.Div)
+				tok = l.lexAltEqual(token.DivAssign, token.Div)
 			}
 		case '%':
-			tok.ID = l.lexAltEqual(token.ModAssign, token.Mod)
+			tok = l.lexAltEqual(token.ModAssign, token.Mod)
 		case '=':
-			tok.ID = l.lexAltEqual(token.Eq, token.Assign)
+			tok = l.lexAltEqual(token.Eq, token.Assign)
 		case '&':
-			tok.ID = l.lexAlt2('&', token.Land, token.And)
+			tok = l.lexAlt2('&', token.Land, token.And)
 		case '|':
-			tok.ID = l.lexAlt2('|', token.Lor, token.Invalid)
+			tok = l.lexAlt2('|', token.Lor, token.Invalid)
 		case '!':
-			tok.ID = l.lexAltEqual(token.Neq, token.Lnot)
+			tok = l.lexAltEqual(token.Neq, token.Lnot)
 		case '>':
-			tok.ID = l.lexAltEqual(token.GtEq, token.Gt)
+			tok = l.lexAltEqual(token.GtEq, token.Gt)
 		case '<':
-			tok.ID = l.lexAltEqual(token.LtEq, token.Lt)
+			tok = l.lexAltEqual(token.LtEq, token.Lt)
 		default:
-			tok.ID = token.Invalid
+			tok = token.Invalid
 		}
 	}
 
@@ -163,12 +159,11 @@ func (l *lexer) lex() (token.Token, string) {
 		literal = string(l.src[startOffset:l.chOffset])
 	}
 
-	tok.Pos.Length = len(literal)
-	l.prev = tok.ID
-	return tok, literal
+	l.prev = tok
+	return tok, pos, literal
 }
 
-func isLineTerminator(id token.ID) bool {
+func isLineTerminator(id token.Token) bool {
 	switch id {
 	case token.Ident,
 		token.Integer, token.Float, token.Char, token.String, token.True, token.False, token.Null,
@@ -229,7 +224,7 @@ func (l *lexer) newPos() token.Position {
 	if col <= 0 {
 		col = 1
 	}
-	return token.Position{Filename: l.filename, Offset: l.chOffset, Length: 0, Line: l.lineCount, Column: col}
+	return token.Position{Filename: l.filename, Offset: l.chOffset, Line: l.lineCount, Column: col}
 }
 
 func (l *lexer) error(pos token.Position, msg string) {
@@ -242,7 +237,7 @@ func (l *lexer) skipWhitespace(newline bool) {
 	}
 }
 
-func (l *lexer) lexAlt3(ch0 rune, tok0 token.ID, ch1 rune, tok1 token.ID, tok2 token.ID) token.ID {
+func (l *lexer) lexAlt3(ch0 rune, tok0 token.Token, ch1 rune, tok1 token.Token, tok2 token.Token) token.Token {
 	if l.ch == ch0 {
 		l.next()
 		return tok0
@@ -253,7 +248,7 @@ func (l *lexer) lexAlt3(ch0 rune, tok0 token.ID, ch1 rune, tok1 token.ID, tok2 t
 	return tok2
 }
 
-func (l *lexer) lexAlt2(ch0 rune, tok0 token.ID, tok1 token.ID) token.ID {
+func (l *lexer) lexAlt2(ch0 rune, tok0 token.Token, tok1 token.Token) token.Token {
 	if l.ch == ch0 {
 		l.next()
 		return tok0
@@ -261,11 +256,11 @@ func (l *lexer) lexAlt2(ch0 rune, tok0 token.ID, tok1 token.ID) token.ID {
 	return tok1
 }
 
-func (l *lexer) lexAltEqual(tok0 token.ID, tok1 token.ID) token.ID {
+func (l *lexer) lexAltEqual(tok0 token.Token, tok1 token.Token) token.Token {
 	return l.lexAlt2('=', tok0, tok1)
 }
 
-func (l *lexer) lexIdent() (token.ID, string) {
+func (l *lexer) lexIdent() (token.Token, string) {
 	startOffset := l.chOffset
 
 	for isLetter(l.ch) || isDigit(l.ch, 10) {
@@ -301,7 +296,7 @@ func isFractionOrExponent(ch rune) bool {
 	return ch == '.' || ch == 'e' || ch == 'E'
 }
 
-func (l *lexer) lexNumber(float bool) token.ID {
+func (l *lexer) lexNumber(float bool) token.Token {
 	// Floating numbers can only be interpreted in base 10.
 
 	id := token.Integer

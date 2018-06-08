@@ -383,14 +383,14 @@ func parseTestDescription(comments []*ir.Comment, result *testResult) (compiler 
 
 				if match(&lit, "output:") {
 					lit = strings.TrimSpace(lit)
-					exe = append(exe, &testOutput{pos: comment.Tok.Pos, text: lit})
+					exe = append(exe, &testOutput{pos: comment.Pos, text: lit})
 					ok = true
 				} else if match(&lit, "dgc:") {
 					lit = strings.TrimSpace(lit)
-					compiler = append(compiler, &testOutput{pos: comment.Tok.Pos, text: lit})
+					compiler = append(compiler, &testOutput{pos: comment.Pos, text: lit})
 					ok = true
 				} else if match(&lit, "error") {
-					lineNum := comment.Tok.Pos.Line
+					lineNum := comment.Pos.Line
 
 					rematch := lineNumRegex.FindString(lit)
 					if len(rematch) > 0 {
@@ -408,14 +408,14 @@ func parseTestDescription(comments []*ir.Comment, result *testResult) (compiler 
 					if match(&lit, ":") {
 						lit = strings.TrimSpace(lit)
 						lit = fmt.Sprintf("%s(%d): %s", common.ErrorMsg, lineNum, lit)
-						compiler = append(compiler, &testOutput{pos: comment.Tok.Pos, text: lit})
+						compiler = append(compiler, &testOutput{pos: comment.Pos, text: lit})
 						ok = true
 					}
 				}
 
 				if !ok {
 					result.status = statusBad
-					result.addReason("bad test description at '%s'", comment.Tok.Pos)
+					result.addReason("bad test description at '%s'", comment.Pos)
 				}
 			}
 		}

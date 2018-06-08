@@ -6,14 +6,13 @@ import (
 	"strconv"
 )
 
-// ID of token.
-type ID int
+// Token represents a syntax unit.
+type Token int
 
 // List of tokens.
 //
 const (
-	Invalid ID = iota
-	Placeholder
+	Invalid Token = iota
 	EOF
 	Comment
 	MultiComment
@@ -101,14 +100,13 @@ const (
 
 // Alias
 const (
-	Pointer ID = And
+	Pointer Token = And
 )
 
 var tokens = [...]string{
-	Invalid:     "invalid",
-	Placeholder: "placeholder",
-	EOF:         "eof",
-	Comment:     "comment",
+	Invalid: "invalid",
+	EOF:     "eof",
+	Comment: "comment",
 
 	Ident:   "ident",
 	Integer: "integer",
@@ -185,27 +183,34 @@ var tokens = [...]string{
 	Null:  "null",
 }
 
-var keywords map[string]ID
+var keywords map[string]Token
 
 func init() {
-	keywords = make(map[string]ID)
+	keywords = make(map[string]Token)
 	for i := keywordBeg + 1; i < keywordEnd; i++ {
 		keywords[tokens[i]] = i
 	}
 }
 
-// Lookup returns the identifier's token ID.
+// Lookup returns the identifier token.
 //
-func Lookup(ident string) ID {
+func Lookup(ident string) Token {
 	if tok, ok := keywords[ident]; ok {
 		return tok
 	}
 	return Ident
 }
 
-func (tok ID) String() string {
+// Quote escapes control characters.
+func Quote(literal string) string {
+	s := strconv.Quote(literal)
+	i := len(s) - 1
+	return s[1:i]
+}
+
+func (tok Token) String() string {
 	s := ""
-	if 0 <= tok && tok < ID(len(tokens)) {
+	if 0 <= tok && tok < Token(len(tokens)) {
 		s = tokens[tok]
 	}
 	if s == "" {
@@ -214,21 +219,47 @@ func (tok ID) String() string {
 	return s
 }
 
+// IsAssignOp returns true if the token represents an assignment operator:
+// ('=', '+=', '-=', '*=', '/=', '%=')
+func (t Token) IsAssignOp() bool {
+	return assignBeg < t && t < assignEnd
+}
+
+// IsBinaryOp return true if the token represents a binary operator:
+// ('+', '-', '*', '/', '%', '||', '&&', '!=', '==', '>', '>=', '<', '<=')
+func (t Token) IsBinaryOp() bool {
+	return binopBeg < t && t < binopEnd
+}
+
+// OneOf returns true if token one of the IDs match.
+func (t Token) OneOf(ids ...Token) bool {
+	for _, id := range ids {
+		if t == id {
+			return true
+		}
+	}
+	return false
+}
+
+// Is returns true if ID matches.
+func (t Token) Is(id Token) bool {
+	return t == id
+}
+
 // Position of token in a file.
 type Position struct {
 	Filename string
 	Offset   int
-	Length   int
 	Line     int
 	Column   int
 }
 
 func NewPosition1(filename string) Position {
-	return Position{Filename: filename, Offset: 0, Length: 0, Line: -1, Column: -1}
+	return Position{Filename: filename, Offset: 0, Line: -1, Column: -1}
 }
 
 // NoPosition means it wasn't part of a file.
-var NoPosition = Position{Filename: "", Offset: 0, Length: 0, Line: -1, Column: -1}
+var NoPosition = Position{Filename: "", Offset: 0, Line: -1, Column: -1}
 
 func (p Position) String() string {
 	var buf bytes.Buffer
@@ -253,56 +284,4 @@ func (p Position) String() string {
 // IsValid returns true if it's a valid file position.
 func (p Position) IsValid() bool {
 	return p.Line > -1
-}
-
-// Token struct.
-type Token struct {
-	ID  ID
-	Pos Position
-}
-
-// Synthetic creates a token that does not have a representation in the source code.
-func Synthetic(id ID) Token {
-	return Token{ID: id, Pos: NoPosition}
-}
-
-func (t Token) String() string {
-	return fmt.Sprintf("%s: %v", t.Pos, t.ID)
-}
-
-func Quote(literal string) string {
-	s := strconv.Quote(literal)
-	i := len(s) - 1
-	return s[1:i]
-}
-
-func (t Token) IsValid() bool {
-	return t.Pos.IsValid()
-}
-
-// IsAssignOp returns true if the token represents an assignment operator:
-// ('=', '+=', '-=', '*=', '/=', '%=')
-func (t Token) IsAssignOp() bool {
-	return assignBeg < t.ID && t.ID < assignEnd
-}
-
-// IsBinaryOp return true if the token represents a binary operator:
-// ('+', '-', '*', '/', '%', '||', '&&', '!=', '==', '>', '>=', '<', '<=')
-func (t Token) IsBinaryOp() bool {
-	return binopBeg < t.ID && t.ID < binopEnd
-}
-
-// OneOf returns true if token one of the IDs match.
-func (t Token) OneOf(ids ...ID) bool {
-	for _, id := range ids {
-		if t.ID == id {
-			return true
-		}
-	}
-	return false
-}
-
-// Is returns true if ID matches.
-func (t Token) Is(id ID) bool {
-	return t.ID == id
 }

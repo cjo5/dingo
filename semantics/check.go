@@ -117,12 +117,9 @@ func (c *context) error(pos token.Position, format string, args ...interface{}) 
 	c.errors.Add(pos, format, args...)
 }
 
-func (c *context) errorExpr(expr ir.Expr, format string, args ...interface{}) {
-	pos := expr.Pos()
-	endPos := expr.EndPos()
-	endPos.Offset += endPos.Length - 1
-	endPos.Column += endPos.Length - 1
-	endPos.Length = 0
+func (c *context) errorNode(node ir.Node, format string, args ...interface{}) {
+	pos := node.Pos()
+	endPos := node.EndPos()
 	c.errors.AddRange(pos, endPos, format, args...)
 }
 

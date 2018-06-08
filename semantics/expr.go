@@ -49,12 +49,13 @@ func (v *typeChecker) makeTypedExpr(expr ir.Expr, ttarget ir.Type) ir.Expr {
 	}
 
 	if ir.IsUntyped(x.Type()) {
-		v.c.errorExpr(expr, "expression has incomplete type %s", tx)
+		v.c.errorNode(expr, "expression has incomplete type %s", tx)
 		return x
 	}
 
 	if ttarget != nil && x.Type().ImplicitCastOK(ttarget) {
 		cast := &ir.CastExpr{}
+		cast.SetRange(x.Pos(), x.EndPos())
 		cast.X = x
 		cast.T = ttarget
 		return cast
@@ -74,16 +75,16 @@ func (v *typeChecker) tryMakeTypedLit(expr ir.Expr, target ir.Type) bool {
 			}
 
 			if castResult == numericCastOverflows {
-				v.c.error(lit.Tok.Pos, "constant expression overflows %s", target)
+				v.c.error(lit.Pos(), "constant expression overflows %s", target)
 			} else if castResult == numericCastTruncated {
-				v.c.error(lit.Tok.Pos, "constant float expression is not compatible with %s", target)
+				v.c.error(lit.Pos(), "constant float expression is not compatible with %s", target)
 			} else {
 				panic(fmt.Sprintf("Unhandled numeric cast result %d", castResult))
 			}
 
 			return false
 		} else if ir.IsUntypedPointer(expr.Type()) && ir.IsTypeID(target, ir.TSlice, ir.TPointer, ir.TFunc) {
-			common.Assert(lit.Tok.ID == token.Null, "pointer literal should be null")
+			common.Assert(lit.Tok == token.Null, "pointer literal should be null")
 			switch ttarget := target.(type) {
 			case *ir.SliceType:
 				lit.T = ir.NewSliceType(ttarget.Elem, false, true)
@@ -157,8 +158,7 @@ func tryDeref(expr ir.Expr) ir.Expr {
 		}
 	}
 	if tres != nil {
-		star := token.Synthetic(token.Mul)
-		starX := &ir.UnaryExpr{Op: star, X: expr}
+		starX := &ir.UnaryExpr{Op: token.Mul, X: expr}
 		starX.T = tres
 		return starX
 	}
@@ -433,12 +433,12 @@ func (v *typeChecker) VisitFuncCall(expr *ir.FuncCall) ir.Expr {
 	if ir.IsUntyped(x.Type()) {
 		// Do nothing
 	} else if x.Type().ID() != ir.TFunc {
-		v.c.errorExpr(expr.X, "expression is not callable (has type %s)", x.Type())
+		v.c.errorNode(expr.X, "expression is not callable (has type %s)", x.Type())
 	} else {
 		tfun := x.Type().(*ir.FuncType)
 
 		if len(tfun.Params) != len(expr.Args) {
-			v.c.error(expr.Lparen.Pos, "function takes %d argument(s) but called with %d", len(tfun.Params), len(expr.Args))
+			v.c.error(expr.Pos(), "function takes %d argument(s) but called with %d", len(tfun.Params), len(expr.Args))
 		} else {
 			for i, arg := range expr.Args {
 				expr.Args[i] = v.makeTypedExpr(arg, tfun.Params[i])
@@ -446,7 +446,7 @@ func (v *typeChecker) VisitFuncCall(expr *ir.FuncCall) ir.Expr {
 				targ := expr.Args[i].Type()
 
 				if !checkTypes(v.c, targ, tparam) {
-					v.c.errorExpr(arg, "argument %d expects type %s (got type %s)", i, tparam, targ)
+					v.c.errorNode(arg, "argument %d expects type %s (got type %s)", i, tparam, targ)
 				}
 			}
 			expr.T = tfun.Return
@@ -598,12 +598,11 @@ func (v *typeChecker) VisitSliceExpr(expr *ir.SliceExpr) ir.Expr {
 
 			if end == nil {
 				if tbase.ID() == ir.TPointer {
-					v.c.error(expr.Colon.Pos, "end index is required when slicing type %s", tbase)
+					v.c.errorNode(expr, "end index is required when slicing type %s", tbase)
 					err = true
 				} else {
 					len := &ir.LenExpr{
-						Len: token.Synthetic(token.Lenof),
-						X:   x,
+						X: x,
 					}
 					len.T = ir.TBuiltinInt32
 					end = len
@@ -619,7 +618,7 @@ func (v *typeChecker) VisitSliceExpr(expr *ir.SliceExpr) ir.Expr {
 			expr.T = ir.NewSliceType(telem, ro, false)
 		}
 	} else if tbase.ID() != ir.TUntyped {
-		v.c.errorExpr(expr.X, "type %s cannot be sliced", tbase)
+		v.c.errorNode(expr.X, "type %s cannot be sliced", tbase)
 	}
 
 	expr.X = x

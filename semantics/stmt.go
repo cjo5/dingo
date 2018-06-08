@@ -76,7 +76,7 @@ func (v *typeChecker) VisitReturnStmt(stmt *ir.ReturnStmt) {
 	}
 
 	if mismatch {
-		v.c.errorExpr(stmt.X, "function has return type %s (got type %s)", retType, exprType)
+		v.c.errorNode(stmt.X, "function has return type %s (got type %s)", retType, exprType)
 	}
 
 	stmt.X = x
@@ -96,12 +96,12 @@ func (v *typeChecker) VisitAssignStmt(stmt *ir.AssignStmt) {
 	right := v.makeTypedExpr(stmt.Right, left.Type())
 
 	if !checkTypes(v.c, left.Type(), right.Type()) {
-		v.c.error(stmt.Assign.Pos, "type mismatch %s and %s", left.Type(), stmt.Right.Type())
+		v.c.errorNode(stmt, "type mismatch %s and %s", left.Type(), stmt.Right.Type())
 	}
 
-	if stmt.Assign.ID != token.Assign {
+	if stmt.Assign != token.Assign {
 		if !ir.IsNumericType(left.Type()) {
-			v.c.errorExpr(stmt.Left, "type %s is not numeric", left.Type())
+			v.c.errorNode(stmt.Left, "type %s is not numeric", left.Type())
 		}
 	}
 

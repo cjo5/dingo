@@ -104,7 +104,7 @@ func (l *loader) loadModule(path includePath) *ir.Module {
 	}
 
 	if rootFile.ModName == nil {
-		rootFile.ModName = ir.NewIdent2(token.Synthetic(token.Ident), "main")
+		rootFile.ModName = ir.NewIdent2(token.Ident, "main")
 	}
 
 	mod := &ir.Module{}
@@ -187,18 +187,18 @@ func (l *loader) createDependencyList(loadedFile *file) bool {
 	for _, dep := range loadedFile.file.FileDeps {
 		unquoted, err := strconv.Unquote(dep.Literal.Value)
 		if err != nil {
-			l.errors.AddGeneric3(dep.Literal.Tok.Pos, err)
+			l.errors.AddGeneric3(dep.Literal.Pos(), err)
 			break
 		}
 
 		if len(unquoted) == 0 {
-			l.errors.AddContext(dep.Literal.Tok.Pos, l.getRequiredByTrace(loadedFile), "invalid path")
+			l.errors.AddContext(dep.Literal.Pos(), l.getRequiredByTrace(loadedFile), "invalid path")
 			continue
 		}
 
 		normPath, err := normalizePath(l.cwd, parentDir, unquoted)
 		if err != nil {
-			l.errors.AddGeneric3(dep.Literal.Tok.Pos, err)
+			l.errors.AddGeneric3(dep.Literal.Pos(), err)
 			continue
 		}
 

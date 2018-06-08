@@ -2,6 +2,5 @@
 
 fun[c] main() i32 {
     const a = true
-    const b = a && false
     return 0
 }
