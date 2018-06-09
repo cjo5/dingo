@@ -50,12 +50,19 @@ func NewError(pos token.Position, endPos token.Position, id MessageID, msg strin
 func (e Error) Error() string {
 	msg := ""
 
-	if e.Pos.IsValid() {
-		msg = fmt.Sprintf("%s: %s: %s", e.Pos, e.ID, e.Msg)
-	} else if len(e.Pos.Filename) > 0 {
-		msg = fmt.Sprintf("%s: %s: %s", e.Pos.Filename, e.ID, e.Msg)
+	id := ""
+	if e.ID == ErrorMsg {
+		id = BoldRed(e.ID.String())
 	} else {
-		msg = fmt.Sprintf("%s: %s", e.ID, e.Msg)
+		id = BoldYellow(e.ID.String())
+	}
+
+	if e.Pos.IsValid() {
+		msg = fmt.Sprintf("%s: %s: %s", e.Pos, id, e.Msg)
+	} else if len(e.Pos.Filename) > 0 {
+		msg = fmt.Sprintf("%s: %s: %s", e.Pos.Filename, id, e.Msg)
+	} else {
+		msg = fmt.Sprintf("%s: %s", id, e.Msg)
 	}
 
 	var buf bytes.Buffer

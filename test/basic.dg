@@ -1,6 +1,6 @@
 //include "common.dg"
 
 fun[c] main() i32 {
-    const a = true
+    const a = hj
     return 0
 }
