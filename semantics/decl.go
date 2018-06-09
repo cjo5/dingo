@@ -157,18 +157,14 @@ func (v *typeChecker) visitValDeclSpec(sym *ir.Symbol, decl *ir.ValDeclSpec, def
 		}
 	}
 
-	init := decl.Initializer
-
-	if init != nil {
-		init = v.makeTypedExpr(init, tdecl)
-		tinit := init.Type()
+	if decl.Initializer != nil {
+		decl.Initializer = v.makeTypedExpr(decl.Initializer, tdecl)
+		tinit := decl.Initializer.Type()
 
 		if decl.Type == nil {
-			if ptr, ok := tinit.(*ir.PointerType); ok {
-				if ir.IsTypeID(ptr.Underlying, ir.TUntyped) {
-					v.c.error(decl.Initializer.Pos(), "impossible to infer type from initializer")
-					tdecl = ir.TBuiltinUntyped
-				}
+			if ir.IsUntypedPointer(tinit) {
+				v.c.error(decl.Initializer.Pos(), "impossible to infer type from initializer")
+				tdecl = ir.TBuiltinUntyped
 			}
 
 			if tdecl == nil {
@@ -177,14 +173,14 @@ func (v *typeChecker) visitValDeclSpec(sym *ir.Symbol, decl *ir.ValDeclSpec, def
 		} else {
 			if ir.IsUntyped(tdecl) || ir.IsUntyped(tinit) {
 				tdecl = ir.TBuiltinUntyped
-			} else if !checkTypes(v.c, tdecl, tinit) {
+			} else if !tdecl.Equals(tinit) {
 				v.c.error(decl.Initializer.Pos(), "type mismatch %s and %s", tdecl, tinit)
 				tdecl = ir.TBuiltinUntyped
 			}
 		}
 
 		if decl.Decl.Is(token.Const) && !ir.IsUntyped(tdecl) {
-			if !v.checkCompileTimeConstant(init) {
+			if !v.checkCompileTimeConstant(decl.Initializer) {
 				v.c.error(decl.Initializer.Pos(), "const initializer must be a compile-time constant")
 				tdecl = ir.TBuiltinUntyped
 			}
@@ -193,10 +189,8 @@ func (v *typeChecker) visitValDeclSpec(sym *ir.Symbol, decl *ir.ValDeclSpec, def
 		v.c.error(decl.Name.Pos(), "missing type or initializer")
 		tdecl = ir.TBuiltinUntyped
 	} else if defaultInit {
-		init = createDefaultLit(tdecl)
+		decl.Initializer = createDefaultLit(tdecl)
 	}
-
-	decl.Initializer = init
 
 	// Wait to set type until the final step in order to be able to detect cycles
 	sym.T = tdecl

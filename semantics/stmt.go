@@ -16,12 +16,10 @@ func (v *typeChecker) VisitDeclStmt(stmt *ir.DeclStmt) {
 }
 
 func (v *typeChecker) VisitIfStmt(stmt *ir.IfStmt) {
-	cond := ir.VisitExpr(v, stmt.Cond)
-	if !checkTypes(v.c, cond.Type(), ir.TBuiltinBool) {
-		v.c.error(stmt.Cond.Pos(), "condition has type %s (expected %s)", cond.Type(), ir.TBool)
+	stmt.Cond = ir.VisitExpr(v, stmt.Cond)
+	if !checkTypes(v.c, stmt.Cond.Type(), ir.TBuiltinBool) {
+		v.c.error(stmt.Cond.Pos(), "condition has type %s (expected %s)", stmt.Cond.Type(), ir.TBool)
 	}
-
-	stmt.Cond = cond
 
 	v.VisitBlockStmt(stmt.Body)
 	if stmt.Else != nil {
@@ -36,11 +34,10 @@ func (v *typeChecker) VisitForStmt(stmt *ir.ForStmt) {
 	}
 
 	if stmt.Cond != nil {
-		cond := ir.VisitExpr(v, stmt.Cond)
-		if !checkTypes(v.c, cond.Type(), ir.TBuiltinBool) {
-			v.c.error(stmt.Cond.Pos(), "condition has type %s (expected %s)", cond.Type(), ir.TBool)
+		stmt.Cond = ir.VisitExpr(v, stmt.Cond)
+		if !checkTypes(v.c, stmt.Cond.Type(), ir.TBuiltinBool) {
+			v.c.error(stmt.Cond.Pos(), "condition has type %s (expected %s)", stmt.Cond.Type(), ir.TBool)
 		}
-		stmt.Cond = cond
 	}
 
 	if stmt.Inc != nil {
@@ -60,17 +57,16 @@ func (v *typeChecker) VisitReturnStmt(stmt *ir.ReturnStmt) {
 	}
 
 	exprType := ir.TBuiltinVoid
-	x := stmt.X
 
-	if x == nil {
+	if stmt.X == nil {
 		if retType.ID() != ir.TVoid {
 			mismatch = true
 		}
 	} else {
-		x = v.makeTypedExpr(x, retType)
+		stmt.X = v.makeTypedExpr(stmt.X, retType)
 
-		if !checkTypes(v.c, x.Type(), retType) {
-			exprType = x.Type()
+		if !checkTypes(v.c, stmt.X.Type(), retType) {
+			exprType = stmt.X.Type()
 			mismatch = true
 		}
 	}
@@ -78,35 +74,32 @@ func (v *typeChecker) VisitReturnStmt(stmt *ir.ReturnStmt) {
 	if mismatch {
 		v.c.errorNode(stmt.X, "function has return type %s (got type %s)", retType, exprType)
 	}
-
-	stmt.X = x
 }
 
 func (v *typeChecker) VisitAssignStmt(stmt *ir.AssignStmt) {
-	left := ir.VisitExpr(v, stmt.Left)
+	stmt.Left = ir.VisitExpr(v, stmt.Left)
+	left := stmt.Left
 
 	if ir.IsUntyped(left.Type()) {
 		// Do nothing
 	} else if !left.Lvalue() {
-		v.c.error(stmt.Left.Pos(), "expression is not an lvalue")
-	} else if stmt.Left.ReadOnly() {
-		v.c.error(stmt.Left.Pos(), "expression is read-only")
+		v.c.error(left.Pos(), "expression is not an lvalue")
+	} else if left.ReadOnly() {
+		v.c.error(left.Pos(), "expression is read-only")
 	}
 
-	right := v.makeTypedExpr(stmt.Right, left.Type())
+	stmt.Right = v.makeTypedExpr(stmt.Right, left.Type())
+	right := stmt.Right
 
 	if !checkTypes(v.c, left.Type(), right.Type()) {
-		v.c.errorNode(stmt, "type mismatch %s and %s", left.Type(), stmt.Right.Type())
+		v.c.errorNode(stmt, "type mismatch %s and %s", left.Type(), right.Type())
 	}
 
 	if stmt.Assign != token.Assign {
 		if !ir.IsNumericType(left.Type()) {
-			v.c.errorNode(stmt.Left, "type %s is not numeric", left.Type())
+			v.c.errorNode(left, "type %s is not numeric", left.Type())
 		}
 	}
-
-	stmt.Left = left
-	stmt.Right = right
 }
 
 func (v *typeChecker) VisitExprStmt(stmt *ir.ExprStmt) {

@@ -150,6 +150,7 @@ func (v *typeChecker) checkCompileTimeConstant(expr ir.Expr) bool {
 
 	switch t := expr.(type) {
 	case *ir.BasicLit:
+	case *ir.ConstExpr:
 	case *ir.StructLit:
 		for _, field := range t.Initializers {
 			if !v.checkCompileTimeConstant(field.Value) {

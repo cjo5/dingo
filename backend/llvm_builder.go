@@ -547,6 +547,8 @@ func (cb *llvmCodeBuilder) buildExpr(expr ir.Expr, load bool) llvm.Value {
 		return cb.buildCastExpr(t)
 	case *ir.LenExpr:
 		return cb.buildLenExpr(t)
+	case *ir.ConstExpr:
+		return cb.buildExpr(t.X, load)
 	case *ir.FuncCall:
 		return cb.buildFuncCall(t)
 	case *ir.AddressExpr:

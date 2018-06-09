@@ -11,20 +11,22 @@ import (
 	"github.com/jhnl/dingo/token"
 )
 
+func toBasicLit(expr ir.Expr) *ir.BasicLit {
+	if constExpr, ok := expr.(*ir.ConstExpr); ok {
+		expr = constExpr.X
+	}
+	res, _ := expr.(*ir.BasicLit)
+	return res
+}
+
 func (v *typeChecker) VisitBinaryExpr(expr *ir.BinaryExpr) ir.Expr {
-	left := ir.VisitExpr(v, expr.Left)
-	right := ir.VisitExpr(v, expr.Right)
-
-	defer func() {
-		expr.Left = left
-		expr.Right = right
-
-		if expr.T == nil {
-			expr.T = ir.TBuiltinUntyped
-		}
-	}()
+	expr.Left = ir.VisitExpr(v, expr.Left)
+	expr.Right = ir.VisitExpr(v, expr.Right)
+	left := expr.Left
+	right := expr.Right
 
 	if ir.IsUntyped(left.Type()) || ir.IsUntyped(right.Type()) {
+		expr.T = ir.TBuiltinUntyped
 		return expr
 	}
 
@@ -54,6 +56,7 @@ func (v *typeChecker) VisitBinaryExpr(expr *ir.BinaryExpr) ir.Expr {
 	}
 
 	if err {
+		expr.T = ir.TBuiltinUntyped
 		return expr
 	}
 
@@ -76,6 +79,7 @@ func (v *typeChecker) VisitBinaryExpr(expr *ir.BinaryExpr) ir.Expr {
 		right = cast
 	} else {
 		v.c.errorNode(expr, "type mismatch %s and %s", left.Type(), right.Type())
+		expr.T = ir.TBuiltinUntyped
 		return expr
 	}
 
@@ -98,8 +102,8 @@ func (v *typeChecker) VisitBinaryExpr(expr *ir.BinaryExpr) ir.Expr {
 	foldLogicRes := false
 	var foldMathRes interface{}
 
-	leftLit, _ := left.(*ir.BasicLit)
-	rightLit, _ := right.(*ir.BasicLit)
+	leftLit := toBasicLit(left)
+	rightLit := toBasicLit(right)
 
 	if ir.IsNumericType(toperand) {
 		if logicop {
@@ -199,7 +203,12 @@ func (v *typeChecker) VisitBinaryExpr(expr *ir.BinaryExpr) ir.Expr {
 
 	if badop {
 		v.c.errorNode(expr, "operator '%s' cannot be performed on type %s", expr.Op, toperand)
-	} else if !err {
+		err = true
+	}
+
+	if err {
+		expr.T = ir.TBuiltinUntyped
+	} else {
 		expr.T = texpr
 		if fold {
 			litRes := &ir.BasicLit{Value: ""}
@@ -244,91 +253,100 @@ func (v *typeChecker) VisitBinaryExpr(expr *ir.BinaryExpr) ir.Expr {
 }
 
 func (v *typeChecker) VisitUnaryExpr(expr *ir.UnaryExpr) ir.Expr {
-	x := ir.VisitExpr(v, expr.X)
-	expr.T = x.Type()
+	expr.X = ir.VisitExpr(v, expr.X)
+	tx := expr.X.Type()
+
+	if ir.IsUntyped(tx) {
+		expr.T = ir.TBuiltinUntyped
+		return expr
+	}
 
 	switch expr.Op {
 	case token.Sub:
-		if !ir.IsNumericType(expr.T) {
-			v.c.error(expr.Pos(), "additive inverse '%s' cannot be performed on type", expr.T)
-		} else if lit, ok := x.(*ir.BasicLit); ok {
-			var raw interface{}
-			overflow := false
+		if ir.IsNumericType(tx) {
+			expr.T = tx
+			if lit := toBasicLit(expr.X); lit != nil {
+				var raw interface{}
+				overflow := false
 
-			switch n := lit.Raw.(type) {
-			case *big.Int:
-				intRes := big.NewInt(0)
-				raw = intRes.Neg(n)
-				if integerOverflows(intRes, lit.T.ID()) {
-					overflow = true
+				switch n := lit.Raw.(type) {
+				case *big.Int:
+					intRes := big.NewInt(0)
+					raw = intRes.Neg(n)
+					if integerOverflows(intRes, tx.ID()) {
+						overflow = true
+					}
+				case *big.Float:
+					floatRes := big.NewFloat(0)
+					raw = floatRes.Neg(n)
+					if floatOverflows(floatRes, tx.ID()) {
+						overflow = true
+					}
+				default:
+					panic(fmt.Sprintf("Unhandled raw type %T", n))
 				}
-			case *big.Float:
-				floatRes := big.NewFloat(0)
-				raw = floatRes.Neg(n)
-				if floatOverflows(floatRes, lit.T.ID()) {
-					overflow = true
+
+				if overflow {
+					v.c.errorNode(expr, "result from additive inverse '%s' overflows type %s", expr.Op, lit.T)
 				}
-			default:
-				panic(fmt.Sprintf("Unhandled raw type %T", n))
-			}
 
-			if overflow {
-				v.c.errorNode(expr, "result from additive inverse '%s' overflows type %s", expr.Op, lit.T)
+				litRes := &ir.BasicLit{Value: ""}
+				litRes.Tok = lit.Tok
+				litRes.Rewrite = 1
+				litRes.Raw = raw
+				litRes.T = tx
+				return litRes
 			}
-
-			litRes := &ir.BasicLit{Value: ""}
-			litRes.Tok = lit.Tok
-			litRes.Rewrite = 1
-			litRes.Raw = raw
-			litRes.T = x.Type()
-			return litRes
+		} else {
+			v.c.error(expr.Pos(), "additive inverse cannot be performed on type %s", tx)
 		}
 	case token.Lnot:
-		if expr.T.ID() != ir.TBool {
-			v.c.error(expr.Pos(), "operation '%s' expects type %s (got type %s)", token.Lnot, ir.TBuiltinBool, expr.T)
-		} else if lit, ok := x.(*ir.BasicLit); ok {
-			litRes := &ir.BasicLit{Value: ""}
-			litRes.SetRange(expr.Pos(), expr.EndPos())
-			litRes.Tok = token.True
-			if lit.Tok.Is(token.True) {
-				litRes.Tok = token.False
+		if tx.ID() == ir.TBool {
+			expr.T = tx
+			if lit := toBasicLit(expr.X); lit != nil {
+				litRes := &ir.BasicLit{Value: ""}
+				litRes.SetRange(expr.Pos(), expr.EndPos())
+				litRes.Tok = token.True
+				if lit.Tok.Is(token.True) {
+					litRes.Tok = token.False
+				}
+				litRes.Rewrite = 1
+				litRes.Raw = nil
+				litRes.T = tx
+				return litRes
 			}
-			litRes.Rewrite = 1
-			litRes.Raw = nil
-			litRes.T = x.Type()
-			return litRes
+		} else {
+			v.c.error(expr.Pos(), "logical not cannot be performed on type %s)", tx)
 		}
 	case token.Mul:
 		lvalue := false
 
-		if deref, ok := x.(*ir.UnaryExpr); ok {
+		if deref, ok := expr.X.(*ir.UnaryExpr); ok {
 			if deref.Op == token.And {
 				// Inverse
 				lvalue = deref.X.Lvalue()
 			}
 		} else {
-			lvalue = x.Lvalue()
+			lvalue = expr.X.Lvalue()
 		}
 
 		if !lvalue {
 			v.c.error(expr.X.Pos(), "expression cannot be dereferenced (not an lvalue)")
 		} else {
-			switch t := expr.T.(type) {
+			switch t := tx.(type) {
 			case *ir.PointerType:
 				expr.T = t.Underlying
 			default:
-				v.c.error(expr.X.Pos(), "expression cannot be dereferenced (has type %s)", expr.T)
+				v.c.error(expr.X.Pos(), "expression cannot be dereferenced (has type %s)", tx)
 			}
-		}
-
-		if expr.T == nil {
-			expr.T = ir.TBuiltinUntyped
 		}
 	default:
 		panic(fmt.Sprintf("Unhandled unary op %s", expr.Op))
 	}
 
-	expr.X = x
+	if expr.T == nil {
+		expr.T = ir.TBuiltinUntyped
+	}
 
 	return expr
 }
@@ -529,72 +547,67 @@ func (v *typeChecker) VisitBasicLit(expr *ir.BasicLit) ir.Expr {
 }
 
 func (v *typeChecker) VisitStructLit(expr *ir.StructLit) ir.Expr {
-	name := v.visitType(expr.Name)
+	expr.Name = v.visitType(expr.Name)
 	tname := expr.Name.Type()
 
-	err := false
-
 	if ir.IsUntyped(tname) {
-		err = true
+		expr.T = ir.TBuiltinUntyped
+		return expr
 	} else if typeSym := ir.ExprSymbol(expr.Name); typeSym != nil {
 		if typeSym.ID != ir.TypeSymbol && typeSym.T.ID() != ir.TStruct {
 			v.c.error(expr.Name.Pos(), "'%s' is not a struct", typeSym.Name)
+			expr.T = ir.TBuiltinUntyped
+			return expr
+		}
+	}
+
+	err := false
+	inits := make(map[string]ir.Expr)
+	tstruct := tname.(*ir.StructType)
+
+	for _, kv := range expr.Initializers {
+		if existing, ok := inits[kv.Key.Literal]; ok {
+			if existing != nil {
+				v.c.error(kv.Key.Pos(), "duplicate field key '%s'", kv.Key.Literal)
+			}
+			inits[kv.Key.Literal] = nil
 			err = true
+			continue
 		}
-	}
 
-	var tstruct *ir.StructType
-
-	if !err {
-		inits := make(map[string]ir.Expr)
-		tstruct = tname.(*ir.StructType)
-
-		for _, kv := range expr.Initializers {
-			if existing, ok := inits[kv.Key.Literal]; ok {
-				if existing != nil {
-					v.c.error(kv.Key.Pos(), "duplicate field key '%s'", kv.Key.Literal)
-				}
-				inits[kv.Key.Literal] = nil
-				err = true
-				continue
-			}
-
-			fieldSym := tstruct.Scope.Lookup(kv.Key.Literal)
-			if fieldSym == nil {
-				v.c.error(kv.Key.Pos(), "'%s' undefined struct field", kv.Key.Literal)
-				inits[kv.Key.Literal] = nil
-				err = true
-				continue
-			}
-
-			kv.Value = v.makeTypedExpr(kv.Value, fieldSym.T)
-
-			if ir.IsUntyped(fieldSym.T) || ir.IsUntyped(kv.Value.Type()) {
-				inits[kv.Key.Literal] = nil
-				err = true
-				continue
-			}
-
-			if !checkTypes(v.c, fieldSym.T, kv.Value.Type()) {
-				v.c.error(kv.Key.Pos(), "field '%s' expects type %s (got type %s)",
-					kv.Key.Literal, fieldSym.T, kv.Value.Type())
-				inits[kv.Key.Literal] = nil
-				err = true
-				continue
-			}
-
-			inits[kv.Key.Literal] = kv.Value
+		fieldSym := tstruct.Scope.Lookup(kv.Key.Literal)
+		if fieldSym == nil {
+			v.c.error(kv.Key.Pos(), "'%s' undefined struct field", kv.Key.Literal)
+			inits[kv.Key.Literal] = nil
+			err = true
+			continue
 		}
-	}
 
-	expr.Name = name
-	expr.T = tstruct
+		kv.Value = v.makeTypedExpr(kv.Value, fieldSym.T)
+
+		if ir.IsUntyped(fieldSym.T) || ir.IsUntyped(kv.Value.Type()) {
+			inits[kv.Key.Literal] = nil
+			err = true
+			continue
+		}
+
+		if !checkTypes(v.c, fieldSym.T, kv.Value.Type()) {
+			v.c.error(kv.Key.Pos(), "field '%s' expects type %s (got type %s)",
+				kv.Key.Literal, fieldSym.T, kv.Value.Type())
+			inits[kv.Key.Literal] = nil
+			err = true
+			continue
+		}
+
+		inits[kv.Key.Literal] = kv.Value
+	}
 
 	if err {
 		expr.T = ir.TBuiltinUntyped
 		return expr
 	}
 
+	expr.T = tstruct
 	return createStructLit(tstruct, expr)
 }
 
@@ -602,11 +615,9 @@ func (v *typeChecker) VisitArrayLit(expr *ir.ArrayLit) ir.Expr {
 	texpr := ir.TBuiltinUntyped
 	tbackup := ir.TBuiltinUntyped
 
-	var inits []ir.Expr
-
-	for _, init := range expr.Initializers {
+	for i, init := range expr.Initializers {
 		init = ir.VisitExpr(v, init)
-		inits = append(inits, init)
+		expr.Initializers[i] = init
 
 		if ir.IsUntyped(texpr) && !ir.IsCompilerType(init.Type()) {
 			texpr = init.Type()
@@ -619,7 +630,7 @@ func (v *typeChecker) VisitArrayLit(expr *ir.ArrayLit) ir.Expr {
 	if ir.IsUntyped(texpr) {
 		texpr = tbackup
 	} else {
-		for _, init := range inits {
+		for _, init := range expr.Initializers {
 			if !v.tryMakeTypedLit(init, texpr) {
 				break
 			}
@@ -627,7 +638,7 @@ func (v *typeChecker) VisitArrayLit(expr *ir.ArrayLit) ir.Expr {
 	}
 
 	if !ir.IsUntyped(texpr) {
-		for i, init := range inits {
+		for _, init := range expr.Initializers {
 			if ir.IsUntyped(init.Type()) {
 				texpr = ir.TBuiltinUntyped
 			} else if !checkTypes(v.c, texpr, init.Type()) {
@@ -635,7 +646,6 @@ func (v *typeChecker) VisitArrayLit(expr *ir.ArrayLit) ir.Expr {
 				texpr = ir.TBuiltinUntyped
 				break
 			}
-			expr.Initializers[i] = init
 		}
 	}
 
@@ -654,21 +664,16 @@ func (v *typeChecker) VisitArrayLit(expr *ir.ArrayLit) ir.Expr {
 }
 
 func (v *typeChecker) VisitSizeExpr(expr *ir.SizeExpr) ir.Expr {
-	x := v.visitType(expr.X)
-	tx := x.Type()
-
-	err := false
+	expr.X = v.visitType(expr.X)
+	expr.T = ir.TBuiltinUntyped
+	tx := expr.X.Type()
 
 	if ir.IsUntyped(tx) {
-		err = true
-	} else if tx.ID() == ir.TModule || tx.ID() == ir.TVoid {
-		v.c.errorNode(expr.X, "type %s does not have a size", tx)
-		err = true
+		return expr
 	}
 
-	if err {
-		expr.X = x
-		expr.T = ir.TBuiltinUntyped
+	if tx.ID() == ir.TModule || tx.ID() == ir.TVoid {
+		v.c.errorNode(expr.X, "type %s does not have a size", tx)
 		return expr
 	}
 

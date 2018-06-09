@@ -550,6 +550,11 @@ type SizeExpr struct {
 	X Expr
 }
 
+type ConstExpr struct {
+	baseExpr
+	X Expr
+}
+
 type FuncCall struct {
 	baseExpr
 	X    Expr
