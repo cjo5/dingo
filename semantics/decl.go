@@ -162,11 +162,6 @@ func (v *typeChecker) visitValDeclSpec(sym *ir.Symbol, decl *ir.ValDeclSpec, def
 		tinit := decl.Initializer.Type()
 
 		if decl.Type == nil {
-			if ir.IsUntypedPointer(tinit) {
-				v.c.error(decl.Initializer.Pos(), "impossible to infer type from initializer")
-				tdecl = ir.TBuiltinUntyped
-			}
-
 			if tdecl == nil {
 				tdecl = tinit
 			}

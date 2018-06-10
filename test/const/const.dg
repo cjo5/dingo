@@ -19,5 +19,15 @@ fun[c] main() i32 {
     const b3 = !b2
     putbool(b3) // expect-output: true
 
+    const c1 = Foo{a: 9}
+    putiln(c1.a) // expect-output: 9
+
+    const d1 = [1, 2, 3]
+    putiln(d1[1]) // expect-output: 2
+
     return 0
+}
+
+struct Foo {
+    a i32
 }

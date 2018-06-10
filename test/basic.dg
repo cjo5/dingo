@@ -1,6 +1,11 @@
-//include "common.dg"
+include "common.dg"
 
 fun[c] main() i32 {
-    const a = hj
+    val b = Foo{a: 9}.a
+    putiln(b)
     return 0
+}
+
+struct Foo {
+    a i32
 }

@@ -16,7 +16,7 @@ var (
 
 func init() {
 	// http://no-color.org
-	if _, isset := os.LookupEnv("NO_COLOR"); isset {
+	if _, ok := os.LookupEnv("NO_COLOR"); ok {
 		return
 	}
 
