@@ -256,8 +256,8 @@ func (v *depChecker) VisitUnaryExpr(expr *ir.UnaryExpr) ir.Expr {
 
 func (v *depChecker) VisitStructLit(expr *ir.StructLit) ir.Expr {
 	ir.VisitExpr(v, expr.Name)
-	for _, kv := range expr.Initializers {
-		ir.VisitExpr(v, kv.Value)
+	for _, arg := range expr.Args {
+		ir.VisitExpr(v, arg.Value)
 	}
 	return expr
 }
@@ -326,7 +326,9 @@ func (v *depChecker) VisitSizeExpr(expr *ir.SizeExpr) ir.Expr {
 
 func (v *depChecker) VisitFuncCall(expr *ir.FuncCall) ir.Expr {
 	ir.VisitExpr(v, expr.X)
-	ir.VisitExprList(v, expr.Args)
+	for _, arg := range expr.Args {
+		ir.VisitExpr(v, arg.Value)
+	}
 	return expr
 }
 

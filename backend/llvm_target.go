@@ -115,7 +115,7 @@ func llvmPointerType(t *ir.PointerType, ctx *llvmTypeContext) llvm.Type {
 func llvmFuncType(t *ir.FuncType, ctx *llvmTypeContext) llvm.Type {
 	var params []llvm.Type
 	for _, param := range t.Params {
-		params = append(params, llvmType(param, ctx))
+		params = append(params, llvmType(param.T, ctx))
 	}
 	ret := llvmType(t.Return, ctx)
 	return llvm.PointerType(llvm.FunctionType(ret, params, false), 0)

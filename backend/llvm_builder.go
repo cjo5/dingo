@@ -267,7 +267,7 @@ func (cb *llvmCodeBuilder) buildFuncDecl(decl *ir.FuncDecl) {
 
 		var paramTypes []llvm.Type
 		for _, p := range tfun.Params {
-			paramTypes = append(paramTypes, cb.llvmType(p))
+			paramTypes = append(paramTypes, cb.llvmType(p.T))
 		}
 		retType := cb.llvmType(tfun.Return)
 
@@ -779,10 +779,9 @@ func (cb *llvmCodeBuilder) buildStructLit(expr *ir.StructLit) llvm.Value {
 	llvmType := cb.typeCtx[tstruct.Sym]
 	structLit := llvm.Undef(llvmType)
 
-	for _, field := range expr.Initializers {
-		index := tstruct.FieldIndex(field.Key.Literal)
-		init := cb.buildExprVal(field.Value)
-		structLit = cb.b.CreateInsertValue(structLit, init, index, "")
+	for argIndex, arg := range expr.Args {
+		init := cb.buildExprVal(arg.Value)
+		structLit = cb.b.CreateInsertValue(structLit, init, argIndex, "")
 	}
 
 	return structLit
@@ -948,12 +947,10 @@ func (cb *llvmCodeBuilder) buildLenExpr(expr *ir.LenExpr) llvm.Value {
 
 func (cb *llvmCodeBuilder) buildFuncCall(expr *ir.FuncCall) llvm.Value {
 	fun := cb.buildExprVal(expr.X)
-
 	var args []llvm.Value
 	for _, arg := range expr.Args {
-		args = append(args, cb.buildExprVal(arg))
+		args = append(args, cb.buildExprVal(arg.Value))
 	}
-
 	return cb.b.CreateCall(fun, args, "")
 }
 

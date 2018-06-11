@@ -205,7 +205,7 @@ type StructType struct {
 	baseType
 	Sym    *Symbol
 	Scope  *Scope
-	Fields []*Field
+	Fields []Field
 }
 
 func (t *StructType) Equals(other Type) bool {
@@ -368,7 +368,7 @@ func (t *PointerType) String() string {
 type FuncType struct {
 	baseType
 	C      bool
-	Params []Type
+	Params []Field
 	Return Type
 }
 
@@ -384,7 +384,7 @@ func (t *FuncType) Equals(other Type) bool {
 			return false
 		}
 		for i := 0; i < len(t.Params); i++ {
-			if !t.Params[i].Equals(t2.Params[i]) {
+			if !t.Params[i].T.Equals(t2.Params[i].T) {
 				return false
 			}
 		}
@@ -405,7 +405,7 @@ func (t *FuncType) String() string {
 	}
 	buf.WriteString("(")
 	for i, param := range t.Params {
-		buf.WriteString(param.String())
+		buf.WriteString(param.T.String())
 		if (i + 1) < len(t.Params) {
 			buf.WriteString(", ")
 		}
@@ -439,7 +439,7 @@ func NewIncompleteStructType(decl *StructDecl) Type {
 func (t *StructType) SetBody(decl *StructDecl) Type {
 	common.Assert(t.Sym == decl.Sym, "Different struct decl")
 	for _, field := range decl.Fields {
-		t.Fields = append(t.Fields, &Field{Sym: field.Sym, T: field.Type.Type()})
+		t.Fields = append(t.Fields, Field{Sym: field.Sym, T: field.Type.Type()})
 	}
 	return t
 }
@@ -462,7 +462,7 @@ func NewPointerType(Underlying Type, readOnly bool) Type {
 	return t
 }
 
-func NewFuncType(params []Type, ret Type, c bool) Type {
+func NewFuncType(params []Field, ret Type, c bool) Type {
 	t := &FuncType{Params: params, Return: ret, C: c}
 	t.id = TFunc
 	return t

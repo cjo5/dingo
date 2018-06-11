@@ -3,7 +3,6 @@ package semantics
 import (
 	"fmt"
 	"math/big"
-	"strconv"
 	"strings"
 
 	"github.com/jhnl/dingo/common"
@@ -546,221 +545,94 @@ func (v *typeChecker) VisitBasicLit(expr *ir.BasicLit) ir.Expr {
 	return expr
 }
 
-func (v *typeChecker) VisitStructLit(expr *ir.StructLit) ir.Expr {
-	expr.Name = v.visitType(expr.Name)
-	tname := expr.Name.Type()
-
-	if ir.IsUntyped(tname) {
-		expr.T = ir.TBuiltinUntyped
-		return expr
-	} else if typeSym := ir.ExprSymbol(expr.Name); typeSym != nil {
-		if typeSym.ID != ir.TypeSymbol && typeSym.T.ID() != ir.TStruct {
-			v.c.error(expr.Name.Pos(), "'%s' is not a struct", typeSym.Name)
-			expr.T = ir.TBuiltinUntyped
-			return expr
-		}
+func (v *typeChecker) VisitIdent(expr *ir.Ident) ir.Expr {
+	sym := expr.Sym
+	if sym == nil {
+		sym = v.c.lookup(expr.Literal)
+	} else {
+		expr.SetSymbol(nil)
 	}
 
 	err := false
-	inits := make(map[string]ir.Expr)
-	tstruct := tname.(*ir.StructType)
 
-	for _, kv := range expr.Initializers {
-		if existing, ok := inits[kv.Key.Literal]; ok {
-			if existing != nil {
-				v.c.error(kv.Key.Pos(), "duplicate field key '%s'", kv.Key.Literal)
-			}
-			inits[kv.Key.Literal] = nil
+	if sym == nil {
+		v.c.error(expr.Pos(), "'%s' undefined", expr.Literal)
+		err = true
+	} else if sym.T == nil || sym.Untyped() {
+		// Cycle or an error has already occurred
+		err = true
+	} else if v.exprMode != exprModeDot {
+		if v.exprMode != exprModeType && sym.ID == ir.TypeSymbol {
+			v.c.error(expr.Pos(), "type %s cannot be used in an expression", sym.T)
 			err = true
-			continue
-		}
-
-		fieldSym := tstruct.Scope.Lookup(kv.Key.Literal)
-		if fieldSym == nil {
-			v.c.error(kv.Key.Pos(), "'%s' undefined struct field", kv.Key.Literal)
-			inits[kv.Key.Literal] = nil
+		} else if v.exprMode == exprModeType && sym.ID != ir.TypeSymbol {
+			v.c.error(expr.Pos(), "'%s' is not a type", sym.Name)
 			err = true
-			continue
 		}
-
-		kv.Value = v.makeTypedExpr(kv.Value, fieldSym.T)
-
-		if ir.IsUntyped(fieldSym.T) || ir.IsUntyped(kv.Value.Type()) {
-			inits[kv.Key.Literal] = nil
-			err = true
-			continue
-		}
-
-		if !checkTypes(v.c, fieldSym.T, kv.Value.Type()) {
-			v.c.error(kv.Key.Pos(), "field '%s' expects type %s (got type %s)",
-				kv.Key.Literal, fieldSym.T, kv.Value.Type())
-			inits[kv.Key.Literal] = nil
-			err = true
-			continue
-		}
-
-		inits[kv.Key.Literal] = kv.Value
 	}
 
 	if err {
 		expr.T = ir.TBuiltinUntyped
-		return expr
-	}
-
-	expr.T = tstruct
-	return createStructLit(tstruct, expr)
-}
-
-func (v *typeChecker) VisitArrayLit(expr *ir.ArrayLit) ir.Expr {
-	texpr := ir.TBuiltinUntyped
-	tbackup := ir.TBuiltinUntyped
-
-	for i, init := range expr.Initializers {
-		init = ir.VisitExpr(v, init)
-		expr.Initializers[i] = init
-
-		if ir.IsUntyped(texpr) && !ir.IsCompilerType(init.Type()) {
-			texpr = init.Type()
-		}
-		if ir.IsUntyped(tbackup) && !ir.IsUntyped(init.Type()) {
-			tbackup = init.Type()
-		}
-	}
-
-	if ir.IsUntyped(texpr) {
-		texpr = tbackup
 	} else {
-		for _, init := range expr.Initializers {
-			if !v.tryMakeTypedLit(init, texpr) {
-				break
-			}
+		decl := v.c.topDecl()
+		// Check symbol in other module is public (struct fields are exempted).
+		if !sym.Public && sym.ModFQN() != decl.Symbol().ModFQN() && sym.Parent.ID != ir.FieldScope {
+			v.c.error(expr.Pos(), "'%s' is not public", expr.Literal)
+			expr.T = ir.TBuiltinUntyped
+			err = true
+		} else {
+			expr.SetSymbol(sym)
 		}
 	}
 
-	if !ir.IsUntyped(texpr) {
-		for _, init := range expr.Initializers {
-			if ir.IsUntyped(init.Type()) {
-				texpr = ir.TBuiltinUntyped
-			} else if !checkTypes(v.c, texpr, init.Type()) {
-				v.c.error(init.Pos(), "array elements must be of the same type (expected type %s, got type %s)", texpr, init.Type())
-				texpr = ir.TBuiltinUntyped
-				break
-			}
-		}
-	}
-
-	if len(expr.Initializers) == 0 {
-		v.c.error(expr.Pos(), "array literal cannot have 0 elements")
-		texpr = ir.TBuiltinUntyped
-	}
-
-	if ir.IsUntyped(texpr) {
-		expr.T = texpr
-	} else {
-		expr.T = ir.NewArrayType(texpr, len(expr.Initializers))
+	if !err && sym.ID == ir.ConstSymbol {
+		constExpr := &ir.ConstExpr{X: v.c.constExprs[sym]}
+		constExpr.T = expr.T
+		constExpr.SetRange(expr.Pos(), expr.EndPos())
+		return constExpr
 	}
 
 	return expr
 }
 
-func (v *typeChecker) VisitSizeExpr(expr *ir.SizeExpr) ir.Expr {
-	expr.X = v.visitType(expr.X)
-	expr.T = ir.TBuiltinUntyped
+func (v *typeChecker) VisitDotExpr(expr *ir.DotExpr) ir.Expr {
+	prevMode := v.exprMode
+	v.exprMode = exprModeDot
+	expr.X = ir.VisitExpr(v, expr.X)
+	v.exprMode = prevMode
+
+	expr.X = tryDeref(expr.X)
 	tx := expr.X.Type()
 
 	if ir.IsUntyped(tx) {
-		return expr
-	}
-
-	if tx.ID() == ir.TModule || tx.ID() == ir.TVoid {
-		v.c.errorNode(expr.X, "type %s does not have a size", tx)
-		return expr
-	}
-
-	size := v.c.target.Sizeof(tx)
-	return createIntLit(size, ir.TBigInt)
-}
-
-func createDefaultLit(t ir.Type) ir.Expr {
-	if t.ID() == ir.TStruct {
-		tstruct := t.(*ir.StructType)
-		lit := &ir.StructLit{}
-		lit.T = t
-		return createStructLit(tstruct, lit)
-	} else if t.ID() == ir.TArray {
-		tarray := t.(*ir.ArrayType)
-		lit := &ir.ArrayLit{}
-		lit.T = tarray
-		for i := 0; i < tarray.Size; i++ {
-			init := createDefaultLit(tarray.Elem)
-			lit.Initializers = append(lit.Initializers, init)
-		}
-		return lit
-	}
-	return createDefaultBasicLit(t)
-}
-
-func createIntLit(val int, tid ir.TypeID) *ir.BasicLit {
-	lit := &ir.BasicLit{Tok: token.Integer, Value: strconv.FormatInt(int64(val), 10)}
-	lit.T = ir.NewBasicType(tid)
-	if val == 0 {
-		lit.Raw = ir.BigIntZero
+		// Do nothing
 	} else {
-		lit.Raw = big.NewInt(int64(val))
-	}
-	return lit
-}
+		var scope *ir.Scope
+		untyped := false
 
-func createDefaultBasicLit(t ir.Type) *ir.BasicLit {
-	var lit *ir.BasicLit
-	if ir.IsTypeID(t, ir.TBool) {
-		lit = &ir.BasicLit{Tok: token.False, Value: token.False.String()}
-		lit.T = ir.NewBasicType(ir.TBool)
-	} else if ir.IsTypeID(t, ir.TUInt64, ir.TInt64, ir.TUInt32, ir.TInt32, ir.TUInt16, ir.TInt16, ir.TUInt8, ir.TInt8) {
-		lit = createIntLit(0, t.ID())
-	} else if ir.IsTypeID(t, ir.TFloat64, ir.TFloat32) {
-		lit = &ir.BasicLit{Tok: token.Float, Value: "0"}
-		lit.Raw = ir.BigFloatZero
-		lit.T = ir.NewBasicType(t.ID())
-	} else if ir.IsTypeID(t, ir.TSlice) {
-		lit = &ir.BasicLit{Tok: token.Null, Value: token.Null.String()}
-		slice := t.(*ir.SliceType)
-		lit.T = ir.NewSliceType(slice.Elem, true, true)
-	} else if ir.IsTypeID(t, ir.TPointer) {
-		lit = &ir.BasicLit{Tok: token.Null, Value: token.Null.String()}
-		ptr := t.(*ir.PointerType)
-		lit.T = ir.NewPointerType(ptr.Underlying, true)
-	} else if ir.IsTypeID(t, ir.TFunc) {
-		lit = &ir.BasicLit{Tok: token.Null, Value: token.Null.String()}
-		fun := t.(*ir.FuncType)
-		lit.T = ir.NewFuncType(fun.Params, fun.Return, fun.C)
-	} else if !ir.IsTypeID(t, ir.TUntyped) {
-		panic(fmt.Sprintf("Unhandled init value for type %s", t.ID()))
-	}
-	return lit
-}
-
-func createStructLit(tstruct *ir.StructType, lit *ir.StructLit) *ir.StructLit {
-	var initializers []*ir.KeyValue
-	for _, f := range tstruct.Fields {
-		name := f.Name()
-		found := false
-		for _, init := range lit.Initializers {
-			if init.Key.Literal == name {
-				initializers = append(initializers, init)
-				found = true
-				break
+		switch tx2 := tx.(type) {
+		case *ir.ModuleType:
+			scope = tx2.Scope
+		case *ir.StructType:
+			scope = tx2.Scope
+		case *ir.BasicType:
+			if tx2.ID() == ir.TUntyped {
+				untyped = true
 			}
 		}
-		if found {
-			continue
-		}
-		kv := &ir.KeyValue{}
-		kv.Key = ir.NewIdent2(token.Ident, name)
 
-		kv.Value = createDefaultLit(f.T)
-		initializers = append(initializers, kv)
+		if scope != nil {
+			defer setScope(setScope(v.c, scope))
+			v.VisitIdent(expr.Name)
+			expr.T = expr.Name.Type()
+		} else if !untyped {
+			v.c.error(expr.X.Pos(), "type %s does not support field access", tx)
+		}
 	}
-	lit.Initializers = initializers
-	return lit
+
+	if expr.T == nil {
+		expr.T = ir.TBuiltinUntyped
+	}
+
+	return expr
 }

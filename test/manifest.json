@@ -86,6 +86,12 @@
         "tests": [
             {
                 "file": "literal.dg"
+            },
+            {
+                "file": "arguments.dg"
+            },
+            {
+                "file": "bad_arguments.dg"
             }
         ]
     },

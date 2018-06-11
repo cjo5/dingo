@@ -2,6 +2,8 @@ package semantics
 
 import (
 	"fmt"
+	"math/big"
+	"strconv"
 
 	"github.com/jhnl/dingo/common"
 	"github.com/jhnl/dingo/ir"
@@ -239,12 +241,12 @@ func (v *typeChecker) VisitArrayTypeExpr(expr *ir.ArrayTypeExpr) ir.Expr {
 }
 
 func (v *typeChecker) VisitFuncTypeExpr(expr *ir.FuncTypeExpr) ir.Expr {
-	var tparams []ir.Type
+	var params []ir.Field
 	untyped := false
 	for i, param := range expr.Params {
 		expr.Params[i].Type = ir.VisitExpr(v, param.Type)
 		tparam := expr.Params[i].Type.Type()
-		tparams = append(tparams, tparam)
+		params = append(params, ir.Field{Sym: param.Sym, T: tparam})
 		if ir.IsUntyped(tparam) {
 			untyped = true
 		}
@@ -257,100 +259,8 @@ func (v *typeChecker) VisitFuncTypeExpr(expr *ir.FuncTypeExpr) ir.Expr {
 
 	if !untyped {
 		c := v.checkCABI(expr.ABI)
-		expr.T = ir.NewFuncType(tparams, expr.Return.Type.Type(), c)
+		expr.T = ir.NewFuncType(params, expr.Return.Type.Type(), c)
 	} else {
-		expr.T = ir.TBuiltinUntyped
-	}
-
-	return expr
-}
-
-func (v *typeChecker) VisitIdent(expr *ir.Ident) ir.Expr {
-	sym := expr.Sym
-	if sym == nil {
-		sym = v.c.lookup(expr.Literal)
-	} else {
-		expr.SetSymbol(nil)
-	}
-
-	err := false
-
-	if sym == nil {
-		v.c.error(expr.Pos(), "'%s' undefined", expr.Literal)
-		err = true
-	} else if sym.T == nil || sym.Untyped() {
-		// Cycle or an error has already occurred
-		err = true
-	} else if v.exprMode != exprModeDot {
-		if v.exprMode != exprModeType && sym.ID == ir.TypeSymbol {
-			v.c.error(expr.Pos(), "type %s cannot be used in an expression", sym.T)
-			err = true
-		} else if v.exprMode == exprModeType && sym.ID != ir.TypeSymbol {
-			v.c.error(expr.Pos(), "'%s' is not a type", sym.Name)
-			err = true
-		}
-	}
-
-	if err {
-		expr.T = ir.TBuiltinUntyped
-	} else {
-		decl := v.c.topDecl()
-		// Check symbol in other module is public (struct fields are exempted).
-		if !sym.Public && sym.ModFQN() != decl.Symbol().ModFQN() && sym.Parent.ID != ir.FieldScope {
-			v.c.error(expr.Pos(), "'%s' is not public", expr.Literal)
-			expr.T = ir.TBuiltinUntyped
-			err = true
-		} else {
-			expr.SetSymbol(sym)
-		}
-	}
-
-	if !err && sym.ID == ir.ConstSymbol {
-		constExpr := &ir.ConstExpr{X: v.c.constExprs[sym]}
-		constExpr.T = expr.T
-		constExpr.SetRange(expr.Pos(), expr.EndPos())
-		return constExpr
-	}
-
-	return expr
-}
-
-func (v *typeChecker) VisitDotExpr(expr *ir.DotExpr) ir.Expr {
-	prevMode := v.exprMode
-	v.exprMode = exprModeDot
-	expr.X = ir.VisitExpr(v, expr.X)
-	v.exprMode = prevMode
-
-	expr.X = tryDeref(expr.X)
-	tx := expr.X.Type()
-
-	if ir.IsUntyped(tx) {
-		// Do nothing
-	} else {
-		var scope *ir.Scope
-		untyped := false
-
-		switch tx2 := tx.(type) {
-		case *ir.ModuleType:
-			scope = tx2.Scope
-		case *ir.StructType:
-			scope = tx2.Scope
-		case *ir.BasicType:
-			if tx2.ID() == ir.TUntyped {
-				untyped = true
-			}
-		}
-
-		if scope != nil {
-			defer setScope(setScope(v.c, scope))
-			v.VisitIdent(expr.Name)
-			expr.T = expr.Name.Type()
-		} else if !untyped {
-			v.c.error(expr.X.Pos(), "type %s does not support field access", tx)
-		}
-	}
-
-	if expr.T == nil {
 		expr.T = ir.TBuiltinUntyped
 	}
 
@@ -421,42 +331,22 @@ func (v *typeChecker) VisitLenExpr(expr *ir.LenExpr) ir.Expr {
 	return expr
 }
 
-func (v *typeChecker) VisitFuncCall(expr *ir.FuncCall) ir.Expr {
-	prevMode := v.exprMode
-	v.exprMode = exprModeFunc
-	expr.X = ir.VisitExpr(v, expr.X)
-	v.exprMode = prevMode
-
+func (v *typeChecker) VisitSizeExpr(expr *ir.SizeExpr) ir.Expr {
+	expr.X = v.visitType(expr.X)
+	expr.T = ir.TBuiltinUntyped
 	tx := expr.X.Type()
 
 	if ir.IsUntyped(tx) {
-		// Do nothing
-	} else if tx.ID() != ir.TFunc {
-		v.c.errorNode(expr.X, "expression is not callable (has type %s)", tx)
-	} else {
-		tfun := tx.(*ir.FuncType)
-
-		if len(tfun.Params) != len(expr.Args) {
-			v.c.error(expr.Pos(), "function takes %d argument(s) but called with %d", len(tfun.Params), len(expr.Args))
-		} else {
-			for i, arg := range expr.Args {
-				expr.Args[i] = v.makeTypedExpr(arg, tfun.Params[i])
-				tparam := tfun.Params[i]
-				targ := expr.Args[i].Type()
-
-				if !checkTypes(v.c, targ, tparam) {
-					v.c.errorNode(arg, "argument %d expects type %s (got type %s)", i, tparam, targ)
-				}
-			}
-			expr.T = tfun.Return
-		}
+		return expr
 	}
 
-	if expr.T == nil {
-		expr.T = ir.TBuiltinUntyped
+	if tx.ID() == ir.TModule || tx.ID() == ir.TVoid {
+		v.c.errorNode(expr.X, "type %s does not have a size", tx)
+		return expr
 	}
 
-	return expr
+	size := v.c.target.Sizeof(tx)
+	return createIntLit(size, ir.TBigInt)
 }
 
 func (v *typeChecker) VisitAddressExpr(expr *ir.AddressExpr) ir.Expr {
@@ -621,4 +511,239 @@ func (v *typeChecker) VisitSliceExpr(expr *ir.SliceExpr) ir.Expr {
 	}
 
 	return expr
+}
+
+func (v *typeChecker) visitArgumentList(args []*ir.ArgExpr, fields []ir.Field, autofill bool) []*ir.ArgExpr {
+	named := false
+	mixed := false
+	endPos := token.NoPosition
+	argsRes := make([]*ir.ArgExpr, len(fields))
+
+	if len(args) > 0 {
+		endPos = args[len(args)-1].EndPos()
+
+		for argIndex, arg := range args {
+			fieldIndex := -1
+
+			if arg.Name != nil {
+				named = true
+				for i, field := range fields {
+					if arg.Name.Literal == field.Sym.Name {
+						fieldIndex = i
+						break
+					}
+				}
+				if fieldIndex < 0 {
+					v.c.errorNode(arg, "unknown named argument '%s'", arg.Name.Literal)
+				}
+			} else if named {
+				v.c.errorNode(arg, "positioned argument after named argument is not allowed")
+				mixed = true
+			} else if argIndex < len(fields) {
+				fieldIndex = argIndex
+			} else {
+				break
+			}
+
+			if fieldIndex >= 0 {
+				field := fields[fieldIndex]
+				arg.Value = v.makeTypedExpr(arg.Value, field.T)
+				if existing := argsRes[fieldIndex]; existing != nil {
+					// This is only possible if the current argument is named
+					v.c.errorNode(arg, "duplicate arguments for '%s' at position %d", arg.Name.Literal, fieldIndex+1)
+				} else if !checkTypes(v.c, arg.Value.Type(), field.T) {
+					v.c.errorNode(arg, "type mismatch (got %s but expected %s)", arg.Value.Type(), field.T)
+				}
+				argsRes[fieldIndex] = arg
+			}
+		}
+	} else if autofill {
+		named = true
+	}
+
+	if named {
+		if autofill {
+			for fieldIndex, field := range fields {
+				if argsRes[fieldIndex] == nil {
+					arg := &ir.ArgExpr{}
+					arg.Value = createDefaultLit(field.T)
+					argsRes[fieldIndex] = arg
+				}
+			}
+		} else if !mixed {
+			for fieldIndex, field := range fields {
+				if argsRes[fieldIndex] == nil {
+					v.c.error(endPos, "no argument for '%s' at position %d", field.Sym.Name, fieldIndex+1)
+				}
+			}
+		}
+	} else if len(args) > len(fields) {
+		v.c.error(endPos, "too many arguments (got %d but expected %d)", len(args), len(fields))
+	} else if len(args) < len(fields) {
+		v.c.error(endPos, "too few arguments (got %d but expected %d)", len(args), len(fields))
+	}
+
+	return argsRes
+}
+
+func (v *typeChecker) VisitFuncCall(expr *ir.FuncCall) ir.Expr {
+	prevMode := v.exprMode
+	v.exprMode = exprModeFunc
+	expr.X = ir.VisitExpr(v, expr.X)
+	v.exprMode = prevMode
+
+	tx := expr.X.Type()
+
+	if ir.IsUntyped(tx) {
+		// Do nothing
+	} else if tx.ID() != ir.TFunc {
+		v.c.errorNode(expr.X, "expression is not callable (has type %s)", tx)
+	} else {
+		tfun := tx.(*ir.FuncType)
+		expr.Args = v.visitArgumentList(expr.Args, tfun.Params, false)
+		expr.T = tfun.Return
+	}
+
+	if expr.T == nil {
+		expr.T = ir.TBuiltinUntyped
+	}
+
+	return expr
+}
+
+func (v *typeChecker) VisitStructLit(expr *ir.StructLit) ir.Expr {
+	expr.Name = v.visitType(expr.Name)
+	tname := expr.Name.Type()
+
+	if ir.IsUntyped(tname) {
+		expr.T = ir.TBuiltinUntyped
+		return expr
+	} else if nameSym := ir.ExprSymbol(expr.Name); nameSym != nil {
+		if nameSym.ID != ir.TypeSymbol || nameSym.T.ID() != ir.TStruct {
+			v.c.error(expr.Name.Pos(), "'%s' is not a struct", nameSym.Name)
+			expr.T = ir.TBuiltinUntyped
+			return expr
+		}
+	}
+
+	tstruct := tname.(*ir.StructType)
+	expr.Args = v.visitArgumentList(expr.Args, tstruct.Fields, true)
+	expr.T = tstruct
+	return expr
+}
+
+func (v *typeChecker) VisitArrayLit(expr *ir.ArrayLit) ir.Expr {
+	texpr := ir.TBuiltinUntyped
+	tbackup := ir.TBuiltinUntyped
+
+	for i, init := range expr.Initializers {
+		init = ir.VisitExpr(v, init)
+		expr.Initializers[i] = init
+
+		if ir.IsUntyped(texpr) && !ir.IsCompilerType(init.Type()) {
+			texpr = init.Type()
+		}
+		if ir.IsUntyped(tbackup) && !ir.IsUntyped(init.Type()) {
+			tbackup = init.Type()
+		}
+	}
+
+	if ir.IsUntyped(texpr) {
+		texpr = tbackup
+	} else {
+		for _, init := range expr.Initializers {
+			if !v.tryMakeTypedLit(init, texpr) {
+				break
+			}
+		}
+	}
+
+	if !ir.IsUntyped(texpr) {
+		for _, init := range expr.Initializers {
+			if ir.IsUntyped(init.Type()) {
+				texpr = ir.TBuiltinUntyped
+			} else if !checkTypes(v.c, texpr, init.Type()) {
+				v.c.error(init.Pos(), "array elements must be of the same type (expected type %s, got type %s)", texpr, init.Type())
+				texpr = ir.TBuiltinUntyped
+				break
+			}
+		}
+	}
+
+	if len(expr.Initializers) == 0 {
+		v.c.error(expr.Pos(), "array literal cannot have 0 elements")
+		texpr = ir.TBuiltinUntyped
+	}
+
+	if ir.IsUntyped(texpr) {
+		expr.T = texpr
+	} else {
+		expr.T = ir.NewArrayType(texpr, len(expr.Initializers))
+	}
+
+	return expr
+}
+
+func createIntLit(val int, tid ir.TypeID) *ir.BasicLit {
+	lit := &ir.BasicLit{Tok: token.Integer, Value: strconv.FormatInt(int64(val), 10)}
+	lit.T = ir.NewBasicType(tid)
+	if val == 0 {
+		lit.Raw = ir.BigIntZero
+	} else {
+		lit.Raw = big.NewInt(int64(val))
+	}
+	return lit
+}
+
+func createDefaultLit(t ir.Type) ir.Expr {
+	if t.ID() == ir.TStruct {
+		tstruct := t.(*ir.StructType)
+		lit := &ir.StructLit{}
+		lit.T = t
+		for _, field := range tstruct.Fields {
+			arg := &ir.ArgExpr{}
+			arg.Value = createDefaultLit(field.T)
+			lit.Args = append(lit.Args, arg)
+		}
+		return lit
+	} else if t.ID() == ir.TArray {
+		tarray := t.(*ir.ArrayType)
+		lit := &ir.ArrayLit{}
+		lit.T = tarray
+		for i := 0; i < tarray.Size; i++ {
+			init := createDefaultLit(tarray.Elem)
+			lit.Initializers = append(lit.Initializers, init)
+		}
+		return lit
+	}
+	return createDefaultBasicLit(t)
+}
+
+func createDefaultBasicLit(t ir.Type) *ir.BasicLit {
+	var lit *ir.BasicLit
+	if ir.IsTypeID(t, ir.TBool) {
+		lit = &ir.BasicLit{Tok: token.False, Value: token.False.String()}
+		lit.T = ir.NewBasicType(ir.TBool)
+	} else if ir.IsTypeID(t, ir.TUInt64, ir.TInt64, ir.TUInt32, ir.TInt32, ir.TUInt16, ir.TInt16, ir.TUInt8, ir.TInt8) {
+		lit = createIntLit(0, t.ID())
+	} else if ir.IsTypeID(t, ir.TFloat64, ir.TFloat32) {
+		lit = &ir.BasicLit{Tok: token.Float, Value: "0"}
+		lit.Raw = ir.BigFloatZero
+		lit.T = ir.NewBasicType(t.ID())
+	} else if ir.IsTypeID(t, ir.TSlice) {
+		lit = &ir.BasicLit{Tok: token.Null, Value: token.Null.String()}
+		slice := t.(*ir.SliceType)
+		lit.T = ir.NewSliceType(slice.Elem, true, true)
+	} else if ir.IsTypeID(t, ir.TPointer) {
+		lit = &ir.BasicLit{Tok: token.Null, Value: token.Null.String()}
+		ptr := t.(*ir.PointerType)
+		lit.T = ir.NewPointerType(ptr.Underlying, true)
+	} else if ir.IsTypeID(t, ir.TFunc) {
+		lit = &ir.BasicLit{Tok: token.Null, Value: token.Null.String()}
+		fun := t.(*ir.FuncType)
+		lit.T = ir.NewFuncType(fun.Params, fun.Return, fun.C)
+	} else if !ir.IsTypeID(t, ir.TUntyped) {
+		panic(fmt.Sprintf("Unhandled init value for type %s", t.ID()))
+	}
+	return lit
 }

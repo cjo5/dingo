@@ -48,17 +48,19 @@ Operand = (LenExpr | SizeExpr | IDENT | Literal | '(' Expr ')') Primary
 LenExpr = 'lenof' '(' Expr ')'
 SizeExpr = 'sizeof' '(' Type ')'
 
+Argument = [IDENT ':'] Expr
+ArgumentList = [Argument {',' Argument} ','?]
+
 Primary = [SliceExpr | IndexExpr | FuncCall | DotExpr]
 SliceExpr = '[' Expr? ':' Expr? ']'
 IndexExpr = '[' Expr ']' Primary
-FuncCall = '(' [Expr {',' Expr} ','?] ')' Primary
+FuncCall = '(' ArgumentList )' Primary
 DotExpr = '.' IDENT Primary
 
 # StructLit is ignored when parsing Condition
 Literal = BasicLit | StructLit | ArrayLit | FuncLit
 BasicLit = Number | CHAR | (IDENT? STRING) | 'true' | 'false' | 'null'
 Number = (INTEGER | FLOAT) IDENT?
-KeyValue = IDENT ':' Expr
-StructLit = NamedType '{' [KeyValue {',' KeyValue} ','?] '}'
+StructLit = NamedType '{' ArgumentList '}'
 ArrayLit  = '[' [Expr {',' Expr} ','?] ']'
 FuncLit = 'fun' ['[' IDENT ']'] FuncSignature Block

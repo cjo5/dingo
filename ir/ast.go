@@ -469,16 +469,16 @@ func (x *BasicLit) AsF64() float64 {
 	return val
 }
 
-type KeyValue struct {
+type ArgExpr struct {
 	baseNode
-	Key   *Ident
+	Name  *Ident
 	Value Expr
 }
 
 type StructLit struct {
 	baseExpr
-	Name         Expr // Ident or DotIdent
-	Initializers []*KeyValue
+	Name Expr // Ident or DotIdent
+	Args []*ArgExpr
 }
 
 type ArrayLit struct {
@@ -558,7 +558,7 @@ type ConstExpr struct {
 type FuncCall struct {
 	baseExpr
 	X    Expr
-	Args []Expr
+	Args []*ArgExpr
 }
 
 func ExprToModuleFQN(expr Expr) string {

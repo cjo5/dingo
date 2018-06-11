@@ -865,6 +865,41 @@ func (p *parser) parseSizeExpr() *ir.SizeExpr {
 	return sizeof
 }
 
+func (p *parser) parseArgExpr(stop token.Token) *ir.ArgExpr {
+	arg := &ir.ArgExpr{}
+	arg.SetPos(p.pos)
+	expr := p.parseExpr()
+	if p.token.Is(token.Colon) {
+		if ident, ok := expr.(*ir.Ident); ok {
+			p.next()
+			arg.Name = ident
+			arg.Value = p.parseExpr()
+		} else {
+			// Trigger an error
+			p.expect(token.Comma, stop)
+		}
+	} else {
+		arg.Value = expr
+	}
+	arg.SetEndPos(p.pos)
+	return arg
+}
+
+func (p *parser) parseArgumentList(stop token.Token) []*ir.ArgExpr {
+	var args []*ir.ArgExpr
+	if !p.token.Is(stop) {
+		args = append(args, p.parseArgExpr(stop))
+		for p.token != token.EOF && p.token != stop {
+			p.expect(token.Comma, stop)
+			if p.token.Is(stop) {
+				break
+			}
+			args = append(args, p.parseArgExpr(stop))
+		}
+	}
+	return args
+}
+
 func (p *parser) parsePrimary(expr ir.Expr) ir.Expr {
 	if p.token.Is(token.Lbrack) {
 		return p.parseSliceOrIndexExpr(expr)
@@ -934,19 +969,8 @@ func (p *parser) parseFuncCall(expr ir.Expr) ir.Expr {
 	call.SetPos(expr.Pos())
 	call.X = expr
 	p.expect(token.Lparen)
-	var args []ir.Expr
-	if p.token != token.Rparen {
-		args = append(args, p.parseExpr())
-		for p.token != token.EOF && p.token != token.Rparen {
-			p.expect(token.Comma)
-			if p.token.Is(token.Rparen) {
-				break
-			}
-			args = append(args, p.parseExpr())
-		}
-	}
+	call.Args = p.parseArgumentList(token.Rparen)
 	p.expect(token.Rparen)
-	call.Args = args
 	call.SetEndPos(p.pos)
 	return call
 }
@@ -979,35 +1003,14 @@ func (p *parser) parseBasicLit(prefix *ir.Ident) ir.Expr {
 	}
 }
 
-func (p *parser) parseKeyValue() *ir.KeyValue {
-	kv := &ir.KeyValue{}
-	kv.SetPos(p.pos)
-	kv.Key = p.parseIdent()
-	p.expect(token.Colon)
-	kv.Value = p.parseExpr()
-	kv.SetEndPos(p.pos)
-	return kv
-}
-
 func (p *parser) parseStructLit(name ir.Expr) ir.Expr {
 	lit := &ir.StructLit{Name: name}
 	lit.SetPos(name.Pos())
 	p.expect(token.Lbrace)
 	p.blockCount++
-	var inits []*ir.KeyValue
-	if !p.token.Is(token.Rbrace) {
-		inits = append(inits, p.parseKeyValue())
-		for p.token != token.EOF && p.token != token.Rbrace {
-			p.expect(token.Comma)
-			if p.token.Is(token.Rbrace) {
-				break
-			}
-			inits = append(inits, p.parseKeyValue())
-		}
-	}
+	lit.Args = p.parseArgumentList(token.Rbrace)
 	p.expect(token.Rbrace)
 	p.blockCount--
-	lit.Initializers = inits
 	lit.SetEndPos(p.pos)
 	return lit
 }

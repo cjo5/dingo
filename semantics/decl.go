@@ -202,17 +202,18 @@ func (v *typeChecker) VisitFuncDecl(decl *ir.FuncDecl) {
 
 		defer setScope(setScope(v.c, decl.Scope))
 
-		var tparams []ir.Type
+		var params []ir.Field
 		untyped := false
 
 		for _, param := range decl.Params {
 			v.VisitValDecl(param)
+			tparam := ir.TBuiltinUntyped
 			if param.Sym == nil || ir.IsUntyped(param.Sym.T) {
-				tparams = append(tparams, ir.TBuiltinUntyped)
 				untyped = true
 			} else {
-				tparams = append(tparams, param.Sym.T)
+				tparam = param.Sym.T
 			}
+			params = append(params, ir.Field{Sym: param.Sym, T: tparam})
 		}
 
 		decl.Return.Type = v.visitType(decl.Return.Type)
@@ -227,7 +228,7 @@ func (v *typeChecker) VisitFuncDecl(decl *ir.FuncDecl) {
 		tfun := ir.TBuiltinUntyped
 
 		if !untyped {
-			tfun = ir.NewFuncType(tparams, tret, c)
+			tfun = ir.NewFuncType(params, tret, c)
 			if decl.Sym.T != nil && !checkTypes(v.c, decl.Sym.T, tfun) {
 				v.c.error(decl.Name.Pos(), "redeclaration of '%s' (previously declared with a different signature at %s)",
 					decl.Name.Literal, decl.Sym.DeclPos)
