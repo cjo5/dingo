@@ -422,12 +422,15 @@ func (v *typeChecker) VisitBasicLit(expr *ir.BasicLit) ir.Expr {
 				if expr.Prefix == nil {
 					expr.T = ir.NewSliceType(ir.TBuiltinInt8, true, true)
 					expr.Raw = raw
-				} else if expr.Prefix.Literal == "c" {
-					expr.T = ir.NewPointerType(ir.TBuiltinInt8, true)
-					expr.Raw = raw
 				} else {
-					v.c.error(expr.Prefix.Pos(), "invalid string prefix '%s'", expr.Prefix.Literal)
-					expr.T = ir.TBuiltinUntyped
+					prefix := ir.ExprNameToText(expr.Prefix)
+					if prefix == "c" {
+						expr.T = ir.NewPointerType(ir.TBuiltinInt8, true)
+						expr.Raw = raw
+					} else {
+						v.c.error(expr.Prefix.Pos(), "invalid string prefix '%s'", prefix)
+						expr.T = ir.TBuiltinUntyped
+					}
 				}
 			} else {
 				expr.T = ir.TBuiltinUntyped
@@ -439,7 +442,8 @@ func (v *typeChecker) VisitBasicLit(expr *ir.BasicLit) ir.Expr {
 			target := ir.TBigInt
 
 			if expr.Suffix != nil {
-				switch expr.Suffix.Literal {
+				suffix := ir.ExprNameToText(expr.Suffix)
+				switch suffix {
 				case ir.TFloat64.String():
 					base = ir.TBigFloat
 					target = ir.TFloat64
@@ -463,7 +467,7 @@ func (v *typeChecker) VisitBasicLit(expr *ir.BasicLit) ir.Expr {
 				case ir.TInt8.String():
 					target = ir.TInt8
 				default:
-					v.c.error(expr.Suffix.Pos(), "invalid int suffix '%s'", expr.Suffix.Literal)
+					v.c.error(expr.Suffix.Pos(), "invalid int suffix '%s'", suffix)
 					base = ir.TUntyped
 				}
 			}
@@ -505,13 +509,14 @@ func (v *typeChecker) VisitBasicLit(expr *ir.BasicLit) ir.Expr {
 			target := ir.TBigFloat
 
 			if expr.Suffix != nil {
-				switch expr.Suffix.Literal {
+				suffix := ir.ExprNameToText(expr.Suffix)
+				switch suffix {
 				case ir.TFloat64.String():
 					target = ir.TFloat64
 				case ir.TFloat32.String():
 					target = ir.TFloat32
 				default:
-					v.c.error(expr.Suffix.Pos(), "invalid float suffix '%s'", expr.Suffix.Literal)
+					v.c.error(expr.Suffix.Pos(), "invalid float suffix '%s'", suffix)
 					base = ir.TUntyped
 				}
 			}

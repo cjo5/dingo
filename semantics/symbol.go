@@ -28,7 +28,7 @@ func registerModules(c *context) {
 	for _, mod := range c.set.Modules {
 		for _, file := range mod.Files {
 			for _, dep := range file.ModDeps {
-				fqn := ir.ExprToModuleFQN(dep.ModName)
+				fqn := ir.ExprNameToText(dep.ModName)
 				if fqn == mod.FQN {
 					c.error(dep.ModName.Pos(), "module '%s' cannot import itself", fqn)
 				} else if moddep, ok := c.set.Modules[fqn]; ok {

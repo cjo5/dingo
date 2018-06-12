@@ -40,7 +40,7 @@ func (m *Module) Pos() token.Position { return m.Path }
 
 func (m *Module) FindFileWithFQN(fqn string) *File {
 	for _, file := range m.Files {
-		fileFQN := ExprToModuleFQN(file.ModName)
+		fileFQN := ExprNameToText(file.ModName)
 		if fileFQN == fqn {
 			return file
 		}

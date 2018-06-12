@@ -385,7 +385,6 @@ func (x *UnaryExpr) ReadOnly() bool {
 
 type AddressExpr struct {
 	baseExpr
-	And  token.Token
 	Decl token.Token
 	X    Expr
 }
@@ -430,10 +429,10 @@ func (x *SliceExpr) ReadOnly() bool {
 
 type BasicLit struct {
 	baseExpr
-	Prefix  *Ident
+	Prefix  Expr // Ident or DotExpr
+	Suffix  Expr // Ident or DotExpr
 	Tok     token.Token
 	Value   string
-	Suffix  *Ident
 	Raw     interface{}
 	Rewrite int
 }
@@ -477,7 +476,7 @@ type ArgExpr struct {
 
 type StructLit struct {
 	baseExpr
-	Name Expr // Ident or DotIdent
+	Name Expr // Ident or DotExpr
 	Args []*ArgExpr
 }
 
@@ -561,12 +560,12 @@ type FuncCall struct {
 	Args []*ArgExpr
 }
 
-func ExprToModuleFQN(expr Expr) string {
+func ExprNameToText(expr Expr) string {
 	switch t := expr.(type) {
 	case *Ident:
 		return t.Literal
 	case *DotExpr:
-		x := ExprToModuleFQN(t.X)
+		x := ExprNameToText(t.X)
 		if len(x) == 0 {
 			return ""
 		}
@@ -643,7 +642,7 @@ func ExprPrec(expr Expr) int {
 	case *UnaryExpr:
 		return UnaryPrec(t.Op)
 	case *AddressExpr:
-		return UnaryPrec(t.And)
+		return UnaryPrec(token.And)
 	case *IndexExpr, *SliceExpr, *DotExpr, *CastExpr, *FuncCall:
 		return 1
 	case *BasicLit, *StructLit, *Ident:

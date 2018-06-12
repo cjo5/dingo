@@ -108,7 +108,7 @@ func (l *loader) loadModule(path includePath) *ir.Module {
 	}
 
 	mod := &ir.Module{}
-	mod.FQN = ir.ExprToModuleFQN(rootFile.ModName)
+	mod.FQN = ir.ExprNameToText(rootFile.ModName)
 	mod.Path = path.actual
 	mod.Files = append(mod.Files, rootFile)
 	mod.Decls = append(mod.Decls, rootDecls...)

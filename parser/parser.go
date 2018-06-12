@@ -50,9 +50,8 @@ type parser struct {
 	pos     token.Position
 	literal string
 
-	inCondition bool
-	loopCount   int
-	blockCount  int
+	loopCount  int
+	blockCount int
 
 	funcName        string
 	funcAnonCount   int
@@ -89,7 +88,6 @@ func (p *parser) error(pos token.Position, format string, args ...interface{}) {
 func (p *parser) sync() {
 	lbrace := p.blockCount
 	semi := false
-	p.inCondition = false
 	p.blockCount = 0
 	p.loopCount = 0
 	for {
@@ -173,7 +171,7 @@ func (p *parser) parseFile() {
 	if p.token.Is(token.Module) {
 		p.file.SetPos(p.pos)
 		p.next()
-		p.file.ModName = p.parseModName()
+		p.file.ModName = p.parseName()
 		p.file.SetEndPos(p.pos)
 		p.expectSemi1(false)
 	}
@@ -212,14 +210,6 @@ func (p *parser) parseFile() {
 			}
 		}
 	}
-}
-
-func (p *parser) parseModName() ir.Expr {
-	ident := p.parseIdent()
-	if p.token.Is(token.Dot) {
-		return p.parseDotExpr(ident)
-	}
-	return ident
 }
 
 func (p *parser) parseInclude() *ir.FileDependency {
@@ -261,7 +251,7 @@ func (p *parser) parseImport(directives []ir.Directive, visibility token.Token) 
 		p.next()
 		dep.Alias = p.parseIdent()
 	} else {
-		parts := strings.Split(ir.ExprToModuleFQN(dep.ModName), ".")
+		parts := strings.Split(ir.ExprNameToText(dep.ModName), ".")
 		dep.Alias = ir.NewIdent2(token.Ident, parts[len(parts)-1])
 	}
 
@@ -578,9 +568,7 @@ func (p *parser) parseIfStmt() *ir.IfStmt {
 	s := &ir.IfStmt{}
 	s.SetPos(p.pos)
 	p.next()
-	p.inCondition = true
-	s.Cond = p.parseExpr()
-	p.inCondition = false
+	s.Cond = p.parseCondition()
 	s.Body = p.parseBlockStmt()
 	if p.token == token.Elif {
 		s.Else = p.parseIfStmt()
@@ -595,9 +583,7 @@ func (p *parser) parseWhileStmt() *ir.ForStmt {
 	s := &ir.ForStmt{}
 	s.SetPos(p.pos)
 	p.next()
-	p.inCondition = true
-	s.Cond = p.parseExpr()
-	p.inCondition = false
+	s.Cond = p.parseCondition()
 	p.loopCount++
 	s.Body = p.parseBlockStmt()
 	p.loopCount--
@@ -625,9 +611,7 @@ func (p *parser) parseForStmt() *ir.ForStmt {
 	p.expectSemi()
 
 	if p.token != token.Semicolon {
-		p.inCondition = true
-		s.Cond = p.parseExpr()
-		p.inCondition = false
+		s.Cond = p.parseCondition()
 	}
 
 	p.expectSemi()
@@ -679,19 +663,7 @@ func (p *parser) parseExprOrAssignStmt() ir.Stmt {
 }
 
 func (p *parser) parseType(optional bool) ir.Expr {
-	if p.token.Is(token.Pointer) {
-		return p.parsePointerType()
-	} else if p.token.Is(token.Lbrack) {
-		return p.parseArrayType()
-	} else if p.token.OneOf(token.Func) {
-		return p.parseFuncType()
-	} else if p.token.Is(token.Ident) {
-		var expr ir.Expr = p.parseIdent()
-		for p.token.Is(token.Dot) {
-			expr = p.parseDotExpr(expr)
-		}
-		return expr
-	} else if p.token.Is(token.Lparen) {
+	if p.token.Is(token.Lparen) {
 		pos := p.pos
 		p.next()
 		t := p.parseType(optional)
@@ -700,6 +672,14 @@ func (p *parser) parseType(optional bool) ir.Expr {
 			t.SetRange(pos, p.pos)
 		}
 		return t
+	} else if p.token.Is(token.Pointer) {
+		return p.parsePointerType()
+	} else if p.token.Is(token.Lbrack) {
+		return p.parseArrayType()
+	} else if p.token.OneOf(token.Func) {
+		return p.parseFuncType()
+	} else if p.token.Is(token.Ident) {
+		return p.parseName()
 	} else if optional {
 		return nil
 	}
@@ -712,11 +692,10 @@ func (p *parser) parsePointerType() ir.Expr {
 	pointer := &ir.PointerTypeExpr{}
 	pointer.SetPos(p.pos)
 	p.expect(token.Pointer)
-	pointer.Decl = p.token
+	pointer.Decl = token.Val
 	if p.token.OneOf(token.Var, token.Val) {
+		pointer.Decl = p.token
 		p.next()
-	} else {
-		pointer.Decl = token.Val
 	}
 	pointer.X = p.parseType(false)
 	pointer.SetEndPos(p.pos)
@@ -751,12 +730,40 @@ func (p *parser) parseFuncType() ir.Expr {
 	return fun
 }
 
-func (p *parser) parseExpr() ir.Expr {
-	return p.parseBinaryExpr(ir.LowestPrec)
+func (p *parser) parseCondition() ir.Expr {
+	return p.parseBinaryExpr(true, ir.LowestPrec)
 }
 
-func (p *parser) parseBinaryExpr(prec int) ir.Expr {
-	expr := p.parseUnaryExpr()
+func (p *parser) parseExpr() ir.Expr {
+	return p.parseBinaryExpr(false, ir.LowestPrec)
+}
+
+func (p *parser) parseBinaryExpr(condition bool, prec int) ir.Expr {
+	var expr ir.Expr
+	pos := p.pos
+
+	if p.token.OneOf(token.Sub, token.Lnot, token.Mul) {
+		op := p.token
+		p.next()
+		expr = p.parseOperand(condition)
+		expr = &ir.UnaryExpr{Op: op, X: expr}
+		expr.SetRange(pos, p.pos)
+	} else if p.token.Is(token.And) {
+		p.next()
+		decl := token.Val
+		if p.token.OneOf(token.Var, token.Val) {
+			decl = p.token
+			p.next()
+		}
+		expr = p.parseOperand(condition)
+		expr = &ir.AddressExpr{Decl: decl, X: expr}
+		expr.SetRange(pos, p.pos)
+	} else {
+		expr = p.parseOperand(condition)
+	}
+
+	expr = p.parseAsExpr(expr)
+
 	for p.token.IsBinaryOp() {
 		op := p.token
 		opPrec := ir.BinaryPrec(op)
@@ -764,82 +771,54 @@ func (p *parser) parseBinaryExpr(prec int) ir.Expr {
 			break
 		}
 		p.next()
-		right := p.parseBinaryExpr(opPrec - 1)
+		right := p.parseBinaryExpr(condition, opPrec-1)
 		bin := &ir.BinaryExpr{Left: expr, Op: op, Right: right}
 		bin.SetRange(bin.Left.Pos(), bin.Right.EndPos())
 		expr = bin
 	}
+
 	return expr
 }
 
-func (p *parser) parseUnaryExpr() ir.Expr {
-	var expr ir.Expr
-	pos := p.pos
-	if p.token.OneOf(token.Sub, token.Lnot, token.Mul) {
-		op := p.token
-		p.next()
-		expr = p.parseOperand()
-		expr = &ir.UnaryExpr{Op: op, X: expr}
-	} else if p.token.Is(token.And) {
-		and := p.token
-		p.expect(token.And)
-		decl := p.token
-		if p.token.OneOf(token.Var, token.Val) {
-			p.next()
-		} else {
-			decl = token.Val
-		}
-		expr = p.parseOperand()
-		expr = &ir.AddressExpr{And: and, Decl: decl, X: expr}
-	} else {
-		expr = p.parseOperand()
-	}
+func (p *parser) parseAsExpr(expr ir.Expr) ir.Expr {
 	if p.token.Is(token.As) {
 		cast := &ir.CastExpr{}
 		cast.X = expr
 		p.next()
 		cast.ToType = p.parseType(false)
-		expr = cast
+		cast.SetRange(expr.Pos(), p.pos)
+		return cast
 	}
-	expr.SetPos(pos)
-	expr.SetEndPos(p.pos)
 	return expr
 }
 
-func (p *parser) parseOperand() ir.Expr {
+func (p *parser) parseOperand(condition bool) ir.Expr {
 	var expr ir.Expr
-	pos := p.pos
-	if p.token.Is(token.Lenof) {
-		expr = p.parseLenExpr()
-	} else if p.token.Is(token.Sizeof) {
-		expr = p.parseSizeExpr()
-	} else if p.token.Is(token.Lparen) {
+	if p.token.Is(token.Lparen) {
+		pos := p.pos
 		p.next()
 		expr = p.parseExpr()
 		expr.SetPos(pos)
 		p.expect(token.Rparen)
+		expr.SetEndPos(p.pos)
+	} else if p.token.Is(token.Lenof) {
+		expr = p.parseLenExpr()
+	} else if p.token.Is(token.Sizeof) {
+		expr = p.parseSizeExpr()
+	} else if p.token.Is(token.Ident) {
+		expr = p.parseName()
+		if p.token.Is(token.String) {
+			expr = p.parseBasicLit(expr)
+		} else if p.token.Is(token.Lbrace) && !condition {
+			expr = p.parseStructLit(expr)
+		}
 	} else if p.token.Is(token.Lbrack) {
 		expr = p.parseArrayLit()
 	} else if p.token.Is(token.Func) {
 		expr = p.parseFuncLit()
-	} else if p.token.Is(token.Ident) {
-		ident := p.parseIdent()
-		if p.token.Is(token.String) {
-			expr = p.parseBasicLit(ident)
-		} else {
-			expr = ident
-			for p.token.Is(token.Dot) {
-				expr = p.parseDotExpr(expr)
-			}
-			if !p.inCondition && p.token.Is(token.Lbrace) {
-				expr = p.parseStructLit(expr)
-			}
-		}
-		expr.SetPos(pos)
 	} else {
 		expr = p.parseBasicLit(nil)
 	}
-	expr.SetEndPos(p.pos)
 	return p.parsePrimary(expr)
 }
 
@@ -944,6 +923,15 @@ func (p *parser) parseSliceOrIndexExpr(expr ir.Expr) ir.Expr {
 	return p.parsePrimary(res)
 }
 
+func (p *parser) parseName() ir.Expr {
+	var name ir.Expr
+	name = p.parseIdent()
+	for p.token.Is(token.Dot) {
+		name = p.parseDotExpr(name)
+	}
+	return name
+}
+
 func (p *parser) parseIdent() *ir.Ident {
 	ident := &ir.Ident{}
 	ident.SetPos(p.pos)
@@ -975,7 +963,7 @@ func (p *parser) parseFuncCall(expr ir.Expr) ir.Expr {
 	return call
 }
 
-func (p *parser) parseBasicLit(prefix *ir.Ident) ir.Expr {
+func (p *parser) parseBasicLit(prefix ir.Expr) ir.Expr {
 	switch p.token {
 	case token.Integer, token.Float, token.Char, token.String, token.True, token.False, token.Null:
 		lit := &ir.BasicLit{Prefix: prefix}
@@ -991,7 +979,7 @@ func (p *parser) parseBasicLit(prefix *ir.Ident) ir.Expr {
 		p.next()
 
 		if p.token.OneOf(token.Integer, token.Float) && p.token.Is(token.Ident) {
-			lit.Suffix = p.parseIdent()
+			lit.Suffix = p.parseName()
 		}
 
 		lit.SetEndPos(p.pos)
