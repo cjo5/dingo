@@ -1,0 +1,21 @@
+struct Foo {
+    a i32
+    b i32
+    c i32
+}
+
+fun[c] main() i32 {
+    var f Foo
+
+    f = Foo{1, 2} // expect-error: too few arguments (got 2 but expected 3)
+    f = Foo{1, 2, 3, 4} // expect-error: too many arguments (got 4 but expected 3)
+
+    f = Foo{a: 1, b: 2, c: 3, c: 4} // expect-error: duplicate arguments for 'c' at position 3
+    f = Foo{a: 1, b: 2, c: 3, d: 4} // expect-error: unknown named argument 'd' 
+
+    f = Foo{a: 1, b: 2, 3} // expect-error: positioned argument after named argument is not allowed
+
+    f = Foo{1, 2, true} // expect-error: type mismatch (got bool but expected i32)
+
+    return 0
+}

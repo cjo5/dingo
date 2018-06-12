@@ -11,6 +11,7 @@ var (
 	RedText    = ""
 	GreenText  = ""
 	YellowText = ""
+	GrayText   = ""
 	ResetText  = ""
 )
 
@@ -24,6 +25,7 @@ func init() {
 	RedText = "\x1B[31m"
 	GreenText = "\x1B[32m"
 	YellowText = "\x1B[33m"
+	GrayText = "\x1B[30m"
 	ResetText = "\x1B[0m"
 }
 
@@ -49,4 +51,12 @@ func BoldYellow(s string) string {
 
 func Yellow(s string) string {
 	return fmt.Sprintf("%s%s%s", YellowText, s, ResetText)
+}
+
+func BoldGray(s string) string {
+	return fmt.Sprintf("%s%s%s%s", BoldText, GrayText, s, ResetText)
+}
+
+func Gray(s string) string {
+	return fmt.Sprintf("%s%s%s", GrayText, s, ResetText)
 }

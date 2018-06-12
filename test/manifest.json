@@ -52,6 +52,13 @@
         ]
     },
     {
+        "dir": "struct",
+        "tests": [
+            "arguments.dg",
+            "bad_arguments.dg"
+        ]
+    },
+    {
         "dir": "module",
         "modules": ["a.dg", "b.dg"],
         "tests": [

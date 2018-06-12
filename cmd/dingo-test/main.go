@@ -338,20 +338,22 @@ func compareOutput(expectedOutput []*testOutput, actualOutput []*testOutput, res
 		}
 
 		if !match {
-			result.addReason("expected(%s): %s", expected.pos, expected.text)
-			result.addReason("     got(%s): %s", actual.pos, actual.text)
+			result.addReason("%s(%s): %s", common.BoldGreen("expected"), expected.pos, expected.text)
+			result.addReason("     %s(%s): %s", common.BoldRed("got"), actual.pos, actual.text)
 		}
 	}
 
 	if actualIdx < len(actualOutput) {
+		result.addReason("%s:", common.BoldGray("surplus"))
 		for i := actualIdx; i < len(actualOutput); i++ {
-			result.addReason("got(%s): %s", actualOutput[i].pos, actualOutput[i].text)
+			result.addReason("%s(%s): %s", common.BoldRed("got"), actualOutput[i].pos, actualOutput[i].text)
 		}
 	}
 
 	if expectedIdx < len(expectedOutput) {
+		result.addReason("%s:", common.BoldGray("deficit"))
 		for i := expectedIdx; i < len(expectedOutput); i++ {
-			result.addReason("expected(%s): %s", expectedOutput[i].pos, expectedOutput[i].text)
+			result.addReason("%s(%s): %s", common.BoldGreen("expected"), expectedOutput[i].pos, expectedOutput[i].text)
 		}
 	}
 }
