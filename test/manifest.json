@@ -1,151 +1,82 @@
 [
     {
-        "testDir": "const",
+        "dir": "const",
         "tests": [
-           {
-               "file": "const.dg"
-           },
-           {
-               "file": "bad_const.dg"
-           }
+            "const.dg",
+            "bad_const.dg"
         ]
     },
     {
-        "testDir": "dep",
+        "dir": "dep",
         "tests": [
-            {
-                "file": "functions.dg"
-            },
-            {
-                "file": "function_val.dg"
-            },
-            {
-                "file": "parameter.dg"
-            },
-            {
-                "file": "structs.dg"
-            },
-            {
-                "file": "struct_cycle.dg"
-            },
-            {
-                "file": "const_cycle.dg"
-            }
+            "functions.dg",
+            "function_val.dg",
+            "parameter.dg",
+            "structs.dg",
+            "struct_cycle.dg",
+            "const_cycle.dg"
         ]
     },
     {
-        "testDir": "primitives",
+        "dir": "primitives",
         "tests": [
-            {
-                "file": "literals.dg"
-            },
-            {
-                "file": "arithmetic.dg"
-            },
-            {
-                "file": "comparison.dg"
-            },
-            {
-                "file": "logic.dg"
-            }
+            "literals.dg",
+            "arithmetic.dg",
+            "comparison.dg",
+            "logic.dg"
         ]
     },
     {
-        "testDir": "if",
+        "dir": "if",
         "tests": [
-            {
-                "file": "if.dg"
-            }
+            "if.dg"
         ]
     },
     {
-        "testDir": "loop",
+        "dir": "loop",
         "tests": [
-            {
-                "file": "for.dg"
-            },
-            {
-                "file": "while.dg"
-            },
-            {
-                "file": "nested_for.dg"
-            },
-            {
-                "file": "nested_while.dg"
-            },
-            {
-                "file": "break.dg"
-            },
-            {
-                "file": "continue.dg"
-            }
+            "for.dg",
+            "while.dg",
+            "nested_for.dg",
+            "nested_while.dg",
+            "break.dg",
+            "continue.dg"
         ]
     },
     {
-        "testDir": "function",
+        "dir": "function",
         "tests": [
-            {
-                "file": "literal.dg"
-            },
-            {
-                "file": "arguments.dg"
-            },
-            {
-                "file": "bad_arguments.dg"
-            }
+            "literal.dg",
+            "arguments.dg",
+            "bad_arguments.dg"
         ]
     },
     {
-        "testDir": "module",
+        "dir": "module",
+        "modules": ["a.dg", "b.dg"],
         "tests": [
-            {
-                "file": "import.dg",
-                "modules": ["a.dg", "b.dg"]
-            },
-            {
-                "file": "import_alias.dg",
-                "modules": ["a.dg", "b.dg"]
-            }
+            "import.dg",
+            "import_alias.dg"
         ]
     },
     {
-        "testDir": "slice",
+        "dir": "slice",
         "tests": [
-            {
-                "file": "offset.dg"
-            },
-            {
-                "file": "pointer.dg"
-            },
-            {
-                "file": "read_only.dg"
-            },
-            {
-                "file": "pointer_end_index.dg"
-            }
+            "offset.dg",
+            "pointer.dg",
+            "read_only.dg",
+            "pointer_end_index.dg"
         ]
     },
     {
-        "testDir": "type",
+        "dir": "type",
         "tests": [
-            {
-                "file": "incomplete.dg"
-            },
-            {
-                "file": "bad_cast.dg"
-            },
-            {
-                "file": "type_in_expr.dg"
-            },
-            {
-                "file": "void.dg"
-            },
-            {
-                "file": "sizeof.dg"
-            },
-            {
-                "file": "bad_sizeof.dg"
-            }
+            "incomplete.dg",
+            "bad_cast.dg",
+            "type_in_expr.dg",
+            "void.dg",
+            "sizeof.dg",
+            "bad_sizeof.dg"
         ]
     }
 ]

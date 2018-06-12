@@ -30,17 +30,17 @@ func main() {
 	flag.StringVar(&manifest, "manifest", "", "Test manifest")
 	flag.Parse()
 
-	var tests []*testCase
+	var groups []*testGroup
 	tester := &testRunner{}
 
 	if len(manifest) > 0 {
-		tests = readTestManifest(manifest)
+		groups = readTestManifest(manifest)
 		tester.baseDir = filepath.Dir(manifest)
 	} else {
-		tests = createTests(flag.Args())
+		groups = createTestGroups(flag.Args())
 	}
 
-	tester.runTests("", tests)
+	tester.runTestGroups("", groups)
 	fmt.Printf("\nFinished %d test(s)\n%s: %d %s: %d %s: %d %s: %d\n\n",
 		tester.total, common.BoldGreen(statusSuccess.String()), tester.success,
 		common.BoldYellow(statusSkip.String()), tester.skip, common.BoldRed(statusFail.String()), tester.fail,
@@ -58,12 +58,11 @@ type testRunner struct {
 	bad     int
 }
 
-type testCase struct {
+type testGroup struct {
 	Disable bool
-	File    string
+	Dir     string
 	Modules []string
-	TestDir string
-	Tests   []*testCase
+	Tests   []string
 }
 
 type testOutput struct {
@@ -118,71 +117,75 @@ func abort(err error) {
 	os.Exit(1)
 }
 
-func readTestManifest(manifest string) []*testCase {
+func readTestManifest(manifest string) []*testGroup {
 	bytes, err := ioutil.ReadFile(manifest)
 	if err != nil {
 		abort(err)
 	}
-
-	var tests []*testCase
-
-	err = json.Unmarshal(bytes, &tests)
+	var groups []*testGroup
+	err = json.Unmarshal(bytes, &groups)
 	if err != nil {
 		abort(err)
 	}
-
-	return tests
+	return groups
 }
 
-func createTests(testFiles []string) []*testCase {
-	var tests []*testCase
-
+func createTestGroups(testFiles []string) []*testGroup {
+	var groups []*testGroup
 	for _, testFile := range testFiles {
-		test := &testCase{}
-		test.File = testFile
-		test.TestDir = ""
-
-		tests = append(tests, test)
+		test := &testGroup{}
+		test.Tests = append(test.Tests, testFile)
+		test.Dir = ""
+		groups = append(groups, test)
 	}
-
-	return tests
+	return groups
 }
 
-func (t *testRunner) runTests(baseDir string, tests []*testCase) {
-	for _, test := range tests {
-		if test.Disable {
-			t.updateStats(statusSkip)
+func toTestName(testDir string, testFile string) string {
+	ext := filepath.Ext(testFile)
+	baseName := filepath.Base(testFile)
+	baseName = baseName[:len(baseName)-len(ext)]
+	testName := filepath.Join(testDir, baseName)
+	return testName
+}
+
+func (t *testRunner) runTestGroups(baseDir string, groups []*testGroup) {
+	dots := 50
+	for _, group := range groups {
+		testDir := filepath.Join(baseDir, group.Dir)
+		status := statusSuccess
+
+		if group.Disable {
+			status = statusSkip
+		} else if len(group.Tests) == 0 {
+			status = statusBad
+		}
+
+		if status != statusSuccess {
+			if len(group.Tests) > 0 {
+				for _, testFile := range group.Tests {
+					testName := toTestName(testDir, testFile)
+					fmt.Printf("TEST %s%s[%s]\n", testName, strings.Repeat(".", dots-len(testName)), status)
+					t.updateStats(status)
+				}
+			} else {
+				fmt.Printf("GROUP %s%s[%s]\n", testDir, strings.Repeat(".", dots-1-len(testDir)), status)
+				t.updateStats(status)
+			}
 			continue
 		}
 
-		validTest := false
+		for _, testFile := range group.Tests {
+			testName := toTestName(testDir, testFile)
+			fmt.Printf("TEST %s%s", testName, strings.Repeat(".", dots-len(testName)))
 
-		if len(test.File) > 0 {
-			validTest = true
-
-			ext := filepath.Ext(test.File)
-			baseName := filepath.Base(test.File)
-			baseName = baseName[:len(baseName)-len(ext)]
-			testName := filepath.Join(baseDir, baseName)
-
-			result := t.runTest(testName, baseDir, test)
+			result := t.runTest(testName, testDir, testFile, group.Modules)
 			t.updateStats(result.status)
 
-			fmt.Printf("TEST %s%s[%s]\n", testName, strings.Repeat(".", 50-len(testName)), result.status)
-
+			fmt.Printf("[%s]\n", result.status)
 			for _, txt := range result.reason {
 				fmt.Printf("  >> %s\n", txt)
 			}
-		}
-
-		if len(test.Tests) > 0 {
-			validTest = true
-			testDir := filepath.Join(baseDir, test.TestDir)
-			t.runTests(testDir, test.Tests)
-		}
-
-		if !validTest {
-			t.updateStats(statusBad)
 		}
 	}
 }
@@ -201,11 +204,11 @@ func (t *testRunner) updateStats(res status) {
 	}
 }
 
-func (t *testRunner) runTest(testName string, testDir string, test *testCase) *testResult {
+func (t *testRunner) runTest(testName string, testDir string, testFile string, testModules []string) *testResult {
 	var filenames []string
-	filenames = append(filenames, filepath.Join(t.baseDir, testDir, test.File))
+	filenames = append(filenames, filepath.Join(t.baseDir, testDir, testFile))
 
-	for _, mod := range test.Modules {
+	for _, mod := range testModules {
 		filename := filepath.Join(t.baseDir, testDir, mod)
 		filenames = append(filenames, filename)
 	}
