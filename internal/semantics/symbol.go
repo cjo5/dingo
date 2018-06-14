@@ -1,8 +1,8 @@
 package semantics
 
 import (
-	"github.com/jhnl/dingo/ir"
-	"github.com/jhnl/dingo/token"
+	"github.com/jhnl/dingo/internal/ir"
+	"github.com/jhnl/dingo/internal/token"
 )
 
 type symChecker struct {

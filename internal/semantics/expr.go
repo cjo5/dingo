@@ -5,9 +5,9 @@ import (
 	"math/big"
 	"strconv"
 
-	"github.com/jhnl/dingo/common"
-	"github.com/jhnl/dingo/ir"
-	"github.com/jhnl/dingo/token"
+	"github.com/jhnl/dingo/internal/common"
+	"github.com/jhnl/dingo/internal/ir"
+	"github.com/jhnl/dingo/internal/token"
 )
 
 func (v *typeChecker) visitType(expr ir.Expr) ir.Expr {

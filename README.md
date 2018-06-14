@@ -2,6 +2,10 @@
 
 Dingo is a statically typed and compiled programming language focused on concise syntax, fast build times, full memory control, and easy interop from and to C. 
 
+## Dependencies
+* Go >= 1.6.2
+* LLVM 6.0 and Go bindings
+
 ## Example
 ```rust
 // C function declarations
@@ -72,7 +76,3 @@ Sorted ints:
 9
 31
 ```
-
-## Dependencies
-* Go >= 1.6.2
-* LLVM 6.0 and Go bindings

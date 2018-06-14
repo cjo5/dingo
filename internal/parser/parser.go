@@ -6,9 +6,9 @@ import (
 	"io/ioutil"
 	"strings"
 
-	"github.com/jhnl/dingo/common"
-	"github.com/jhnl/dingo/ir"
-	"github.com/jhnl/dingo/token"
+	"github.com/jhnl/dingo/internal/common"
+	"github.com/jhnl/dingo/internal/ir"
+	"github.com/jhnl/dingo/internal/token"
 )
 
 func ParseFile(filepath string) (*ir.File, []ir.TopDecl, error) {

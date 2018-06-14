@@ -6,8 +6,8 @@ import (
 	"math"
 	"math/big"
 
-	"github.com/jhnl/dingo/common"
-	"github.com/jhnl/dingo/token"
+	"github.com/jhnl/dingo/internal/common"
+	"github.com/jhnl/dingo/internal/token"
 )
 
 // TypeID identifies the base type.

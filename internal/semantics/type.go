@@ -3,7 +3,7 @@ package semantics
 import (
 	"math/big"
 
-	"github.com/jhnl/dingo/ir"
+	"github.com/jhnl/dingo/internal/ir"
 )
 
 type typeChecker struct {

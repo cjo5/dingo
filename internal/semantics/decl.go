@@ -3,8 +3,8 @@ package semantics
 import (
 	"fmt"
 
-	"github.com/jhnl/dingo/ir"
-	"github.com/jhnl/dingo/token"
+	"github.com/jhnl/dingo/internal/ir"
+	"github.com/jhnl/dingo/internal/token"
 )
 
 func (v *typeChecker) visitModuleSet(set *ir.ModuleSet, signature bool) {

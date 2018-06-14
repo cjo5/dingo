@@ -12,16 +12,16 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/jhnl/dingo/backend"
+	"github.com/jhnl/dingo/internal/backend"
 
-	"github.com/jhnl/dingo/semantics"
+	"github.com/jhnl/dingo/internal/semantics"
 
-	"github.com/jhnl/dingo/common"
+	"github.com/jhnl/dingo/internal/common"
 
-	"github.com/jhnl/dingo/ir"
-	"github.com/jhnl/dingo/token"
+	"github.com/jhnl/dingo/internal/ir"
+	"github.com/jhnl/dingo/internal/token"
 
-	"github.com/jhnl/dingo/module"
+	"github.com/jhnl/dingo/internal/module"
 )
 
 func main() {

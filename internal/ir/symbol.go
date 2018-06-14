@@ -1,6 +1,6 @@
 package ir
 
-import "github.com/jhnl/dingo/token"
+import "github.com/jhnl/dingo/internal/token"
 import "fmt"
 
 // SymbolID identifies the type of symbol.

@@ -1,7 +1,7 @@
 package ir
 
 import (
-	"github.com/jhnl/dingo/token"
+	"github.com/jhnl/dingo/internal/token"
 )
 
 // A ModuleSet is a collection of modules that make up the program.

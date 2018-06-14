@@ -1,8 +1,8 @@
 package parser
 
 import (
-	"github.com/jhnl/dingo/common"
-	"github.com/jhnl/dingo/token"
+	"github.com/jhnl/dingo/internal/common"
+	"github.com/jhnl/dingo/internal/token"
 )
 
 type lexer struct {

@@ -8,10 +8,10 @@ import (
 
 	"fmt"
 
-	"github.com/jhnl/dingo/common"
-	"github.com/jhnl/dingo/ir"
-	"github.com/jhnl/dingo/parser"
-	"github.com/jhnl/dingo/token"
+	"github.com/jhnl/dingo/internal/common"
+	"github.com/jhnl/dingo/internal/ir"
+	"github.com/jhnl/dingo/internal/parser"
+	"github.com/jhnl/dingo/internal/token"
 )
 
 const fileExtension = ".dg"
