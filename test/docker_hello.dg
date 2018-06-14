@@ -1,0 +1,7 @@
+include "common.dg"
+
+fun[c] main() i32 {
+    puts(c"Hello, world!")
+    puts(c"This message was printed by a Dingo program inside Docker.")
+    return 0
+}

@@ -1,6 +1,6 @@
 ## Dingo
 
-Dingo is a statically typed and compiled programming language focused on concise syntax, fast build times, full memory control, and easy interop from and to C. Think a less error-prone and more convenient version of C.
+Dingo is a statically typed and compiled programming language focused on concise syntax, fast build times, full memory control, and easy interop from and to C. 
 
 ## Example
 ```rust
@@ -74,6 +74,5 @@ Sorted ints:
 ```
 
 ## Dependencies
-* Go 
-* LLVM 
-* Go LLVM bindings
+* Go >= 1.6.2
+* LLVM 6.0 and Go bindings
