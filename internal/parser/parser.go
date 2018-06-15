@@ -672,7 +672,7 @@ func (p *parser) parseType(optional bool) ir.Expr {
 			t.SetRange(pos, p.pos)
 		}
 		return t
-	} else if p.token.Is(token.Pointer) {
+	} else if p.token.OneOf(token.And, token.Land) {
 		return p.parsePointerType()
 	} else if p.token.Is(token.Lbrack) {
 		return p.parseArrayType()
@@ -690,15 +690,26 @@ func (p *parser) parseType(optional bool) ir.Expr {
 
 func (p *parser) parsePointerType() ir.Expr {
 	pointer := &ir.PointerTypeExpr{}
-	pointer.SetPos(p.pos)
-	p.expect(token.Pointer)
+	tok, pos := p.token, p.pos
+	p.next()
 	pointer.Decl = token.Val
 	if p.token.OneOf(token.Var, token.Val) {
 		pointer.Decl = p.token
 		p.next()
 	}
 	pointer.X = p.parseType(false)
-	pointer.SetEndPos(p.pos)
+	pointer.SetRange(pos, p.pos)
+	if tok.Is(token.Land) {
+		// && is a single token so double pointer needs to be handled separately
+		inner := &ir.PointerTypeExpr{}
+		inner.Decl = pointer.Decl
+		inner.X = pointer.X
+		pos.Offset++
+		pos.Column++
+		inner.SetRange(pos, p.pos)
+		pointer.Decl = token.Val
+		pointer.X = inner
+	}
 	return pointer
 }
 

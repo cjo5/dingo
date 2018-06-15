@@ -259,7 +259,7 @@ func NewPosition1(filename string) Position {
 }
 
 // NoPosition means it wasn't part of a file.
-var NoPosition = Position{Filename: "", Offset: 0, Line: -1, Column: -1}
+var NoPosition = Position{}
 
 func (p Position) String() string {
 	var buf bytes.Buffer
@@ -283,5 +283,5 @@ func (p Position) String() string {
 
 // IsValid returns true if it's a valid file position.
 func (p Position) IsValid() bool {
-	return p.Line > -1
+	return p.Line > 0
 }

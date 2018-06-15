@@ -1,4 +1,4 @@
-include "../common.dg"
+include "../test/common.dg"
 
 fun factorial(i i32) i32 {
     if i <= 1 {
