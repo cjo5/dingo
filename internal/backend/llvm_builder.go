@@ -100,20 +100,33 @@ func (cb *llvmCodeBuilder) validateMainFunc(mod *ir.Module) {
 	mainFunc := mod.FindFuncSymbol("main")
 	if mainFunc != nil {
 		tmain := mainFunc.T.(*ir.FuncType)
-		msg := ""
+		pos := mainFunc.DefPos
 
 		if !tmain.C {
-			msg = fmt.Sprintf("invalid main function (not declared as C function)")
-		} else if len(tmain.Params) > 0 {
-			msg = fmt.Sprintf("invalid main function (expected 0 parameters, got %d)", len(tmain.Params))
-		} else if tmain.Return.ID() != ir.TInt32 {
-			msg = fmt.Sprintf("invalid main function (expected return type %s, got %s)", ir.TInt32, tmain.Return)
-		} else if !mainFunc.Public {
-			msg = fmt.Sprintf("invalid main function (not declared as public)")
+			cb.errors.Add(pos, "'main' must be declared as a C function")
 		}
 
-		if len(msg) > 0 {
-			cb.errors.Add(mainFunc.DefPos, msg)
+		if len(tmain.Params) > 0 {
+			param0 := tmain.Params[0]
+			if param0.T.ID() != ir.TInt32 {
+				cb.errors.Add(pos, "first parameter of 'main' must have type %s (has type %s)", ir.TInt32, param0.T)
+			}
+		}
+
+		if len(tmain.Params) > 1 {
+			param1 := tmain.Params[1]
+			texpected := ir.NewPointerType(ir.NewPointerType(ir.NewBasicType(ir.TInt8), true), true)
+			if !param1.T.Equals(texpected) {
+				cb.errors.Add(pos, "second parameter of 'main' must have type %s (has type %s)", texpected, param1.T)
+			}
+		}
+
+		if len(tmain.Params) > 2 {
+			cb.errors.Add(pos, "'main' can have no more than 2 parameters (got %d)", len(tmain.Params))
+		}
+
+		if tmain.Return.ID() != ir.TInt32 {
+			cb.errors.Add(pos, "'main' must have return type %s (has type %s)", ir.TInt32, tmain.Return)
 		}
 	} else {
 		cb.errors.Add(mod.Path, "no main function")
