@@ -293,7 +293,11 @@ func (v *typeChecker) VisitStructDecl(decl *ir.StructDecl) {
 	if untyped {
 		decl.Sym.T = ir.TBuiltinUntyped
 	} else {
-		structt := decl.Sym.T.(*ir.StructType)
-		structt.SetBody(decl)
+		var fields []ir.Field
+		for _, field := range decl.Fields {
+			fields = append(fields, ir.Field{Sym: field.Sym, T: field.Type.Type()})
+		}
+		tstruct := decl.Sym.T.(*ir.StructType)
+		tstruct.SetBody(fields)
 	}
 }

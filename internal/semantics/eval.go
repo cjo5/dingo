@@ -567,10 +567,10 @@ func (v *typeChecker) VisitIdent(expr *ir.Ident) ir.Expr {
 		// Cycle or an error has already occurred
 		err = true
 	} else if v.exprMode != exprModeDot {
-		if v.exprMode != exprModeType && sym.ID == ir.TypeSymbol {
+		if v.exprMode != exprModeType && sym.IsType() {
 			v.c.error(expr.Pos(), "type %s cannot be used in an expression", sym.T)
 			err = true
-		} else if v.exprMode == exprModeType && sym.ID != ir.TypeSymbol {
+		} else if v.exprMode == exprModeType && !sym.IsType() {
 			v.c.error(expr.Pos(), "'%s' is not a type", sym.Name)
 			err = true
 		}
@@ -611,6 +611,8 @@ func (v *typeChecker) VisitDotExpr(expr *ir.DotExpr) ir.Expr {
 
 	if ir.IsUntyped(tx) {
 		// Do nothing
+	} else if ir.IsIncompleteType(tx, nil) {
+		v.c.errorNode(expr.X, "expression has incomplete type %s", tx)
 	} else {
 		var scope *ir.Scope
 		untyped := false

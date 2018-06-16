@@ -1,0 +1,31 @@
+include "../common.dg"
+
+fun[c] main() i32 {
+    val f1 Foo // expect-error: incomplete type Foo
+
+    var f2 Bar
+    f2.a  = 5
+
+    var f3 &Foo
+    f3.a = 5 // expect-error: expression has incomplete type Foo
+
+    return 0
+}
+
+struct Foo
+
+struct Bar
+
+struct Bar {
+    a i32
+}
+
+struct Bar
+
+struct Baz { // expect-error: struct must have at least 1 field
+    
+}
+
+pub struct Bax
+
+struct Bax // expect-dgc: re: error\(31\): redeclaration of 'Bax' \(previously declared as public at .*29:12\)

@@ -12,6 +12,7 @@ const (
 	ConstSymbol
 	FuncSymbol
 	ModuleSymbol
+	StructSymbol
 	TypeSymbol
 )
 
@@ -46,6 +47,8 @@ func (s SymbolID) String() string {
 		return "FuncSymbol"
 	case ModuleSymbol:
 		return "ModuleSymbol"
+	case StructSymbol:
+		return "StructSymbol"
 	case TypeSymbol:
 		return "TypeSymbol"
 	default:
@@ -61,8 +64,18 @@ func (s *Symbol) ReadOnly() bool {
 	return (s.Flags & SymFlagReadOnly) != 0
 }
 
-func (s *Symbol) Defined() bool {
+func (s *Symbol) IsDefined() bool {
 	return (s.Flags & SymFlagDefined) != 0
+}
+
+func (s *Symbol) IsType() bool {
+	switch s.ID {
+	case StructSymbol:
+		return true
+	case TypeSymbol:
+		return true
+	}
+	return false
 }
 
 func (s *Symbol) Untyped() bool {

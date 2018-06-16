@@ -86,7 +86,7 @@ func sortDeclDependencies(fqn string, decl ir.TopDecl, trace *[]ir.TopDecl, sort
 	for dep, node := range graph {
 		depSym := dep.Symbol()
 
-		if sym.ModFQN() != fqn && depSym.ID != ir.TypeSymbol {
+		if sym.ModFQN() != fqn && !depSym.IsType() {
 			// Only type symbols from other modules are needed
 			continue
 		} else if node.Weak {

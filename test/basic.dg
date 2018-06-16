@@ -1,7 +1,14 @@
-include "common.dg"
+//include "common.dg"
+
+struct Bar
+
+struct Bar {
+    a i32
+}
+
+//struct Bar
 
 fun[c] main() i32 {
-    val a &[i32]
-    *a
+    val f Bar
     return 0
 }

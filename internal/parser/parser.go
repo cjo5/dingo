@@ -462,15 +462,20 @@ func (p *parser) parseStructDecl(visibilityPos token.Position, visibility token.
 	p.next()
 	decl.Name = p.parseIdent()
 	decl.SetEndPos(p.pos)
-	p.expect(token.Lbrace)
-	p.blockCount++
-	flags := ir.AstFlagNoInit
-	for !p.token.OneOf(token.EOF, token.Rbrace) {
-		decl.Fields = append(decl.Fields, p.parseField(flags, token.Var))
-		p.expectSemi()
+	if p.token.OneOf(token.Semicolon, token.EOF) {
+		decl.Opaque = true
+	} else {
+		decl.Opaque = false
+		p.expect(token.Lbrace)
+		p.blockCount++
+		flags := ir.AstFlagNoInit
+		for !p.token.OneOf(token.EOF, token.Rbrace) {
+			decl.Fields = append(decl.Fields, p.parseField(flags, token.Var))
+			p.expectSemi()
+		}
+		p.expect(token.Rbrace)
+		p.blockCount--
 	}
-	p.expect(token.Rbrace)
-	p.blockCount--
 	return decl
 }
 
@@ -515,7 +520,9 @@ func (p *parser) parseStmt() (stmt ir.Stmt, sync bool) {
 	} else if !p.token.Is(token.Semicolon) {
 		stmt = p.parseExprOrAssignStmt()
 	}
-	stmt.SetEndPos(p.pos)
+	if stmt != nil {
+		stmt.SetEndPos(p.pos)
+	}
 	p.expectSemi()
 	return stmt, sync
 }

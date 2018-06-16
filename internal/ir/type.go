@@ -6,7 +6,6 @@ import (
 	"math"
 	"math/big"
 
-	"github.com/jhnl/dingo/internal/common"
 	"github.com/jhnl/dingo/internal/token"
 )
 
@@ -223,11 +222,12 @@ func (t *StructType) String() string {
 	return fmt.Sprintf("%s", t.Name())
 }
 
+func (t *StructType) Opaque() bool {
+	return !t.Sym.IsDefined()
+}
+
 func (t *StructType) Name() string {
-	if t.Sym != nil {
-		return t.Sym.Name
-	}
-	return "<anon>"
+	return t.Sym.Name
 }
 
 func (t *StructType) FieldIndex(fieldName string) int {
@@ -430,17 +430,14 @@ func NewModuleType(fqn string, scope *Scope) Type {
 	return t
 }
 
-func NewIncompleteStructType(decl *StructDecl) Type {
-	t := &StructType{Sym: decl.Sym, Scope: decl.Scope}
+func NewStructType(sym *Symbol, scope *Scope) Type {
+	t := &StructType{Sym: sym, Scope: scope}
 	t.id = TStruct
 	return t
 }
 
-func (t *StructType) SetBody(decl *StructDecl) Type {
-	common.Assert(t.Sym == decl.Sym, "Different struct decl")
-	for _, field := range decl.Fields {
-		t.Fields = append(t.Fields, Field{Sym: field.Sym, T: field.Type.Type()})
-	}
+func (t *StructType) SetBody(fields []Field) Type {
+	t.Fields = fields
 	return t
 }
 
@@ -486,14 +483,20 @@ func IsIncompleteType(t1 Type, outer Type) bool {
 				incomplete = true
 			}
 		}
+	case *StructType:
+		if t2.Opaque() {
+			if outer == nil || outer.ID() != TPointer {
+				incomplete = true
+			}
+		}
+	case *ArrayType:
+		incomplete = IsIncompleteType(t2.Elem, t2)
 	case *SliceType:
 		if !t2.Ptr {
 			incomplete = true
 		} else {
 			incomplete = IsIncompleteType(t2.Elem, t2)
 		}
-	case *ArrayType:
-		incomplete = IsIncompleteType(t2.Elem, t2)
 	case *PointerType:
 		incomplete = IsIncompleteType(t2.Underlying, t2)
 	}

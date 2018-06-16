@@ -55,7 +55,8 @@
         "dir": "struct",
         "tests": [
             "arguments.dg",
-            "bad_arguments.dg"
+            "bad_arguments.dg",
+            "opaque.dg"
         ]
     },
     {

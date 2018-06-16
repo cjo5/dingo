@@ -159,7 +159,10 @@ func (l *lexer) lex() (token.Token, token.Position, string) {
 		literal = string(l.src[startOffset:l.chOffset])
 	}
 
-	l.prev = tok
+	if !tok.OneOf(token.Comment, token.MultiComment) {
+		l.prev = tok
+	}
+
 	return tok, pos, literal
 }
 
@@ -169,8 +172,7 @@ func isLineTerminator(id token.Token) bool {
 		token.Integer, token.Float, token.Char, token.String, token.True, token.False, token.Null,
 		token.Rparen, token.Rbrace, token.Rbrack,
 		token.Continue, token.Break, token.Return,
-		token.Inc, token.Dec,
-		token.Comment, token.MultiComment:
+		token.Inc, token.Dec:
 		return true
 	default:
 		return false

@@ -152,7 +152,7 @@ func (cb *llvmCodeBuilder) buildModule(mod *ir.Module) {
 	for _, decl := range mod.Decls {
 		sym := decl.Symbol()
 
-		if sym.ID == ir.TypeSymbol || sym.ModFQN() == mod.FQN {
+		if sym.IsType() || sym.ModFQN() == mod.FQN {
 			cb.buildDecl(decl)
 		}
 	}
@@ -321,6 +321,10 @@ func (cb *llvmCodeBuilder) buildStructDecl(decl *ir.StructDecl) {
 	if cb.signature {
 		structt := cb.mod.Context().StructCreateNamed(mangle(decl.Sym))
 		cb.typeCtx[decl.Sym] = structt
+		return
+	}
+
+	if decl.Opaque {
 		return
 	}
 

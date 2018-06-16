@@ -161,6 +161,7 @@ func tryDeref(expr ir.Expr) ir.Expr {
 	}
 	if tres != nil {
 		starX := &ir.UnaryExpr{Op: token.Mul, X: expr}
+		starX.SetRange(expr.Pos(), expr.EndPos())
 		starX.T = tres
 		return starX
 	}
@@ -279,7 +280,7 @@ func (v *typeChecker) VisitCastExpr(expr *ir.CastExpr) ir.Expr {
 		err = true
 	} else {
 		sym := ir.ExprSymbol(expr.ToType)
-		if sym != nil && sym.ID != ir.TypeSymbol {
+		if sym != nil && !sym.IsType() {
 			v.c.error(expr.ToType.Pos(), "'%s' is not a type", sym.Name)
 			err = true
 		}
@@ -619,7 +620,7 @@ func (v *typeChecker) VisitStructLit(expr *ir.StructLit) ir.Expr {
 		expr.T = ir.TBuiltinUntyped
 		return expr
 	} else if nameSym := ir.ExprSymbol(expr.Name); nameSym != nil {
-		if nameSym.ID != ir.TypeSymbol || nameSym.T.ID() != ir.TStruct {
+		if nameSym.ID != ir.StructSymbol {
 			v.c.error(expr.Name.Pos(), "'%s' is not a struct", nameSym.Name)
 			expr.T = ir.TBuiltinUntyped
 			return expr

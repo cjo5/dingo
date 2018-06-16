@@ -57,7 +57,7 @@ func (v *symChecker) Module(mod *ir.Module) {
 
 func (v *symChecker) isTypeName(name *ir.Ident) bool {
 	if sym := v.c.lookup(name.Literal); sym != nil {
-		if sym.ID == ir.TypeSymbol {
+		if sym.IsType() {
 			v.c.error(name.Pos(), "%s is a type and cannot be used as an identifier", name.Literal)
 			return true
 		}
@@ -92,17 +92,29 @@ func (v *symChecker) VisitValDecl(decl *ir.ValDecl) {
 	}
 }
 
+func (v *symChecker) checkConsistentDecl(public bool, sym *ir.Symbol, name *ir.Ident) {
+	if public != sym.Public {
+		vis := "private"
+		if sym.Public {
+			vis = "public"
+		}
+		v.c.error(name.Pos(), "redeclaration of '%s' (previously declared as %s at %s)", name.Literal, vis, sym.DeclPos)
+	}
+}
+
 func (v *symChecker) VisitFuncDecl(decl *ir.FuncDecl) {
 	decl.Deps = make(ir.DeclDependencyGraph)
 
 	if sym := v.c.lookup(decl.Name.Literal); sym != nil {
-		if sym.ID == ir.FuncSymbol && (!sym.Defined() || decl.SignatureOnly()) {
+		if sym.ID == ir.FuncSymbol && (!sym.IsDefined() || decl.SignatureOnly()) {
 			decl.Sym = sym
 		}
 	}
 
+	public := isPublic(decl.Visibility)
+
 	if decl.Sym == nil {
-		decl.Sym = v.c.insert(v.c.scope, ir.FuncSymbol, isPublic(decl.Visibility), decl.Name.Literal, decl.Name.Pos())
+		decl.Sym = v.c.insert(v.c.scope, ir.FuncSymbol, public, decl.Name.Literal, decl.Name.Pos())
 		v.c.mapTopDecl(decl.Sym, decl)
 	}
 
@@ -123,8 +135,6 @@ func (v *symChecker) VisitFuncDecl(decl *ir.FuncDecl) {
 		return
 	}
 
-	public := decl.Visibility.Is(token.Public)
-
 	if decl.SignatureOnly() {
 		if !public {
 			v.c.error(decl.Name.Pos(), "'%s' is not declared as public", decl.Name.Literal)
@@ -135,31 +145,46 @@ func (v *symChecker) VisitFuncDecl(decl *ir.FuncDecl) {
 		decl.Sym.DefPos = decl.Name.Pos()
 	}
 
-	if public != decl.Sym.Public {
-		vis := "private"
-		if decl.Sym.Public {
-			vis = "public"
-		}
-		v.c.error(decl.Name.Pos(), "redeclaration of '%s' (previously declared as %s at %s)",
-			decl.Name.Literal, vis, decl.Sym.DeclPos)
-	}
+	v.checkConsistentDecl(public, decl.Sym, decl.Name)
 }
 
 func (v *symChecker) VisitStructDecl(decl *ir.StructDecl) {
-	decl.Deps = make(ir.DeclDependencyGraph)
-
-	decl.Sym = v.c.insert(v.c.scope, ir.TypeSymbol, isPublic(decl.Visibility), decl.Name.Literal, decl.Name.Pos())
-	decl.Scope = ir.NewScope(ir.FieldScope, v.fqn, nil)
-
-	if decl.Sym != nil {
-		decl.Sym.T = ir.NewIncompleteStructType(decl)
+	if !decl.Opaque && len(decl.Fields) == 0 {
+		v.c.error(decl.Pos(), "struct must have at least 1 field")
+		return
 	}
 
-	v.c.mapTopDecl(decl.Sym, decl)
+	decl.Deps = make(ir.DeclDependencyGraph)
+	decl.Scope = ir.NewScope(ir.FieldScope, v.fqn, nil)
+
+	if sym := v.c.lookup(decl.Name.Literal); sym != nil {
+		if sym.ID == ir.StructSymbol && (!sym.IsDefined() || decl.Opaque) {
+			decl.Sym = sym
+		}
+	}
+
+	public := decl.Visibility.Is(token.Public)
+
+	if decl.Sym == nil {
+		decl.Sym = v.c.insert(v.c.scope, ir.StructSymbol, public, decl.Name.Literal, decl.Name.Pos())
+		v.c.mapTopDecl(decl.Sym, decl)
+	}
+
+	if decl.Sym != nil && !decl.Sym.IsDefined() {
+		decl.Sym.T = ir.NewStructType(decl.Sym, decl.Scope)
+		if !decl.Opaque {
+			decl.Sym.Flags |= ir.SymFlagDefined
+			decl.Sym.DefPos = decl.Name.Pos()
+		}
+	}
 
 	defer setScope(setScope(v.c, decl.Scope))
 	for _, field := range decl.Fields {
 		v.VisitValDecl(field)
+	}
+
+	if decl.Sym != nil {
+		v.checkConsistentDecl(public, decl.Sym, decl.Name)
 	}
 }
 

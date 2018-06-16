@@ -234,6 +234,7 @@ func (d *FuncDecl) SignatureOnly() bool { return d.Body == nil }
 type StructDecl struct {
 	baseTopDecl
 	Name   *Ident
+	Opaque bool
 	Fields []*ValDecl
 	Scope  *Scope
 }
