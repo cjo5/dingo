@@ -45,7 +45,7 @@ UnaryOp = ('!' | '-' | '*') | ('&' ['val' | 'var'])
 AsExpr = ['as' Type]
 Operand = NestedExpr | LenExpr | SizeExpr | Name | BasicLit | ArrayLit | FuncLit
 NestedExpr = '(' Expr ')'
-LenExpr = 'lenof' '(' Expr ')'
+LenExpr = 'len' '(' Expr ')'
 SizeExpr = 'sizeof' '(' Type ')'
 
 ArgExpr = [IDENT ':'] Expr

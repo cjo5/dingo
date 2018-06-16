@@ -1,11 +1,7 @@
 include "common.dg"
 
 fun[c] main() i32 {
-    val b = Foo{a: 11}.a
-    putiln(b)
+    val a &[i32]
+    *a
     return 0
-}
-
-struct Foo {
-    a i32
 }

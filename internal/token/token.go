@@ -165,7 +165,7 @@ var tokens = [...]string{
 	Continue: "continue",
 	Break:    "break",
 	As:       "as",
-	Lenof:    "lenof",
+	Lenof:    "len",
 	Sizeof:   "sizeof",
 	Module:   "module",
 	Include:  "include",

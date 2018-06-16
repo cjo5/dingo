@@ -5,7 +5,7 @@ fun[c] main() i32 {
     var ptr = &var data
     val slice = &var ptr[:1]
 
-    putiln(lenof(slice)) // expect-output: 1
+    putiln(len(slice)) // expect-output: 1
     putiln(slice[0]) // expect-output: 9
 
     slice[0]++

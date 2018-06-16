@@ -37,8 +37,8 @@ fun swap(x &var i32, y &var i32) {
 }
 
 fun bubbleSort(slice &var [i32]) {
-    for i = 0; i < lenof(slice)-1; i++ {
-        for j = 0; j < lenof(slice)-1; j++ {
+    for i = 0; i < len(slice)-1; i++ {
+        for j = 0; j < len(slice)-1; j++ {
             if slice[j] > slice[j+1] {
                 swap(&var slice[j], &var slice[j+1])
             }
@@ -47,7 +47,7 @@ fun bubbleSort(slice &var [i32]) {
 }
 
 fun printSlice(slice &[i32]) {
-    for i = 0; i < lenof(slice); i++ {
+    for i = 0; i < len(slice); i++ {
         puti(slice[i])
         puts(c"")
     }

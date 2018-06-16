@@ -1,0 +1,16 @@
+include "../test/common.dg"
+
+fun[c] main(argc i32, argv &&i8) i32 {
+    val args = &argv[:argc]
+
+    if len(args) <= 1 {
+        puts(c"no files")
+        return 1
+    }
+    
+    for i = 0; i < len(args); i++ {
+        puts(args[i])
+    }
+    
+    return 0
+}

@@ -26,9 +26,9 @@ fun[c] main() i32 {
 }
 
 fun printSlice(slice &[i32]) {
-    for i = 0; i < lenof(slice); i++ {
+    for i = 0; i < len(slice); i++ {
         puti(slice[i])
-        if (i+1) < lenof(slice) {
+        if (i+1) < len(slice) {
             putchar(0x2c)
             putchar(0x20)
         }
@@ -36,9 +36,9 @@ fun printSlice(slice &[i32]) {
 }
 
 fun reverse(slice &var [i32]) {
-    for i = 0; i < lenof(slice)/2; i++ {
+    for i = 0; i < len(slice)/2; i++ {
         val tmp = slice[i]
-        val j = (lenof(slice)-1)-i
+        val j = (len(slice)-1)-i
         slice[i] = slice[j]
         slice[j] = tmp
     }
