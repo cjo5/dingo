@@ -1,16 +1,55 @@
 include "../test/common.dg"
 
+struct FILE
+fun[c] fopen(filename &i8, mode &i8) &var FILE
+fun[c] fclose(stream &var FILE) i32
+fun[c] fread(ptr &var void, size u64, nmemb u64, stream &var FILE) u64
+fun[c] ferror(stream &var FILE) i32
+
 fun[c] main(argc i32, argv &&i8) i32 {
     val args = &argv[:argc]
 
-    if len(args) <= 1 {
-        puts(c"no files")
+    if len(args) != 2 {
+        puts(c"exactly 1 argument required")
+        return 1
+    }
+
+    if !printFile(args[1]) {
         return 1
     }
     
-    for i = 0; i < len(args); i++ {
-        puts(args[i])
-    }
-    
     return 0
+}
+
+fun printFile(filename &i8) bool {
+    val file = fopen(filename, c"r")
+    if file == null {
+        puts(c"failed to open file")
+        return false
+    }
+
+    var buffer [i8:1024]
+    var n u64 = 1
+    var total u64
+
+    while n > 0 {
+        n = fread(&var buffer[0], 1, 1024, file)
+        for i = 0u64; i < n; i++ {
+            putchar(buffer[i] as i32)
+        }
+        total += n
+    }
+
+    if total > 0 {
+        putchar('\n')
+    }
+
+    val err = ferror(file)
+    if err != 0 {
+        puts(c"an error occurred")
+        putiln(err)
+    }
+
+    fclose(file)
+    return err == 0
 }

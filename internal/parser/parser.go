@@ -996,7 +996,7 @@ func (p *parser) parseBasicLit(prefix ir.Expr) ir.Expr {
 
 		p.next()
 
-		if p.token.OneOf(token.Integer, token.Float) && p.token.Is(token.Ident) {
+		if lit.Tok.OneOf(token.Integer, token.Float) && p.token.Is(token.Ident) {
 			lit.Suffix = p.parseName()
 		}
 
