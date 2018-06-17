@@ -103,13 +103,13 @@ func llvmSliceType(t *ir.SliceType, ctx *llvmTypeContext) llvm.Type {
 }
 
 func llvmPointerType(t *ir.PointerType, ctx *llvmTypeContext) llvm.Type {
-	var tunderlying llvm.Type
-	if t.Underlying.ID() == ir.TUntyped || t.Underlying.ID() == ir.TVoid {
-		tunderlying = llvm.Int8Type()
+	var tbase llvm.Type
+	if t.Base.ID() == ir.TUntyped || t.Base.ID() == ir.TVoid {
+		tbase = llvm.Int8Type()
 	} else {
-		tunderlying = llvmType(t.Underlying, ctx)
+		tbase = llvmType(t.Base, ctx)
 	}
-	return llvm.PointerType(tunderlying, 0)
+	return llvm.PointerType(tbase, 0)
 }
 
 func llvmFuncType(t *ir.FuncType, ctx *llvmTypeContext) llvm.Type {

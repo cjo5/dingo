@@ -91,7 +91,7 @@ func (v *typeChecker) tryMakeTypedLit(expr ir.Expr, target ir.Type) bool {
 			case *ir.SliceType:
 				lit.T = ir.NewSliceType(ttarget.Elem, false, true)
 			case *ir.PointerType:
-				lit.T = ir.NewPointerType(ttarget.Underlying, false)
+				lit.T = ir.NewPointerType(ttarget.Base, false)
 			case *ir.FuncType:
 				lit.T = ir.NewFuncType(ttarget.Params, ttarget.Return, ttarget.C)
 			default:
@@ -150,7 +150,7 @@ func tryDeref(expr ir.Expr) ir.Expr {
 	var tres ir.Type
 	switch t1 := expr.Type().(type) {
 	case *ir.PointerType:
-		switch t2 := t1.Underlying.(type) {
+		switch t2 := t1.Base.(type) {
 		case *ir.StructType:
 			tres = t2
 		case *ir.ArrayType:
@@ -444,7 +444,7 @@ func (v *typeChecker) VisitSliceExpr(expr *ir.SliceExpr) ir.Expr {
 		telem = t.Elem
 		ro = t.ReadOnly
 	case *ir.PointerType:
-		telem = t.Underlying
+		telem = t.Base
 		ro = t.ReadOnly
 	}
 
@@ -738,7 +738,7 @@ func createDefaultBasicLit(t ir.Type) *ir.BasicLit {
 	} else if ir.IsTypeID(t, ir.TPointer) {
 		lit = &ir.BasicLit{Tok: token.Null, Value: token.Null.String()}
 		ptr := t.(*ir.PointerType)
-		lit.T = ir.NewPointerType(ptr.Underlying, true)
+		lit.T = ir.NewPointerType(ptr.Base, true)
 	} else if ir.IsTypeID(t, ir.TFunc) {
 		lit = &ir.BasicLit{Tok: token.Null, Value: token.Null.String()}
 		fun := t.(*ir.FuncType)

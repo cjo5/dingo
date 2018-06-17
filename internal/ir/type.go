@@ -318,13 +318,13 @@ func (t *SliceType) String() string {
 
 type PointerType struct {
 	baseType
-	Underlying Type
-	ReadOnly   bool // Applies to the Underlying type
+	Base     Type
+	ReadOnly bool // Applies to the Base type
 }
 
 func (t *PointerType) Equals(other Type) bool {
 	if otherPtr, ok := other.(*PointerType); ok {
-		return t.ReadOnly == otherPtr.ReadOnly && t.Underlying.Equals(otherPtr.Underlying)
+		return t.ReadOnly == otherPtr.ReadOnly && t.Base.Equals(otherPtr.Base)
 	}
 	return false
 }
@@ -335,7 +335,7 @@ func (t *PointerType) ImplicitCastOK(to Type) bool {
 		case t.Equals(toPtr):
 			return true
 		case !t.ReadOnly || toPtr.ReadOnly:
-			if toPtr.Underlying.ID() == TVoid || t.Underlying.Equals(toPtr.Underlying) {
+			if toPtr.Base.ID() == TVoid || t.Base.Equals(toPtr.Base) {
 				return true
 			}
 		}
@@ -348,9 +348,9 @@ func (t *PointerType) ExplicitCastOK(to Type) bool {
 		switch {
 		case t.Equals(toPtr):
 			return true
-		case t.Underlying.ID() == TVoid || toPtr.Underlying.ID() == TVoid:
+		case t.Base.ID() == TVoid || toPtr.Base.ID() == TVoid:
 			return true
-		case t.Underlying.Equals(toPtr.Underlying):
+		case t.Base.Equals(toPtr.Base):
 			return true
 		}
 	}
@@ -362,7 +362,7 @@ func (t *PointerType) String() string {
 	if !t.ReadOnly {
 		extra = token.Var.String() + " "
 	}
-	return fmt.Sprintf("%s%s%s", token.Pointer.String(), extra, t.Underlying)
+	return fmt.Sprintf("%s%s%s", token.Pointer.String(), extra, t.Base)
 }
 
 type FuncType struct {
@@ -453,8 +453,8 @@ func NewSliceType(elem Type, readOnly bool, absorbedPtr bool) Type {
 	return t
 }
 
-func NewPointerType(Underlying Type, readOnly bool) Type {
-	t := &PointerType{Underlying: Underlying, ReadOnly: readOnly}
+func NewPointerType(Base Type, readOnly bool) Type {
+	t := &PointerType{Base: Base, ReadOnly: readOnly}
 	t.id = TPointer
 	return t
 }
@@ -498,7 +498,7 @@ func IsIncompleteType(t1 Type, outer Type) bool {
 			incomplete = IsIncompleteType(t2.Elem, t2)
 		}
 	case *PointerType:
-		incomplete = IsIncompleteType(t2.Underlying, t2)
+		incomplete = IsIncompleteType(t2.Base, t2)
 	}
 	return incomplete
 }
@@ -506,7 +506,7 @@ func IsIncompleteType(t1 Type, outer Type) bool {
 func IsCompilerType(t1 Type) bool {
 	switch t2 := t1.(type) {
 	case *PointerType:
-		return IsUntyped(t2.Underlying)
+		return IsUntyped(t2.Base)
 	case *ArrayType:
 		return IsCompilerType(t2.Elem)
 	case *BasicType:
@@ -522,7 +522,7 @@ func IsUntyped(t Type) bool {
 
 func IsUntypedPointer(t Type) bool {
 	if tptr, ok := t.(*PointerType); ok {
-		return IsUntyped(tptr.Underlying)
+		return IsUntyped(tptr.Base)
 	}
 	return false
 }

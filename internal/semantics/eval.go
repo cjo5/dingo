@@ -334,7 +334,7 @@ func (v *typeChecker) VisitUnaryExpr(expr *ir.UnaryExpr) ir.Expr {
 		} else {
 			switch t := tx.(type) {
 			case *ir.PointerType:
-				expr.T = t.Underlying
+				expr.T = t.Base
 			default:
 				v.c.error(expr.X.Pos(), "expression cannot be dereferenced (has type %s)", tx)
 			}

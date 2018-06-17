@@ -1021,7 +1021,7 @@ func (cb *llvmCodeBuilder) buildSliceExpr(expr *ir.SliceExpr) llvm.Value {
 	case *ir.PointerType:
 		tmp := cb.b.CreateLoad(val, "")
 		gep = cb.b.CreateInBoundsGEP(tmp, []llvm.Value{start}, "")
-		tptr = llvm.PointerType(cb.llvmType(t.Underlying), 0)
+		tptr = llvm.PointerType(cb.llvmType(t.Base), 0)
 	default:
 		panic(fmt.Sprintf("Unhandled slice type %T", t))
 	}
