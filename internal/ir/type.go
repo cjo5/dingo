@@ -285,7 +285,7 @@ func (t *SliceType) CastableTo(other Type) bool {
 type PointerType struct {
 	baseType
 	Elem     Type
-	ReadOnly bool // Applies to the Base type
+	ReadOnly bool // Applies to the Elem type
 }
 
 func (t *PointerType) String() string {

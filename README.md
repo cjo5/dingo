@@ -9,9 +9,9 @@ Dingo is a statically typed and compiled programming language focused on concise
 ## Example
 ```rust
 // C function declarations
-fun[c] abs(i32) i32
-fun[c] putchar(i32) i32
-fun[c] puts(&i8) i32
+fun[c] abs(c_int) c_int
+fun[c] putchar(c_int) c_int
+fun[c] puts(&c_char) c_int
 
 /*
     Comment
@@ -19,7 +19,7 @@ fun[c] puts(&i8) i32
         Nested comment
     */
 */
-fun[c] main() i32 {
+fun[c] main() c_int {
     // Infer type [i32:5]
     var arr = [31, 4, -10, 9, 2]
 

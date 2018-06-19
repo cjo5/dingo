@@ -1,17 +1,3 @@
-// C types
-atype c_char i8
-atype c_uchar u8
-atype c_short i16
-atype c_ushort u16
-atype c_int i32
-atype c_uint i32
-atype c_longlong i64
-atype c_ulonglong u64
-atype c_usize u64
-atype c_float f32
-atype c_double f64
-atype c_void void
-
 // std
 fun[c] atoi(&c_char) c_int
 fun[c] exit(c_int)

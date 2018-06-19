@@ -21,7 +21,7 @@ fun[c] main(argc c_int, argv &&c_char) c_int {
     return 0
 }
 
-fun printFile(filename &i8) bool {
+fun printFile(filename &c_char) bool {
     val file = fopen(filename, c"r")
     if file == null {
         puts(c"failed to open file")

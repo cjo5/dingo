@@ -30,7 +30,11 @@ const (
 var builtinScope = ir.NewScope(ir.RootScope, "-", nil)
 
 func addBuiltinType(t ir.Type) {
-	sym := ir.NewSymbol(ir.TypeSymbol, builtinScope, true, t.ID().String(), token.NoPosition)
+	addBuiltinAliasType(t.ID().String(), t)
+}
+
+func addBuiltinAliasType(name string, t ir.Type) {
+	sym := ir.NewSymbol(ir.TypeSymbol, builtinScope, true, name, token.NoPosition)
 	sym.T = t
 	builtinScope.Insert(sym)
 }
@@ -48,6 +52,20 @@ func init() {
 	addBuiltinType(ir.TBuiltinInt8)
 	addBuiltinType(ir.TBuiltinFloat64)
 	addBuiltinType(ir.TBuiltinFloat32)
+
+	// TODO: Change to distinct types
+	addBuiltinAliasType("c_void", ir.TBuiltinVoid)
+	addBuiltinAliasType("c_char", ir.TBuiltinInt8)
+	addBuiltinAliasType("c_uchar", ir.TBuiltinUInt8)
+	addBuiltinAliasType("c_short", ir.TBuiltinInt16)
+	addBuiltinAliasType("c_ushort", ir.TBuiltinUInt16)
+	addBuiltinAliasType("c_int", ir.TBuiltinInt32)
+	addBuiltinAliasType("c_uint", ir.TBuiltinUInt32)
+	addBuiltinAliasType("c_longlong", ir.TBuiltinInt64)
+	addBuiltinAliasType("c_ulonglong", ir.TBuiltinUInt64)
+	addBuiltinAliasType("c_usize", ir.TBuiltinUInt64)
+	addBuiltinAliasType("c_float", ir.TBuiltinFloat32)
+	addBuiltinAliasType("c_double", ir.TBuiltinFloat64)
 }
 
 type context struct {
