@@ -68,6 +68,13 @@ func (s *Symbol) IsDefined() bool {
 	return (s.Flags & SymFlagDefined) != 0
 }
 
+func (s *Symbol) IsUntyped() bool {
+	if s.T == nil || IsUntyped(s.T) {
+		return true
+	}
+	return false
+}
+
 func (s *Symbol) IsType() bool {
 	switch s.ID {
 	case StructSymbol:
@@ -78,13 +85,13 @@ func (s *Symbol) IsType() bool {
 	return false
 }
 
-func (s *Symbol) Untyped() bool {
-	if s.T == nil || IsUntyped(s.T) {
-		return true
-	}
-	return false
-}
-
 func (s *Symbol) ModFQN() string {
 	return s.Parent.FQN
+}
+
+func (s *Symbol) FQN() string {
+	if s.ID == ModuleSymbol {
+		return s.ModFQN()
+	}
+	return fmt.Sprintf("%s.%s", s.ModFQN(), s.Name)
 }

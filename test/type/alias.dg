@@ -1,0 +1,58 @@
+include "../common.dg"
+
+atype s1 i32
+
+fun[c] main() i32 {
+    val a1 s1 = 1
+    val a2 s1
+    putiln(a1) // expect-output: 1
+    putiln(a2) // expect-output: 0
+
+    atype s2 Foo
+
+    var b1 s2 = s2{a: 1}
+    var b2 s2
+    b1.a += 1
+    putiln(b1.a) // expect-output: 2
+    putiln(b2.a) // expect-output: 0
+
+    atype s3 [s1:5]
+
+    var c1 s3 = [1, 2, 3, 4, 5]
+    var c2 s3
+    putiln(c1[2]) // expect-output: 3
+    putiln(c2[2]) // expect-output: 0
+
+    atype s4 s1
+
+    var d1 s4 = 4
+    var d2 s4
+    putiln(d1) // expect-output: 4
+    putiln(d2) // expect-output: 0
+
+    atype s5 &s1
+
+    var e1 s5 = &a1
+    var e2 s5
+    putiln(*e1) // expect-output: 1
+
+    atype s6 &[s1]
+
+    var g1 s6 = &c1[:]
+    var g2 s6
+    putiln(g1[1]) // expect-output: 2
+
+    atype s7 fun(i32)i32
+
+    val h1 s7 = fun(a i32) i32 {
+        return a*a
+    }
+    val h2 s7
+    putiln(h1(5)) // expect-output: 25
+
+    return 0
+}
+
+struct Foo {
+    a i32
+}

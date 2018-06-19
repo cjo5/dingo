@@ -34,7 +34,7 @@ func registerModules(c *context) {
 				} else if moddep, ok := c.set.Modules[fqn]; ok {
 					sym := c.insert(mod.Scope, ir.ModuleSymbol, isPublic(dep.Visibility), dep.Alias.Literal, dep.ModName.Pos())
 					if sym != nil {
-						sym.T = ir.NewModuleType(fqn, moddep.Scope)
+						sym.T = ir.NewModuleType(sym, moddep.Scope)
 					}
 				} else {
 					c.error(dep.ModName.Pos(), "module '%s' not found", fqn)
@@ -74,6 +74,18 @@ func valOrConstID(tok token.Token) ir.SymbolID {
 		return ir.ConstSymbol
 	}
 	return ir.ValSymbol
+}
+
+func (v *symChecker) VisitTypeTopDecl(decl *ir.TypeTopDecl) {
+	decl.Deps = make(ir.DeclDependencyGraph)
+	if !v.isTypeName(decl.Name) {
+		decl.Sym = v.c.insert(v.c.scope, ir.TypeSymbol, isPublic(decl.Visibility), decl.Name.Literal, decl.Name.Pos())
+		v.c.mapTopDecl(decl.Sym, decl)
+	}
+}
+
+func (v *symChecker) VisitTypeDecl(decl *ir.TypeDecl) {
+	decl.Sym = v.c.insert(v.c.scope, ir.TypeSymbol, false, decl.Name.Literal, decl.Name.Pos())
 }
 
 func (v *symChecker) VisitValTopDecl(decl *ir.ValTopDecl) {
@@ -126,6 +138,8 @@ func (v *symChecker) VisitFuncDecl(decl *ir.FuncDecl) {
 		v.VisitValDecl(param)
 	}
 
+	v.VisitValDecl(decl.Return)
+
 	if decl.Body != nil {
 		decl.Body.Scope = decl.Scope
 		ir.VisitStmtList(v, decl.Body.Stmts)
@@ -168,14 +182,13 @@ func (v *symChecker) VisitStructDecl(decl *ir.StructDecl) {
 	if decl.Sym == nil {
 		decl.Sym = v.c.insert(v.c.scope, ir.StructSymbol, public, decl.Name.Literal, decl.Name.Pos())
 		v.c.mapTopDecl(decl.Sym, decl)
-	}
-
-	if decl.Sym != nil && !decl.Sym.IsDefined() {
-		decl.Sym.T = ir.NewStructType(decl.Sym, decl.Scope)
-		if !decl.Opaque {
+		if decl.Sym != nil && !decl.Opaque {
 			decl.Sym.Flags |= ir.SymFlagDefined
-			decl.Sym.DefPos = decl.Name.Pos()
 		}
+	} else if !decl.Sym.IsDefined() && !decl.Opaque {
+		decl.Sym.Flags |= ir.SymFlagDefined
+		decl.Sym.DefPos = decl.Name.Pos()
+		v.c.mapTopDecl(decl.Sym, decl)
 	}
 
 	defer setScope(setScope(v.c, decl.Scope))

@@ -13,7 +13,8 @@ TopLevel = Directive* Visibility? Directive* [Import | Decl] EOS
 Visibility = 'pub' | 'priv' 
 Directive = '@' IDENT
 Import = 'import' ModName ['as' IDENT]
-Decl = ValDecl | FuncDecl | StructDecl
+Decl = TypeDecl | ValDecl | FuncDecl | StructDecl
+TypeDecl = 'atype' IDENT Type
 ValDecl = ('const' | 'val' | 'var') IDENT (Type | (Type? '=' Expr))
 FuncDecl = 'fun' ['[' IDENT ']'] IDENT FuncSignature Block?
 StructDecl = 'struct' IDENT StructBody?
@@ -29,7 +30,7 @@ ArrayType = '[' Type [INTEGER ':'] ']'
 FuncType 'fun' ['[' IDENT ']'] FuncSignature
 
 Block = '{' Stmt* '}'
-Stmt = [Block | ValDecl | AssignOrExprStmt | 'if' IfStmt | WhileStmt |
+Stmt = [Block | TypeDecl | ValDecl | AssignOrExprStmt | 'if' IfStmt | WhileStmt |
         ForStmt | ReturnStmt | 'break' | 'continue'] EOS
 ExprOrAssignStmt = Expr ['++' | '--' | (('=' | '+=' | '-=' | '*=' | '/=' | '%=' ) Expr)]
 IfStmt = Condition Block [('elif' IfStmt) | ('else' Block)]

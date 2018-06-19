@@ -42,9 +42,9 @@ func main() {
 
 	tester.runTestGroups("", groups)
 	fmt.Printf("\nFinished %d test(s)\n%s: %d %s: %d %s: %d %s: %d\n\n",
-		tester.total, common.BoldGreen(statusSuccess.String()), tester.success,
-		common.BoldYellow(statusSkip.String()), tester.skip, common.BoldRed(statusFail.String()), tester.fail,
-		common.BoldRed(statusBad.String()), tester.bad)
+		tester.total, statusSuccess, tester.success,
+		statusSkip, tester.skip, statusFail, tester.fail,
+		statusBad, tester.bad)
 }
 
 type testRunner struct {
@@ -104,7 +104,7 @@ func (t status) String() string {
 	case statusFail:
 		return common.BoldRed("FAIL")
 	case statusSkip:
-		return common.BoldYellow("SKIP")
+		return common.BoldPurple("SKIP")
 	case statusBad:
 		return common.BoldRed("BAD")
 	default:
@@ -346,14 +346,14 @@ func compareOutput(expectedOutput []*testOutput, actualOutput []*testOutput, res
 	if actualIdx < len(actualOutput) {
 		result.addReason("%s:", common.BoldRed("got"))
 		for i := actualIdx; i < len(actualOutput); i++ {
-			result.addReason(" [%d] (%s): %s", i+1, actualOutput[i].pos, actualOutput[i].text)
+			result.addReason("[%d] (%s): %s", i+1, actualOutput[i].pos, actualOutput[i].text)
 		}
 	}
 
 	if expectedIdx < len(expectedOutput) {
 		result.addReason("%s:", common.BoldGreen("expected"))
 		for i := expectedIdx; i < len(expectedOutput); i++ {
-			result.addReason("      [%d] (%s): %s", i+1, expectedOutput[i].pos, expectedOutput[i].text)
+			result.addReason("[%d] (%s): %s", i+1, expectedOutput[i].pos, expectedOutput[i].text)
 		}
 	}
 }

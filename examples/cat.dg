@@ -1,12 +1,12 @@
 include "../test/common.dg"
 
 struct FILE
-fun[c] fopen(filename &i8, mode &i8) &var FILE
-fun[c] fclose(stream &var FILE) i32
-fun[c] fread(ptr &var void, size u64, nmemb u64, stream &var FILE) u64
-fun[c] ferror(stream &var FILE) i32
+fun[c] fopen(filename &c_char, mode &c_char) &var FILE
+fun[c] fclose(stream &var FILE) c_int
+fun[c] fread(ptr &var c_void, size c_usize, nmemb c_usize, stream &var FILE) c_usize
+fun[c] ferror(stream &var FILE) c_int
 
-fun[c] main(argc i32, argv &&i8) i32 {
+fun[c] main(argc c_int, argv &&c_char) c_int {
     val args = &argv[:argc]
 
     if len(args) != 2 {

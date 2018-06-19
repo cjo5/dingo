@@ -224,6 +224,8 @@ func (cb *llvmCodeBuilder) llvmType(t ir.Type) llvm.Type {
 
 func (cb *llvmCodeBuilder) buildDecl(decl ir.Decl) {
 	switch t := decl.(type) {
+	case *ir.TypeTopDecl:
+	case *ir.TypeDecl:
 	case *ir.ValTopDecl:
 		cb.buildValTopDecl(t)
 	case *ir.ValDecl:
@@ -721,7 +723,7 @@ func (cb *llvmCodeBuilder) buildUnaryExpr(expr *ir.UnaryExpr, load bool) llvm.Va
 	case token.Lnot:
 		val := cb.buildExprVal(expr.X)
 		return cb.b.CreateNot(val, "")
-	case token.Mul:
+	case token.Deref:
 		val := cb.buildExprVal(expr.X)
 
 		if load {
@@ -777,7 +779,7 @@ func (cb *llvmCodeBuilder) buildBasicLit(expr *ir.BasicLit) llvm.Value {
 	} else if expr.Tok == token.False {
 		return llvm.ConstInt(llvmType, 0, false)
 	} else if expr.Tok == token.Null {
-		switch t := expr.T.(type) {
+		switch t := ir.ToBaseType(expr.T).(type) {
 		case *ir.SliceType:
 			tptr := llvm.PointerType(cb.llvmType(t.Elem), 0)
 			ptr := llvm.ConstPointerNull(tptr)
@@ -792,7 +794,7 @@ func (cb *llvmCodeBuilder) buildBasicLit(expr *ir.BasicLit) llvm.Value {
 }
 
 func (cb *llvmCodeBuilder) buildStructLit(expr *ir.StructLit) llvm.Value {
-	tstruct := expr.T.(*ir.StructType)
+	tstruct := ir.ToBaseType(expr.T).(*ir.StructType)
 	llvmType := cb.typeCtx[tstruct.Sym]
 	structLit := llvm.Undef(llvmType)
 
@@ -851,7 +853,7 @@ func (cb *llvmCodeBuilder) createSliceSize(size int) llvm.Value {
 }
 
 func (cb *llvmCodeBuilder) buildDotExpr(expr *ir.DotExpr, load bool) llvm.Value {
-	switch t := expr.X.Type().(type) {
+	switch t := ir.ToBaseType(expr.X.Type()).(type) {
 	case *ir.ModuleType:
 		return cb.buildIdent(expr.Name, load)
 	case *ir.StructType:
@@ -927,8 +929,8 @@ func (cb *llvmCodeBuilder) buildCastExpr(expr *ir.CastExpr) llvm.Value {
 		if from.ID() == ir.TPointer && to.ID() == ir.TPointer {
 			res = cb.b.CreateBitCast(val, cb.llvmType(to), "")
 		} else if from.ID() == ir.TSlice && to.ID() == ir.TSlice {
-			slice1 := from.(*ir.SliceType)
-			slice2 := to.(*ir.SliceType)
+			slice1 := ir.ToBaseType(from).(*ir.SliceType)
+			slice2 := ir.ToBaseType(to).(*ir.SliceType)
 			if slice1.Elem.Equals(slice2.Elem) {
 				res = val
 			} else {
@@ -947,7 +949,7 @@ func (cb *llvmCodeBuilder) buildCastExpr(expr *ir.CastExpr) llvm.Value {
 }
 
 func (cb *llvmCodeBuilder) buildLenExpr(expr *ir.LenExpr) llvm.Value {
-	switch t := expr.X.Type().(type) {
+	switch t := ir.ToBaseType(expr.X.Type()).(type) {
 	case *ir.ArrayType:
 		return llvm.ConstInt(llvm.Int32Type(), uint64(t.Size), false)
 	case *ir.SliceType:
@@ -1009,7 +1011,7 @@ func (cb *llvmCodeBuilder) buildSliceExpr(expr *ir.SliceExpr) llvm.Value {
 	var gep llvm.Value
 	var tptr llvm.Type
 
-	switch t := expr.X.Type().(type) {
+	switch t := ir.ToBaseType(expr.X.Type()).(type) {
 	case *ir.ArrayType:
 		gep = cb.b.CreateInBoundsGEP(val, []llvm.Value{llvm.ConstInt(llvm.Int64Type(), 0, false), start}, "")
 		tptr = llvm.PointerType(cb.llvmType(t.Elem), 0)
@@ -1021,7 +1023,7 @@ func (cb *llvmCodeBuilder) buildSliceExpr(expr *ir.SliceExpr) llvm.Value {
 	case *ir.PointerType:
 		tmp := cb.b.CreateLoad(val, "")
 		gep = cb.b.CreateInBoundsGEP(tmp, []llvm.Value{start}, "")
-		tptr = llvm.PointerType(cb.llvmType(t.Base), 0)
+		tptr = llvm.PointerType(cb.llvmType(t.Elem), 0)
 	default:
 		panic(fmt.Sprintf("Unhandled slice type %T", t))
 	}

@@ -11,10 +11,13 @@
         "tests": [
             "functions.dg",
             "function_val.dg",
-            "parameter.dg",
+            "function_signature.dg",
+            "alias.dg",
             "structs.dg",
             "struct_cycle.dg",
-            "const_cycle.dg"
+            "const_cycle.dg",
+            "alias_cycle.dg",
+            "nested_alias_cycle.dg"
         ]
     },
     {
@@ -84,7 +87,8 @@
             "type_in_expr.dg",
             "void.dg",
             "sizeof.dg",
-            "bad_sizeof.dg"
+            "bad_sizeof.dg",
+            "alias.dg"
         ]
     }
 ]

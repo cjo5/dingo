@@ -87,6 +87,7 @@ const (
 	Const
 	Var
 	Val
+	AliasType
 	Func
 	Struct
 	Public
@@ -101,6 +102,8 @@ const (
 // Alias
 const (
 	Pointer Token = And
+	Deref   Token = Mul
+	Addr    Token = And
 )
 
 var tokens = [...]string{
@@ -156,27 +159,28 @@ var tokens = [...]string{
 	Inc: "++",
 	Dec: "--",
 
-	If:       "if",
-	Else:     "else",
-	Elif:     "elif",
-	For:      "for",
-	While:    "while",
-	Return:   "return",
-	Continue: "continue",
-	Break:    "break",
-	As:       "as",
-	Lenof:    "len",
-	Sizeof:   "sizeof",
-	Module:   "module",
-	Include:  "include",
-	Import:   "import",
-	Const:    "const",
-	Var:      "var",
-	Val:      "val",
-	Func:     "fun",
-	Struct:   "struct",
-	Public:   "pub",
-	Private:  "priv",
+	If:        "if",
+	Else:      "else",
+	Elif:      "elif",
+	For:       "for",
+	While:     "while",
+	Return:    "return",
+	Continue:  "continue",
+	Break:     "break",
+	As:        "as",
+	Lenof:     "len",
+	Sizeof:    "sizeof",
+	Module:    "module",
+	Include:   "include",
+	Import:    "import",
+	Const:     "const",
+	Var:       "var",
+	Val:       "val",
+	AliasType: "atype",
+	Func:      "fun",
+	Struct:    "struct",
+	Public:    "pub",
+	Private:   "priv",
 
 	True:  "true",
 	False: "false",

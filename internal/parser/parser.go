@@ -85,6 +85,14 @@ func (p *parser) error(pos token.Position, format string, args ...interface{}) {
 	p.errors.Add(pos, msg)
 }
 
+func (p *parser) endPos() token.Position {
+	pos := p.pos
+	n := len(p.literal)
+	pos.Column += n
+	pos.Offset += n
+	return pos
+}
+
 func (p *parser) sync() {
 	lbrace := p.blockCount
 	semi := false
@@ -172,7 +180,6 @@ func (p *parser) parseFile() {
 		p.file.SetPos(p.pos)
 		p.next()
 		p.file.ModName = p.parseName()
-		p.file.SetEndPos(p.pos)
 		p.expectSemi1(false)
 	}
 
@@ -273,7 +280,10 @@ func (p *parser) parseTopDecl(visibilityPos token.Position, visibility token.Tok
 		}
 	}()
 
-	if p.token.OneOf(token.Const, token.Var, token.Val) {
+	if p.token.Is(token.AliasType) {
+		decl = p.parseTypeTopDecl(visibilityPos, visibility, directives)
+		p.expectSemi()
+	} else if p.token.OneOf(token.Const, token.Var, token.Val) {
 		decl = p.parseValTopDecl(visibilityPos, visibility, directives)
 		p.expectSemi()
 	} else if p.token.Is(token.Func) {
@@ -300,6 +310,37 @@ func (p *parser) parseDirectives(directives []ir.Directive) []ir.Directive {
 	return directives
 }
 
+func (p *parser) parseTypeTopDecl(visibilityPos token.Position, visibility token.Token, directives []ir.Directive) *ir.TypeTopDecl {
+	decl := &ir.TypeTopDecl{}
+	if visibilityPos.IsValid() {
+		decl.SetPos(visibilityPos)
+	} else {
+		decl.SetPos(p.pos)
+	}
+	decl.Visibility = visibility
+	decl.Directives = directives
+	decl.TypeDeclSpec = p.parseTypeDeclSpec()
+	decl.SetEndPos(p.pos)
+	return decl
+}
+
+func (p *parser) parseTypeDecl() *ir.TypeDecl {
+	decl := &ir.TypeDecl{}
+	decl.SetPos(p.pos)
+	decl.TypeDeclSpec = p.parseTypeDeclSpec()
+	decl.SetEndPos(p.pos)
+	return decl
+}
+
+func (p *parser) parseTypeDeclSpec() ir.TypeDeclSpec {
+	decl := ir.TypeDeclSpec{}
+	decl.Decl = p.token
+	p.next()
+	decl.Name = p.parseIdent()
+	decl.Type = p.parseType(true)
+	return decl
+}
+
 func (p *parser) parseValTopDecl(visibilityPos token.Position, visibility token.Token, directives []ir.Directive) *ir.ValTopDecl {
 	decl := &ir.ValTopDecl{}
 	if visibilityPos.IsValid() {
@@ -318,6 +359,7 @@ func (p *parser) parseValDecl() *ir.ValDecl {
 	decl := &ir.ValDecl{}
 	decl.SetPos(p.pos)
 	decl.ValDeclSpec = p.parseValDeclSpec()
+	decl.SetEndPos(p.pos)
 	return decl
 }
 
@@ -498,6 +540,8 @@ func (p *parser) parseStmt() (stmt ir.Stmt, sync bool) {
 		stmt = nil
 	} else if p.token.Is(token.Lbrace) {
 		stmt = p.parseBlockStmt()
+	} else if p.token.Is(token.AliasType) {
+		stmt = p.parseTypeDeclStmt()
 	} else if p.token.OneOf(token.Const, token.Var, token.Val) {
 		stmt = p.parseValDeclStmt()
 	} else if p.token.Is(token.If) {
@@ -564,6 +608,11 @@ func (p *parser) parseBlock(incBody bool) *ir.BlockStmt {
 	}
 
 	return block
+}
+
+func (p *parser) parseTypeDeclStmt() *ir.DeclStmt {
+	d := p.parseTypeDecl()
+	return &ir.DeclStmt{D: d}
 }
 
 func (p *parser) parseValDeclStmt() *ir.DeclStmt {
@@ -952,11 +1001,10 @@ func (p *parser) parseName() ir.Expr {
 
 func (p *parser) parseIdent() *ir.Ident {
 	ident := &ir.Ident{}
-	ident.SetPos(p.pos)
+	ident.SetRange(p.pos, p.endPos())
 	ident.Tok = p.token
 	ident.Literal = p.literal
 	p.expect(token.Ident)
-	ident.SetEndPos(p.pos)
 	return ident
 }
 
@@ -966,7 +1014,7 @@ func (p *parser) parseDotExpr(expr ir.Expr) ir.Expr {
 	dot.X = expr
 	p.expect(token.Dot)
 	dot.Name = p.parseIdent()
-	dot.SetEndPos(p.pos)
+	dot.SetEndPos(dot.Name.EndPos())
 	return dot
 }
 

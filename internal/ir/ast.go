@@ -33,8 +33,8 @@ type Decl interface {
 // TopDecl represents a top-level declaration.
 type TopDecl interface {
 	Decl
-	SetColor(Color)
 	Color() Color
+	SetColor(Color)
 	DependencyGraph() *DeclDependencyGraph
 }
 
@@ -49,6 +49,7 @@ type Expr interface {
 	Node
 	exprNode()
 	Type() Type
+	SetType(Type)
 	Lvalue() bool
 	ReadOnly() bool
 }
@@ -192,6 +193,22 @@ type ModuleDependency struct {
 	Alias      *Ident
 }
 
+type TypeDeclSpec struct {
+	Decl token.Token
+	Name *Ident
+	Type Expr
+}
+
+type TypeTopDecl struct {
+	baseTopDecl
+	TypeDeclSpec
+}
+
+type TypeDecl struct {
+	baseDecl
+	TypeDeclSpec
+}
+
 type ValDeclSpec struct {
 	Decl        token.Token
 	Name        *Ident
@@ -319,6 +336,10 @@ func (x *baseExpr) Type() Type {
 	return x.T
 }
 
+func (x *baseExpr) SetType(t Type) {
+	x.T = t
+}
+
 func (x *baseExpr) Lvalue() bool {
 	return false
 }
@@ -365,7 +386,7 @@ type UnaryExpr struct {
 
 func (x *UnaryExpr) Lvalue() bool {
 	switch x.Op {
-	case token.Mul:
+	case token.Deref:
 		return x.X.Lvalue()
 	}
 	return false
@@ -373,7 +394,7 @@ func (x *UnaryExpr) Lvalue() bool {
 
 func (x *UnaryExpr) ReadOnly() bool {
 	switch x.Op {
-	case token.Mul:
+	case token.Deref:
 		t := x.X.Type()
 		if t != nil {
 			if tptr, ok := t.(*PointerType); ok {
@@ -628,7 +649,7 @@ func BinaryPrec(op token.Token) int {
 // UnaryPrec returns the precedence for a unary operation.
 func UnaryPrec(op token.Token) int {
 	switch op {
-	case token.Lnot, token.Sub, token.Mul, token.And:
+	case token.Lnot, token.Sub, token.Deref, token.Addr:
 		return 3
 	default:
 		panic(fmt.Sprintf("Unhandled unary op %s", op))

@@ -129,6 +129,25 @@ func (v *depChecker) Module(mod *ir.Module) {
 	}
 }
 
+func (v *depChecker) VisitTypeTopDecl(decl *ir.TypeTopDecl) {
+	v.visitTypeDeclSpec(decl.Sym, &decl.TypeDeclSpec)
+}
+
+func (v *depChecker) VisitTypeDecl(decl *ir.TypeDecl) {
+	v.visitTypeDeclSpec(decl.Sym, &decl.TypeDeclSpec)
+}
+
+func (v *depChecker) visitTypeDeclSpec(sym *ir.Symbol, decl *ir.TypeDeclSpec) {
+	if sym == nil {
+		return
+	}
+	v.declSym = sym
+	v.exprMode = exprModeType
+	ir.VisitExpr(v, decl.Type)
+	v.exprMode = exprModeNone
+	v.declSym = nil
+}
+
 func (v *depChecker) VisitValTopDecl(decl *ir.ValTopDecl) {
 	v.visitValDeclSpec(decl.Sym, &decl.ValDeclSpec)
 }

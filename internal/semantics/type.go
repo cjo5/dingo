@@ -139,7 +139,7 @@ func typeCastNumericLit(lit *ir.BasicLit, target ir.Type) numericCastResult {
 	}
 
 	if res == numericCastOK {
-		lit.T = ir.NewBasicType(id)
+		lit.T = target
 	}
 
 	return res

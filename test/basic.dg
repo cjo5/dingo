@@ -1,14 +1,15 @@
 //include "common.dg"
 
+fun[c] main() i32 {
+    var foo Bar
+    foo.a = 2
+    return 0
+}
+
 struct Bar
 
 struct Bar {
     a i32
 }
 
-//struct Bar
-
-fun[c] main() i32 {
-    val f Bar
-    return 0
-}
+struct Bar

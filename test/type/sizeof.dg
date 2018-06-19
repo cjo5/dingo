@@ -18,7 +18,7 @@ fun[c] main() i32 {
 
     putiln(sizeof([i32:5])) // expect-output: 20
 
-    putiln(sizeof([i32])) // expect-output: 16
+    putiln(sizeof(&[i32])) // expect-output: 16
 
     putiln(sizeof(Foo)) // expect-output: 16
 

@@ -1,21 +1,35 @@
-// std
-fun[c] atoi(&i8) i32
-fun[c] exit(i32)
-fun[c] abs(i32) i32
+// C types
+atype c_char i8
+atype c_uchar u8
+atype c_short i16
+atype c_ushort u16
+atype c_int i32
+atype c_uint i32
+atype c_longlong i64
+atype c_ulonglong u64
+atype c_usize u64
+atype c_float f32
+atype c_double f64
+atype c_void void
 
-fun[c] malloc(u32) &var void
+// std
+fun[c] atoi(&c_char) c_int
+fun[c] exit(c_int)
+fun[c] abs(c_int) c_int
+
+fun[c] malloc(c_usize) &var c_void
 
 // stdio
-fun[c] puts(&i8) i32
-fun[c] putchar(i32) i32
+fun[c] puts(&c_char) c_int
+fun[c] putchar(c_int) c_int
 
-fun putiln(i i32) {
+fun putiln(i c_int) {
     puti(i)
     puts(c"")
 }
 
 // Recursively print each digit
-fun puti(i i32) {
+fun puti(i c_int) {
     val i2 = abs(i)
     if i2 < 10 {
         if i < 0 {

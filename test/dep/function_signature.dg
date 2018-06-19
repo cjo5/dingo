@@ -1,0 +1,31 @@
+include "../common.dg"
+
+fun[c] main() i32 {
+    val a = Foo{a: 5}
+    f1(a) // expect-output: 5
+    f2(&a) // expect-output: 5
+    val b Bar = 6
+    f3(b) // expect-output: 6
+    return 0
+}
+
+fun f1(f Foo) Foo {
+    putiln(f.a)
+    return f
+}
+
+fun f2(f &Foo) &Foo {
+    putiln(f.a)
+    return f
+}
+
+fun f3(f Bar) Bar {
+    putiln(f)
+    return f
+}
+
+struct Foo {
+    a i32
+}
+
+atype Bar i32

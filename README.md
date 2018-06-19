@@ -23,7 +23,7 @@ fun[c] main() i32 {
     // Infer type [i32:5]
     var arr = [31, 4, -10, 9, 2]
 
-    bubbleSort(&var arr[:])
+    sort(&var arr[:])
     puts(c"Sorted ints:")
     printSlice(&arr[:])
 
@@ -36,7 +36,7 @@ fun swap(x &var i32, y &var i32) {
     *y = tmp
 }
 
-fun bubbleSort(slice &var [i32]) {
+fun sort(slice &var [i32]) {
     for i = 0; i < len(slice)-1; i++ {
         for j = 0; j < len(slice)-1; j++ {
             if slice[j] > slice[j+1] {

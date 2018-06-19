@@ -10,11 +10,19 @@ import (
 	"github.com/jhnl/dingo/internal/token"
 )
 
-func (v *typeChecker) visitType(expr ir.Expr) ir.Expr {
+func (v *typeChecker) visitType(expr ir.Expr, root bool, checkVoid bool) ir.Expr {
 	prevMode := v.exprMode
 	v.exprMode = exprModeType
 	expr = ir.VisitExpr(v, expr)
 	v.exprMode = prevMode
+	if root {
+		if expr.Type().ID() != ir.TVoid || checkVoid {
+			if ir.IsIncompleteType(expr.Type(), nil) {
+				v.c.errorNode(expr, "incomplete type %s", expr.Type())
+				expr.SetType(ir.TBuiltinUntyped)
+			}
+		}
+	}
 	return expr
 }
 
@@ -33,34 +41,32 @@ func (v *typeChecker) makeTypedExpr(expr ir.Expr, ttarget ir.Type) ir.Expr {
 		}
 	}
 
+	checkIncomplete := false
 	texpr := expr.Type()
 
-	switch expr2 := expr.(type) {
+	switch expr.(type) {
 	case *ir.SliceExpr:
-		if ir.IsIncompleteType(texpr, nil) {
-			expr2.T = ir.TBuiltinUntyped
-		}
+		checkIncomplete = true
 	case *ir.UnaryExpr:
-		if ir.IsIncompleteType(texpr, nil) {
-			expr2.T = ir.TBuiltinUntyped
-		}
+		checkIncomplete = true
 	case *ir.AddressExpr:
-		if ir.IsIncompleteType(texpr, nil) {
-			expr2.T = ir.TBuiltinUntyped
-		}
+		checkIncomplete = true
 	}
 
-	if ir.IsUntyped(expr.Type()) {
+	if checkIncomplete && ir.IsIncompleteType(texpr, nil) {
 		v.c.errorNode(expr, "expression has incomplete type %s", texpr)
+		expr.SetType(ir.TBuiltinUntyped)
 		return expr
 	}
 
-	if ttarget != nil && texpr.ImplicitCastOK(ttarget) {
-		cast := &ir.CastExpr{}
-		cast.SetRange(expr.Pos(), expr.EndPos())
-		cast.X = expr
-		cast.T = ttarget
-		return cast
+	if ttarget != nil {
+		if ir.IsImplicitCastNeeded(texpr, ttarget) {
+			cast := &ir.CastExpr{}
+			cast.SetRange(expr.Pos(), expr.EndPos())
+			cast.X = expr
+			cast.T = ttarget
+			return cast
+		}
 	}
 
 	return expr
@@ -87,21 +93,12 @@ func (v *typeChecker) tryMakeTypedLit(expr ir.Expr, target ir.Type) bool {
 			return false
 		} else if ir.IsUntypedPointer(expr.Type()) && ir.IsTypeID(target, ir.TSlice, ir.TPointer, ir.TFunc) {
 			common.Assert(lit.Tok == token.Null, "pointer literal should be null")
-			switch ttarget := target.(type) {
-			case *ir.SliceType:
-				lit.T = ir.NewSliceType(ttarget.Elem, false, true)
-			case *ir.PointerType:
-				lit.T = ir.NewPointerType(ttarget.Base, false)
-			case *ir.FuncType:
-				lit.T = ir.NewFuncType(ttarget.Params, ttarget.Return, ttarget.C)
-			default:
-				panic(fmt.Sprintf("Unhandled target type %T", ttarget))
-			}
+			expr.SetType(target)
 		}
 	case *ir.ArrayLit:
 		if ir.IsTypeID(expr.Type(), ir.TArray) && ir.IsTypeID(target, ir.TArray) {
-			tarray := expr.Type().(*ir.ArrayType)
-			ttargetArray := target.(*ir.ArrayType)
+			tarray := ir.ToBaseType(expr.Type()).(*ir.ArrayType)
+			ttargetArray := ir.ToBaseType(target).(*ir.ArrayType)
 			err := false
 			for _, init := range lit.Initializers {
 				if !v.tryMakeTypedLit(init, ttargetArray.Elem) {
@@ -148,9 +145,9 @@ func (v *typeChecker) tryMakeDefaultTypedLit(expr ir.Expr) bool {
 
 func tryDeref(expr ir.Expr) ir.Expr {
 	var tres ir.Type
-	switch t1 := expr.Type().(type) {
+	switch t1 := ir.ToBaseType(expr.Type()).(type) {
 	case *ir.PointerType:
-		switch t2 := t1.Base.(type) {
+		switch t2 := ir.ToBaseType(t1.Elem).(type) {
 		case *ir.StructType:
 			tres = t2
 		case *ir.ArrayType:
@@ -160,16 +157,17 @@ func tryDeref(expr ir.Expr) ir.Expr {
 		}
 	}
 	if tres != nil {
-		starX := &ir.UnaryExpr{Op: token.Mul, X: expr}
-		starX.SetRange(expr.Pos(), expr.EndPos())
-		starX.T = tres
-		return starX
+		deref := &ir.UnaryExpr{Op: token.Deref, X: expr}
+		deref.SetRange(expr.Pos(), expr.EndPos())
+		deref.T = tres
+		return deref
 	}
+
 	return expr
 }
 
 func (v *typeChecker) VisitPointerTypeExpr(expr *ir.PointerTypeExpr) ir.Expr {
-	expr.X = ir.VisitExpr(v, expr.X)
+	expr.X = v.visitType(expr.X, false, false)
 
 	ro := expr.Decl.Is(token.Val)
 	tx := expr.X.Type()
@@ -227,7 +225,7 @@ func (v *typeChecker) VisitArrayTypeExpr(expr *ir.ArrayTypeExpr) ir.Expr {
 		}
 	}
 
-	expr.X = ir.VisitExpr(v, expr.X)
+	expr.X = v.visitType(expr.X, false, false)
 	tx := expr.X.Type()
 
 	if ir.IsUntyped(tx) {
@@ -245,15 +243,17 @@ func (v *typeChecker) VisitFuncTypeExpr(expr *ir.FuncTypeExpr) ir.Expr {
 	var params []ir.Field
 	untyped := false
 	for i, param := range expr.Params {
-		expr.Params[i].Type = ir.VisitExpr(v, param.Type)
-		tparam := expr.Params[i].Type.Type()
-		params = append(params, ir.Field{Sym: param.Sym, T: tparam})
-		if ir.IsUntyped(tparam) {
-			untyped = true
+		expr.Params[i].Type = v.visitType(param.Type, true, true)
+		if !untyped {
+			tparam := expr.Params[i].Type.Type()
+			params = append(params, ir.Field{Name: param.Name.Literal, T: tparam})
+			if ir.IsUntyped(tparam) {
+				untyped = true
+			}
 		}
 	}
 
-	expr.Return.Type = ir.VisitExpr(v, expr.Return.Type)
+	expr.Return.Type = v.visitType(expr.Return.Type, true, false)
 	if ir.IsUntyped(expr.Return.Type.Type()) {
 		untyped = true
 	}
@@ -296,7 +296,7 @@ func (v *typeChecker) VisitCastExpr(expr *ir.CastExpr) ir.Expr {
 		t1 := expr.ToType.Type()
 		t2 := expr.X.Type()
 
-		if t2.ExplicitCastOK(t1) {
+		if t2.CastableTo(t1) {
 			expr.T = t1
 		} else {
 			v.c.error(expr.X.Pos(), "type %s cannot be cast to %s", t2, t1)
@@ -314,13 +314,13 @@ func (v *typeChecker) VisitLenExpr(expr *ir.LenExpr) ir.Expr {
 	expr.X = ir.VisitExpr(v, expr.X)
 	expr.X = tryDeref(expr.X)
 
-	switch tx := expr.X.Type().(type) {
-	case *ir.ArrayType:
-		expr.T = ir.TBuiltinInt32
-	case *ir.SliceType:
-		expr.T = ir.TBuiltinInt32
-	default:
-		if !ir.IsUntyped(tx) {
+	if !ir.IsUntyped(expr.X.Type()) {
+		switch tx := ir.ToBaseType(expr.X.Type()).(type) {
+		case *ir.ArrayType:
+			expr.T = ir.TBuiltinInt32
+		case *ir.SliceType:
+			expr.T = ir.TBuiltinInt32
+		default:
 			v.c.error(expr.X.Pos(), "type %s does not have a length", tx)
 		}
 	}
@@ -333,7 +333,7 @@ func (v *typeChecker) VisitLenExpr(expr *ir.LenExpr) ir.Expr {
 }
 
 func (v *typeChecker) VisitSizeExpr(expr *ir.SizeExpr) ir.Expr {
-	expr.X = v.visitType(expr.X)
+	expr.X = v.visitType(expr.X, true, true)
 	expr.T = ir.TBuiltinUntyped
 	tx := expr.X.Type()
 
@@ -341,13 +341,8 @@ func (v *typeChecker) VisitSizeExpr(expr *ir.SizeExpr) ir.Expr {
 		return expr
 	}
 
-	if tx.ID() == ir.TModule || tx.ID() == ir.TVoid {
-		v.c.errorNode(expr.X, "type %s does not have a size", tx)
-		return expr
-	}
-
 	size := v.c.target.Sizeof(tx)
-	return createIntLit(size, ir.TBigInt)
+	return createIntLit(size, ir.NewBasicType(ir.TBigInt))
 }
 
 func (v *typeChecker) VisitAddressExpr(expr *ir.AddressExpr) ir.Expr {
@@ -390,14 +385,14 @@ func (v *typeChecker) VisitIndexExpr(expr *ir.IndexExpr) ir.Expr {
 	var telem ir.Type
 	untyped := false
 
-	switch tx := expr.X.Type().(type) {
-	case *ir.ArrayType:
-		telem = tx.Elem
-	case *ir.SliceType:
-		telem = tx.Elem
-	case *ir.BasicType:
-		if tx.ID() == ir.TUntyped {
-			untyped = true
+	if ir.IsUntyped(expr.X.Type()) {
+		untyped = true
+	} else {
+		switch tx := ir.ToBaseType(expr.X.Type()).(type) {
+		case *ir.ArrayType:
+			telem = tx.Elem
+		case *ir.SliceType:
+			telem = tx.Elem
 		}
 	}
 
@@ -433,18 +428,18 @@ func (v *typeChecker) VisitSliceExpr(expr *ir.SliceExpr) ir.Expr {
 		expr.End = v.makeTypedExpr(expr.End, nil)
 	}
 
-	tbase := expr.X.Type()
+	tx := expr.X.Type()
 	ro := expr.X.ReadOnly()
 	var telem ir.Type
 
-	switch t := tbase.(type) {
+	switch t := ir.ToBaseType(tx).(type) {
 	case *ir.ArrayType:
 		telem = t.Elem
 	case *ir.SliceType:
 		telem = t.Elem
 		ro = t.ReadOnly
 	case *ir.PointerType:
-		telem = t.Base
+		telem = t.Elem
 		ro = t.ReadOnly
 	}
 
@@ -482,8 +477,8 @@ func (v *typeChecker) VisitSliceExpr(expr *ir.SliceExpr) ir.Expr {
 			}
 
 			if expr.End == nil {
-				if tbase.ID() == ir.TPointer {
-					v.c.errorNode(expr, "end index is required when slicing type %s", tbase)
+				if tx.ID() == ir.TPointer {
+					v.c.errorNode(expr, "end index is required when slicing type %s", tx)
 					err = true
 				} else {
 					len := &ir.LenExpr{
@@ -503,8 +498,8 @@ func (v *typeChecker) VisitSliceExpr(expr *ir.SliceExpr) ir.Expr {
 		if !err {
 			expr.T = ir.NewSliceType(telem, ro, false)
 		}
-	} else if tbase.ID() != ir.TUntyped {
-		v.c.errorNode(expr.X, "type %s cannot be sliced", tbase)
+	} else if !ir.IsUntyped(tx) {
+		v.c.errorNode(expr.X, "type %s cannot be sliced", tx)
 	}
 
 	if expr.T == nil {
@@ -529,7 +524,7 @@ func (v *typeChecker) visitArgumentList(args []*ir.ArgExpr, fields []ir.Field, a
 			if arg.Name != nil {
 				named = true
 				for i, field := range fields {
-					if arg.Name.Literal == field.Sym.Name {
+					if arg.Name.Literal == field.Name {
 						fieldIndex = i
 						break
 					}
@@ -574,7 +569,7 @@ func (v *typeChecker) visitArgumentList(args []*ir.ArgExpr, fields []ir.Field, a
 		} else if !mixed {
 			for fieldIndex, field := range fields {
 				if argsRes[fieldIndex] == nil {
-					v.c.error(endPos, "no argument for '%s' at position %d", field.Sym.Name, fieldIndex+1)
+					v.c.error(endPos, "no argument for '%s' at position %d", field.Name, fieldIndex+1)
 				}
 			}
 		}
@@ -600,7 +595,7 @@ func (v *typeChecker) VisitFuncCall(expr *ir.FuncCall) ir.Expr {
 	} else if tx.ID() != ir.TFunc {
 		v.c.errorNode(expr.X, "expression is not callable (has type %s)", tx)
 	} else {
-		tfun := tx.(*ir.FuncType)
+		tfun := ir.ToBaseType(tx).(*ir.FuncType)
 		expr.Args = v.visitArgumentList(expr.Args, tfun.Params, false)
 		expr.T = tfun.Return
 	}
@@ -613,23 +608,23 @@ func (v *typeChecker) VisitFuncCall(expr *ir.FuncCall) ir.Expr {
 }
 
 func (v *typeChecker) VisitStructLit(expr *ir.StructLit) ir.Expr {
-	expr.Name = v.visitType(expr.Name)
+	expr.Name = v.visitType(expr.Name, true, true)
 	tname := expr.Name.Type()
 
 	if ir.IsUntyped(tname) {
 		expr.T = ir.TBuiltinUntyped
 		return expr
 	} else if nameSym := ir.ExprSymbol(expr.Name); nameSym != nil {
-		if nameSym.ID != ir.StructSymbol {
+		if !nameSym.IsType() || !ir.IsTypeID(nameSym.T, ir.TStruct) {
 			v.c.error(expr.Name.Pos(), "'%s' is not a struct", nameSym.Name)
 			expr.T = ir.TBuiltinUntyped
 			return expr
 		}
 	}
 
-	tstruct := tname.(*ir.StructType)
+	tstruct := ir.ToBaseType(tname).(*ir.StructType)
 	expr.Args = v.visitArgumentList(expr.Args, tstruct.Fields, true)
-	expr.T = tstruct
+	expr.T = tname
 	return expr
 }
 
@@ -685,9 +680,9 @@ func (v *typeChecker) VisitArrayLit(expr *ir.ArrayLit) ir.Expr {
 	return expr
 }
 
-func createIntLit(val int, tid ir.TypeID) *ir.BasicLit {
+func createIntLit(val int, t ir.Type) *ir.BasicLit {
 	lit := &ir.BasicLit{Tok: token.Integer, Value: strconv.FormatInt(int64(val), 10)}
-	lit.T = ir.NewBasicType(tid)
+	lit.T = t
 	if val == 0 {
 		lit.Raw = ir.BigIntZero
 	} else {
@@ -698,23 +693,23 @@ func createIntLit(val int, tid ir.TypeID) *ir.BasicLit {
 
 func createDefaultLit(t ir.Type) ir.Expr {
 	if t.ID() == ir.TStruct {
-		tstruct := t.(*ir.StructType)
+		tstruct := ir.ToBaseType(t).(*ir.StructType)
 		lit := &ir.StructLit{}
-		lit.T = t
 		for _, field := range tstruct.Fields {
 			arg := &ir.ArgExpr{}
 			arg.Value = createDefaultLit(field.T)
 			lit.Args = append(lit.Args, arg)
 		}
+		lit.T = t
 		return lit
 	} else if t.ID() == ir.TArray {
-		tarray := t.(*ir.ArrayType)
+		tarray := ir.ToBaseType(t).(*ir.ArrayType)
 		lit := &ir.ArrayLit{}
-		lit.T = tarray
 		for i := 0; i < tarray.Size; i++ {
 			init := createDefaultLit(tarray.Elem)
 			lit.Initializers = append(lit.Initializers, init)
 		}
+		lit.T = t
 		return lit
 	}
 	return createDefaultBasicLit(t)
@@ -724,27 +719,24 @@ func createDefaultBasicLit(t ir.Type) *ir.BasicLit {
 	var lit *ir.BasicLit
 	if ir.IsTypeID(t, ir.TBool) {
 		lit = &ir.BasicLit{Tok: token.False, Value: token.False.String()}
-		lit.T = ir.NewBasicType(ir.TBool)
+		lit.T = t
 	} else if ir.IsTypeID(t, ir.TUInt64, ir.TInt64, ir.TUInt32, ir.TInt32, ir.TUInt16, ir.TInt16, ir.TUInt8, ir.TInt8) {
-		lit = createIntLit(0, t.ID())
+		lit = createIntLit(0, t)
 	} else if ir.IsTypeID(t, ir.TFloat64, ir.TFloat32) {
 		lit = &ir.BasicLit{Tok: token.Float, Value: "0"}
 		lit.Raw = ir.BigFloatZero
-		lit.T = ir.NewBasicType(t.ID())
+		lit.T = t
 	} else if ir.IsTypeID(t, ir.TSlice) {
 		lit = &ir.BasicLit{Tok: token.Null, Value: token.Null.String()}
-		slice := t.(*ir.SliceType)
-		lit.T = ir.NewSliceType(slice.Elem, true, true)
+		lit.T = t
 	} else if ir.IsTypeID(t, ir.TPointer) {
 		lit = &ir.BasicLit{Tok: token.Null, Value: token.Null.String()}
-		ptr := t.(*ir.PointerType)
-		lit.T = ir.NewPointerType(ptr.Base, true)
+		lit.T = t
 	} else if ir.IsTypeID(t, ir.TFunc) {
 		lit = &ir.BasicLit{Tok: token.Null, Value: token.Null.String()}
-		fun := t.(*ir.FuncType)
-		lit.T = ir.NewFuncType(fun.Params, fun.Return, fun.C)
-	} else if !ir.IsTypeID(t, ir.TUntyped) {
-		panic(fmt.Sprintf("Unhandled init value for type %s", t.ID()))
+		lit.T = t
+	} else {
+		panic(fmt.Sprintf("Unhandled init value for type %s", t))
 	}
 	return lit
 }

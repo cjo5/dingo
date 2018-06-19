@@ -11,12 +11,7 @@ func (v *typeChecker) visitModuleSet(set *ir.ModuleSet, signature bool) {
 	set.ResetDeclColors()
 	v.signature = signature
 	for _, mod := range set.Modules {
-		v.c.scope = mod.Scope
 		for _, decl := range mod.Decls {
-			// Nil symbol means a redeclaration
-			if decl.Symbol() == nil {
-				continue
-			}
 			v.visitTopDecl(decl)
 		}
 	}
@@ -40,21 +35,36 @@ func (v *typeChecker) visitDependencies(decl ir.TopDecl) {
 	}
 }
 
+func (v *typeChecker) visitTopDecl(decl ir.TopDecl) {
+	// Nil symbol means a redeclaration
+	if decl.Symbol() == nil {
+		return
+	}
+
+	if decl.Color() != ir.WhiteColor {
+		return
+	}
+
+	sym := decl.Symbol()
+	defer setScope(setScope(v.c, sym.Parent))
+
+	v.c.pushTopDecl(decl)
+	decl.SetColor(ir.GrayColor)
+	ir.VisitDecl(v, decl)
+	decl.SetColor(ir.BlackColor)
+	v.c.popTopDecl()
+}
+
 func (v *typeChecker) setWeakDependencies(decl ir.TopDecl) {
 	graph := *decl.DependencyGraph()
 
 	switch decl.(type) {
+	case *ir.TypeTopDecl:
+	case *ir.ValTopDecl:
 	case *ir.FuncDecl:
 		for k, v := range graph {
 			sym := k.Symbol()
 			if sym.ID == ir.FuncSymbol {
-				v.Weak = true
-			}
-		}
-	case *ir.ValTopDecl:
-		for k, v := range graph {
-			sym := k.Symbol()
-			if sym.ID == ir.ValSymbol || sym.ID == ir.FuncSymbol {
 				v.Weak = true
 			}
 		}
@@ -81,16 +91,33 @@ func (v *typeChecker) setWeakDependencies(decl ir.TopDecl) {
 	}
 }
 
-func (v *typeChecker) visitTopDecl(decl ir.TopDecl) {
-	if decl.Color() != ir.WhiteColor {
+func (v *typeChecker) VisitTypeTopDecl(decl *ir.TypeTopDecl) {
+	if !v.signature {
 		return
 	}
 
-	v.c.pushTopDecl(decl)
-	decl.SetColor(ir.GrayColor)
-	ir.VisitDecl(v, decl)
-	decl.SetColor(ir.BlackColor)
-	v.c.popTopDecl()
+	v.setWeakDependencies(decl)
+	v.visitDependencies(decl)
+
+	v.warnUnusedDirectives(decl.Directives)
+	v.visitTypeDeclSpec(decl.Sym, &decl.TypeDeclSpec)
+}
+
+func (v *typeChecker) VisitTypeDecl(decl *ir.TypeDecl) {
+	if decl.Sym != nil {
+		v.visitTypeDeclSpec(decl.Sym, &decl.TypeDeclSpec)
+	}
+}
+
+func (v *typeChecker) visitTypeDeclSpec(sym *ir.Symbol, decl *ir.TypeDeclSpec) {
+	decl.Type = v.visitType(decl.Type, true, false)
+	tdecl := decl.Type.Type()
+
+	if ir.IsUntyped(tdecl) {
+		sym.T = ir.TBuiltinUntyped
+	} else {
+		sym.T = tdecl
+	}
 }
 
 func (v *typeChecker) VisitValTopDecl(decl *ir.ValTopDecl) {
@@ -143,13 +170,8 @@ func (v *typeChecker) visitValDeclSpec(sym *ir.Symbol, decl *ir.ValDeclSpec, def
 	var tdecl ir.Type
 
 	if decl.Type != nil {
-		decl.Type = v.visitType(decl.Type)
+		decl.Type = v.visitType(decl.Type, true, true)
 		tdecl = decl.Type.Type()
-
-		if ir.IsIncompleteType(tdecl, nil) {
-			v.c.error(decl.Type.Pos(), "incomplete type %s", tdecl)
-			tdecl = ir.TBuiltinUntyped
-		}
 
 		if ir.IsUntyped(tdecl) {
 			sym.T = tdecl
@@ -197,6 +219,9 @@ func (v *typeChecker) visitValDeclSpec(sym *ir.Symbol, decl *ir.ValDeclSpec, def
 
 func (v *typeChecker) VisitFuncDecl(decl *ir.FuncDecl) {
 	if v.signature {
+		v.warnUnusedDirectives(decl.Directives)
+		v.visitDependencies(decl)
+
 		c := v.checkCABI(decl.ABI)
 		v.VisitIdent(decl.Name)
 
@@ -207,20 +232,18 @@ func (v *typeChecker) VisitFuncDecl(decl *ir.FuncDecl) {
 
 		for _, param := range decl.Params {
 			v.VisitValDecl(param)
-			tparam := ir.TBuiltinUntyped
 			if param.Sym == nil || ir.IsUntyped(param.Sym.T) {
 				untyped = true
-			} else {
-				tparam = param.Sym.T
 			}
-			params = append(params, ir.Field{Sym: param.Sym, T: tparam})
+
+			if !untyped {
+				params = append(params, ir.Field{Name: param.Sym.Name, T: param.Sym.T})
+			}
 		}
 
-		decl.Return.Type = v.visitType(decl.Return.Type)
-
-		v.warnUnusedDirectives(decl.Directives)
-
+		decl.Return.Type = v.visitType(decl.Return.Type, true, false)
 		tret := decl.Return.Type.Type()
+
 		if ir.IsUntyped(tret) {
 			untyped = true
 		}
@@ -259,8 +282,8 @@ func (v *typeChecker) VisitFuncDecl(decl *ir.FuncDecl) {
 		}
 	}
 
-	if !endsWithReturn {
-		if decl.Return.Type.Type().ID() != ir.TVoid {
+	if !endsWithReturn && !ir.IsUntyped(decl.Return.Type.Type()) {
+		if !ir.IsTypeID(decl.Return.Type.Type(), ir.TVoid) {
 			v.c.error(decl.Body.EndPos(), "missing return")
 		} else {
 			returnStmt := &ir.ReturnStmt{}
@@ -271,33 +294,38 @@ func (v *typeChecker) VisitFuncDecl(decl *ir.FuncDecl) {
 }
 
 func (v *typeChecker) VisitStructDecl(decl *ir.StructDecl) {
-	if !v.signature {
+	if decl.Opaque && decl.Sym.IsDefined() {
+		return
+	}
+
+	if v.signature {
+		if decl.Sym.T == nil {
+			decl.Sym.T = ir.NewStructType(decl.Sym, decl.Scope)
+		}
 		v.warnUnusedDirectives(decl.Directives)
-		//decl.Sym.T = ir.NewIncompleteStructType(decl)
 		return
 	}
 
 	v.visitDependencies(decl)
 
 	untyped := false
+	defer setScope(setScope(v.c, decl.Scope))
 
 	for _, field := range decl.Fields {
 		v.VisitValDecl(field)
-		if ir.IsUntyped(field.Sym.T) {
+		if field.Sym == nil || ir.IsUntyped(field.Sym.T) {
 			untyped = true
 		}
 	}
 
 	v.setWeakDependencies(decl)
 
-	if untyped {
-		decl.Sym.T = ir.TBuiltinUntyped
-	} else {
+	if !untyped {
 		var fields []ir.Field
 		for _, field := range decl.Fields {
-			fields = append(fields, ir.Field{Sym: field.Sym, T: field.Type.Type()})
+			fields = append(fields, ir.Field{Name: field.Sym.Name, T: field.Type.Type()})
 		}
-		tstruct := decl.Sym.T.(*ir.StructType)
+		tstruct := ir.ToBaseType(decl.Sym.T).(*ir.StructType)
 		tstruct.SetBody(fields)
 	}
 }

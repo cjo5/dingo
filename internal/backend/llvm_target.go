@@ -81,12 +81,10 @@ func llvmStructType(t *ir.StructType, ctx *llvmTypeContext) llvm.Type {
 		}
 		panic(fmt.Sprintf("Failed to find named type %s", t))
 	}
-
 	var fieldTypes []llvm.Type
 	for _, field := range t.Fields {
 		fieldTypes = append(fieldTypes, llvmType(field.T, ctx))
 	}
-
 	return llvm.StructType(fieldTypes, false)
 }
 
@@ -103,13 +101,13 @@ func llvmSliceType(t *ir.SliceType, ctx *llvmTypeContext) llvm.Type {
 }
 
 func llvmPointerType(t *ir.PointerType, ctx *llvmTypeContext) llvm.Type {
-	var tbase llvm.Type
-	if t.Base.ID() == ir.TUntyped || t.Base.ID() == ir.TVoid {
-		tbase = llvm.Int8Type()
+	var telem llvm.Type
+	if t.Elem.ID() == ir.TUntyped || t.Elem.ID() == ir.TVoid {
+		telem = llvm.Int8Type()
 	} else {
-		tbase = llvmType(t.Base, ctx)
+		telem = llvmType(t.Elem, ctx)
 	}
-	return llvm.PointerType(tbase, 0)
+	return llvm.PointerType(telem, 0)
 }
 
 func llvmFuncType(t *ir.FuncType, ctx *llvmTypeContext) llvm.Type {

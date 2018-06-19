@@ -72,7 +72,7 @@ func (v *typeChecker) VisitReturnStmt(stmt *ir.ReturnStmt) {
 	}
 
 	if mismatch {
-		v.c.errorNode(stmt.X, "function has return type %s (got type %s)", retType, exprType)
+		v.c.error(stmt.Pos(), "function has return type %s (got type %s)", retType, exprType)
 	}
 }
 
@@ -105,6 +105,6 @@ func (v *typeChecker) VisitAssignStmt(stmt *ir.AssignStmt) {
 func (v *typeChecker) VisitExprStmt(stmt *ir.ExprStmt) {
 	stmt.X = v.makeTypedExpr(stmt.X, nil)
 	if stmt.X.Type().ID() == ir.TUntyped {
-		common.Assert(v.c.errors.IsError(), "expr is untyped and no error was reported")
+		common.Assert(v.c.errors.IsError(), "expr at %s is untyped and no error was reported", stmt.X.Pos())
 	}
 }

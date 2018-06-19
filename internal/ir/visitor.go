@@ -8,6 +8,8 @@ type Visitor interface {
 
 	// Decls
 	VisitBadDecl(decl *BadDecl)
+	VisitTypeTopDecl(decl *TypeTopDecl)
+	VisitTypeDecl(decl *TypeDecl)
 	VisitValTopDecl(decl *ValTopDecl)
 	VisitValDecl(decl *ValDecl)
 	VisitFuncDecl(decl *FuncDecl)
@@ -56,11 +58,12 @@ func (v *BaseVisitor) VisitBadDecl(decl *BadDecl) {
 	panic("VisitBadDecl")
 }
 
-func (v *BaseVisitor) VisitValTopDecl(decl *ValTopDecl) {}
-func (v *BaseVisitor) VisitValDecl(decl *ValDecl)       {}
-func (v *BaseVisitor) VisitFuncDecl(decl *FuncDecl)     {}
-
-func (v *BaseVisitor) VisitStructDecl(decl *StructDecl) {}
+func (v *BaseVisitor) VisitTypeTopDecl(decl *TypeTopDecl) {}
+func (v *BaseVisitor) VisitTypeDecl(decl *TypeDecl)       {}
+func (v *BaseVisitor) VisitValTopDecl(decl *ValTopDecl)   {}
+func (v *BaseVisitor) VisitValDecl(decl *ValDecl)         {}
+func (v *BaseVisitor) VisitFuncDecl(decl *FuncDecl)       {}
+func (v *BaseVisitor) VisitStructDecl(decl *StructDecl)   {}
 
 func (v *BaseVisitor) VisitBadStmt(stmt *BadStmt) {
 	panic("VisitBadStmt")
@@ -118,6 +121,10 @@ func VisitDecl(v Visitor, decl Decl) {
 	switch d := decl.(type) {
 	case *BadDecl:
 		v.VisitBadDecl(d)
+	case *TypeTopDecl:
+		v.VisitTypeTopDecl(d)
+	case *TypeDecl:
+		v.VisitTypeDecl(d)
 	case *ValTopDecl:
 		v.VisitValTopDecl(d)
 	case *ValDecl:

@@ -66,12 +66,12 @@ func (v *typeChecker) VisitBinaryExpr(expr *ir.BinaryExpr) ir.Expr {
 
 	if tleft.Equals(tright) {
 		// OK
-	} else if tleft.ImplicitCastOK(tright) {
+	} else if ir.IsImplicitCastNeeded(tleft, tright) {
 		cast := &ir.CastExpr{}
 		cast.X = left
 		cast.T = tright
 		left = cast
-	} else if tright.ImplicitCastOK(tleft) {
+	} else if ir.IsImplicitCastNeeded(tright, tleft) {
 		cast := &ir.CastExpr{}
 		cast.X = right
 		cast.T = tleft
@@ -317,11 +317,11 @@ func (v *typeChecker) VisitUnaryExpr(expr *ir.UnaryExpr) ir.Expr {
 		} else {
 			v.c.error(expr.Pos(), "logical not cannot be performed on type %s)", tx)
 		}
-	case token.Mul:
+	case token.Deref:
 		lvalue := false
 
 		if deref, ok := expr.X.(*ir.UnaryExpr); ok {
-			if deref.Op == token.And {
+			if deref.Op == token.Addr {
 				// Inverse
 				lvalue = deref.X.Lvalue()
 			}
@@ -332,9 +332,9 @@ func (v *typeChecker) VisitUnaryExpr(expr *ir.UnaryExpr) ir.Expr {
 		if !lvalue {
 			v.c.error(expr.X.Pos(), "expression cannot be dereferenced (not an lvalue)")
 		} else {
-			switch t := tx.(type) {
+			switch t := ir.ToBaseType(tx).(type) {
 			case *ir.PointerType:
-				expr.T = t.Base
+				expr.T = t.Elem
 			default:
 				v.c.error(expr.X.Pos(), "expression cannot be dereferenced (has type %s)", tx)
 			}
@@ -563,16 +563,23 @@ func (v *typeChecker) VisitIdent(expr *ir.Ident) ir.Expr {
 	if sym == nil {
 		v.c.error(expr.Pos(), "'%s' undefined", expr.Literal)
 		err = true
-	} else if sym.T == nil || sym.Untyped() {
+	} else if sym.T == nil || sym.IsUntyped() {
 		// Cycle or an error has already occurred
 		err = true
 	} else if v.exprMode != exprModeDot {
-		if v.exprMode != exprModeType && sym.IsType() {
-			v.c.error(expr.Pos(), "type %s cannot be used in an expression", sym.T)
-			err = true
-		} else if v.exprMode == exprModeType && !sym.IsType() {
-			v.c.error(expr.Pos(), "'%s' is not a type", sym.Name)
-			err = true
+		if v.exprMode == exprModeType {
+			if !sym.IsType() {
+				v.c.error(expr.Pos(), "'%s' is not a type", sym.Name)
+				err = true
+			}
+		} else {
+			if sym.ID == ir.ModuleSymbol {
+				v.c.error(expr.Pos(), "module '%s' cannot be used in an expression", sym.Name)
+				err = true
+			} else if sym.IsType() {
+				v.c.error(expr.Pos(), "type %s cannot be used in an expression", sym.T)
+				err = true
+			}
 		}
 	}
 
@@ -613,27 +620,22 @@ func (v *typeChecker) VisitDotExpr(expr *ir.DotExpr) ir.Expr {
 		// Do nothing
 	} else if ir.IsIncompleteType(tx, nil) {
 		v.c.errorNode(expr.X, "expression has incomplete type %s", tx)
-	} else {
+	} else if !ir.IsUntyped(tx) {
 		var scope *ir.Scope
-		untyped := false
 
-		switch tx2 := tx.(type) {
+		switch tx2 := ir.ToBaseType(tx).(type) {
 		case *ir.ModuleType:
 			scope = tx2.Scope
 		case *ir.StructType:
 			scope = tx2.Scope
-		case *ir.BasicType:
-			if tx2.ID() == ir.TUntyped {
-				untyped = true
-			}
+		default:
+			v.c.error(expr.X.Pos(), "type %s does not support field access", tx)
 		}
 
 		if scope != nil {
 			defer setScope(setScope(v.c, scope))
 			v.VisitIdent(expr.Name)
 			expr.T = expr.Name.Type()
-		} else if !untyped {
-			v.c.error(expr.X.Pos(), "type %s does not support field access", tx)
 		}
 	}
 
