@@ -2,7 +2,7 @@ include "../common.dg"
 
 import a as mod
 
-fun[c] main() i32 {
+fun[c] main() c_int {
     putiln(mod.bar) // expect-output: 10
 
     return 0

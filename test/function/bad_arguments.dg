@@ -1,10 +1,12 @@
+include "../common.dg"
+
 fun foo(a i32, b i32, c i32) i32 {
     return a + b + c
 }
 
 pub fun bar(i32)
 
-fun[c] main() i32 {
+fun[c] main() c_int {
     foo(1, 2) // expect-error: too few arguments (got 2 but expected 3)
     foo(1, 2, 3, 4) // expect-error: too many arguments (got 4 but expected 3)
 

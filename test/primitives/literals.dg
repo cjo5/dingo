@@ -1,6 +1,6 @@
 include "../common.dg"
 
-fun[c] main() i32 {
+fun[c] main() c_int {
     puts(c"text") // expect-output: text
     putchar('k') // expect-output: k
     putchar('\n')

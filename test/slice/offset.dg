@@ -1,6 +1,6 @@
 include "../common.dg"
 
-fun[c] main() i32 {
+fun[c] main() c_int {
     var arr = [0, 1, 2, 3, 4]
 
     puts(c"arr[:]") // expect-output: arr[:]

@@ -1,6 +1,6 @@
 include "../common.dg"
 
-fun[c] main() i32 {
+fun[c] main() c_int {
     for i = 1; i <= 5; i++ {
         for j = 1; j <= 5; j++ {
             putiln(i+j)

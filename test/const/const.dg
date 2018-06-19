@@ -1,6 +1,6 @@
 include "../common.dg"
 
-fun[c] main() i32 {
+fun[c] main() c_int {
     const a1 = 15
     putiln(a1) // expect-output: 15
 

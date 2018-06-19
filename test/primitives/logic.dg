@@ -1,6 +1,6 @@
 include "../common.dg"
 
-fun[c] main() i32 {
+fun[c] main() c_int {
     putbool(true && true) // expect-output: true
     putbool(true && false) // expect-output: false
     putbool(false && false) // expect-output: false

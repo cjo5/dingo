@@ -2,7 +2,7 @@ include "../common.dg"
 
 import a
 
-fun[c] main() i32 {
+fun[c] main() c_int {
     val f1 = a.Foo{a: 1}
     putiln(f1.a) // expect-output: 1
     putiln(a.bar) // expect-output: 10

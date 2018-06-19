@@ -6,6 +6,9 @@ fun[c] main() i32 {
     putiln(sizeof(i32)) // expect-output: 4
     putiln(sizeof(i64)) // expect-output: 8
 
+    atype MyType i64
+    putiln(sizeof(MyType)) // expect-output: 8
+
     putiln(sizeof(u8)) // expect-output: 1
     putiln(sizeof(u16)) // expect-output: 2
     putiln(sizeof(u32)) // expect-output: 4

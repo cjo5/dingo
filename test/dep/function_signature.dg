@@ -1,6 +1,6 @@
 include "../common.dg"
 
-fun[c] main() i32 {
+fun[c] main() c_int {
     val a = Foo{a: 5}
     f1(a) // expect-output: 5
     f2(&a) // expect-output: 5

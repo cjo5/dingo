@@ -1,6 +1,6 @@
 include "../common.dg"
 
-fun[c] main() i32 {
+fun[c] main() c_int {
     val f1 Foo // expect-error: incomplete type main.Foo
 
     var f2 Bar

@@ -3,7 +3,7 @@ include "../common.dg"
 atype foo1 i32
 atype foo2 bar
 
-fun[c] main() i32 {
+fun[c] main() c_int {
     var a foo1 = 1
     putiln(a) // expect-output: 1
 
