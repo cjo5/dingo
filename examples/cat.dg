@@ -1,17 +1,10 @@
-include "../test/common.dg"
-
-struct FILE
-fun[c] fopen(filename &c_char, mode &c_char) &var FILE
-fun[c] fclose(stream &var FILE) c_int
-fun[c] fread(ptr &var c_void, size c_usize, nmemb c_usize, stream &var FILE) c_usize
-fun[c] ferror(stream &var FILE) c_int
-fun[c] perror(str &c_char)
+include "../std/lib.dg"
 
 fun[c] main(argc c_int, argv &&c_char) c_int {
     val args = &argv[:argc]
 
     if len(args) != 2 {
-        puts(c"exactly 1 argument required")
+        putln("exactly 1 argument required")
         return 1
     }
     
@@ -31,9 +24,7 @@ fun cat(filename &c_char) c_int {
 
     while n > 0 {
         n = fread(&var buffer[0], 1, 1024, file)
-        for i c_usize = 0; i < n; i++ {
-            putchar(buffer[i] as i32)
-        }
+        put(&buffer[:n])
         total += n
     }
 
@@ -43,7 +34,7 @@ fun cat(filename &c_char) c_int {
 
     val err = ferror(file)
     if err != 0 {
-        puts(c"read failed")
+        putln("read failed")
     }
 
     fclose(file)

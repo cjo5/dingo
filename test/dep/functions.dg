@@ -14,11 +14,11 @@ fun foo(i i32) {
     if i < 0 {
         return
     }
-    puts(c"foo")
+    putln("foo")
     bar(i-1)
 }
 
 fun bar(i i32) {
-    puts(c"bar")
+    putln("bar")
     foo(i-1)
 }

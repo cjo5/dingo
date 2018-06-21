@@ -1,7 +1,7 @@
 include "../common.dg"
 
 fun[c] main() c_int {
-    puts(c"text") // expect-output: text
+    putln("text") // expect-output: text
     putchar('k') // expect-output: k
     putchar('\n')
 

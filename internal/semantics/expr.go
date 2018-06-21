@@ -509,7 +509,7 @@ func (v *typeChecker) VisitSliceExpr(expr *ir.SliceExpr) ir.Expr {
 	return expr
 }
 
-func (v *typeChecker) visitArgumentList(args []*ir.ArgExpr, fields []ir.Field, autofill bool) []*ir.ArgExpr {
+func (v *typeChecker) visitArgumentList(tobj ir.Type, args []*ir.ArgExpr, fields []ir.Field, autofill bool) []*ir.ArgExpr {
 	named := false
 	mixed := false
 	endPos := token.NoPosition
@@ -549,7 +549,7 @@ func (v *typeChecker) visitArgumentList(args []*ir.ArgExpr, fields []ir.Field, a
 					v.c.errorNode(arg, "duplicate arguments for '%s' at position %d", arg.Name.Literal, fieldIndex+1)
 				} else if !checkTypes(v.c, arg.Value.Type(), field.T) {
 					kind := "parameter"
-					if field.T.ID() == ir.TStruct {
+					if tobj.ID() == ir.TStruct {
 						kind = "field"
 					}
 					if arg.Name != nil {
@@ -604,7 +604,7 @@ func (v *typeChecker) VisitFuncCall(expr *ir.FuncCall) ir.Expr {
 		v.c.errorNode(expr.X, "expression is not callable (has type %s)", tx)
 	} else {
 		tfun := ir.ToBaseType(tx).(*ir.FuncType)
-		expr.Args = v.visitArgumentList(expr.Args, tfun.Params, false)
+		expr.Args = v.visitArgumentList(tx, expr.Args, tfun.Params, false)
 		expr.T = tfun.Return
 	}
 
@@ -631,7 +631,7 @@ func (v *typeChecker) VisitStructLit(expr *ir.StructLit) ir.Expr {
 	}
 
 	tstruct := ir.ToBaseType(tname).(*ir.StructType)
-	expr.Args = v.visitArgumentList(expr.Args, tstruct.Fields, true)
+	expr.Args = v.visitArgumentList(tstruct, expr.Args, tstruct.Fields, true)
 	expr.T = tname
 	return expr
 }

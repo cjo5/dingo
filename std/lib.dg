@@ -1,0 +1,45 @@
+include "clib.dg"
+
+fun putln(str &[i8]) {
+    put(str)
+    putchar('\n')
+}
+
+fun putiln(i i32) {
+    puti64(i as i64)
+    putchar('\n')
+}
+
+fun putbool(b bool) {
+    if b {
+        put("true\n")
+    } else {
+        put("false\n")
+    }
+}
+
+fun put(str &[i8]) {
+    for i = 0; i < len(str); i++ {
+        putchar(str[i] as i32)
+    }
+}
+
+fun puti32(i i32) {
+    puti64(i as i64)
+}
+
+fun puti64(i i64) {
+    if i < 0 {
+        putchar('-')
+        putu64(-i as u64)
+    } else {
+        putu64(i as u64)
+    }
+}
+
+fun putu64(i u64) {
+    if i >= 10 {
+        putu64(i/10)
+    }
+    putchar(('0' + i%10) as i32)
+}

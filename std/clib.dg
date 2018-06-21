@@ -1,0 +1,17 @@
+// stdlib
+fun[c] atoi(str &c_char) c_int
+fun[c] exit(status c_int)
+fun[c] abs(x c_int) c_int
+fun[c] malloc(size c_usize) &var c_void
+fun[c] free(ptr &c_void)
+
+// stdio
+fun[c] puts(str &c_char) c_int
+fun[c] putchar(ch c_int) c_int
+
+struct C_FILE
+fun[c] fopen(filename &c_char, mode &c_char) &var C_FILE
+fun[c] fclose(stream &var C_FILE) c_int
+fun[c] fread(ptr &var c_void, size c_usize, nmemb c_usize, stream &var C_FILE) c_usize
+fun[c] ferror(stream &var C_FILE) c_int
+fun[c] perror(str &c_char)

@@ -2,7 +2,7 @@ include "../common.dg"
 
 fun[c] main() c_int {
     val sayHello fun[c]() = fun[c]() {
-        puts(c"Hello!")
+        putln("Hello!")
     }
 
     sayHello() // expect-output: Hello!
@@ -18,11 +18,10 @@ fun[c] main() c_int {
 }
 
 val sayGoodBye = fun() {
-    puts(c"Good bye!")
+    putln("Good bye!")
 }
 
 fun doOperation(arg1 i32, arg2 i32, op fun(i32, i32) i32) {
     val res = op(arg1, arg2)
-    puti(res)
-    puts(c"")
+    putiln(res)
 }

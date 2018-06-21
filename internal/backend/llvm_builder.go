@@ -918,7 +918,11 @@ func (cb *llvmCodeBuilder) buildCastExpr(expr *ir.CastExpr) llvm.Value {
 			}
 		case ir.IsIntegerType(to):
 			if cmpBitSize > 0 {
-				res = cb.b.CreateZExt(val, toLLVM, "")
+				if ir.IsSignedType(to) {
+					res = cb.b.CreateSExt(val, toLLVM, "")
+				} else {
+					res = cb.b.CreateZExt(val, toLLVM, "")
+				}
 			} else {
 				res = cb.b.CreateTrunc(val, toLLVM, "")
 			}

@@ -17,7 +17,7 @@ fun[c] main() c_int {
 
     f = Foo{a: 1, b: 2, 3} // expect-error: positioned argument after named argument is not allowed
 
-    f = Foo{1, 2, true} // expect-error: type mismatch (got bool but expected i32)
+    f = Foo{1, 2, true} // expect-error: field at position 3 has type i32 (got bool)
 
     return 0
 }
