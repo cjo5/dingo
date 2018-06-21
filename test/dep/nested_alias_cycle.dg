@@ -1,6 +1,6 @@
-atype a b
-atype b c
-atype c a
+alias a b
+alias b c
+alias c a
 
 // expect-error(1): cycle detected
 // expect-dgc: re: .*:1:7:a uses \[1\]

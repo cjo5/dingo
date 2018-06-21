@@ -176,7 +176,7 @@ var tokens = [...]string{
 	Const:     "const",
 	Var:       "var",
 	Val:       "val",
-	AliasType: "atype",
+	AliasType: "alias",
 	Func:      "fun",
 	Struct:    "struct",
 	Public:    "pub",
