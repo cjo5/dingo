@@ -318,26 +318,11 @@ func (v *typeChecker) VisitUnaryExpr(expr *ir.UnaryExpr) ir.Expr {
 			v.c.error(expr.Pos(), "logical not cannot be performed on type %s)", tx)
 		}
 	case token.Deref:
-		lvalue := false
-
-		if deref, ok := expr.X.(*ir.UnaryExpr); ok {
-			if deref.Op == token.Addr {
-				// Inverse
-				lvalue = deref.X.Lvalue()
-			}
-		} else {
-			lvalue = expr.X.Lvalue()
-		}
-
-		if !lvalue {
-			v.c.error(expr.X.Pos(), "expression cannot be dereferenced (not an lvalue)")
-		} else {
-			switch t := ir.ToBaseType(tx).(type) {
-			case *ir.PointerType:
-				expr.T = t.Elem
-			default:
-				v.c.error(expr.X.Pos(), "expression cannot be dereferenced (has type %s)", tx)
-			}
+		switch t := ir.ToBaseType(tx).(type) {
+		case *ir.PointerType:
+			expr.T = t.Elem
+		default:
+			v.c.error(expr.X.Pos(), "expression cannot be dereferenced (has type %s)", tx)
 		}
 	default:
 		panic(fmt.Sprintf("Unhandled unary op %s", expr.Op))

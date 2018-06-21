@@ -18,7 +18,7 @@ func (v *typeChecker) VisitDeclStmt(stmt *ir.DeclStmt) {
 func (v *typeChecker) VisitIfStmt(stmt *ir.IfStmt) {
 	stmt.Cond = ir.VisitExpr(v, stmt.Cond)
 	if !checkTypes(v.c, stmt.Cond.Type(), ir.TBuiltinBool) {
-		v.c.error(stmt.Cond.Pos(), "condition has type %s (expected %s)", stmt.Cond.Type(), ir.TBool)
+		v.c.error(stmt.Cond.Pos(), "condition should have type %s (got %s)", ir.TBool, stmt.Cond.Type())
 	}
 
 	v.VisitBlockStmt(stmt.Body)
@@ -36,7 +36,7 @@ func (v *typeChecker) VisitForStmt(stmt *ir.ForStmt) {
 	if stmt.Cond != nil {
 		stmt.Cond = ir.VisitExpr(v, stmt.Cond)
 		if !checkTypes(v.c, stmt.Cond.Type(), ir.TBuiltinBool) {
-			v.c.error(stmt.Cond.Pos(), "condition has type %s (expected %s)", stmt.Cond.Type(), ir.TBool)
+			v.c.error(stmt.Cond.Pos(), "condition should have type %s (got %s)", ir.TBool, stmt.Cond.Type())
 		}
 	}
 
@@ -72,7 +72,7 @@ func (v *typeChecker) VisitReturnStmt(stmt *ir.ReturnStmt) {
 	}
 
 	if mismatch {
-		v.c.error(stmt.Pos(), "function has return type %s (got type %s)", retType, exprType)
+		v.c.error(stmt.Pos(), "function has return type %s (got %s)", retType, exprType)
 	}
 }
 
@@ -86,18 +86,18 @@ func (v *typeChecker) VisitAssignStmt(stmt *ir.AssignStmt) {
 		v.c.error(left.Pos(), "expression is not an lvalue")
 	} else if left.ReadOnly() {
 		v.c.error(left.Pos(), "expression is read-only")
-	}
+	} else {
+		stmt.Right = v.makeTypedExpr(stmt.Right, left.Type())
+		right := stmt.Right
 
-	stmt.Right = v.makeTypedExpr(stmt.Right, left.Type())
-	right := stmt.Right
+		if !checkTypes(v.c, left.Type(), right.Type()) {
+			v.c.errorNode(stmt, "type mismatch %s and %s", left.Type(), right.Type())
+		}
 
-	if !checkTypes(v.c, left.Type(), right.Type()) {
-		v.c.errorNode(stmt, "type mismatch %s and %s", left.Type(), right.Type())
-	}
-
-	if stmt.Assign != token.Assign {
-		if !ir.IsNumericType(left.Type()) {
-			v.c.errorNode(left, "type %s is not numeric", left.Type())
+		if stmt.Assign != token.Assign {
+			if !ir.IsNumericType(left.Type()) {
+				v.c.errorNode(left, "type %s is not numeric", left.Type())
+			}
 		}
 	}
 }

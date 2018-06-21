@@ -5,6 +5,7 @@ fun[c] fopen(filename &c_char, mode &c_char) &var FILE
 fun[c] fclose(stream &var FILE) c_int
 fun[c] fread(ptr &var c_void, size c_usize, nmemb c_usize, stream &var FILE) c_usize
 fun[c] ferror(stream &var FILE) c_int
+fun[c] perror(str &c_char)
 
 fun[c] main(argc c_int, argv &&c_char) c_int {
     val args = &argv[:argc]
@@ -13,28 +14,24 @@ fun[c] main(argc c_int, argv &&c_char) c_int {
         puts(c"exactly 1 argument required")
         return 1
     }
-
-    if !printFile(args[1]) {
-        return 1
-    }
     
-    return 0
+    return cat(args[1])
 }
 
-fun printFile(filename &c_char) bool {
+fun cat(filename &c_char) c_int {
     val file = fopen(filename, c"r")
     if file == null {
-        puts(c"failed to open file")
-        return false
+        perror(filename)
+        return 1
     }
 
     var buffer [i8:1024]
-    var n u64 = 1
-    var total u64
+    var n c_usize = 1
+    var total c_usize
 
     while n > 0 {
         n = fread(&var buffer[0], 1, 1024, file)
-        for i = 0u64; i < n; i++ {
+        for i c_usize = 0; i < n; i++ {
             putchar(buffer[i] as i32)
         }
         total += n
@@ -46,10 +43,9 @@ fun printFile(filename &c_char) bool {
 
     val err = ferror(file)
     if err != 0 {
-        puts(c"an error occurred")
-        putiln(err)
+        puts(c"read failed")
     }
 
     fclose(file)
-    return err == 0
+    return err
 }

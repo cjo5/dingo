@@ -548,7 +548,15 @@ func (v *typeChecker) visitArgumentList(args []*ir.ArgExpr, fields []ir.Field, a
 					// This is only possible if the current argument is named
 					v.c.errorNode(arg, "duplicate arguments for '%s' at position %d", arg.Name.Literal, fieldIndex+1)
 				} else if !checkTypes(v.c, arg.Value.Type(), field.T) {
-					v.c.errorNode(arg, "type mismatch (got %s but expected %s)", arg.Value.Type(), field.T)
+					kind := "parameter"
+					if field.T.ID() == ir.TStruct {
+						kind = "field"
+					}
+					if arg.Name != nil {
+						v.c.error(arg.Pos(), "%s '%s' at position %d has type %s (got %s)", kind, arg.Name.Literal, fieldIndex+1, field.T, arg.Value.Type())
+					} else {
+						v.c.error(arg.Pos(), "%s at position %d has type %s (got %s)", kind, fieldIndex+1, field.T, arg.Value.Type())
+					}
 				}
 				argsRes[fieldIndex] = arg
 			}

@@ -174,6 +174,10 @@ func (p *parser) expectSemi() bool {
 	return p.expectSemi1(true)
 }
 
+func (p *parser) isSemi() bool {
+	return p.token.OneOf(token.Semicolon, token.EOF)
+}
+
 func (p *parser) parseFile() {
 	p.file.SetRange(token.NoPosition, token.NoPosition)
 	if p.token.Is(token.Module) {
@@ -203,7 +207,7 @@ func (p *parser) parseFile() {
 
 		directives = p.parseDirectives(directives)
 
-		if p.token.Is(token.Semicolon) {
+		if p.isSemi() {
 			p.next()
 		} else if p.token.Is(token.Import) {
 			dep := p.parseImport(directives, visibility)
@@ -454,7 +458,7 @@ func (p *parser) parseFuncDecl(visibilityPos token.Position, visibility token.To
 	decl.Params, decl.Return = p.parseFuncSignature()
 	decl.SetEndPos(p.pos)
 
-	if p.token.Is(token.Semicolon) {
+	if p.isSemi() {
 		return decl
 	}
 
@@ -504,7 +508,7 @@ func (p *parser) parseStructDecl(visibilityPos token.Position, visibility token.
 	p.next()
 	decl.Name = p.parseIdent()
 	decl.SetEndPos(p.pos)
-	if p.token.OneOf(token.Semicolon, token.EOF) {
+	if p.isSemi() {
 		decl.Opaque = true
 	} else {
 		decl.Opaque = false
@@ -536,7 +540,7 @@ func (p *parser) parseStmt() (stmt ir.Stmt, sync bool) {
 
 	sync = false
 
-	if p.token.Is(token.Semicolon) {
+	if p.isSemi() {
 		stmt = nil
 	} else if p.token.Is(token.Lbrace) {
 		stmt = p.parseBlockStmt()
@@ -561,7 +565,7 @@ func (p *parser) parseStmt() (stmt ir.Stmt, sync bool) {
 		stmt = &ir.BranchStmt{Tok: p.token}
 		stmt.SetPos(p.pos)
 		p.next()
-	} else if !p.token.Is(token.Semicolon) {
+	} else {
 		stmt = p.parseExprOrAssignStmt()
 	}
 	if stmt != nil {

@@ -1,15 +1,7 @@
 //include "common.dg"
 
 fun[c] main() c_int {
-    var foo Bar
-    foo.a = 2
+    val a = *__error()
     return 0
 }
-
-struct Bar
-
-struct Bar {
-    a i32
-}
-
-struct Bar
+fun[c] __error() &var c_int // Tested on OS X, may not work on a different OS
