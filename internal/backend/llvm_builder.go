@@ -244,7 +244,7 @@ func (cb *llvmCodeBuilder) buildValTopDecl(decl *ir.ValTopDecl) {
 	if cb.signature {
 		loc := llvm.AddGlobal(cb.mod, cb.llvmType(sym.T), mangle(sym))
 
-		switch decl.Visibility {
+		switch decl.Visibility() {
 		case token.Public:
 			loc.SetLinkage(llvm.ExternalLinkage)
 		case token.Private:
@@ -289,7 +289,7 @@ func (cb *llvmCodeBuilder) buildFuncDecl(decl *ir.FuncDecl) {
 		funType := llvm.FunctionType(retType, paramTypes, false)
 		fun = llvm.AddFunction(cb.mod, name, funType)
 
-		switch decl.Visibility {
+		switch decl.Visibility() {
 		case token.Public:
 			fun.SetLinkage(llvm.ExternalLinkage)
 		case token.Private:

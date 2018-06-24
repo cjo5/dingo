@@ -3,7 +3,7 @@ include "../common.dg"
 alias foo1 i32
 alias foo2 bar
 
-fun[c] main() c_int {
+extern fun main() c_int {
     var a foo1 = 1
     putiln(a) // expect-output: 1
 

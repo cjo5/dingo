@@ -259,8 +259,15 @@ func (v *typeChecker) VisitFuncTypeExpr(expr *ir.FuncTypeExpr) ir.Expr {
 	}
 
 	if !untyped {
-		c := v.checkCABI(expr.ABI)
-		expr.T = ir.NewFuncType(params, expr.Return.Type.Type(), c)
+		cabi := false
+		if expr.ABI != nil {
+			if expr.ABI.Literal == ir.CABI {
+				cabi = true
+			} else if !ir.IsValidABI(expr.ABI.Literal) {
+				v.c.error(expr.ABI.Pos(), "unknown abi '%s'", expr.ABI.Literal)
+			}
+		}
+		expr.T = ir.NewFuncType(params, expr.Return.Type.Type(), cabi)
 	} else {
 		expr.T = ir.TBuiltinUntyped
 	}

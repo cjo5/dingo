@@ -1,6 +1,6 @@
 include "../common.dg"
 
-fun[c] main() c_int {
+extern fun main() c_int {
     putiln(sizeof(void)) // expect-error: incomplete type void
 
     val a i32

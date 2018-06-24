@@ -1,6 +1,6 @@
 include "../common.dg"
 
-fun[c] main() c_int {
+extern fun main() c_int {
     var data = 5
     var a &i32 = &data
     var b &void = a

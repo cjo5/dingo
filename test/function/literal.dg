@@ -1,7 +1,7 @@
 include "../common.dg"
 
-fun[c] main() c_int {
-    val sayHello fun[c]() = fun[c]() {
+extern fun main() c_int {
+    val sayHello extern fun() = extern fun() {
         putln("Hello!")
     }
 

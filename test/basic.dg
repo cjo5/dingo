@@ -1,10 +1,11 @@
 include "common.dg"
 
-fun[c] main() c_int {
-    val a i32 = -1
+extern const a i32 = 9
 
-    puti64(a as i64)
-    putchar('\n')
+extern fun main() c_int {
+    val a extern fun() = fun() {
+        put("hej")
+    }
 
     return 0
 }

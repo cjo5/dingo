@@ -1,6 +1,6 @@
 include "../common.dg"
 
-fun[c] main() c_int {
+extern fun main() c_int {
     var i = 2
     while i >= 1 {
         var j = 2

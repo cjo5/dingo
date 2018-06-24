@@ -139,13 +139,9 @@ func llvmType(t1 ir.Type, ctx *llvmTypeContext) llvm.Type {
 }
 
 func mangle(sym *ir.Symbol) string {
-	if sym.ID == ir.FuncSymbol {
-		tfun := sym.T.(*ir.FuncType)
-		if tfun.C {
-			return sym.Name
-		}
+	if sym.ABI == ir.CABI {
+		return sym.Name
 	}
-
 	var b bytes.Buffer
 	b.WriteString("_ZN")
 	b.WriteString(mangleFQN(sym.ModFQN()))

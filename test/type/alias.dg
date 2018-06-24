@@ -2,7 +2,7 @@ include "../common.dg"
 
 alias s1 i32
 
-fun[c] main() c_int {
+extern fun main() c_int {
     val a1 s1 = 1
     val a2 s1
     putiln(a1) // expect-output: 1

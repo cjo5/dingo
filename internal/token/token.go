@@ -92,6 +92,7 @@ const (
 	Struct
 	Public
 	Private
+	Extern
 
 	True
 	False
@@ -181,6 +182,7 @@ var tokens = [...]string{
 	Struct:    "struct",
 	Public:    "pub",
 	Private:   "priv",
+	Extern:    "extern",
 
 	True:  "true",
 	False: "false",

@@ -2,7 +2,7 @@ include "../common.dg"
 
 val foo i32 = 8
 
-fun[c] main() c_int {
+extern fun main() c_int {
     putiln(bar) // expect-output: 9
     putiln(foo) // expect-output: 8
     return 0

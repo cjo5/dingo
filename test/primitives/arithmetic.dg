@@ -1,6 +1,6 @@
 include "../common.dg"
 
-fun[c] main() c_int {
+extern fun main() c_int {
     putiln(5+5) // expect-output: 10
     putiln(7-5) // expect-output: 2
     putiln(2-5) // expect-output: -3

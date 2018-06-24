@@ -1,6 +1,6 @@
 include "../common.dg"
 
-fun[c] main() c_int {
+extern fun main() c_int {
     var arr = [0, 1, 2, 3, 4]
 
     putln("arr[:]") // expect-output: arr[:]

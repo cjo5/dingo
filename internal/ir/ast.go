@@ -33,9 +33,11 @@ type Decl interface {
 // TopDecl represents a top-level declaration.
 type TopDecl interface {
 	Decl
+	DependencyGraph() *DeclDependencyGraph
 	Color() Color
 	SetColor(Color)
-	DependencyGraph() *DeclDependencyGraph
+	Visibility() token.Token
+	SetVisibility(token.Token)
 }
 
 // Stmt is the main interface for statement nodes.
@@ -141,22 +143,29 @@ type Directive struct {
 
 type baseTopDecl struct {
 	baseDecl
-	color      Color
 	Deps       DeclDependencyGraph
-	Directives []Directive
-	Visibility token.Token
+	color      Color
+	visibility token.Token
 }
 
-func (d *baseTopDecl) SetColor(color Color) {
-	d.color = color
+func (d *baseTopDecl) DependencyGraph() *DeclDependencyGraph {
+	return &d.Deps
 }
 
 func (d *baseTopDecl) Color() Color {
 	return d.color
 }
 
-func (d *baseTopDecl) DependencyGraph() *DeclDependencyGraph {
-	return &d.Deps
+func (d *baseTopDecl) SetColor(color Color) {
+	d.color = color
+}
+
+func (d *baseTopDecl) Visibility() token.Token {
+	return d.visibility
+}
+
+func (d *baseTopDecl) SetVisibility(visibility token.Token) {
+	d.visibility = visibility
 }
 
 type BadDecl struct {
@@ -187,7 +196,6 @@ type FileDependency struct {
 
 type ModuleDependency struct {
 	baseNode
-	Directives []Directive
 	Visibility token.Token
 	ModName    Expr
 	Alias      *Ident
@@ -219,6 +227,7 @@ type ValDeclSpec struct {
 type ValTopDecl struct {
 	baseTopDecl
 	ValDeclSpec
+	ABI *Ident
 }
 
 type ValDecl struct {

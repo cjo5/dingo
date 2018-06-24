@@ -9,15 +9,17 @@ Name = IDENT ['.' Name]
 EOS = ';' | EOF
 
 Include = 'Include' STRING EOS
-TopLevel = Directive* Visibility? Directive* [Import | Decl] EOS
+TopLevel = Visibility? (Import | ExternDecl | StructDecl | FuncDecl | Decl) EOS
 Visibility = 'pub' | 'priv' 
-Directive = '@' IDENT
-Import = 'import' ModName ['as' IDENT]
-Decl = TypeDecl | ValDecl | FuncDecl | StructDecl
-TypeDecl = 'alias' IDENT Type
-ValDecl = ('const' | 'val' | 'var') IDENT (Type | (Type? '=' Expr))
-FuncDecl = 'fun' ['[' IDENT ']'] IDENT FuncSignature Block?
+Extern = 'extern' ['(' IDENT ')']
+Import = 'import' Name ['as' IDENT]
+ExternDecl = Extern (ValDecl | FuncDecl)
 StructDecl = 'struct' IDENT StructBody?
+FuncDecl = 'fun' IDENT FuncSignature Block?
+Decl = TypeDecl | ConstDecl | ValDecl
+TypeDecl = 'alias' IDENT Type
+ConstDecl = 'const' IDENT (Type | (Type? '=' Expr))
+ValDecl = ('val' | 'var') IDENT (Type | (Type? '=' Expr))
 
 Field = (['val' | 'var'] (IDENT | '_'))? Type
 StructBody= '{' {Field ';'} '}'
@@ -27,10 +29,10 @@ Type = NestedType | PointerType | ArrayType | FuncType | Name
 NestedType = '(' Type ')'
 PointerType = '&' ['val' | 'var'] Type
 ArrayType = '[' Type [INTEGER ':'] ']'
-FuncType 'fun' ['[' IDENT ']'] FuncSignature
+FuncType = Extern? 'fun' ['[' IDENT ']'] FuncSignature
 
 Block = '{' Stmt* '}'
-Stmt = [Block | TypeDecl | ValDecl | AssignOrExprStmt | 'if' IfStmt | WhileStmt |
+Stmt = [Block | Decl | AssignOrExprStmt | 'if' IfStmt | WhileStmt |
         ForStmt | ReturnStmt | 'break' | 'continue'] EOS
 ExprOrAssignStmt = Expr ['++' | '--' | (('=' | '+=' | '-=' | '*=' | '/=' | '%=' ) Expr)]
 IfStmt = Condition Block [('elif' IfStmt) | ('else' Block)]
@@ -62,4 +64,4 @@ BasicLit = Number | CHAR | (Name? STRING) | 'true' | 'false' | 'null'
 Number = (INTEGER | FLOAT) Name?
 StructLit = Name '{' ArgumentList '}'
 ArrayLit  = '[' [Expr {',' Expr} ','?] ']'
-FuncLit = 'fun' ['[' IDENT ']'] FuncSignature Block
+FuncLit = Extern? 'fun' FuncSignature Block

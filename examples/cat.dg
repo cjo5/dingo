@@ -1,6 +1,6 @@
 include "../std/lib.dg"
 
-fun[c] main(argc c_int, argv &&c_char) c_int {
+extern fun main(argc c_int, argv &&c_char) c_int {
     val args = &argv[:argc]
 
     if len(args) != 2 {

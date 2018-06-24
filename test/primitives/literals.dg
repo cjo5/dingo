@@ -1,6 +1,6 @@
 include "../common.dg"
 
-fun[c] main() c_int {
+extern fun main() c_int {
     putln("text") // expect-output: text
     putchar('k') // expect-output: k
     putchar('\n')

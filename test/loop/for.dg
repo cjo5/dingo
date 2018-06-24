@@ -1,6 +1,6 @@
 include "../common.dg"
 
-fun[c] main() c_int {
+extern fun main() c_int {
     for i = 0; i < 5; i++ {
         putiln(i)
     }

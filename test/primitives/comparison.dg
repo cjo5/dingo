@@ -1,6 +1,6 @@
 include "../common.dg"
 
-fun[c] main() c_int {
+extern fun main() c_int {
     putbool(2 == 2) // expect-output: true
     putbool(1 == 2) // expect-output: false
     putbool(1 != 2) // expect-output: true

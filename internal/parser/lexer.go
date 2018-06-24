@@ -168,7 +168,7 @@ func (l *lexer) lex() (token.Token, token.Position, string) {
 
 func isLineTerminator(id token.Token) bool {
 	switch id {
-	case token.Ident,
+	case token.Module, token.Ident,
 		token.Integer, token.Float, token.Char, token.String, token.True, token.False, token.Null,
 		token.Rparen, token.Rbrace, token.Rbrack,
 		token.Continue, token.Break, token.Return,

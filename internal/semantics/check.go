@@ -34,7 +34,7 @@ func addBuiltinType(t ir.Type) {
 }
 
 func addBuiltinAliasType(name string, t ir.Type) {
-	sym := ir.NewSymbol(ir.TypeSymbol, builtinScope, true, name, token.NoPosition)
+	sym := ir.NewSymbol(ir.TypeSymbol, builtinScope, true, ir.DGABI, name, token.NoPosition)
 	sym.T = t
 	builtinScope.Insert(sym)
 }
@@ -106,10 +106,17 @@ func setScope(c *context, scope *ir.Scope) (*context, *ir.Scope) {
 	return c, curr
 }
 
-func (c *context) mapTopDecl(sym *ir.Symbol, decl ir.TopDecl) {
+func (c *context) addTopDeclSymbol(decl ir.TopDecl, name *ir.Ident, id ir.SymbolID, abi *ir.Ident) *ir.Symbol {
+	public := decl.Visibility().Is(token.Public)
+	effectiveABI := ir.DGABI
+	if abi != nil {
+		effectiveABI = abi.Literal
+	}
+	sym := c.insert(c.scope, id, public, effectiveABI, name.Literal, name.Pos())
 	if sym != nil {
 		c.decls[sym] = decl
 	}
+	return sym
 }
 
 func (c *context) pushTopDecl(decl ir.TopDecl) {
@@ -145,8 +152,8 @@ func (c *context) warning(pos token.Position, format string, args ...interface{}
 	c.errors.AddWarning(pos, format, args...)
 }
 
-func (c *context) insert(scope *ir.Scope, id ir.SymbolID, public bool, name string, pos token.Position) *ir.Symbol {
-	sym := ir.NewSymbol(id, scope, public, name, pos)
+func (c *context) insert(scope *ir.Scope, id ir.SymbolID, public bool, abi string, name string, pos token.Position) *ir.Symbol {
+	sym := ir.NewSymbol(id, scope, public, abi, name, pos)
 	if existing := scope.Insert(sym); existing != nil {
 		msg := fmt.Sprintf("redefinition of '%s' (previously defined at %s)", name, existing.DefPos)
 		c.error(pos, msg)

@@ -1,6 +1,6 @@
 include "../common.dg"
 
-fun[c] main() c_int {
+extern fun main() c_int {
     val f1 Foo // expect-error: incomplete type main.Foo
 
     var f2 Bar

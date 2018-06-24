@@ -1,6 +1,6 @@
 include "../common.dg"
 
-fun[c] main() c_int {
+extern fun main() c_int {
     var data = 9
     var ptr = &var data
     val slice = &var ptr[:1]

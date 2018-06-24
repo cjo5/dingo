@@ -1,4 +1,4 @@
-include "clib.dg"
+include "libc.dg"
 
 fun putln(str &[i8]) {
     put(str)

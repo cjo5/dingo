@@ -180,47 +180,73 @@ func (p *parser) isSemi() bool {
 
 func (p *parser) parseFile() {
 	p.file.SetRange(token.NoPosition, token.NoPosition)
+
 	if p.token.Is(token.Module) {
-		p.file.SetPos(p.pos)
+		startPos := p.pos
 		p.next()
-		p.file.ModName = p.parseName()
-		p.expectSemi1(false)
+		p.file.ModName = p.parseModName()
+		if p.file.ModName != nil {
+			if p.expectSemi1(false) {
+				p.file.SetRange(startPos, p.file.ModName.EndPos())
+			} else {
+				p.sync()
+			}
+		} else {
+			p.sync()
+		}
 	}
 
 	for p.token.Is(token.Include) {
 		dep := p.parseInclude()
 		if dep != nil {
 			p.file.FileDeps = append(p.file.FileDeps, dep)
+		} else {
+			p.sync()
 		}
 	}
 
 	for !p.token.Is(token.EOF) {
-		directives := p.parseDirectives(nil)
-
-		visibilityPos := token.NoPosition
-		visibility := token.Private
+		visibility := token.Invalid
 		if p.token.OneOf(token.Public, token.Private) {
-			visibilityPos = p.pos
 			visibility = p.token
 			p.next()
 		}
 
-		directives = p.parseDirectives(directives)
-
 		if p.isSemi() {
 			p.next()
 		} else if p.token.Is(token.Import) {
-			dep := p.parseImport(directives, visibility)
+			dep := p.parseImport(visibility)
 			if dep != nil {
 				p.file.ModDeps = append(p.file.ModDeps, dep)
 			}
 		} else {
-			decl := p.parseTopDecl(visibilityPos, visibility, directives)
+			decl := p.parseTopDecl(visibility)
 			if decl != nil {
 				p.decls = append(p.decls, decl)
 			}
 		}
 	}
+}
+
+func (p *parser) parseModName() ir.Expr {
+	var expr ir.Expr
+	if p.token.Is(token.Ident) {
+		expr = ir.Expr(p.parseIdent())
+		for p.token.Is(token.Dot) {
+			p.next()
+			if p.token.Is(token.Ident) {
+				name := p.parseIdent()
+				expr = &ir.DotExpr{X: expr, Name: name}
+			} else {
+				p.expect3(token.Ident, nil, false)
+				expr = nil
+				break
+			}
+		}
+	} else {
+		p.expect3(token.Ident, nil, false)
+	}
+	return expr
 }
 
 func (p *parser) parseInclude() *ir.FileDependency {
@@ -232,11 +258,13 @@ func (p *parser) parseInclude() *ir.FileDependency {
 		return nil
 	}
 	dep.SetEndPos(p.pos)
-	p.expectSemi1(false)
+	if !p.expectSemi1(false) {
+		return nil
+	}
 	return dep
 }
 
-func (p *parser) parseImport(directives []ir.Directive, visibility token.Token) (dep *ir.ModuleDependency) {
+func (p *parser) parseImport(visibility token.Token) (dep *ir.ModuleDependency) {
 	defer func() {
 		if r := recover(); r != nil {
 			if _, ok := r.(parseError); ok {
@@ -248,7 +276,7 @@ func (p *parser) parseImport(directives []ir.Directive, visibility token.Token) 
 		}
 	}()
 
-	dep = &ir.ModuleDependency{Directives: directives, Visibility: visibility}
+	dep = &ir.ModuleDependency{Visibility: visibility}
 
 	dep.SetPos(p.pos)
 	p.next()
@@ -261,18 +289,20 @@ func (p *parser) parseImport(directives []ir.Directive, visibility token.Token) 
 	if p.token.Is(token.As) {
 		p.next()
 		dep.Alias = p.parseIdent()
+		dep.SetEndPos(dep.Alias.EndPos())
 	} else {
 		parts := strings.Split(ir.ExprNameToText(dep.ModName), ".")
 		dep.Alias = ir.NewIdent2(token.Ident, parts[len(parts)-1])
+		dep.SetRange(dep.ModName.Pos(), dep.ModName.EndPos())
+		dep.SetEndPos(dep.ModName.EndPos())
 	}
 
-	dep.SetEndPos(p.pos)
 	p.expectSemi()
 
 	return dep
 }
 
-func (p *parser) parseTopDecl(visibilityPos token.Position, visibility token.Token, directives []ir.Directive) (decl ir.TopDecl) {
+func (p *parser) parseTopDecl(visibility token.Token) (decl ir.TopDecl) {
 	defer func() {
 		if r := recover(); r != nil {
 			if _, ok := r.(parseError); ok {
@@ -284,17 +314,30 @@ func (p *parser) parseTopDecl(visibilityPos token.Position, visibility token.Tok
 		}
 	}()
 
-	if p.token.Is(token.AliasType) {
-		decl = p.parseTypeTopDecl(visibilityPos, visibility, directives)
-		p.expectSemi()
-	} else if p.token.OneOf(token.Const, token.Var, token.Val) {
-		decl = p.parseValTopDecl(visibilityPos, visibility, directives)
+	if p.token.Is(token.Extern) {
+		abi := p.parseExtern()
+		if p.token.OneOf(token.Var, token.Val) {
+			decl = p.parseValTopDecl(abi)
+			p.expectSemi()
+		} else if p.token.Is(token.Func) {
+			decl = p.parseFuncDecl(abi)
+			p.expectSemi()
+		} else {
+			p.error(p.pos, "expected '%s', '%s' or '%s'", token.Var, token.Val, token.Func)
+			p.next()
+			p.sync()
+		}
+	} else if p.token.Is(token.Struct) {
+		decl = p.parseStructDecl()
 		p.expectSemi()
 	} else if p.token.Is(token.Func) {
-		decl = p.parseFuncDecl(visibilityPos, visibility, directives)
+		decl = p.parseFuncDecl(nil)
 		p.expectSemi()
-	} else if p.token.Is(token.Struct) {
-		decl = p.parseStructDecl(visibilityPos, visibility, directives)
+	} else if p.token.Is(token.AliasType) {
+		decl = p.parseTypeTopDecl()
+		p.expectSemi()
+	} else if p.token.OneOf(token.Const, token.Var, token.Val) {
+		decl = p.parseValTopDecl(nil)
 		p.expectSemi()
 	} else {
 		p.error(p.pos, "expected declaration")
@@ -302,29 +345,80 @@ func (p *parser) parseTopDecl(visibilityPos token.Position, visibility token.Tok
 		p.sync()
 	}
 
+	if decl != nil {
+		decl.SetVisibility(visibility)
+	}
+
 	return decl
 }
 
-func (p *parser) parseDirectives(directives []ir.Directive) []ir.Directive {
-	for p.token.Is(token.Directive) {
+func (p *parser) parseExtern() *ir.Ident {
+	var abi *ir.Ident
+	if p.token.Is(token.Extern) {
+		pos := p.pos
 		p.next()
-		name := p.parseIdent()
-		directives = append(directives, ir.Directive{Name: name})
+		if p.token.Is(token.Lparen) {
+			p.next()
+			abi = p.parseIdent()
+			p.expect(token.Rparen)
+		} else {
+			abi = ir.NewIdent2(token.Ident, ir.CABI)
+			abi.SetRange(pos, pos)
+		}
 	}
-	return directives
+	return abi
 }
 
-func (p *parser) parseTypeTopDecl(visibilityPos token.Position, visibility token.Token, directives []ir.Directive) *ir.TypeTopDecl {
-	decl := &ir.TypeTopDecl{}
-	if visibilityPos.IsValid() {
-		decl.SetPos(visibilityPos)
+func (p *parser) parseStructDecl() *ir.StructDecl {
+	decl := &ir.StructDecl{}
+	decl.SetPos(p.pos)
+	p.next()
+	decl.Name = p.parseIdent()
+	decl.SetEndPos(decl.Name.EndPos())
+	if p.isSemi() {
+		decl.Opaque = true
 	} else {
-		decl.SetPos(p.pos)
+		decl.Opaque = false
+		p.expect(token.Lbrace)
+		p.blockCount++
+		flags := ir.AstFlagNoInit
+		for !p.token.OneOf(token.EOF, token.Rbrace) {
+			decl.Fields = append(decl.Fields, p.parseField(flags, token.Var))
+			p.expectSemi()
+		}
+		p.expect(token.Rbrace)
+		p.blockCount--
 	}
-	decl.Visibility = visibility
-	decl.Directives = directives
+	return decl
+}
+
+func (p *parser) parseFuncDecl(abi *ir.Ident) *ir.FuncDecl {
+	decl := &ir.FuncDecl{}
+	decl.ABI = abi
+
+	decl.SetPos(p.pos)
+	p.next()
+
+	decl.Name = p.parseIdent()
+	decl.Params, decl.Return = p.parseFuncSignature()
+	decl.SetEndPos(decl.Return.EndPos())
+
+	if p.isSemi() {
+		return decl
+	}
+
+	p.funcName = decl.Name.Literal
+	p.funcAnonCount = 0
+	decl.Body = p.parseBlock(false)
+	p.funcName = ""
+
+	return decl
+}
+
+func (p *parser) parseTypeTopDecl() *ir.TypeTopDecl {
+	decl := &ir.TypeTopDecl{}
 	decl.TypeDeclSpec = p.parseTypeDeclSpec()
-	decl.SetEndPos(p.pos)
+	decl.SetEndPos(decl.TypeDeclSpec.Type.EndPos())
 	return decl
 }
 
@@ -345,17 +439,16 @@ func (p *parser) parseTypeDeclSpec() ir.TypeDeclSpec {
 	return decl
 }
 
-func (p *parser) parseValTopDecl(visibilityPos token.Position, visibility token.Token, directives []ir.Directive) *ir.ValTopDecl {
+func (p *parser) parseValTopDecl(abi *ir.Ident) *ir.ValTopDecl {
 	decl := &ir.ValTopDecl{}
-	if visibilityPos.IsValid() {
-		decl.SetPos(visibilityPos)
-	} else {
-		decl.SetPos(p.pos)
-	}
-	decl.Visibility = visibility
-	decl.Directives = directives
+	decl.ABI = abi
+	decl.SetPos(p.pos)
 	decl.ValDeclSpec = p.parseValDeclSpec()
-	decl.SetEndPos(p.pos)
+	if decl.ValDeclSpec.Initializer != nil {
+		decl.SetEndPos(decl.ValDeclSpec.Initializer.EndPos())
+	} else {
+		decl.SetEndPos(decl.ValDeclSpec.Type.EndPos())
+	}
 	return decl
 }
 
@@ -363,7 +456,11 @@ func (p *parser) parseValDecl() *ir.ValDecl {
 	decl := &ir.ValDecl{}
 	decl.SetPos(p.pos)
 	decl.ValDeclSpec = p.parseValDeclSpec()
-	decl.SetEndPos(p.pos)
+	if decl.ValDeclSpec.Initializer != nil {
+		decl.SetEndPos(decl.ValDeclSpec.Initializer.EndPos())
+	} else {
+		decl.SetEndPos(decl.ValDeclSpec.Type.EndPos())
+	}
 	return decl
 }
 
@@ -430,46 +527,6 @@ func (p *parser) parseField(flags int, defaultDecl token.Token) *ir.ValDecl {
 	return decl
 }
 
-func (p *parser) parseFuncDecl(visibilityPos token.Position, visibility token.Token, directives []ir.Directive) *ir.FuncDecl {
-	decl := &ir.FuncDecl{}
-	if visibilityPos.IsValid() {
-		decl.SetPos(visibilityPos)
-	} else {
-		decl.SetPos(p.pos)
-	}
-	decl.Visibility = visibility
-	decl.Directives = directives
-	p.next()
-
-	if p.token.Is(token.Lbrack) {
-		p.next()
-		decl.ABI = p.parseIdent()
-		p.expect(token.Rbrack)
-
-		if !visibilityPos.IsValid() {
-			if decl.ABI.Literal == ir.CABI {
-				// C functions have public as default visibility
-				decl.Visibility = token.Public
-			}
-		}
-	}
-
-	decl.Name = p.parseIdent()
-	decl.Params, decl.Return = p.parseFuncSignature()
-	decl.SetEndPos(p.pos)
-
-	if p.isSemi() {
-		return decl
-	}
-
-	p.funcName = decl.Name.Literal
-	p.funcAnonCount = 0
-	decl.Body = p.parseBlock(false)
-	p.funcName = ""
-
-	return decl
-}
-
 func (p *parser) parseFuncSignature() (params []*ir.ValDecl, ret *ir.ValDecl) {
 	p.expect(token.Lparen)
 	if !p.token.Is(token.Rparen) {
@@ -483,6 +540,7 @@ func (p *parser) parseFuncSignature() (params []*ir.ValDecl, ret *ir.ValDecl) {
 			params = append(params, p.parseField(flags, token.Val))
 		}
 	}
+	endPos := p.pos
 	p.expect(token.Rparen)
 	ret = &ir.ValDecl{}
 	ret.SetPos(p.pos)
@@ -491,38 +549,9 @@ func (p *parser) parseFuncSignature() (params []*ir.ValDecl, ret *ir.ValDecl) {
 	ret.Type = p.parseType(true)
 	if ret.Type == nil {
 		ret.Type = ir.NewIdent2(token.Ident, ir.TVoid.String())
+		ret.SetRange(endPos, endPos)
 	}
-	ret.SetPos(p.pos)
 	return
-}
-
-func (p *parser) parseStructDecl(visibilityPos token.Position, visibility token.Token, directives []ir.Directive) *ir.StructDecl {
-	decl := &ir.StructDecl{}
-	if visibilityPos.IsValid() {
-		decl.SetPos(visibilityPos)
-	} else {
-		decl.SetPos(p.pos)
-	}
-	decl.Visibility = visibility
-	decl.Directives = directives
-	p.next()
-	decl.Name = p.parseIdent()
-	decl.SetEndPos(p.pos)
-	if p.isSemi() {
-		decl.Opaque = true
-	} else {
-		decl.Opaque = false
-		p.expect(token.Lbrace)
-		p.blockCount++
-		flags := ir.AstFlagNoInit
-		for !p.token.OneOf(token.EOF, token.Rbrace) {
-			decl.Fields = append(decl.Fields, p.parseField(flags, token.Var))
-			p.expectSemi()
-		}
-		p.expect(token.Rbrace)
-		p.blockCount--
-	}
-	return decl
 }
 
 func (p *parser) parseStmt() (stmt ir.Stmt, sync bool) {
@@ -736,7 +765,7 @@ func (p *parser) parseType(optional bool) ir.Expr {
 		return p.parsePointerType()
 	} else if p.token.Is(token.Lbrack) {
 		return p.parseArrayType()
-	} else if p.token.OneOf(token.Func) {
+	} else if p.token.OneOf(token.Extern, token.Func) {
 		return p.parseFuncType()
 	} else if p.token.Is(token.Ident) {
 		return p.parseName()
@@ -789,6 +818,7 @@ func (p *parser) parseArrayType() ir.Expr {
 
 func (p *parser) parseFuncType() ir.Expr {
 	fun := &ir.FuncTypeExpr{}
+	fun.ABI = p.parseExtern()
 	fun.SetPos(p.pos)
 	p.expect(token.Func)
 	if p.token.Is(token.Lbrack) {
@@ -885,7 +915,7 @@ func (p *parser) parseOperand(condition bool) ir.Expr {
 		}
 	} else if p.token.Is(token.Lbrack) {
 		expr = p.parseArrayLit()
-	} else if p.token.Is(token.Func) {
+	} else if p.token.OneOf(token.Func, token.Extern) {
 		expr = p.parseFuncLit()
 	} else {
 		expr = p.parseBasicLit(nil)
@@ -1096,7 +1126,6 @@ func (p *parser) parseArrayLit() ir.Expr {
 
 func (p *parser) parseFuncLit() ir.Expr {
 	decl := &ir.FuncDecl{}
-	decl.SetPos(p.pos)
 	decl.Flags = ir.AstFlagAnon
 
 	name := ""
@@ -1109,17 +1138,16 @@ func (p *parser) parseFuncLit() ir.Expr {
 	}
 
 	decl.Name = ir.NewIdent2(token.Ident, name)
+	decl.SetVisibility(token.Private)
 
-	decl.Visibility = token.Private
+	decl.ABI = p.parseExtern()
+
+	decl.SetPos(p.pos)
+	decl.Name.SetRange(p.pos, p.pos)
 	p.expect(token.Func)
-	if p.token.Is(token.Lbrack) {
-		p.next()
-		decl.ABI = p.parseIdent()
-		p.expect(token.Rbrack)
-	}
 
 	decl.Params, decl.Return = p.parseFuncSignature()
-	decl.SetEndPos(p.pos)
+	decl.SetEndPos(decl.Return.EndPos())
 	decl.Body = p.parseBlockStmt()
 
 	p.decls = append(p.decls, decl)

@@ -1,6 +1,6 @@
 include "../common.dg"
 
-fun[c] main() i32 {
+extern fun main() i32 {
     putiln(sizeof(i8)) // expect-output: 1
     putiln(sizeof(i16)) // expect-output: 2
     putiln(sizeof(i32)) // expect-output: 4

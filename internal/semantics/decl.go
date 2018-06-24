@@ -15,15 +15,6 @@ func (v *typeChecker) visitModuleSet(set *ir.ModuleSet, signature bool) {
 			v.visitTopDecl(decl)
 		}
 	}
-	if v.signature {
-		for _, mod := range set.Modules {
-			for _, file := range mod.Files {
-				for _, dep := range file.ModDeps {
-					v.warnUnusedDirectives(dep.Directives)
-				}
-			}
-		}
-	}
 }
 
 func (v *typeChecker) visitDependencies(decl ir.TopDecl) {
@@ -36,7 +27,6 @@ func (v *typeChecker) visitDependencies(decl ir.TopDecl) {
 }
 
 func (v *typeChecker) visitTopDecl(decl ir.TopDecl) {
-	// Nil symbol means a redeclaration
 	if decl.Symbol() == nil {
 		return
 	}
@@ -99,7 +89,6 @@ func (v *typeChecker) VisitTypeTopDecl(decl *ir.TypeTopDecl) {
 	v.setWeakDependencies(decl)
 	v.visitDependencies(decl)
 
-	v.warnUnusedDirectives(decl.Directives)
 	v.visitTypeDeclSpec(decl.Sym, &decl.TypeDeclSpec)
 }
 
@@ -128,7 +117,6 @@ func (v *typeChecker) VisitValTopDecl(decl *ir.ValTopDecl) {
 	v.setWeakDependencies(decl)
 	v.visitDependencies(decl)
 
-	v.warnUnusedDirectives(decl.Directives)
 	v.visitValDeclSpec(decl.Sym, &decl.ValDeclSpec, true)
 
 	if !ir.IsUntyped(decl.Sym.T) && decl.Sym.ID != ir.ConstSymbol {
@@ -143,23 +131,6 @@ func (v *typeChecker) VisitValDecl(decl *ir.ValDecl) {
 	if decl.Sym != nil {
 		v.visitValDeclSpec(decl.Sym, &decl.ValDeclSpec, decl.Init())
 	}
-}
-
-func (v *typeChecker) warnUnusedDirectives(directives []ir.Directive) {
-	for _, dir := range directives {
-		v.c.warning(dir.Name.Pos(), "unused directive '%s'", dir.Name.Literal)
-	}
-}
-
-func (v *typeChecker) checkCABI(abi *ir.Ident) bool {
-	if abi == nil {
-		return false
-	}
-	if abi.Literal != ir.CABI {
-		v.c.error(abi.Pos(), "unknown abi '%s'", abi.Literal)
-		return false
-	}
-	return true
 }
 
 func (v *typeChecker) visitValDeclSpec(sym *ir.Symbol, decl *ir.ValDeclSpec, defaultInit bool) {
@@ -219,10 +190,8 @@ func (v *typeChecker) visitValDeclSpec(sym *ir.Symbol, decl *ir.ValDeclSpec, def
 
 func (v *typeChecker) VisitFuncDecl(decl *ir.FuncDecl) {
 	if v.signature {
-		v.warnUnusedDirectives(decl.Directives)
 		v.visitDependencies(decl)
 
-		c := v.checkCABI(decl.ABI)
 		v.VisitIdent(decl.Name)
 
 		defer setScope(setScope(v.c, decl.Scope))
@@ -251,7 +220,8 @@ func (v *typeChecker) VisitFuncDecl(decl *ir.FuncDecl) {
 		tfun := ir.TBuiltinUntyped
 
 		if !untyped {
-			tfun = ir.NewFuncType(params, tret, c)
+			cabi := (decl.Sym.ABI == ir.CABI)
+			tfun = ir.NewFuncType(params, tret, cabi)
 			if decl.Sym.T != nil && !checkTypes(v.c, decl.Sym.T, tfun) {
 				v.c.error(decl.Name.Pos(), "redeclaration of '%s' (previously declared with a different signature at %s)",
 					decl.Name.Literal, decl.Sym.DeclPos)
@@ -302,7 +272,6 @@ func (v *typeChecker) VisitStructDecl(decl *ir.StructDecl) {
 		if decl.Sym.T == nil {
 			decl.Sym.T = ir.NewStructType(decl.Sym, decl.Scope)
 		}
-		v.warnUnusedDirectives(decl.Directives)
 		return
 	}
 

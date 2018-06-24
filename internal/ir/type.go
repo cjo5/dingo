@@ -76,9 +76,6 @@ func (id TypeID) String() string {
 	return s
 }
 
-// CABI name.
-const CABI = "c"
-
 // Built-in types.
 var (
 	TBuiltinUntyped = Type(NewBasicType(TUntyped))
@@ -324,10 +321,10 @@ type FuncType struct {
 
 func (t *FuncType) String() string {
 	var buf bytes.Buffer
-	buf.WriteString("fun")
 	if t.C {
-		buf.WriteString("[c]")
+		buf.WriteString("extern ")
 	}
+	buf.WriteString("fun")
 	buf.WriteString("(")
 	for i, param := range t.Params {
 		buf.WriteString(param.T.String())

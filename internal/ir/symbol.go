@@ -3,6 +3,12 @@ package ir
 import "github.com/jhnl/dingo/internal/token"
 import "fmt"
 
+// CABI name.
+const CABI = "c"
+
+// DGABI name.
+const DGABI = "dg"
+
 // SymbolID identifies the type of symbol.
 type SymbolID int
 
@@ -27,6 +33,7 @@ type Symbol struct {
 	ID      SymbolID
 	Parent  *Scope
 	Public  bool
+	ABI     string
 	Name    string
 	DeclPos token.Position
 	DefPos  token.Position // Different from DeclPos if symbol was declared before defined
@@ -35,22 +42,34 @@ type Symbol struct {
 }
 
 // NewSymbol creates a new symbol.
-func NewSymbol(id SymbolID, parent *Scope, public bool, name string, pos token.Position) *Symbol {
-	return &Symbol{ID: id, Parent: parent, Public: public, Name: name, DeclPos: pos, DefPos: pos, Flags: 0}
+func NewSymbol(id SymbolID, parent *Scope, public bool, abi string, name string, pos token.Position) *Symbol {
+	return &Symbol{ID: id, Parent: parent, Public: public, ABI: abi, Name: name, DeclPos: pos, DefPos: pos, Flags: 0}
+}
+
+func IsValidABI(abi string) bool {
+	switch abi {
+	case CABI:
+	case DGABI:
+	default:
+		return false
+	}
+	return true
 }
 
 func (s SymbolID) String() string {
 	switch s {
 	case ValSymbol:
-		return "ValSymbol"
+		return "val"
+	case ConstSymbol:
+		return "const"
 	case FuncSymbol:
-		return "FuncSymbol"
+		return "fun"
 	case ModuleSymbol:
-		return "ModuleSymbol"
+		return "module"
 	case StructSymbol:
-		return "StructSymbol"
+		return "struct"
 	case TypeSymbol:
-		return "TypeSymbol"
+		return "type"
 	default:
 		return "Symbol " + string(s)
 	}
