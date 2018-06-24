@@ -179,16 +179,11 @@ func (p *parser) isSemi() bool {
 }
 
 func (p *parser) parseFile() {
-	p.file.SetRange(token.NoPosition, token.NoPosition)
-
 	if p.token.Is(token.Module) {
-		startPos := p.pos
 		p.next()
 		p.file.ModName = p.parseModName()
 		if p.file.ModName != nil {
-			if p.expectSemi1(false) {
-				p.file.SetRange(startPos, p.file.ModName.EndPos())
-			} else {
+			if !p.expectSemi1(false) {
 				p.sync()
 			}
 		} else {
@@ -293,7 +288,6 @@ func (p *parser) parseImport(visibility token.Token) (dep *ir.ModuleDependency) 
 	} else {
 		parts := strings.Split(ir.ExprNameToText(dep.ModName), ".")
 		dep.Alias = ir.NewIdent2(token.Ident, parts[len(parts)-1])
-		dep.SetRange(dep.ModName.Pos(), dep.ModName.EndPos())
 		dep.SetEndPos(dep.ModName.EndPos())
 	}
 
@@ -417,6 +411,7 @@ func (p *parser) parseFuncDecl(abi *ir.Ident) *ir.FuncDecl {
 
 func (p *parser) parseTypeTopDecl() *ir.TypeTopDecl {
 	decl := &ir.TypeTopDecl{}
+	decl.SetPos(p.pos)
 	decl.TypeDeclSpec = p.parseTypeDeclSpec()
 	decl.SetEndPos(decl.TypeDeclSpec.Type.EndPos())
 	return decl
@@ -426,7 +421,7 @@ func (p *parser) parseTypeDecl() *ir.TypeDecl {
 	decl := &ir.TypeDecl{}
 	decl.SetPos(p.pos)
 	decl.TypeDeclSpec = p.parseTypeDeclSpec()
-	decl.SetEndPos(p.pos)
+	decl.SetEndPos(decl.TypeDeclSpec.Type.EndPos())
 	return decl
 }
 
@@ -499,8 +494,8 @@ func (p *parser) parseField(flags int, defaultDecl token.Token) *ir.ValDecl {
 		decl.Decl = defaultDecl
 	}
 
-	tok := p.token
-	lit := p.literal
+	tok, lit := p.token, p.literal
+	startPos, endPos := p.pos, p.endPos()
 
 	if p.token.Is(token.Underscore) {
 		p.next()
@@ -517,12 +512,16 @@ func (p *parser) parseField(flags int, defaultDecl token.Token) *ir.ValDecl {
 		decl.Type = p.parseType(optional)
 		if decl.Type == nil {
 			decl.Type = &ir.Ident{Tok: tok, Literal: lit}
-			tok = token.Underscore
-			lit = token.Underscore.String()
+			decl.SetRange(startPos, endPos)
+			tok, lit = token.Underscore, token.Underscore.String()
+			startPos, endPos = token.NoPosition, token.NoPosition
 		}
 	}
 
 	decl.Name = ir.NewIdent2(tok, lit)
+	decl.Name.SetRange(startPos, endPos)
+
+	decl.SetEndPos(decl.Type.EndPos())
 
 	return decl
 }
@@ -597,9 +596,6 @@ func (p *parser) parseStmt() (stmt ir.Stmt, sync bool) {
 	} else {
 		stmt = p.parseExprOrAssignStmt()
 	}
-	if stmt != nil {
-		stmt.SetEndPos(p.pos)
-	}
 	p.expectSemi()
 	return stmt, sync
 }
@@ -610,7 +606,7 @@ func (p *parser) parseBlockStmt() *ir.BlockStmt {
 
 func (p *parser) parseBlock(incBody bool) *ir.BlockStmt {
 	block := &ir.BlockStmt{}
-	block.SetPos(p.pos)
+	block.SetRange(p.pos, p.pos)
 
 	p.expect(token.Lbrace)
 
@@ -655,7 +651,6 @@ func (p *parser) parseValDeclStmt() *ir.DeclStmt {
 
 func (p *parser) parseIfStmt() *ir.IfStmt {
 	s := &ir.IfStmt{}
-	s.SetPos(p.pos)
 	p.next()
 	s.Cond = p.parseCondition()
 	s.Body = p.parseBlockStmt()
@@ -670,7 +665,6 @@ func (p *parser) parseIfStmt() *ir.IfStmt {
 
 func (p *parser) parseWhileStmt() *ir.ForStmt {
 	s := &ir.ForStmt{}
-	s.SetPos(p.pos)
 	p.next()
 	s.Cond = p.parseCondition()
 	p.loopCount++
@@ -681,7 +675,6 @@ func (p *parser) parseWhileStmt() *ir.ForStmt {
 
 func (p *parser) parseForStmt() *ir.ForStmt {
 	s := &ir.ForStmt{}
-	s.SetPos(p.pos)
 	p.next()
 
 	if p.token != token.Semicolon {
@@ -718,7 +711,7 @@ func (p *parser) parseForStmt() *ir.ForStmt {
 
 func (p *parser) parseReturnStmt() *ir.ReturnStmt {
 	s := &ir.ReturnStmt{}
-	s.SetPos(p.pos)
+	s.SetRange(p.pos, p.pos)
 	p.next()
 	if p.token != token.Semicolon {
 		s.X = p.parseExpr()
@@ -728,7 +721,6 @@ func (p *parser) parseReturnStmt() *ir.ReturnStmt {
 
 func (p *parser) parseExprOrAssignStmt() ir.Stmt {
 	var stmt ir.Stmt
-	pos := p.pos
 	expr := p.parseExpr()
 	if p.token.IsAssignOp() || p.token.OneOf(token.Inc, token.Dec) {
 		assign := p.token
@@ -747,7 +739,6 @@ func (p *parser) parseExprOrAssignStmt() ir.Stmt {
 	} else {
 		stmt = &ir.ExprStmt{X: expr}
 	}
-	stmt.SetPos(pos)
 	return stmt
 }
 
@@ -811,8 +802,8 @@ func (p *parser) parseArrayType() ir.Expr {
 		p.next()
 		array.Size = p.parseExpr()
 	}
+	array.SetEndPos(p.endPos())
 	p.expect(token.Rbrack)
-	array.SetEndPos(p.pos)
 	return array
 }
 
@@ -827,7 +818,7 @@ func (p *parser) parseFuncType() ir.Expr {
 		p.expect(token.Rbrack)
 	}
 	fun.Params, fun.Return = p.parseFuncSignature()
-	fun.SetPos(p.pos)
+	fun.SetPos(fun.Return.EndPos())
 	return fun
 }
 
@@ -847,8 +838,9 @@ func (p *parser) parseBinaryExpr(condition bool, prec int) ir.Expr {
 		op := p.token
 		p.next()
 		expr = p.parseOperand(condition)
+		endPos := expr.EndPos()
 		expr = &ir.UnaryExpr{Op: op, X: expr}
-		expr.SetRange(pos, p.pos)
+		expr.SetRange(pos, endPos)
 	} else if p.token.Is(token.And) {
 		p.next()
 		decl := token.Val
@@ -857,8 +849,9 @@ func (p *parser) parseBinaryExpr(condition bool, prec int) ir.Expr {
 			p.next()
 		}
 		expr = p.parseOperand(condition)
+		endPos := expr.EndPos()
 		expr = &ir.AddressExpr{Decl: decl, X: expr}
-		expr.SetRange(pos, p.pos)
+		expr.SetRange(pos, endPos)
 	} else {
 		expr = p.parseOperand(condition)
 	}
@@ -887,7 +880,7 @@ func (p *parser) parseAsExpr(expr ir.Expr) ir.Expr {
 		cast.X = expr
 		p.next()
 		cast.ToType = p.parseType(false)
-		cast.SetRange(expr.Pos(), p.pos)
+		cast.SetRange(expr.Pos(), cast.ToType.EndPos())
 		return cast
 	}
 	return expr
@@ -900,8 +893,9 @@ func (p *parser) parseOperand(condition bool) ir.Expr {
 		p.next()
 		expr = p.parseExpr()
 		expr.SetPos(pos)
+		endPos := p.endPos()
 		p.expect(token.Rparen)
-		expr.SetEndPos(p.pos)
+		expr.SetEndPos(endPos)
 	} else if p.token.Is(token.Lenof) {
 		expr = p.parseLenExpr()
 	} else if p.token.Is(token.Sizeof) {
@@ -929,8 +923,8 @@ func (p *parser) parseLenExpr() *ir.LenExpr {
 	p.next()
 	p.expect(token.Lparen)
 	lenof.X = p.parseExpr()
+	lenof.SetEndPos(p.endPos())
 	p.expect(token.Rparen)
-	lenof.SetEndPos(p.pos)
 	return lenof
 }
 
@@ -940,8 +934,8 @@ func (p *parser) parseSizeExpr() *ir.SizeExpr {
 	p.next()
 	p.expect(token.Lparen)
 	sizeof.X = p.parseType(false)
+	sizeof.SetEndPos(p.endPos())
 	p.expect(token.Rparen)
-	sizeof.SetEndPos(p.pos)
 	return sizeof
 }
 
@@ -961,7 +955,7 @@ func (p *parser) parseArgExpr(stop token.Token) *ir.ArgExpr {
 	} else {
 		arg.Value = expr
 	}
-	arg.SetEndPos(p.pos)
+	arg.SetEndPos(arg.Value.EndPos())
 	return arg
 }
 
@@ -1011,16 +1005,17 @@ func (p *parser) parseSliceOrIndexExpr(expr ir.Expr) ir.Expr {
 		}
 	}
 
+	endPos := p.endPos()
 	p.expect(token.Rbrack)
 
 	if colon != token.Invalid {
 		slice := &ir.SliceExpr{X: expr, Start: index1, End: index2}
-		slice.SetRange(pos, p.pos)
+		slice.SetRange(pos, endPos)
 		return slice
 	}
 
 	res := &ir.IndexExpr{X: expr, Index: index1}
-	res.SetRange(pos, p.pos)
+	res.SetRange(pos, endPos)
 	return p.parsePrimary(res)
 }
 
@@ -1058,8 +1053,8 @@ func (p *parser) parseFuncCall(expr ir.Expr) ir.Expr {
 	call.X = expr
 	p.expect(token.Lparen)
 	call.Args = p.parseArgumentList(token.Rparen)
+	call.SetEndPos(p.endPos())
 	p.expect(token.Rparen)
-	call.SetEndPos(p.pos)
 	return call
 }
 
@@ -1071,18 +1066,18 @@ func (p *parser) parseBasicLit(prefix ir.Expr) ir.Expr {
 		lit.Value = p.literal
 
 		if prefix != nil {
-			lit.SetPos(prefix.Pos())
+			lit.SetRange(prefix.Pos(), p.endPos())
 		} else {
-			lit.SetPos(p.pos)
+			lit.SetRange(p.pos, p.endPos())
 		}
 
 		p.next()
 
 		if lit.Tok.OneOf(token.Integer, token.Float) && p.token.Is(token.Ident) {
 			lit.Suffix = p.parseName()
+			lit.SetEndPos(lit.Suffix.EndPos())
 		}
 
-		lit.SetEndPos(p.pos)
 		return lit
 	default:
 		p.error(p.pos, "expected expression")
@@ -1093,13 +1088,12 @@ func (p *parser) parseBasicLit(prefix ir.Expr) ir.Expr {
 
 func (p *parser) parseStructLit(name ir.Expr) ir.Expr {
 	lit := &ir.StructLit{Name: name}
-	lit.SetPos(name.Pos())
+	lit.SetRange(name.Pos(), name.EndPos())
 	p.expect(token.Lbrace)
 	p.blockCount++
 	lit.Args = p.parseArgumentList(token.Rbrace)
 	p.expect(token.Rbrace)
 	p.blockCount--
-	lit.SetEndPos(p.pos)
 	return lit
 }
 
@@ -1118,9 +1112,9 @@ func (p *parser) parseArrayLit() ir.Expr {
 			inits = append(inits, p.parseExpr())
 		}
 	}
+	lit.SetEndPos(p.endPos())
 	p.expect(token.Rbrack)
 	lit.Initializers = inits
-	lit.SetEndPos(p.pos)
 	return lit
 }
 
