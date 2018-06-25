@@ -23,12 +23,14 @@ type llvmCodeBuilder struct {
 	objectfiles    []string
 	b              llvm.Builder
 	mod            llvm.Module
-	inFunction     bool
 	signature      bool
 	values         map[*ir.Symbol]llvm.Value
 	typeCtx        llvmTypeContext
 	loopConditions []llvm.BasicBlock
 	loopExits      []llvm.BasicBlock
+	inFunction     bool
+	retValue       llvm.Value
+	retBlock       llvm.BasicBlock
 }
 
 // Field indexes for slice struct.
@@ -258,12 +260,12 @@ func (cb *llvmCodeBuilder) buildFuncDecl(decl *ir.FuncDecl) {
 	name := mangle(decl.Sym)
 	fun := cb.mod.NamedFunction(name)
 
+	tfun := ir.ToBaseType(decl.Sym.T).(*ir.FuncType)
+
 	if cb.signature {
 		if !fun.IsNil() {
 			return
 		}
-
-		tfun := decl.Sym.T.(*ir.FuncType)
 
 		var paramTypes []llvm.Type
 		for _, p := range tfun.Params {
@@ -286,8 +288,12 @@ func (cb *llvmCodeBuilder) buildFuncDecl(decl *ir.FuncDecl) {
 		return
 	}
 
-	block := llvm.AddBasicBlock(fun, ".entry")
-	cb.b.SetInsertPointAtEnd(block)
+	entryBlock := llvm.AddBasicBlock(fun, ".entry")
+	cb.b.SetInsertPointAtEnd(entryBlock)
+
+	if tfun.Return.ID() != ir.TVoid {
+		cb.retValue = cb.b.CreateAlloca(cb.llvmType(tfun.Return), ".retval")
+	}
 
 	for i, p := range fun.Params() {
 		sym := decl.Params[i].Sym
@@ -296,12 +302,21 @@ func (cb *llvmCodeBuilder) buildFuncDecl(decl *ir.FuncDecl) {
 		cb.values[sym] = loc
 	}
 
+	cb.retBlock = llvm.AddBasicBlock(fun, ".ret")
+
 	cb.inFunction = true
 	cb.buildBlockStmt(decl.Body)
-	if checkEndsWithReturnStmt(decl.Body.Stmts) {
-		cb.b.GetInsertBlock().EraseFromParent() // Remove empty basic block created by last return statement
-	}
 	cb.inFunction = false
+
+	cb.retBlock.MoveAfter(fun.LastBasicBlock())
+	cb.b.SetInsertPointAtEnd(cb.retBlock)
+
+	if tfun.Return.ID() != ir.TVoid {
+		res := cb.b.CreateLoad(cb.retValue, "")
+		cb.b.CreateRet(res)
+	} else {
+		cb.b.CreateRetVoid()
+	}
 }
 
 func (cb *llvmCodeBuilder) buildStructDecl(decl *ir.StructDecl) {
@@ -325,79 +340,98 @@ func (cb *llvmCodeBuilder) buildStructDecl(decl *ir.StructDecl) {
 	structt.StructSetBody(types, false)
 }
 
-func (cb *llvmCodeBuilder) buildStmtList(stmts []ir.Stmt) {
-	for _, stmt := range stmts {
-		cb.buildStmt(stmt)
-	}
-}
-
-func (cb *llvmCodeBuilder) buildStmt(stmt ir.Stmt) {
+func (cb *llvmCodeBuilder) buildStmt(stmt ir.Stmt) bool {
 	switch t := stmt.(type) {
 	case *ir.BlockStmt:
-		cb.buildBlockStmt(t)
+		return cb.buildBlockStmt(t)
 	case *ir.DeclStmt:
-		cb.buildDeclStmt(t)
+		return cb.buildDeclStmt(t)
 	case *ir.IfStmt:
-		cb.buildIfStmt(t)
+		return cb.buildIfStmt(t)
 	case *ir.ForStmt:
-		cb.buildForStmt(t)
+		return cb.buildForStmt(t)
 	case *ir.ReturnStmt:
-		cb.buildReturnStmt(t)
+		return cb.buildReturnStmt(t)
 	case *ir.BranchStmt:
-		cb.buildBranchStmt(t)
+		return cb.buildBranchStmt(t)
 	case *ir.AssignStmt:
-		cb.buildAssignStmt(t)
+		return cb.buildAssignStmt(t)
 	case *ir.ExprStmt:
-		cb.buildExprStmt(t)
+		return cb.buildExprStmt(t)
 	default:
 		panic(fmt.Sprintf("Unhandled stmt %T", t))
 	}
 }
 
-func (cb *llvmCodeBuilder) buildBlockStmt(stmt *ir.BlockStmt) {
-	cb.buildStmtList(stmt.Stmts)
+func (cb *llvmCodeBuilder) buildBlockStmt(stmt *ir.BlockStmt) bool {
+	for _, stmt := range stmt.Stmts {
+		if cb.buildStmt(stmt) {
+			return true
+		}
+	}
+	return false
 }
 
-func (cb *llvmCodeBuilder) buildDeclStmt(stmt *ir.DeclStmt) {
+func (cb *llvmCodeBuilder) buildDeclStmt(stmt *ir.DeclStmt) bool {
 	cb.buildDecl(stmt.D)
+	return false
 }
 
-func (cb *llvmCodeBuilder) buildIfStmt(stmt *ir.IfStmt) {
-	cond := cb.buildExprVal(stmt.Cond)
-
+func (cb *llvmCodeBuilder) buildIfStmt(stmt *ir.IfStmt) bool {
+	var ifBlock llvm.BasicBlock
+	var elseBlock llvm.BasicBlock
+	var joinBlock llvm.BasicBlock
 	fun := cb.b.GetInsertBlock().Parent()
-	iftrue := llvm.AddBasicBlock(fun, ".if_true")
-	join := llvm.AddBasicBlock(fun, ".join")
+	ifBranch := false
+	elseBranch := false
 
-	var iffalse llvm.BasicBlock
+	cond := cb.buildExprVal(stmt.Cond)
+	condBlock := cb.b.GetInsertBlock()
+
+	ifBlock = llvm.AddBasicBlock(fun, ".if_true")
+	ifBlock.MoveAfter(condBlock)
+	cb.b.SetInsertPointAtEnd(ifBlock)
+	ifBranch = cb.buildBlockStmt(stmt.Body)
+
 	if stmt.Else != nil {
-		iffalse = llvm.AddBasicBlock(fun, ".if_false")
-		cb.b.CreateCondBr(cond, iftrue, iffalse)
+		elseBlock = llvm.AddBasicBlock(fun, ".if_false")
+		elseBlock.MoveAfter(cb.b.GetInsertBlock())
+		cb.b.SetInsertPointAtEnd(elseBlock)
+		elseBranch = cb.buildStmt(stmt.Else)
+	}
+
+	isJoin := false
+	if !ifBranch || !elseBranch {
+		joinBlock = llvm.AddBasicBlock(fun, ".if_join")
+		joinBlock.MoveAfter(cb.b.GetInsertBlock())
+		isJoin = true
+	}
+
+	cb.b.SetInsertPointAtEnd(condBlock)
+	if stmt.Else != nil {
+		cb.b.CreateCondBr(cond, ifBlock, elseBlock)
 	} else {
-		cb.b.CreateCondBr(cond, iftrue, join)
+		cb.b.CreateCondBr(cond, ifBlock, joinBlock)
 	}
 
-	cb.b.SetInsertPointAtEnd(iftrue)
-	cb.buildBlockStmt(stmt.Body)
-	cb.b.CreateBr(join)
-
-	var last llvm.BasicBlock
-
-	if stmt.Else != nil {
-		last = fun.LastBasicBlock()
-		iffalse.MoveAfter(last)
-
-		cb.b.SetInsertPointAtEnd(iffalse)
-		cb.buildStmt(stmt.Else)
-		cb.b.CreateBr(join)
+	if !ifBranch {
+		cb.b.SetInsertPointAtEnd(ifBlock)
+		cb.b.CreateBr(joinBlock)
 	}
 
-	last = fun.LastBasicBlock()
-	join.MoveAfter(last)
-	cb.b.SetInsertPointAtEnd(join)
+	if !elseBranch {
+		cb.b.SetInsertPointAtEnd(elseBlock)
+		cb.b.CreateBr(joinBlock)
+	}
+
+	if isJoin {
+		cb.b.SetInsertPointAtEnd(joinBlock)
+	}
+
+	return ifBranch && elseBranch
 }
 
-func (cb *llvmCodeBuilder) buildForStmt(stmt *ir.ForStmt) {
+func (cb *llvmCodeBuilder) buildForStmt(stmt *ir.ForStmt) bool {
 	if stmt.Init != nil {
 		cb.buildValDecl(stmt.Init)
 	}
@@ -435,14 +469,14 @@ func (cb *llvmCodeBuilder) buildForStmt(stmt *ir.ForStmt) {
 		cb.b.CreateBr(loop)
 	}
 
-	last := fun.LastBasicBlock()
+	last := cb.b.GetInsertBlock()
 	loop.MoveAfter(last)
 	cb.b.SetInsertPointAtEnd(loop)
 	cb.buildBlockStmt(stmt.Body)
 
 	if stmt.Inc != nil {
 		cb.b.CreateBr(inc)
-		last = fun.LastBasicBlock()
+		last = cb.b.GetInsertBlock()
 		inc.MoveAfter(last)
 		cb.b.SetInsertPointAtEnd(inc)
 		cb.buildStmt(stmt.Inc)
@@ -454,27 +488,26 @@ func (cb *llvmCodeBuilder) buildForStmt(stmt *ir.ForStmt) {
 		cb.b.CreateBr(loop)
 	}
 
-	last = fun.LastBasicBlock()
+	last = cb.b.GetInsertBlock()
 	exit.MoveAfter(last)
 	cb.b.SetInsertPointAtEnd(exit)
 
 	cb.loopConditions = cb.loopConditions[:len(cb.loopConditions)-1]
 	cb.loopExits = cb.loopExits[:len(cb.loopExits)-1]
+
+	return false
 }
 
-func (cb *llvmCodeBuilder) buildReturnStmt(stmt *ir.ReturnStmt) {
+func (cb *llvmCodeBuilder) buildReturnStmt(stmt *ir.ReturnStmt) bool {
 	if stmt.X != nil {
 		val := cb.buildExprVal(stmt.X)
-		cb.b.CreateRet(val)
-	} else {
-		cb.b.CreateRetVoid()
+		cb.b.CreateStore(val, cb.retValue)
 	}
-	fun := cb.b.GetInsertBlock().Parent()
-	block := llvm.AddBasicBlock(fun, "")
-	cb.b.SetInsertPointAtEnd(block)
+	cb.b.CreateBr(cb.retBlock)
+	return true
 }
 
-func (cb *llvmCodeBuilder) buildBranchStmt(stmt *ir.BranchStmt) {
+func (cb *llvmCodeBuilder) buildBranchStmt(stmt *ir.BranchStmt) bool {
 	if stmt.Tok == token.Continue {
 		block := cb.loopConditions[len(cb.loopConditions)-1]
 		cb.b.CreateBr(block)
@@ -484,12 +517,10 @@ func (cb *llvmCodeBuilder) buildBranchStmt(stmt *ir.BranchStmt) {
 	} else {
 		panic(fmt.Sprintf("Unhandled BranchStmt %s", stmt.Tok))
 	}
-	fun := cb.b.GetInsertBlock().Parent()
-	block := llvm.AddBasicBlock(fun, "")
-	cb.b.SetInsertPointAtEnd(block)
+	return true
 }
 
-func (cb *llvmCodeBuilder) buildAssignStmt(stmt *ir.AssignStmt) {
+func (cb *llvmCodeBuilder) buildAssignStmt(stmt *ir.AssignStmt) bool {
 	loc := cb.buildExprPtr(stmt.Left)
 	val := cb.buildExprVal(stmt.Right)
 
@@ -500,10 +531,12 @@ func (cb *llvmCodeBuilder) buildAssignStmt(stmt *ir.AssignStmt) {
 	}
 
 	cb.b.CreateStore(val, loc)
+	return false
 }
 
-func (cb *llvmCodeBuilder) buildExprStmt(stmt *ir.ExprStmt) {
+func (cb *llvmCodeBuilder) buildExprStmt(stmt *ir.ExprStmt) bool {
 	cb.buildExprVal(stmt.X)
+	return false
 }
 
 func (cb *llvmCodeBuilder) llvmEnumAttribute(name string, val uint64) llvm.Attribute {
