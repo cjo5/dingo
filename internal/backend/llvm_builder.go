@@ -191,31 +191,16 @@ func (cb *llvmCodeBuilder) finalizeModule(mod *ir.Module) {
 	}
 }
 
-func checkEndsWithBranchStmt(stmts []ir.Stmt) bool {
+func checkEndsWithReturnStmt(stmts []ir.Stmt) bool {
 	n := len(stmts)
 	if n > 0 {
 		stmt := stmts[n-1]
 		switch stmt.(type) {
-		case *ir.ReturnStmt, *ir.BranchStmt:
+		case *ir.ReturnStmt:
 			return true
 		}
 	}
 	return false
-}
-
-func checkElseEndsWithBranchStmt(stmt *ir.IfStmt) bool {
-	body := stmt.Body
-	if stmt.Else != nil {
-		switch t := stmt.Else.(type) {
-		case *ir.IfStmt:
-			return checkElseEndsWithBranchStmt(t)
-		case *ir.BlockStmt:
-			body = t
-		default:
-			panic(fmt.Sprintf("Unhandled IfStmt else %T", t))
-		}
-	}
-	return checkEndsWithBranchStmt(body.Stmts)
 }
 
 func (cb *llvmCodeBuilder) llvmType(t ir.Type) llvm.Type {
@@ -313,7 +298,7 @@ func (cb *llvmCodeBuilder) buildFuncDecl(decl *ir.FuncDecl) {
 
 	cb.inFunction = true
 	cb.buildBlockStmt(decl.Body)
-	if checkEndsWithBranchStmt(decl.Body.Stmts) {
+	if checkEndsWithReturnStmt(decl.Body.Stmts) {
 		cb.b.GetInsertBlock().EraseFromParent() // Remove empty basic block created by last return statement
 	}
 	cb.inFunction = false
@@ -394,25 +379,17 @@ func (cb *llvmCodeBuilder) buildIfStmt(stmt *ir.IfStmt) {
 
 	cb.b.SetInsertPointAtEnd(iftrue)
 	cb.buildBlockStmt(stmt.Body)
-	if checkEndsWithBranchStmt(stmt.Body.Stmts) {
-		cb.b.GetInsertBlock().EraseFromParent() // Remove empty basic block created by branch statement
-	} else {
-		cb.b.CreateBr(join)
-	}
+	cb.b.CreateBr(join)
 
 	var last llvm.BasicBlock
 
 	if stmt.Else != nil {
 		last = fun.LastBasicBlock()
 		iffalse.MoveAfter(last)
+
 		cb.b.SetInsertPointAtEnd(iffalse)
 		cb.buildStmt(stmt.Else)
-
-		if checkElseEndsWithBranchStmt(stmt) {
-			cb.b.GetInsertBlock().EraseFromParent() // Remove empty basic block created by branch statement
-		} else {
-			cb.b.CreateBr(join)
-		}
+		cb.b.CreateBr(join)
 	}
 
 	last = fun.LastBasicBlock()
