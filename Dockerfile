@@ -34,6 +34,7 @@ RUN go install github.com/jhnl/dingo/cmd/dgc \
 
 # Copy Dingo tests and examples
 # Files specified as arguments to docker run should be located in these directories
+COPY std ./std
 COPY test ./test
 COPY examples/ ./examples
 
