@@ -1,9 +1,16 @@
 [
     {
-        "dir": "const",
         "tests": [
+            "alias.dg",
+            "bad_cast.dg",
+            "bad_const.dg",
+            "bad_sizeof.dg",
             "const.dg",
-            "bad_const.dg"
+            "if.dg",
+            "incomplete_type.dg",
+            "sizeof.dg",
+            "type_in_expr.dg",
+            "void.dg"
         ]
     },
     {
@@ -21,32 +28,6 @@
         ]
     },
     {
-        "dir": "primitives",
-        "tests": [
-            "literals.dg",
-            "arithmetic.dg",
-            "comparison.dg",
-            "logic.dg"
-        ]
-    },
-    {
-        "dir": "if",
-        "tests": [
-            "if.dg"
-        ]
-    },
-    {
-        "dir": "loop",
-        "tests": [
-            "for.dg",
-            "while.dg",
-            "nested_for.dg",
-            "nested_while.dg",
-            "break.dg",
-            "continue.dg"
-        ]
-    },
-    {
         "dir": "function",
         "tests": [
             "literal.dg",
@@ -55,11 +36,14 @@
         ]
     },
     {
-        "dir": "struct",
+        "dir": "loop",
         "tests": [
-            "arguments.dg",
-            "bad_arguments.dg",
-            "opaque.dg"
+            "break.dg",
+            "continue.dg",
+            "for.dg",
+            "nested_for.dg",
+            "nested_while.dg",
+            "while.dg"
         ]
     },
     {
@@ -71,24 +55,29 @@
         ]
     },
     {
+        "dir": "primitives",
+        "tests": [
+            "comparison.dg",
+            "literals.dg",
+            "logic.dg",
+            "math.dg"
+        ]
+    },
+    {
         "dir": "slice",
         "tests": [
             "offset.dg",
             "pointer.dg",
-            "read_only.dg",
-            "pointer_end_index.dg"
+            "pointer_end_index.dg",
+            "read_only.dg"
         ]
     },
     {
-        "dir": "type",
+        "dir": "struct",
         "tests": [
-            "incomplete.dg",
-            "bad_cast.dg",
-            "type_in_expr.dg",
-            "void.dg",
-            "sizeof.dg",
-            "bad_sizeof.dg",
-            "alias.dg"
+            "arguments.dg",
+            "bad_arguments.dg",
+            "opaque.dg"
         ]
     }
 ]

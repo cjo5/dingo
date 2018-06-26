@@ -1,21 +1,13 @@
 //include "common.dg"
 
-
-fun hello(a i32) i32 {
-    if a > 0 {
-        return a + 1
-    } elif a == 0 {
-        return a + 2
-    } else {
-        return a + 3
-    }
-    return -1
-}
-
-
 extern fun main() c_int {
-    /*putiln(hello(1))
-    putiln(hello(0))
-    putiln(hello(-1))*/
+    val a = 1
+    var b = 1
+    for i = 0; i < 3; i++ {
+        defer b += 1
+        if a == 1 {
+            continue
+        }
+    }
     return 0
 }
