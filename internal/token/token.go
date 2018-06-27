@@ -76,6 +76,7 @@ const (
 	For
 	While
 	Return
+	Defer
 	Continue
 	Break
 	As
@@ -166,6 +167,7 @@ var tokens = [...]string{
 	For:       "for",
 	While:     "while",
 	Return:    "return",
+	Defer:     "defer",
 	Continue:  "continue",
 	Break:     "break",
 	As:        "as",

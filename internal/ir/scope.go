@@ -18,13 +18,14 @@ type Scope struct {
 	ID      ScopeID
 	FQN     string
 	Parent  *Scope
+	Defer   bool
 	Symbols map[string]*Symbol
 }
 
 // NewScope creates a new scope nested in the parent scope.
 func NewScope(id ScopeID, fqn string, parent *Scope) *Scope {
 	const n = 4 // Initial scope capacity
-	return &Scope{id, fqn, parent, make(map[string]*Symbol, n)}
+	return &Scope{id, fqn, parent, false, make(map[string]*Symbol, n)}
 }
 
 func (s ScopeID) String() string {

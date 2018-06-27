@@ -22,6 +22,7 @@ type Visitor interface {
 	VisitIfStmt(stmt *IfStmt)
 	VisitForStmt(stmt *ForStmt)
 	VisitReturnStmt(stmt *ReturnStmt)
+	VisitDeferStmt(stmt *DeferStmt)
 	VisitBranchStmt(stmt *BranchStmt)
 	VisitAssignStmt(stmt *AssignStmt)
 	VisitExprStmt(stmt *ExprStmt)
@@ -76,6 +77,7 @@ func (v *BaseVisitor) VisitDeclStmt(stmt *DeclStmt) {}
 func (v *BaseVisitor) VisitIfStmt(stmt *IfStmt)         {}
 func (v *BaseVisitor) VisitForStmt(stmt *ForStmt)       {}
 func (v *BaseVisitor) VisitReturnStmt(stmt *ReturnStmt) {}
+func (v *BaseVisitor) VisitDeferStmt(stmt *DeferStmt)   {}
 func (v *BaseVisitor) VisitBranchStmt(stmt *BranchStmt) {}
 func (v *BaseVisitor) VisitAssignStmt(stmt *AssignStmt) {}
 func (v *BaseVisitor) VisitExprStmt(stmt *ExprStmt)     {}
@@ -153,6 +155,8 @@ func VisitStmt(v Visitor, stmt Stmt) {
 		v.VisitForStmt(s)
 	case *ReturnStmt:
 		v.VisitReturnStmt(s)
+	case *DeferStmt:
+		v.VisitDeferStmt(s)
 	case *BranchStmt:
 		v.VisitBranchStmt(s)
 	case *AssignStmt:

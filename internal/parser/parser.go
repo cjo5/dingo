@@ -584,6 +584,8 @@ func (p *parser) parseStmt() (stmt ir.Stmt, sync bool) {
 		stmt = p.parseForStmt()
 	} else if p.token.Is(token.Return) {
 		stmt = p.parseReturnStmt()
+	} else if p.token.Is(token.Defer) {
+		stmt = p.parseDeferStmt()
 	} else if p.token.OneOf(token.Break, token.Continue) {
 		if p.loopCount == 0 {
 			// TODO: This should be done in type checker
@@ -626,11 +628,11 @@ func (p *parser) parseBlock(incBody bool) *ir.BlockStmt {
 		}
 	}
 
+	block.SetEndPos(p.pos)
+
 	if p.token.Is(token.Rbrace) || !didSync {
 		p.expect(token.Rbrace)
 	}
-
-	block.SetEndPos(p.pos)
 
 	if incBody {
 		p.blockCount--
@@ -641,16 +643,22 @@ func (p *parser) parseBlock(incBody bool) *ir.BlockStmt {
 
 func (p *parser) parseTypeDeclStmt() *ir.DeclStmt {
 	d := p.parseTypeDecl()
-	return &ir.DeclStmt{D: d}
+	stmt := &ir.DeclStmt{D: d}
+	stmt.SetRange(d.Pos(), d.EndPos())
+	return stmt
 }
 
 func (p *parser) parseValDeclStmt() *ir.DeclStmt {
 	d := p.parseValDecl()
-	return &ir.DeclStmt{D: d}
+	stmt := &ir.DeclStmt{D: d}
+	stmt.SetRange(d.Pos(), d.EndPos())
+	return stmt
 }
 
 func (p *parser) parseIfStmt() *ir.IfStmt {
 	s := &ir.IfStmt{}
+	s.Tok = p.token
+	s.SetPos(p.pos)
 	p.next()
 	s.Cond = p.parseCondition()
 	s.Body = p.parseBlockStmt()
@@ -660,21 +668,31 @@ func (p *parser) parseIfStmt() *ir.IfStmt {
 		p.next() // We might wanna save this token...
 		s.Else = p.parseBlockStmt()
 	}
+	if s.Else != nil {
+		s.SetEndPos(s.Else.EndPos())
+	} else {
+		s.SetEndPos(s.Body.EndPos())
+	}
 	return s
 }
 
 func (p *parser) parseWhileStmt() *ir.ForStmt {
 	s := &ir.ForStmt{}
+	s.Tok = p.token
+	s.SetPos(p.pos)
 	p.next()
 	s.Cond = p.parseCondition()
 	p.loopCount++
 	s.Body = p.parseBlockStmt()
 	p.loopCount--
+	s.SetEndPos(s.Body.EndPos())
 	return s
 }
 
 func (p *parser) parseForStmt() *ir.ForStmt {
 	s := &ir.ForStmt{}
+	s.Tok = p.token
+	s.SetPos(p.pos)
 	p.next()
 
 	if p.token != token.Semicolon {
@@ -687,7 +705,6 @@ func (p *parser) parseForStmt() *ir.ForStmt {
 
 		p.expect(token.Assign)
 		s.Init.Initializer = p.parseExpr()
-		s.SetEndPos(p.pos)
 	}
 
 	p.expectSemi()
@@ -706,6 +723,8 @@ func (p *parser) parseForStmt() *ir.ForStmt {
 	s.Body = p.parseBlockStmt()
 	p.loopCount--
 
+	s.SetEndPos(s.Body.EndPos())
+
 	return s
 }
 
@@ -716,6 +735,14 @@ func (p *parser) parseReturnStmt() *ir.ReturnStmt {
 	if p.token != token.Semicolon {
 		s.X = p.parseExpr()
 	}
+	return s
+}
+
+func (p *parser) parseDeferStmt() *ir.DeferStmt {
+	s := &ir.DeferStmt{}
+	s.SetRange(p.pos, p.pos)
+	p.next()
+	s.S = p.parseExprOrAssignStmt()
 	return s
 }
 
@@ -736,8 +763,10 @@ func (p *parser) parseExprOrAssignStmt() ir.Stmt {
 			right = p.parseExpr()
 		}
 		stmt = &ir.AssignStmt{Left: expr, Assign: assign, Right: right}
+		stmt.SetRange(expr.Pos(), right.EndPos())
 	} else {
 		stmt = &ir.ExprStmt{X: expr}
+		stmt.SetRange(expr.Pos(), expr.EndPos())
 	}
 	return stmt
 }

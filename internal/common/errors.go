@@ -54,7 +54,7 @@ func (e Error) Error() string {
 	if e.ID == ErrorMsg {
 		id = BoldRed(e.ID.String())
 	} else {
-		id = BoldYellow(e.ID.String())
+		id = BoldPurple(e.ID.String())
 	}
 
 	if e.Pos.IsValid() {

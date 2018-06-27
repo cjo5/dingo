@@ -229,6 +229,10 @@ func (v *depChecker) VisitReturnStmt(stmt *ir.ReturnStmt) {
 	}
 }
 
+func (v *depChecker) VisitDeferStmt(stmt *ir.DeferStmt) {
+	ir.VisitStmt(v, stmt.S)
+}
+
 func (v *depChecker) VisitAssignStmt(stmt *ir.AssignStmt) {
 	ir.VisitExpr(v, stmt.Left)
 	ir.VisitExpr(v, stmt.Right)

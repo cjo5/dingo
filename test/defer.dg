@@ -1,0 +1,221 @@
+include "common.dg"
+
+fun test_nested_scopes() {
+    {
+        putln("nested_scopes_start1")
+        defer putln("nested_scopes_end1")
+        {
+            putln("nested_scopes_start2")
+            defer putln("nested_scopes_end2")
+        }
+    }
+    putln("nested_scopes_done")
+}
+
+fun test_if1(a i32) {
+    defer putln("if1_done")
+    if a == 1 {
+        defer putln("if1_1")
+        return
+    }
+    defer putln("if1_2")
+}
+
+fun test_if2(a i32) i32 {
+    defer putln("if2_done")
+    if a == 1 {
+        defer putln("if2_1")
+        return 1
+    } else {
+        defer putln("if2_2")
+        return 3
+    }
+}
+
+fun test_if3(a i32) {
+    if a == 1 {
+        defer putln("if3_1_end")
+        putln("if3_1_start")
+    } elif a == 2 {
+        defer putln("if3_2_end")
+        putln("if3_2_start")
+    } else {
+        defer putln("if3_3_end")
+        putln("if3_3_start")
+    }
+    putln("if3_done")
+}
+
+fun test_for(a i32) {
+    defer putln("for_done2")
+    for i = 0; i < 3; i++ {
+        defer putln("for")
+        if i == 1 {
+            if a == 1 {
+                continue
+            } elif a == 2 {
+                break
+            } elif a == 3 {
+                return
+            }
+        }
+        putiln(i)
+    }
+    putln("for_done1")
+}
+
+fun test_nested_for() {
+    defer putln("nested_for_done")
+    for i = 0; i < 2; i++ {
+        for j = 0; j < 2; j++ {
+            defer putiln(i)
+            if j == 0 {
+                break
+            }
+        }
+    }
+}
+
+fun test_for_chain(a i32) {
+    defer putln("for_chain_done")
+    for i = 0; i < 2; i++ {
+        defer putln("for_chain_it1")
+        {
+            defer putln("for_chain_it2")
+            if a == 1 {
+                continue
+            } elif a == 2 {
+                defer putln("for_chain_break")
+                break
+            } else {
+                defer putln("for_chain_fallthrough")
+            }
+        } 
+    }
+}
+
+fun test_for_skip(a i32) {
+    for i = 0; i < 1; i++ {
+        defer putln("for_skip_done")
+        if a == 1 {
+            continue
+        } elif a == 2 {
+            break
+        }
+        defer putln("skip")
+    }
+}
+
+fun test_return_skip(a i32) {
+    defer putln("return_skip_done")
+    {
+        if a == 1 {
+            return
+        }
+        defer putln("skip")
+    }
+}
+
+fun test_modify_retval() i32 {
+    var a = 4
+    defer a = 5
+    return a
+}
+
+extern fun main() i32 {
+    test_nested_scopes()
+    // expect-output: nested_scopes_start1
+    // expect-output: nested_scopes_start2
+    // expect-output: nested_scopes_end2
+    // expect-output: nested_scopes_end1
+    // expect-output: nested_scopes_done
+
+    test_if1(1)
+    // expect-output: if1_1
+    // expect-output: if1_done
+
+    test_if1(2)
+    // expect-output: if1_2
+    // expect-output: if1_done
+
+    test_if2(1)
+    // expect-output: if2_1
+    // expect-output: if2_done
+
+    test_if2(2)
+    // expect-output: if2_2
+    // expect-output: if2_done
+
+    test_if3(1)
+    // expect-output: if3_1_start
+    // expect-output: if3_1_end
+    // expect-output: if3_done
+
+    test_if3(2)
+    // expect-output: if3_2_start
+    // expect-output: if3_2_end
+    // expect-output: if3_done
+
+    test_if3(3)
+    // expect-output: if3_3_start
+    // expect-output: if3_3_end
+    // expect-output: if3_done
+
+    test_for(1)
+    // expect-output: 0
+    // expect-output: for
+    // expect-output: for
+    // expect-output: 2
+    // expect-output: for
+    // expect-output: for_done1
+    // expect-output: for_done2
+
+    test_for(2)
+    // expect-output: 0
+    // expect-output: for
+    // expect-output: for
+    // expect-output: for_done1
+    // expect-output: for_done2
+
+    test_for(3)
+    // expect-output: 0
+    // expect-output: for
+    // expect-output: for
+    // expect-output: for_done2
+
+    test_nested_for()
+    // expect-output: 0
+    // expect-output: 1
+    // expect-output: nested_for_done
+
+    test_for_chain(1)
+    // expect-output: for_chain_it2
+    // expect-output: for_chain_it1
+    // expect-output: for_chain_it2
+    // expect-output: for_chain_it1
+    // expect-output: for_chain_done
+
+    test_for_chain(2)
+    // expect-output: for_chain_break
+    // expect-output: for_chain_it2
+    // expect-output: for_chain_it1
+    // expect-output: for_chain_done
+
+    test_for_chain(3)
+    // expect-output: for_chain_fallthrough
+    // expect-output: for_chain_it2
+    // expect-output: for_chain_it1
+    // expect-output: for_chain_fallthrough
+    // expect-output: for_chain_it2
+    // expect-output: for_chain_it1
+    // expect-output: for_chain_done
+
+    test_for_skip(1) // expect-output: for_skip_done
+    test_for_skip(2) // expect-output: for_skip_done
+
+    test_return_skip(1) // expect-output: return_skip_done
+
+    putiln(test_modify_retval()) // expect-output: 4
+
+    return 0
+}

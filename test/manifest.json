@@ -6,6 +6,7 @@
             "bad_const.dg",
             "bad_sizeof.dg",
             "const.dg",
+            "defer.dg",
             "if.dg",
             "incomplete_type.dg",
             "sizeof.dg",

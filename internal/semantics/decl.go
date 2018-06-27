@@ -242,25 +242,6 @@ func (v *typeChecker) VisitFuncDecl(decl *ir.FuncDecl) {
 
 	defer setScope(setScope(v.c, decl.Scope))
 	v.VisitBlockStmt(decl.Body)
-
-	endsWithReturn := false
-	for i, stmt := range decl.Body.Stmts {
-		if _, ok := stmt.(*ir.ReturnStmt); ok {
-			if (i + 1) == len(decl.Body.Stmts) {
-				endsWithReturn = true
-			}
-		}
-	}
-
-	if !endsWithReturn && !ir.IsUntyped(decl.Return.Type.Type()) {
-		if !ir.IsTypeID(decl.Return.Type.Type(), ir.TVoid) {
-			v.c.error(decl.Body.EndPos(), "missing return")
-		} else {
-			returnStmt := &ir.ReturnStmt{}
-			returnStmt.SetRange(token.NoPosition, token.NoPosition)
-			decl.Body.Stmts = append(decl.Body.Stmts, returnStmt)
-		}
-	}
 }
 
 func (v *typeChecker) VisitStructDecl(decl *ir.StructDecl) {

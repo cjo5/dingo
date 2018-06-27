@@ -33,12 +33,14 @@ FuncType = Extern? 'fun' ['[' IDENT ']'] FuncSignature
 
 Block = '{' Stmt* '}'
 Stmt = [Block | Decl | AssignOrExprStmt | 'if' IfStmt | WhileStmt |
-        ForStmt | ReturnStmt | 'break' | 'continue'] EOS
+        ForStmt | ReturnStmt | DeferStmt | BranchStmt ] EOS
 ExprOrAssignStmt = Expr ['++' | '--' | (('=' | '+=' | '-=' | '*=' | '/=' | '%=' ) Expr)]
 IfStmt = Condition Block [('elif' IfStmt) | ('else' Block)]
 WhileStmt = 'while' Condition Block
 ForStmt 'for' [IDENT Type? '=' Expr] ';' Condition? ';' ExprOrAssignStmt? Block
 ReturnStmt = 'return' [Expr]
+BranchStmt = 'break' | 'continue'
+DeferStmt = 'defer' ExprOrAssignStmt
 
 Condition = UnaryOp? Operand Primary AsExpr [BinaryOp Condition]
 Expr = UnaryOp? (Operand | StructLit) Primary AsExpr [BinaryOp Expr]

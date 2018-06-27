@@ -294,6 +294,7 @@ type DeclStmt struct {
 // IfStmt represents a chain of if/elif/else statements.
 type IfStmt struct {
 	baseStmt
+	Tok  token.Token
 	Cond Expr
 	Body *BlockStmt
 	Else Stmt // Optional
@@ -301,6 +302,7 @@ type IfStmt struct {
 
 type ForStmt struct {
 	baseStmt
+	Tok  token.Token
 	Init *ValDecl
 	Inc  Stmt
 	Cond Expr
@@ -310,6 +312,11 @@ type ForStmt struct {
 type ReturnStmt struct {
 	baseStmt
 	X Expr
+}
+
+type DeferStmt struct {
+	baseStmt
+	S Stmt
 }
 
 type BranchStmt struct {

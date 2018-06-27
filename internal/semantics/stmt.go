@@ -76,6 +76,11 @@ func (v *typeChecker) VisitReturnStmt(stmt *ir.ReturnStmt) {
 	}
 }
 
+func (v *typeChecker) VisitDeferStmt(stmt *ir.DeferStmt) {
+	v.c.scope.Defer = true
+	ir.VisitStmt(v, stmt.S)
+}
+
 func (v *typeChecker) VisitAssignStmt(stmt *ir.AssignStmt) {
 	stmt.Left = ir.VisitExpr(v, stmt.Left)
 	left := stmt.Left
