@@ -10,12 +10,12 @@ import (
 
 // Check will resolve identifiers, look for cyclic dependencies between identifiers, and type check.
 func Check(set *ir.ModuleSet, target ir.Target) error {
-	c := newContext(set, target)
+	c := newChecker(set, target)
 
-	symCheck(c)
-	depCheck(c)
-	typeCheck(c)
-	sortDecls(c)
+	c.buildSymbolTable()
+	c.buildDependencyGraph()
+	c.checkTypes()
+	c.sortDecls()
 
 	return c.errors
 }
@@ -68,7 +68,7 @@ func init() {
 	addBuiltinAliasType("c_double", ir.TBuiltinFloat64)
 }
 
-type context struct {
+type checker struct {
 	set        *ir.ModuleSet
 	target     ir.Target
 	errors     *common.ErrorList
@@ -78,35 +78,48 @@ type context struct {
 	// State that can change during node visits
 	scope     *ir.Scope
 	declTrace []ir.TopDecl
+	exprMode  int
+	signature bool
+	declSym   *ir.Symbol
+	fqn       string
+	loopCount int
 }
 
-func newContext(set *ir.ModuleSet, target ir.Target) *context {
-	c := &context{set: set, target: target, scope: builtinScope}
+func newChecker(set *ir.ModuleSet, target ir.Target) *checker {
+	c := &checker{set: set, target: target, scope: builtinScope}
 	c.errors = &common.ErrorList{}
 	c.decls = make(map[*ir.Symbol]ir.TopDecl)
 	c.constExprs = make(map[*ir.Symbol]ir.Expr)
 	return c
 }
 
-func (c *context) resetWalkState() {
+func (c *checker) resetWalkState() {
 	c.declTrace = nil
+	c.declSym = nil
+	c.fqn = ""
 }
 
-func (c *context) openScope(id ir.ScopeID, fqn string) {
+func stmtList(stmts []ir.Stmt, visit func(ir.Stmt)) {
+	for _, stmt := range stmts {
+		visit(stmt)
+	}
+}
+
+func (c *checker) openScope(id ir.ScopeID, fqn string) {
 	c.scope = ir.NewScope(id, fqn, c.scope)
 }
 
-func (c *context) closeScope() {
+func (c *checker) closeScope() {
 	c.scope = c.scope.Parent
 }
 
-func setScope(c *context, scope *ir.Scope) (*context, *ir.Scope) {
+func setScope(c *checker, scope *ir.Scope) (*checker, *ir.Scope) {
 	curr := c.scope
 	c.scope = scope
 	return c, curr
 }
 
-func (c *context) addTopDeclSymbol(decl ir.TopDecl, name *ir.Ident, id ir.SymbolID, abi *ir.Ident) *ir.Symbol {
+func (c *checker) addTopDeclSym(decl ir.TopDecl, name *ir.Ident, id ir.SymbolID, abi *ir.Ident) *ir.Symbol {
 	public := decl.Visibility().Is(token.Public)
 	effectiveABI := ir.DGABI
 	if abi != nil {
@@ -119,18 +132,18 @@ func (c *context) addTopDeclSymbol(decl ir.TopDecl, name *ir.Ident, id ir.Symbol
 	return sym
 }
 
-func (c *context) pushTopDecl(decl ir.TopDecl) {
+func (c *checker) pushTopDecl(decl ir.TopDecl) {
 	c.declTrace = append(c.declTrace, decl)
 }
 
-func (c *context) popTopDecl() {
+func (c *checker) popTopDecl() {
 	n := len(c.declTrace)
 	if n > 0 {
 		c.declTrace = c.declTrace[:n-1]
 	}
 }
 
-func (c *context) topDecl() ir.TopDecl {
+func (c *checker) topDecl() ir.TopDecl {
 	n := len(c.declTrace)
 	if n > 0 {
 		return c.declTrace[n-1]
@@ -138,21 +151,21 @@ func (c *context) topDecl() ir.TopDecl {
 	return nil
 }
 
-func (c *context) error(pos token.Position, format string, args ...interface{}) {
+func (c *checker) error(pos token.Position, format string, args ...interface{}) {
 	c.errors.Add(pos, format, args...)
 }
 
-func (c *context) errorNode(node ir.Node, format string, args ...interface{}) {
+func (c *checker) errorNode(node ir.Node, format string, args ...interface{}) {
 	pos := node.Pos()
 	endPos := node.EndPos()
 	c.errors.AddRange(pos, endPos, format, args...)
 }
 
-func (c *context) warning(pos token.Position, format string, args ...interface{}) {
+func (c *checker) warning(pos token.Position, format string, args ...interface{}) {
 	c.errors.AddWarning(pos, format, args...)
 }
 
-func (c *context) insert(scope *ir.Scope, id ir.SymbolID, public bool, abi string, name string, pos token.Position) *ir.Symbol {
+func (c *checker) insert(scope *ir.Scope, id ir.SymbolID, public bool, abi string, name string, pos token.Position) *ir.Symbol {
 	sym := ir.NewSymbol(id, scope, public, abi, name, pos)
 	if existing := scope.Insert(sym); existing != nil {
 		msg := fmt.Sprintf("redefinition of '%s' (previously defined at %s)", name, existing.DefPos)
@@ -162,9 +175,17 @@ func (c *context) insert(scope *ir.Scope, id ir.SymbolID, public bool, abi strin
 	return sym
 }
 
-func (c *context) lookup(name string) *ir.Symbol {
+func (c *checker) lookup(name string) *ir.Symbol {
 	if existing := c.scope.Lookup(name); existing != nil {
 		return existing
 	}
 	return nil
+}
+
+// Returns false if an error should be reported
+func checkTypes(t1 ir.Type, t2 ir.Type) bool {
+	if ir.IsUntyped(t1) || ir.IsUntyped(t2) {
+		return true
+	}
+	return t1.Equals(t2)
 }

@@ -387,82 +387,38 @@ type FuncTypeExpr struct {
 	Return *ValDecl
 }
 
-type BinaryExpr struct {
+type Ident struct {
 	baseExpr
-	Left  Expr
-	Op    token.Token
-	Right Expr
+	Tok     token.Token
+	Literal string
+	Sym     *Symbol
 }
 
-type UnaryExpr struct {
-	baseExpr
-	Op token.Token
-	X  Expr
+func NewIdent2(tok token.Token, literal string) *Ident {
+	return &Ident{Tok: tok, Literal: literal}
 }
 
-func (x *UnaryExpr) Lvalue() bool {
-	switch x.Op {
-	case token.Deref:
-		return x.X.Lvalue()
+func (x *Ident) Lvalue() bool {
+	if x.Sym != nil && x.Sym.ID == ValSymbol {
+		return true
 	}
 	return false
 }
 
-func (x *UnaryExpr) ReadOnly() bool {
-	switch x.Op {
-	case token.Deref:
-		t := x.X.Type()
-		if t != nil {
-			if tptr, ok := t.(*PointerType); ok {
-				return tptr.ReadOnly
-			}
-		}
+func (x *Ident) ReadOnly() bool {
+	if x.Sym != nil {
+		return x.Sym.ReadOnly()
 	}
 	return false
 }
 
-type AddressExpr struct {
-	baseExpr
-	Decl token.Token
-	X    Expr
-}
-
-type IndexExpr struct {
-	baseExpr
-	X     Expr
-	Index Expr
-}
-
-func (x *IndexExpr) Lvalue() bool {
-	return x.X.Lvalue()
-}
-
-func (x *IndexExpr) ReadOnly() bool {
-	t := x.X.Type()
-	if t != nil {
-		if tslice, ok := t.(*SliceType); ok {
-			return tslice.ReadOnly
-		}
+func (x *Ident) SetSymbol(sym *Symbol) {
+	x.Sym = sym
+	if sym != nil {
+		x.T = sym.T
+	} else {
+		x.T = nil
 	}
-	return x.X.ReadOnly()
-}
-
-type SliceExpr struct {
-	baseExpr
-	X     Expr
-	Start Expr
-	End   Expr
-}
-
-func (x *SliceExpr) Lvalue() bool {
-	return x.X.Lvalue()
-}
-
-func (x *SliceExpr) ReadOnly() bool {
-	if t, ok := x.T.(*SliceType); ok {
-		return t.ReadOnly
-	}
-	return false
 }
 
 type BasicLit struct {
@@ -523,38 +479,39 @@ type ArrayLit struct {
 	Initializers []Expr
 }
 
-type Ident struct {
+type BinaryExpr struct {
 	baseExpr
-	Tok     token.Token
-	Literal string
-	Sym     *Symbol
+	Left  Expr
+	Op    token.Token
+	Right Expr
 }
 
-func NewIdent2(tok token.Token, literal string) *Ident {
-	return &Ident{Tok: tok, Literal: literal}
+type UnaryExpr struct {
+	baseExpr
+	Op   token.Token
+	Decl token.Token // Used if op == token.Addr
+	X    Expr
 }
 
-func (x *Ident) Lvalue() bool {
-	if x.Sym != nil && x.Sym.ID == ValSymbol {
-		return true
+func (x *UnaryExpr) Lvalue() bool {
+	switch x.Op {
+	case token.Deref:
+		return x.X.Lvalue()
 	}
 	return false
 }
 
-func (x *Ident) ReadOnly() bool {
-	if x.Sym != nil {
-		return x.Sym.ReadOnly()
+func (x *UnaryExpr) ReadOnly() bool {
+	switch x.Op {
+	case token.Deref:
+		t := x.X.Type()
+		if t != nil {
+			if tptr, ok := t.(*PointerType); ok {
+				return tptr.ReadOnly
+			}
+		}
 	}
 	return false
-}
-
-func (x *Ident) SetSymbol(sym *Symbol) {
-	x.Sym = sym
-	if sym != nil {
-		x.T = sym.T
-	} else {
-		x.T = nil
-	}
 }
 
 type DotExpr struct {
@@ -569,6 +526,50 @@ func (x *DotExpr) Lvalue() bool {
 
 func (x *DotExpr) ReadOnly() bool {
 	return x.Name.ReadOnly() || x.X.ReadOnly()
+}
+
+type IndexExpr struct {
+	baseExpr
+	X     Expr
+	Index Expr
+}
+
+func (x *IndexExpr) Lvalue() bool {
+	return x.X.Lvalue()
+}
+
+func (x *IndexExpr) ReadOnly() bool {
+	t := x.X.Type()
+	if t != nil {
+		if tslice, ok := t.(*SliceType); ok {
+			return tslice.ReadOnly
+		}
+	}
+	return x.X.ReadOnly()
+}
+
+type SliceExpr struct {
+	baseExpr
+	X     Expr
+	Start Expr
+	End   Expr
+}
+
+func (x *SliceExpr) Lvalue() bool {
+	return x.X.Lvalue()
+}
+
+func (x *SliceExpr) ReadOnly() bool {
+	if t, ok := x.T.(*SliceType); ok {
+		return t.ReadOnly
+	}
+	return false
+}
+
+type FuncCall struct {
+	baseExpr
+	X    Expr
+	Args []*ArgExpr
 }
 
 type CastExpr struct {
@@ -590,12 +591,6 @@ type SizeExpr struct {
 type ConstExpr struct {
 	baseExpr
 	X Expr
-}
-
-type FuncCall struct {
-	baseExpr
-	X    Expr
-	Args []*ArgExpr
 }
 
 func ExprNameToText(expr Expr) string {
@@ -679,8 +674,6 @@ func ExprPrec(expr Expr) int {
 		return BinaryPrec(t.Op)
 	case *UnaryExpr:
 		return UnaryPrec(t.Op)
-	case *AddressExpr:
-		return UnaryPrec(token.And)
 	case *IndexExpr, *SliceExpr, *DotExpr, *CastExpr, *FuncCall:
 		return 1
 	case *BasicLit, *StructLit, *Ident:

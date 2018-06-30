@@ -18,9 +18,9 @@ func toBasicLit(expr ir.Expr) *ir.BasicLit {
 	return res
 }
 
-func (v *typeChecker) VisitBinaryExpr(expr *ir.BinaryExpr) ir.Expr {
-	expr.Left = ir.VisitExpr(v, expr.Left)
-	expr.Right = ir.VisitExpr(v, expr.Right)
+func (c *checker) checkBinaryExpr(expr *ir.BinaryExpr) ir.Expr {
+	expr.Left = c.typeswitchExpr(expr.Left)
+	expr.Right = c.typeswitchExpr(expr.Right)
 	left := expr.Left
 	right := expr.Right
 
@@ -33,11 +33,11 @@ func (v *typeChecker) VisitBinaryExpr(expr *ir.BinaryExpr) ir.Expr {
 	err := false
 
 	if !ir.IsCompilerType(left.Type()) {
-		if !v.tryMakeTypedLit(right, left.Type()) {
+		if !c.tryMakeTypedLit(right, left.Type()) {
 			err = true
 		}
 	} else if !ir.IsCompilerType(right.Type()) {
-		if !v.tryMakeTypedLit(left, right.Type()) {
+		if !c.tryMakeTypedLit(left, right.Type()) {
 			err = true
 		}
 	} else if ir.IsTypeID(left.Type(), ir.TBigInt, ir.TBigFloat) && ir.IsTypeID(right.Type(), ir.TBigInt, ir.TBigFloat) {
@@ -77,7 +77,7 @@ func (v *typeChecker) VisitBinaryExpr(expr *ir.BinaryExpr) ir.Expr {
 		cast.T = tleft
 		right = cast
 	} else {
-		v.c.errorNode(expr, "type mismatch %s and %s", left.Type(), right.Type())
+		c.errorNode(expr, "type mismatch %s and %s", left.Type(), right.Type())
 		expr.T = ir.TBuiltinUntyped
 		return expr
 	}
@@ -115,7 +115,7 @@ func (v *typeChecker) VisitBinaryExpr(expr *ir.BinaryExpr) ir.Expr {
 					foldCmpRes = leftInt.Cmp(rightInt)
 					fold = true
 				} else if expr.Op.OneOf(token.Div, token.Mod) && rightInt.Cmp(ir.BigIntZero) == 0 {
-					v.c.errorNode(expr, "division by zero")
+					c.errorNode(expr, "division by zero")
 					err = true
 				} else {
 					intRes := big.NewInt(0)
@@ -134,7 +134,7 @@ func (v *typeChecker) VisitBinaryExpr(expr *ir.BinaryExpr) ir.Expr {
 					foldMathRes = intRes
 					fold = true
 					if integerOverflows(intRes, toperand.ID()) {
-						v.c.errorNode(expr, "result from operation '%s' overflows type %s", expr.Op, toperand)
+						c.errorNode(expr, "result from operation '%s' overflows type %s", expr.Op, toperand)
 					}
 				}
 			} else if ir.IsFloatType(toperand) {
@@ -144,7 +144,7 @@ func (v *typeChecker) VisitBinaryExpr(expr *ir.BinaryExpr) ir.Expr {
 					foldCmpRes = leftFloat.Cmp(rightFloat)
 					fold = true
 				} else if expr.Op.Is(token.Div) && rightFloat.Cmp(ir.BigFloatZero) == 0 {
-					v.c.errorNode(expr, "division by zero")
+					c.errorNode(expr, "division by zero")
 					err = true
 				} else if expr.Op.Is(token.Mod) {
 					badop = true
@@ -163,7 +163,7 @@ func (v *typeChecker) VisitBinaryExpr(expr *ir.BinaryExpr) ir.Expr {
 					foldMathRes = floatRes
 					fold = true
 					if floatOverflows(floatRes, toperand.ID()) {
-						v.c.errorNode(expr, "result from operation '%s' overflows type %s", expr.Op, toperand)
+						c.errorNode(expr, "result from operation '%s' overflows type %s", expr.Op, toperand)
 					}
 				}
 			}
@@ -201,7 +201,7 @@ func (v *typeChecker) VisitBinaryExpr(expr *ir.BinaryExpr) ir.Expr {
 	}
 
 	if badop {
-		v.c.errorNode(expr, "operator '%s' cannot be performed on type %s", expr.Op, toperand)
+		c.errorNode(expr, "operator '%s' cannot be performed on type %s", expr.Op, toperand)
 		err = true
 	}
 
@@ -251,8 +251,8 @@ func (v *typeChecker) VisitBinaryExpr(expr *ir.BinaryExpr) ir.Expr {
 	return expr
 }
 
-func (v *typeChecker) VisitUnaryExpr(expr *ir.UnaryExpr) ir.Expr {
-	expr.X = ir.VisitExpr(v, expr.X)
+func (c *checker) checkUnaryExpr(expr *ir.UnaryExpr) ir.Expr {
+	expr.X = c.typeswitchExpr(expr.X)
 	tx := expr.X.Type()
 
 	if ir.IsUntyped(tx) {
@@ -286,7 +286,7 @@ func (v *typeChecker) VisitUnaryExpr(expr *ir.UnaryExpr) ir.Expr {
 				}
 
 				if overflow {
-					v.c.errorNode(expr, "result from additive inverse '%s' overflows type %s", expr.Op, lit.T)
+					c.errorNode(expr, "result from additive inverse '%s' overflows type %s", expr.Op, lit.T)
 				}
 
 				litRes := &ir.BasicLit{Value: ""}
@@ -297,7 +297,7 @@ func (v *typeChecker) VisitUnaryExpr(expr *ir.UnaryExpr) ir.Expr {
 				return litRes
 			}
 		} else {
-			v.c.error(expr.Pos(), "additive inverse cannot be performed on type %s", tx)
+			c.error(expr.Pos(), "additive inverse cannot be performed on type %s", tx)
 		}
 	case token.Lnot:
 		if tx.ID() == ir.TBool {
@@ -315,14 +315,33 @@ func (v *typeChecker) VisitUnaryExpr(expr *ir.UnaryExpr) ir.Expr {
 				return litRes
 			}
 		} else {
-			v.c.error(expr.Pos(), "logical not cannot be performed on type %s)", tx)
+			c.error(expr.Pos(), "logical not cannot be performed on type %s)", tx)
 		}
 	case token.Deref:
 		switch t := ir.ToBaseType(tx).(type) {
 		case *ir.PointerType:
 			expr.T = t.Elem
 		default:
-			v.c.error(expr.X.Pos(), "expression cannot be dereferenced (has type %s)", tx)
+			c.error(expr.X.Pos(), "expression cannot be dereferenced (has type %s)", tx)
+		}
+	case token.Addr:
+		ro := expr.Decl.Is(token.Val)
+		if !expr.X.Lvalue() {
+			c.error(expr.X.Pos(), "expression is not an lvalue")
+		} else if expr.X.ReadOnly() && !ro {
+			c.error(expr.X.Pos(), "expression is read-only")
+		} else {
+			if tslice, ok := tx.(*ir.SliceType); ok {
+				if !tslice.Ptr {
+					tslice.Ptr = true
+					tslice.ReadOnly = ro
+					expr.T = tslice
+				} else {
+					expr.T = ir.NewPointerType(tslice, ro)
+				}
+			} else {
+				expr.T = ir.NewPointerType(tx, ro)
+			}
 		}
 	default:
 		panic(fmt.Sprintf("Unhandled unary op %s", expr.Op))
@@ -336,7 +355,7 @@ func (v *typeChecker) VisitUnaryExpr(expr *ir.UnaryExpr) ir.Expr {
 }
 
 // TODO: Move to lexer and add better support for escape sequences.
-func (v *typeChecker) unescapeStringLiteral(lit *ir.BasicLit) (string, bool) {
+func (c *checker) unescapeStringLiteral(lit *ir.BasicLit) (string, bool) {
 	escaped := []rune(lit.Value)
 	var unescaped []rune
 
@@ -370,7 +389,7 @@ func (v *typeChecker) unescapeStringLiteral(lit *ir.BasicLit) (string, bool) {
 			} else if ch2 == 'v' {
 				ch1 = 0x0b
 			} else {
-				v.c.error(lit.Pos(), "invalid escape sequence '\\%c'", ch2)
+				c.error(lit.Pos(), "invalid escape sequence '\\%c'", ch2)
 				return "", false
 			}
 		}
@@ -385,12 +404,12 @@ func removeUnderscores(lit string) string {
 	return res
 }
 
-func (v *typeChecker) VisitBasicLit(expr *ir.BasicLit) ir.Expr {
+func (c *checker) checkBasicLit(expr *ir.BasicLit) ir.Expr {
 	if expr.Tok == token.False || expr.Tok == token.True {
 		expr.T = ir.TBuiltinBool
 	} else if expr.Tok == token.Char {
 		if expr.Raw == nil {
-			if raw, ok := v.unescapeStringLiteral(expr); ok {
+			if raw, ok := c.unescapeStringLiteral(expr); ok {
 				common.Assert(len(raw) == 1, "Unexpected length on char literal")
 
 				val := big.NewInt(0)
@@ -403,7 +422,7 @@ func (v *typeChecker) VisitBasicLit(expr *ir.BasicLit) ir.Expr {
 		}
 	} else if expr.Tok == token.String {
 		if expr.Raw == nil {
-			if raw, ok := v.unescapeStringLiteral(expr); ok {
+			if raw, ok := c.unescapeStringLiteral(expr); ok {
 				if expr.Prefix == nil {
 					expr.T = ir.NewSliceType(ir.TBuiltinInt8, true, true)
 					expr.Raw = raw
@@ -413,7 +432,7 @@ func (v *typeChecker) VisitBasicLit(expr *ir.BasicLit) ir.Expr {
 						expr.T = ir.NewPointerType(ir.TBuiltinInt8, true)
 						expr.Raw = raw
 					} else {
-						v.c.error(expr.Prefix.Pos(), "invalid string prefix '%s'", prefix)
+						c.error(expr.Prefix.Pos(), "invalid string prefix '%s'", prefix)
 						expr.T = ir.TBuiltinUntyped
 					}
 				}
@@ -452,7 +471,7 @@ func (v *typeChecker) VisitBasicLit(expr *ir.BasicLit) ir.Expr {
 				case ir.TInt8.String():
 					target = ir.TInt8
 				default:
-					v.c.error(expr.Suffix.Pos(), "invalid int suffix '%s'", suffix)
+					c.error(expr.Suffix.Pos(), "invalid int suffix '%s'", suffix)
 					base = ir.TUntyped
 				}
 			}
@@ -477,10 +496,10 @@ func (v *typeChecker) VisitBasicLit(expr *ir.BasicLit) ir.Expr {
 				if expr.Raw != nil {
 					expr.T = ir.NewBasicType(base)
 					if target != ir.TBigInt && target != ir.TBigFloat {
-						v.tryMakeTypedLit(expr, ir.NewBasicType(target))
+						c.tryMakeTypedLit(expr, ir.NewBasicType(target))
 					}
 				} else {
-					v.c.error(expr.Pos(), "unable to interpret int literal '%s'", normalized)
+					c.error(expr.Pos(), "unable to interpret int literal '%s'", normalized)
 				}
 			}
 
@@ -501,7 +520,7 @@ func (v *typeChecker) VisitBasicLit(expr *ir.BasicLit) ir.Expr {
 				case ir.TFloat32.String():
 					target = ir.TFloat32
 				default:
-					v.c.error(expr.Suffix.Pos(), "invalid float suffix '%s'", suffix)
+					c.error(expr.Suffix.Pos(), "invalid float suffix '%s'", suffix)
 					base = ir.TUntyped
 				}
 			}
@@ -515,10 +534,10 @@ func (v *typeChecker) VisitBasicLit(expr *ir.BasicLit) ir.Expr {
 					expr.Raw = val
 
 					if target != ir.TBigFloat {
-						v.tryMakeTypedLit(expr, ir.NewBasicType(target))
+						c.tryMakeTypedLit(expr, ir.NewBasicType(target))
 					}
 				} else {
-					v.c.error(expr.Pos(), "unable to interpret float literal '%s'", normalized)
+					c.error(expr.Pos(), "unable to interpret float literal '%s'", normalized)
 				}
 			}
 
@@ -535,10 +554,10 @@ func (v *typeChecker) VisitBasicLit(expr *ir.BasicLit) ir.Expr {
 	return expr
 }
 
-func (v *typeChecker) VisitIdent(expr *ir.Ident) ir.Expr {
+func (c *checker) checkIdent(expr *ir.Ident) ir.Expr {
 	sym := expr.Sym
 	if sym == nil {
-		sym = v.c.lookup(expr.Literal)
+		sym = c.lookup(expr.Literal)
 	} else {
 		expr.SetSymbol(nil)
 	}
@@ -546,23 +565,23 @@ func (v *typeChecker) VisitIdent(expr *ir.Ident) ir.Expr {
 	err := false
 
 	if sym == nil {
-		v.c.error(expr.Pos(), "'%s' undefined", expr.Literal)
+		c.error(expr.Pos(), "'%s' undefined", expr.Literal)
 		err = true
 	} else if sym.T == nil || sym.IsUntyped() {
 		// Cycle or an error has already occurred
 		err = true
-	} else if v.exprMode != exprModeDot {
-		if v.exprMode == exprModeType {
+	} else if c.exprMode != exprModeDot {
+		if c.exprMode == exprModeType {
 			if !sym.IsType() {
-				v.c.error(expr.Pos(), "'%s' is not a type", sym.Name)
+				c.error(expr.Pos(), "'%s' is not a type", sym.Name)
 				err = true
 			}
 		} else {
 			if sym.ID == ir.ModuleSymbol {
-				v.c.error(expr.Pos(), "module '%s' cannot be used in an expression", sym.Name)
+				c.error(expr.Pos(), "module '%s' cannot be used in an expression", sym.Name)
 				err = true
 			} else if sym.IsType() {
-				v.c.error(expr.Pos(), "type %s cannot be used in an expression", sym.T)
+				c.error(expr.Pos(), "type %s cannot be used in an expression", sym.T)
 				err = true
 			}
 		}
@@ -571,10 +590,10 @@ func (v *typeChecker) VisitIdent(expr *ir.Ident) ir.Expr {
 	if err {
 		expr.T = ir.TBuiltinUntyped
 	} else {
-		decl := v.c.topDecl()
+		decl := c.topDecl()
 		// Check symbol in other module is public (struct fields are exempted).
 		if !sym.Public && sym.ModFQN() != decl.Symbol().ModFQN() && sym.Parent.ID != ir.FieldScope {
-			v.c.error(expr.Pos(), "'%s' is not public", expr.Literal)
+			c.error(expr.Pos(), "'%s' is not public", expr.Literal)
 			expr.T = ir.TBuiltinUntyped
 			err = true
 		} else {
@@ -583,7 +602,7 @@ func (v *typeChecker) VisitIdent(expr *ir.Ident) ir.Expr {
 	}
 
 	if !err && sym.ID == ir.ConstSymbol {
-		constExpr := &ir.ConstExpr{X: v.c.constExprs[sym]}
+		constExpr := &ir.ConstExpr{X: c.constExprs[sym]}
 		constExpr.T = expr.T
 		constExpr.SetRange(expr.Pos(), expr.EndPos())
 		return constExpr
@@ -592,41 +611,119 @@ func (v *typeChecker) VisitIdent(expr *ir.Ident) ir.Expr {
 	return expr
 }
 
-func (v *typeChecker) VisitDotExpr(expr *ir.DotExpr) ir.Expr {
-	prevMode := v.exprMode
-	v.exprMode = exprModeDot
-	expr.X = ir.VisitExpr(v, expr.X)
-	v.exprMode = prevMode
+type numericCastResult int
 
-	expr.X = tryDeref(expr.X)
-	tx := expr.X.Type()
+const (
+	numericCastOK numericCastResult = iota
+	numericCastFails
+	numericCastOverflows
+	numericCastTruncated
+)
 
-	if ir.IsUntyped(tx) {
-		// Do nothing
-	} else if ir.IsIncompleteType(tx, nil) {
-		v.c.errorNode(expr.X, "expression has incomplete type %s", tx)
-	} else if !ir.IsUntyped(tx) {
-		var scope *ir.Scope
+func toBigFloat(val *big.Int) *big.Float {
+	res := big.NewFloat(0)
+	res.SetInt(val)
+	return res
+}
 
-		switch tx2 := ir.ToBaseType(tx).(type) {
-		case *ir.ModuleType:
-			scope = tx2.Scope
-		case *ir.StructType:
-			scope = tx2.Scope
+func toBigInt(val *big.Float) *big.Int {
+	if !val.IsInt() {
+		return nil
+	}
+	res := big.NewInt(0)
+	val.Int(res)
+	return res
+}
+
+func integerOverflows(val *big.Int, t ir.TypeID) bool {
+	fits := true
+
+	switch t {
+	case ir.TBigInt:
+		// OK
+	case ir.TUInt64:
+		fits = 0 <= val.Cmp(ir.BigIntZero) && val.Cmp(ir.MaxU64) <= 0
+	case ir.TUInt32:
+		fits = 0 <= val.Cmp(ir.BigIntZero) && val.Cmp(ir.MaxU32) <= 0
+	case ir.TUInt16:
+		fits = 0 <= val.Cmp(ir.BigIntZero) && val.Cmp(ir.MaxU16) <= 0
+	case ir.TUInt8:
+		fits = 0 <= val.Cmp(ir.BigIntZero) && val.Cmp(ir.MaxU8) <= 0
+	case ir.TInt64:
+		fits = 0 <= val.Cmp(ir.MinI64) && val.Cmp(ir.MaxI64) <= 0
+	case ir.TInt32:
+		fits = 0 <= val.Cmp(ir.MinI32) && val.Cmp(ir.MaxI32) <= 0
+	case ir.TInt16:
+		fits = 0 <= val.Cmp(ir.MinI16) && val.Cmp(ir.MaxI16) <= 0
+	case ir.TInt8:
+		fits = 0 <= val.Cmp(ir.MinI8) && val.Cmp(ir.MaxI8) <= 0
+	}
+
+	return !fits
+}
+
+func floatOverflows(val *big.Float, t ir.TypeID) bool {
+	fits := true
+
+	switch t {
+	case ir.TBigFloat:
+		// OK
+	case ir.TFloat64:
+		fits = 0 <= val.Cmp(ir.MinF64) && val.Cmp(ir.MaxF64) <= 0
+	case ir.TFloat32:
+		fits = 0 <= val.Cmp(ir.MinF32) && val.Cmp(ir.MaxF32) <= 0
+	}
+
+	return !fits
+}
+
+func typeCastNumericLit(lit *ir.BasicLit, target ir.Type) numericCastResult {
+	res := numericCastOK
+	id := target.ID()
+
+	switch t := lit.Raw.(type) {
+	case *big.Int:
+		switch id {
+		case ir.TBigInt, ir.TUInt64, ir.TUInt32, ir.TUInt16, ir.TUInt8, ir.TInt64, ir.TInt32, ir.TInt16, ir.TInt8:
+			if integerOverflows(t, id) {
+				res = numericCastOverflows
+			}
+		case ir.TBigFloat, ir.TFloat64, ir.TFloat32:
+			fval := toBigFloat(t)
+			if floatOverflows(fval, id) {
+				res = numericCastOverflows
+			} else {
+				lit.Raw = fval
+			}
 		default:
-			v.c.error(expr.X.Pos(), "type %s does not support field access", tx)
+			return numericCastFails
 		}
-
-		if scope != nil {
-			defer setScope(setScope(v.c, scope))
-			v.VisitIdent(expr.Name)
-			expr.T = expr.Name.Type()
+	case *big.Float:
+		switch id {
+		case ir.TBigInt, ir.TUInt64, ir.TUInt32, ir.TUInt16, ir.TUInt8, ir.TInt64, ir.TInt32, ir.TInt16, ir.TInt8:
+			if ival := toBigInt(t); ival != nil {
+				if integerOverflows(ival, id) {
+					res = numericCastOverflows
+				} else {
+					lit.Raw = ival
+				}
+			} else {
+				res = numericCastTruncated
+			}
+		case ir.TBigFloat, ir.TFloat64, ir.TFloat32:
+			if floatOverflows(t, id) {
+				res = numericCastOverflows
+			}
+		default:
+			return numericCastFails
 		}
+	default:
+		return numericCastFails
 	}
 
-	if expr.T == nil {
-		expr.T = ir.TBuiltinUntyped
+	if res == numericCastOK {
+		lit.T = target
 	}
 
-	return expr
+	return res
 }

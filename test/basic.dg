@@ -1,20 +1,10 @@
-include "common.dg"
+//include "common.dg"
 
-fun bar(str &[i8]) {
-    putln(str)
-}
+alias s1 i32
 
+/*
 extern fun main() c_int {
-    defer bar("a")
-    {
-        for i = 0; i < 3; i++ {
-            {
-                putiln(i)
-                if i == 0 {
-                    break
-                }
-            }
-        }
-    }
+
     return 0
 }
+*/

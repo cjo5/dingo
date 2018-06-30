@@ -7,21 +7,20 @@ import (
 	"github.com/jhnl/dingo/internal/token"
 )
 
-type depChecker struct {
-	ir.BaseVisitor
-	c        *context
-	exprMode int
-	declSym  *ir.Symbol
-}
-
-func depCheck(c *context) {
+func (c *checker) buildDependencyGraph() {
 	c.resetWalkState()
-	v := &depChecker{c: c}
-	ir.VisitModuleSet(v, c.set)
+	for _, mod := range c.set.Modules {
+		c.scope = mod.Scope
+		for _, decl := range mod.Decls {
+			c.pushTopDecl(decl)
+			c.depswitchDecl(decl)
+			c.popTopDecl()
+		}
+	}
 }
 
-func sortDecls(c *context) {
-outer:
+func (c *checker) sortDecls() {
+out:
 	for _, mod := range c.set.Modules {
 		var sortedDecls []ir.TopDecl
 		c.set.ResetDeclColors()
@@ -59,7 +58,7 @@ outer:
 				}
 
 				c.errors.AddContext(sym.DefPos, lines, "cycle detected")
-				break outer
+				break out
 			}
 		}
 
@@ -120,193 +119,185 @@ func sortDeclDependencies(fqn string, decl ir.TopDecl, trace *[]ir.TopDecl, sort
 	return sortOK
 }
 
-func (v *depChecker) Module(mod *ir.Module) {
-	v.c.scope = mod.Scope
-	for _, decl := range mod.Decls {
-		v.c.pushTopDecl(decl)
-		ir.VisitDecl(v, decl)
-		v.c.popTopDecl()
+func (c *checker) depswitchDecl(decl ir.Decl) {
+	switch decl := decl.(type) {
+	case *ir.TypeTopDecl:
+		c.addTypeDeclDependencies(decl.Sym, &decl.TypeDeclSpec)
+	case *ir.TypeDecl:
+		c.addTypeDeclDependencies(decl.Sym, &decl.TypeDeclSpec)
+	case *ir.ValTopDecl:
+		c.addValDeclDependencies(decl.Sym, &decl.ValDeclSpec)
+	case *ir.ValDecl:
+		c.addValDeclDependencies(decl.Sym, &decl.ValDeclSpec)
+	case *ir.FuncDecl:
+		defer setScope(setScope(c, decl.Scope))
+		for _, param := range decl.Params {
+			c.depswitchDecl(param)
+		}
+		c.depswitchDecl(decl.Return)
+		if decl.Body != nil {
+			stmtList(decl.Body.Stmts, c.depswitchStmt)
+		}
+	case *ir.StructDecl:
+		for _, f := range decl.Fields {
+			c.depswitchDecl(f)
+		}
+	default:
+		panic(fmt.Sprintf("Unhandled decl %T", decl))
 	}
 }
 
-func (v *depChecker) VisitTypeTopDecl(decl *ir.TypeTopDecl) {
-	v.visitTypeDeclSpec(decl.Sym, &decl.TypeDeclSpec)
-}
-
-func (v *depChecker) VisitTypeDecl(decl *ir.TypeDecl) {
-	v.visitTypeDeclSpec(decl.Sym, &decl.TypeDeclSpec)
-}
-
-func (v *depChecker) visitTypeDeclSpec(sym *ir.Symbol, decl *ir.TypeDeclSpec) {
+func (c *checker) addTypeDeclDependencies(sym *ir.Symbol, decl *ir.TypeDeclSpec) {
 	if sym == nil {
 		return
 	}
-	v.declSym = sym
-	v.exprMode = exprModeType
-	ir.VisitExpr(v, decl.Type)
-	v.exprMode = exprModeNone
-	v.declSym = nil
+	c.declSym = sym
+	c.exprMode = exprModeType
+	c.depswitchExpr(decl.Type)
+	c.exprMode = exprModeNone
+	c.declSym = nil
 }
 
-func (v *depChecker) VisitValTopDecl(decl *ir.ValTopDecl) {
-	v.visitValDeclSpec(decl.Sym, &decl.ValDeclSpec)
-}
-
-func (v *depChecker) VisitValDecl(decl *ir.ValDecl) {
-	v.visitValDeclSpec(decl.Sym, &decl.ValDeclSpec)
-}
-
-func (v *depChecker) visitValDeclSpec(sym *ir.Symbol, decl *ir.ValDeclSpec) {
+func (c *checker) addValDeclDependencies(sym *ir.Symbol, decl *ir.ValDeclSpec) {
 	if sym == nil {
 		return
 	}
-	v.declSym = sym
+	c.declSym = sym
 	if decl.Type != nil {
-		v.exprMode = exprModeType
-		ir.VisitExpr(v, decl.Type)
-		v.exprMode = exprModeNone
+		c.exprMode = exprModeType
+		c.depswitchExpr(decl.Type)
+		c.exprMode = exprModeNone
 	}
 	if decl.Initializer != nil {
-		ir.VisitExpr(v, decl.Initializer)
+		c.depswitchExpr(decl.Initializer)
 	}
-	v.declSym = nil
+	c.declSym = nil
 }
 
-func (v *depChecker) VisitFuncDecl(decl *ir.FuncDecl) {
-	defer setScope(setScope(v.c, decl.Scope))
-	for _, param := range decl.Params {
-		v.VisitValDecl(param)
-	}
-	v.VisitValDecl(decl.Return)
-	if decl.Body != nil {
-		ir.VisitStmtList(v, decl.Body.Stmts)
-	}
-}
-
-func (v *depChecker) VisitStructDecl(decl *ir.StructDecl) {
-	for _, f := range decl.Fields {
-		v.VisitValDecl(f)
-	}
-}
-
-func (v *depChecker) VisitBlockStmt(stmt *ir.BlockStmt) {
-	defer setScope(setScope(v.c, stmt.Scope))
-	ir.VisitStmtList(v, stmt.Stmts)
-}
-
-func (v *depChecker) VisitDeclStmt(stmt *ir.DeclStmt) {
-	ir.VisitDecl(v, stmt.D)
-}
-
-func (v *depChecker) VisitIfStmt(stmt *ir.IfStmt) {
-	v.VisitBlockStmt(stmt.Body)
-	if stmt.Else != nil {
-		ir.VisitStmt(v, stmt.Else)
-	}
-}
-
-func (v *depChecker) VisitForStmt(stmt *ir.ForStmt) {
-	defer setScope(setScope(v.c, stmt.Body.Scope))
-
-	if stmt.Init != nil {
-		v.VisitValDecl(stmt.Init)
-	}
-
-	if stmt.Cond != nil {
-		ir.VisitExpr(v, stmt.Cond)
-	}
-
-	if stmt.Inc != nil {
-		ir.VisitStmt(v, stmt.Inc)
-	}
-
-	ir.VisitStmtList(v, stmt.Body.Stmts)
-}
-
-func (v *depChecker) VisitReturnStmt(stmt *ir.ReturnStmt) {
-	if stmt.X != nil {
-		ir.VisitExpr(v, stmt.X)
+func (c *checker) depswitchStmt(stmt ir.Stmt) {
+	switch stmt := stmt.(type) {
+	case *ir.BlockStmt:
+		defer setScope(setScope(c, stmt.Scope))
+		stmtList(stmt.Stmts, c.depswitchStmt)
+	case *ir.DeclStmt:
+		c.depswitchDecl(stmt.D)
+	case *ir.IfStmt:
+		c.depswitchStmt(stmt.Body)
+		if stmt.Else != nil {
+			c.depswitchStmt(stmt.Else)
+		}
+	case *ir.ForStmt:
+		defer setScope(setScope(c, stmt.Body.Scope))
+		if stmt.Init != nil {
+			c.depswitchDecl(stmt.Init)
+		}
+		if stmt.Cond != nil {
+			c.depswitchExpr(stmt.Cond)
+		}
+		if stmt.Inc != nil {
+			c.depswitchStmt(stmt.Inc)
+		}
+		stmtList(stmt.Body.Stmts, c.depswitchStmt)
+	case *ir.ReturnStmt:
+		if stmt.X != nil {
+			c.depswitchExpr(stmt.X)
+		}
+	case *ir.DeferStmt:
+		c.depswitchStmt(stmt.S)
+	case *ir.BranchStmt:
+		// Do nothing
+	case *ir.AssignStmt:
+		c.depswitchExpr(stmt.Left)
+		c.depswitchExpr(stmt.Right)
+	case *ir.ExprStmt:
+		c.depswitchExpr(stmt.X)
+	default:
+		panic(fmt.Sprintf("Unhandled stmt %T", stmt))
 	}
 }
 
-func (v *depChecker) VisitDeferStmt(stmt *ir.DeferStmt) {
-	ir.VisitStmt(v, stmt.S)
-}
+func (c *checker) depswitchExpr(expr ir.Expr) {
+	switch expr := expr.(type) {
+	case *ir.PointerTypeExpr:
+		c.depswitchExpr(expr.X)
+	case *ir.ArrayTypeExpr:
+		if expr.Size != nil {
+			c.depswitchExpr(expr.Size)
+		}
+		c.depswitchExpr(expr.X)
+	case *ir.FuncTypeExpr:
+		if expr.ABI != nil {
+			c.depswitchExpr(expr.ABI)
+		}
+		for _, param := range expr.Params {
+			c.depswitchExpr(param.Type)
+		}
+		c.depswitchExpr(expr.Return.Type)
+	case *ir.Ident:
+		sym := c.lookup(expr.Literal)
+		expr.SetSymbol(sym)
+		c.tryAddDependency(sym, expr.Pos())
+	case *ir.BasicLit:
+		// Do nothing
+	case *ir.StructLit:
+		c.depswitchExpr(expr.Name)
+		for _, arg := range expr.Args {
+			c.depswitchExpr(arg.Value)
+		}
+	case *ir.ArrayLit:
+		for _, init := range expr.Initializers {
+			c.depswitchExpr(init)
+		}
+	case *ir.BinaryExpr:
+		c.depswitchExpr(expr.Left)
+		c.depswitchExpr(expr.Right)
+	case *ir.UnaryExpr:
+		c.depswitchExpr(expr.X)
+	case *ir.DotExpr:
+		c.depswitchExpr(expr.X)
+		sym := ir.ExprSymbol(expr.X)
 
-func (v *depChecker) VisitAssignStmt(stmt *ir.AssignStmt) {
-	ir.VisitExpr(v, stmt.Left)
-	ir.VisitExpr(v, stmt.Right)
-}
-
-func (v *depChecker) VisitExprStmt(stmt *ir.ExprStmt) {
-	ir.VisitExpr(v, stmt.X)
-}
-
-func (v *depChecker) VisitPointerTypeExpr(expr *ir.PointerTypeExpr) ir.Expr {
-	ir.VisitExpr(v, expr.X)
-	return expr
-}
-
-func (v *depChecker) VisitArrayTypeExpr(expr *ir.ArrayTypeExpr) ir.Expr {
-	if expr.Size != nil {
-		ir.VisitExpr(v, expr.Size)
+		if sym != nil && sym.ID == ir.ModuleSymbol {
+			tmod := sym.T.(*ir.ModuleType)
+			defer setScope(setScope(c, tmod.Scope))
+			c.depswitchExpr(expr.Name)
+		}
+	case *ir.IndexExpr:
+		c.depswitchExpr(expr.X)
+		c.depswitchExpr(expr.Index)
+	case *ir.SliceExpr:
+		c.depswitchExpr(expr.X)
+		if expr.Start != nil {
+			c.depswitchExpr(expr.Start)
+		}
+		if expr.End != nil {
+			c.depswitchExpr(expr.End)
+		}
+	case *ir.FuncCall:
+		c.depswitchExpr(expr.X)
+		for _, arg := range expr.Args {
+			c.depswitchExpr(arg.Value)
+		}
+	case *ir.CastExpr:
+		c.depswitchExpr(expr.ToType)
+		c.depswitchExpr(expr.X)
+	case *ir.LenExpr:
+		c.depswitchExpr(expr.X)
+	case *ir.SizeExpr:
+		c.depswitchExpr(expr.X)
+	default:
+		panic(fmt.Sprintf("Unhandled expr %T", expr))
 	}
-	ir.VisitExpr(v, expr.X)
-	return expr
 }
 
-func (v *depChecker) VisitFuncTypeExpr(expr *ir.FuncTypeExpr) ir.Expr {
-	if expr.ABI != nil {
-		ir.VisitExpr(v, expr.ABI)
-	}
-	for _, param := range expr.Params {
-		ir.VisitExpr(v, param.Type)
-	}
-	ir.VisitExpr(v, expr.Return.Type)
-	return expr
-}
-
-func (v *depChecker) VisitBinaryExpr(expr *ir.BinaryExpr) ir.Expr {
-	ir.VisitExpr(v, expr.Left)
-	ir.VisitExpr(v, expr.Right)
-	return expr
-}
-
-func (v *depChecker) VisitUnaryExpr(expr *ir.UnaryExpr) ir.Expr {
-	ir.VisitExpr(v, expr.X)
-	return expr
-}
-
-func (v *depChecker) VisitStructLit(expr *ir.StructLit) ir.Expr {
-	ir.VisitExpr(v, expr.Name)
-	for _, arg := range expr.Args {
-		ir.VisitExpr(v, arg.Value)
-	}
-	return expr
-}
-
-func (v *depChecker) VisitArrayLit(expr *ir.ArrayLit) ir.Expr {
-	for _, init := range expr.Initializers {
-		ir.VisitExpr(v, init)
-	}
-	return expr
-}
-
-func (v *depChecker) VisitIdent(expr *ir.Ident) ir.Expr {
-	sym := v.c.lookup(expr.Literal)
-	expr.SetSymbol(sym)
-	v.tryAddDependency(sym, expr.Pos())
-	return expr
-}
-
-func (v *depChecker) tryAddDependency(sym *ir.Symbol, pos token.Position) {
+func (c *checker) tryAddDependency(sym *ir.Symbol, pos token.Position) {
 	if sym != nil {
-		if decl, ok := v.c.decls[sym]; ok {
-			link := ir.DeclDependencyLink{Sym: v.declSym}
-			link.IsType = v.exprMode == exprModeType
+		if decl, ok := c.decls[sym]; ok {
+			link := ir.DeclDependencyLink{Sym: c.declSym}
+			link.IsType = c.exprMode == exprModeType
 			link.Pos = pos
 
-			graph := v.c.topDecl().DependencyGraph()
+			graph := c.topDecl().DependencyGraph()
 			dep := (*graph)[decl]
 			if dep == nil {
 				dep = &ir.DeclDependency{}
@@ -316,63 +307,4 @@ func (v *depChecker) tryAddDependency(sym *ir.Symbol, pos token.Position) {
 			(*graph)[decl] = dep
 		}
 	}
-}
-
-func (v *depChecker) VisitDotExpr(expr *ir.DotExpr) ir.Expr {
-	ir.VisitExpr(v, expr.X)
-	sym := ir.ExprSymbol(expr.X)
-
-	if sym != nil && sym.ID == ir.ModuleSymbol {
-		tmod := sym.T.(*ir.ModuleType)
-		defer setScope(setScope(v.c, tmod.Scope))
-		v.VisitIdent(expr.Name)
-	}
-
-	return expr
-}
-
-func (v *depChecker) VisitCastExpr(expr *ir.CastExpr) ir.Expr {
-	ir.VisitExpr(v, expr.ToType)
-	ir.VisitExpr(v, expr.X)
-	return expr
-}
-
-func (v *depChecker) VisitLenExpr(expr *ir.LenExpr) ir.Expr {
-	ir.VisitExpr(v, expr.X)
-	return expr
-}
-
-func (v *depChecker) VisitSizeExpr(expr *ir.SizeExpr) ir.Expr {
-	ir.VisitExpr(v, expr.X)
-	return expr
-}
-
-func (v *depChecker) VisitFuncCall(expr *ir.FuncCall) ir.Expr {
-	ir.VisitExpr(v, expr.X)
-	for _, arg := range expr.Args {
-		ir.VisitExpr(v, arg.Value)
-	}
-	return expr
-}
-
-func (v *depChecker) VisitAddressExpr(expr *ir.AddressExpr) ir.Expr {
-	ir.VisitExpr(v, expr.X)
-	return expr
-}
-
-func (v *depChecker) VisitIndexExpr(expr *ir.IndexExpr) ir.Expr {
-	ir.VisitExpr(v, expr.X)
-	ir.VisitExpr(v, expr.Index)
-	return expr
-}
-
-func (v *depChecker) VisitSliceExpr(expr *ir.SliceExpr) ir.Expr {
-	ir.VisitExpr(v, expr.X)
-	if expr.Start != nil {
-		ir.VisitExpr(v, expr.Start)
-	}
-	if expr.End != nil {
-		ir.VisitExpr(v, expr.End)
-	}
-	return expr
 }

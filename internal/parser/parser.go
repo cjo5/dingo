@@ -50,9 +50,7 @@ type parser struct {
 	pos     token.Position
 	literal string
 
-	loopCount  int
-	blockCount int
-
+	blockCount      int
 	funcName        string
 	funcAnonCount   int
 	globalAnonCount int
@@ -97,7 +95,6 @@ func (p *parser) sync() {
 	lbrace := p.blockCount
 	semi := false
 	p.blockCount = 0
-	p.loopCount = 0
 	for {
 		switch p.token {
 		case token.Public, token.Private,
@@ -587,11 +584,6 @@ func (p *parser) parseStmt() (stmt ir.Stmt, sync bool) {
 	} else if p.token.Is(token.Defer) {
 		stmt = p.parseDeferStmt()
 	} else if p.token.OneOf(token.Break, token.Continue) {
-		if p.loopCount == 0 {
-			// TODO: This should be done in type checker
-			p.error(p.pos, "%s can only be used in a loop", token.Quote(p.literal))
-		}
-
 		stmt = &ir.BranchStmt{Tok: p.token}
 		stmt.SetPos(p.pos)
 		p.next()
@@ -682,9 +674,7 @@ func (p *parser) parseWhileStmt() *ir.ForStmt {
 	s.SetPos(p.pos)
 	p.next()
 	s.Cond = p.parseCondition()
-	p.loopCount++
 	s.Body = p.parseBlockStmt()
-	p.loopCount--
 	s.SetEndPos(s.Body.EndPos())
 	return s
 }
@@ -719,10 +709,7 @@ func (p *parser) parseForStmt() *ir.ForStmt {
 		s.Inc = p.parseExprOrAssignStmt()
 	}
 
-	p.loopCount++
 	s.Body = p.parseBlockStmt()
-	p.loopCount--
-
 	s.SetEndPos(s.Body.EndPos())
 
 	return s
@@ -863,23 +850,20 @@ func (p *parser) parseBinaryExpr(condition bool, prec int) ir.Expr {
 	var expr ir.Expr
 	pos := p.pos
 
-	if p.token.OneOf(token.Sub, token.Lnot, token.Mul) {
+	if p.token.OneOf(token.Sub, token.Lnot, token.Deref, token.Addr) {
 		op := p.token
 		p.next()
-		expr = p.parseOperand(condition)
-		endPos := expr.EndPos()
-		expr = &ir.UnaryExpr{Op: op, X: expr}
-		expr.SetRange(pos, endPos)
-	} else if p.token.Is(token.And) {
-		p.next()
-		decl := token.Val
-		if p.token.OneOf(token.Var, token.Val) {
-			decl = p.token
-			p.next()
+		decl := token.Invalid
+		if op.Is(token.Addr) {
+			decl = token.Val
+			if p.token.OneOf(token.Var, token.Val) {
+				decl = p.token
+				p.next()
+			}
 		}
 		expr = p.parseOperand(condition)
 		endPos := expr.EndPos()
-		expr = &ir.AddressExpr{Decl: decl, X: expr}
+		expr = &ir.UnaryExpr{Op: op, Decl: decl, X: expr}
 		expr.SetRange(pos, endPos)
 	} else {
 		expr = p.parseOperand(condition)

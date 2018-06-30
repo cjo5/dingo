@@ -780,37 +780,145 @@ func (cb *llvmCodeBuilder) buildExprPtr(expr ir.Expr) llvm.Value {
 
 func (cb *llvmCodeBuilder) buildExpr(expr ir.Expr, load bool) llvm.Value {
 	switch expr2 := expr.(type) {
-	case *ir.BinaryExpr:
-		return cb.buildBinaryExpr(expr2)
-	case *ir.UnaryExpr:
-		return cb.buildUnaryExpr(expr2, load)
+	case *ir.Ident:
+		return cb.buildIdent(expr2, load)
 	case *ir.BasicLit:
 		return cb.buildBasicLit(expr2)
 	case *ir.StructLit:
 		return cb.buildStructLit(expr2)
 	case *ir.ArrayLit:
 		return cb.buildArrayLit(expr2)
-	case *ir.Ident:
-		return cb.buildIdent(expr2, load)
+	case *ir.BinaryExpr:
+		return cb.buildBinaryExpr(expr2)
+	case *ir.UnaryExpr:
+		return cb.buildUnaryExpr(expr2, load)
 	case *ir.DotExpr:
 		return cb.buildDotExpr(expr2, load)
+	case *ir.IndexExpr:
+		return cb.buildIndexExpr(expr2, load)
+	case *ir.SliceExpr:
+		return cb.buildSliceExpr(expr2)
+	case *ir.FuncCall:
+		return cb.buildFuncCall(expr2)
 	case *ir.CastExpr:
 		return cb.buildCastExpr(expr2)
 	case *ir.LenExpr:
 		return cb.buildLenExpr(expr2)
 	case *ir.ConstExpr:
 		return cb.buildExpr(expr2.X, load)
-	case *ir.FuncCall:
-		return cb.buildFuncCall(expr2)
-	case *ir.AddressExpr:
-		return cb.buildAddressExpr(expr2, load)
-	case *ir.IndexExpr:
-		return cb.buildIndexExpr(expr2, load)
-	case *ir.SliceExpr:
-		return cb.buildSliceExpr(expr2)
 	default:
 		panic(fmt.Sprintf("Unhandled expr %T", expr2))
 	}
+}
+
+func (cb *llvmCodeBuilder) buildIdent(expr *ir.Ident, load bool) llvm.Value {
+	if expr.Sym.ID == ir.FuncSymbol {
+		return cb.mod.NamedFunction(mangle(expr.Sym))
+	}
+
+	if val, ok := cb.values[expr.Sym]; ok {
+		if load {
+			return cb.b.CreateLoad(val, expr.Sym.Name)
+		}
+		return val
+	}
+
+	panic(fmt.Sprintf("%s not found", expr.Sym))
+}
+
+func (cb *llvmCodeBuilder) buildBasicLit(expr *ir.BasicLit) llvm.Value {
+	if expr.Tok == token.String {
+		raw := expr.AsString()
+		strLen := len(raw)
+		var ptr llvm.Value
+
+		if cb.inFunction {
+			ptr = cb.b.CreateGlobalStringPtr(expr.AsString(), ".str")
+		} else {
+			typ := llvm.ArrayType(llvm.Int8Type(), strLen+1) // +1 is for null-terminator
+			arr := llvm.AddGlobal(cb.mod, typ, ".str")
+			arr.SetLinkage(llvm.PrivateLinkage)
+			arr.SetUnnamedAddr(true)
+			arr.SetGlobalConstant(true)
+			arr.SetInitializer(llvm.ConstString(raw, true))
+
+			ptr = llvm.ConstBitCast(arr, llvm.PointerType(llvm.Int8Type(), 0))
+		}
+
+		if expr.T.ID() == ir.TSlice {
+			size := cb.createSliceSize(strLen)
+			slice := cb.createSliceStruct(ptr, size, expr.Type())
+			return slice
+		} else if expr.T.ID() == ir.TPointer {
+			return ptr
+		}
+
+		panic(fmt.Sprintf("Unhandled string literal type %T", expr.T))
+	}
+
+	llvmType := cb.llvmType(expr.T)
+	if ir.IsIntegerType(expr.T) {
+		val := llvm.ConstInt(llvmType, expr.AsU64(), false)
+		if expr.NegatigeInteger() {
+			return cb.b.CreateNeg(val, "")
+		}
+		return val
+	} else if ir.IsFloatType(expr.T) {
+		return llvm.ConstFloat(llvmType, expr.AsF64())
+	} else if expr.Tok == token.True {
+		return llvm.ConstInt(llvmType, 1, false)
+	} else if expr.Tok == token.False {
+		return llvm.ConstInt(llvmType, 0, false)
+	} else if expr.Tok == token.Null {
+		switch t := ir.ToBaseType(expr.T).(type) {
+		case *ir.SliceType:
+			tptr := llvm.PointerType(cb.llvmType(t.Elem), 0)
+			ptr := llvm.ConstPointerNull(tptr)
+			size := cb.createSliceSize(0)
+			return cb.createSliceStruct(ptr, size, t)
+		case *ir.PointerType, *ir.FuncType:
+			return llvm.ConstPointerNull(llvmType)
+		}
+	}
+
+	panic(fmt.Sprintf("Unhandled basic lit %s, type %s", expr.Tok, expr.T))
+}
+
+func (cb *llvmCodeBuilder) createSliceStruct(ptr llvm.Value, size llvm.Value, t ir.Type) llvm.Value {
+	llvmType := cb.llvmType(t)
+	sliceStruct := llvm.Undef(llvmType)
+	sliceStruct = cb.b.CreateInsertValue(sliceStruct, ptr, ptrFieldIndex, "")
+	sliceStruct = cb.b.CreateInsertValue(sliceStruct, size, lenFieldIndex, "")
+	return sliceStruct
+}
+
+func (cb *llvmCodeBuilder) createSliceSize(size int) llvm.Value {
+	return llvm.ConstInt(llvm.IntType(32), uint64(size), false)
+}
+
+func (cb *llvmCodeBuilder) buildStructLit(expr *ir.StructLit) llvm.Value {
+	tstruct := ir.ToBaseType(expr.T).(*ir.StructType)
+	llvmType := cb.types[tstruct.Sym]
+	structLit := llvm.Undef(llvmType)
+
+	for argIndex, arg := range expr.Args {
+		init := cb.buildExprVal(arg.Value)
+		structLit = cb.b.CreateInsertValue(structLit, init, argIndex, "")
+	}
+
+	return structLit
+}
+
+func (cb *llvmCodeBuilder) buildArrayLit(expr *ir.ArrayLit) llvm.Value {
+	llvmType := cb.llvmType(expr.T)
+	arrayLit := llvm.Undef(llvmType)
+
+	for index, elem := range expr.Initializers {
+		init := cb.buildExprVal(elem)
+		arrayLit = cb.b.CreateInsertValue(arrayLit, init, index, "")
+	}
+
+	return arrayLit
 }
 
 func (cb *llvmCodeBuilder) createMathOp(op token.Token, t ir.Type, left llvm.Value, right llvm.Value) llvm.Value {
@@ -957,112 +1065,16 @@ func (cb *llvmCodeBuilder) buildUnaryExpr(expr *ir.UnaryExpr, load bool) llvm.Va
 		return cb.b.CreateNot(val, "")
 	case token.Deref:
 		val := cb.buildExprVal(expr.X)
-
 		if load {
 			return cb.b.CreateLoad(val, val.Name())
 		}
 		return val
+	case token.Addr:
+		val := cb.buildExprPtr(expr.X)
+		return val
 	default:
 		panic(fmt.Sprintf("Unhandled unary op %s", expr.Op))
 	}
-}
-
-func (cb *llvmCodeBuilder) buildBasicLit(expr *ir.BasicLit) llvm.Value {
-	if expr.Tok == token.String {
-		raw := expr.AsString()
-		strLen := len(raw)
-		var ptr llvm.Value
-
-		if cb.inFunction {
-			ptr = cb.b.CreateGlobalStringPtr(expr.AsString(), ".str")
-		} else {
-			typ := llvm.ArrayType(llvm.Int8Type(), strLen+1) // +1 is for null-terminator
-			arr := llvm.AddGlobal(cb.mod, typ, ".str")
-			arr.SetLinkage(llvm.PrivateLinkage)
-			arr.SetUnnamedAddr(true)
-			arr.SetGlobalConstant(true)
-			arr.SetInitializer(llvm.ConstString(raw, true))
-
-			ptr = llvm.ConstBitCast(arr, llvm.PointerType(llvm.Int8Type(), 0))
-		}
-
-		if expr.T.ID() == ir.TSlice {
-			size := cb.createSliceSize(strLen)
-			slice := cb.createSliceStruct(ptr, size, expr.Type())
-			return slice
-		} else if expr.T.ID() == ir.TPointer {
-			return ptr
-		}
-
-		panic(fmt.Sprintf("Unhandled string literal type %T", expr.T))
-	}
-
-	llvmType := cb.llvmType(expr.T)
-	if ir.IsIntegerType(expr.T) {
-		val := llvm.ConstInt(llvmType, expr.AsU64(), false)
-		if expr.NegatigeInteger() {
-			return cb.b.CreateNeg(val, "")
-		}
-		return val
-	} else if ir.IsFloatType(expr.T) {
-		return llvm.ConstFloat(llvmType, expr.AsF64())
-	} else if expr.Tok == token.True {
-		return llvm.ConstInt(llvmType, 1, false)
-	} else if expr.Tok == token.False {
-		return llvm.ConstInt(llvmType, 0, false)
-	} else if expr.Tok == token.Null {
-		switch t := ir.ToBaseType(expr.T).(type) {
-		case *ir.SliceType:
-			tptr := llvm.PointerType(cb.llvmType(t.Elem), 0)
-			ptr := llvm.ConstPointerNull(tptr)
-			size := cb.createSliceSize(0)
-			return cb.createSliceStruct(ptr, size, t)
-		case *ir.PointerType, *ir.FuncType:
-			return llvm.ConstPointerNull(llvmType)
-		}
-	}
-
-	panic(fmt.Sprintf("Unhandled basic lit %s, type %s", expr.Tok, expr.T))
-}
-
-func (cb *llvmCodeBuilder) buildStructLit(expr *ir.StructLit) llvm.Value {
-	tstruct := ir.ToBaseType(expr.T).(*ir.StructType)
-	llvmType := cb.types[tstruct.Sym]
-	structLit := llvm.Undef(llvmType)
-
-	for argIndex, arg := range expr.Args {
-		init := cb.buildExprVal(arg.Value)
-		structLit = cb.b.CreateInsertValue(structLit, init, argIndex, "")
-	}
-
-	return structLit
-}
-
-func (cb *llvmCodeBuilder) buildArrayLit(expr *ir.ArrayLit) llvm.Value {
-	llvmType := cb.llvmType(expr.T)
-	arrayLit := llvm.Undef(llvmType)
-
-	for index, elem := range expr.Initializers {
-		init := cb.buildExprVal(elem)
-		arrayLit = cb.b.CreateInsertValue(arrayLit, init, index, "")
-	}
-
-	return arrayLit
-}
-
-func (cb *llvmCodeBuilder) buildIdent(expr *ir.Ident, load bool) llvm.Value {
-	if expr.Sym.ID == ir.FuncSymbol {
-		return cb.mod.NamedFunction(mangle(expr.Sym))
-	}
-
-	if val, ok := cb.values[expr.Sym]; ok {
-		if load {
-			return cb.b.CreateLoad(val, expr.Sym.Name)
-		}
-		return val
-	}
-
-	panic(fmt.Sprintf("%s not found", expr.Sym))
 }
 
 func (cb *llvmCodeBuilder) createTempStorage(val llvm.Value) llvm.Value {
@@ -1070,18 +1082,6 @@ func (cb *llvmCodeBuilder) createTempStorage(val llvm.Value) llvm.Value {
 	loc := cb.b.CreateAlloca(val.Type(), ".tmp")
 	cb.b.CreateStore(val, loc)
 	return loc
-}
-
-func (cb *llvmCodeBuilder) createSliceStruct(ptr llvm.Value, size llvm.Value, t ir.Type) llvm.Value {
-	llvmType := cb.llvmType(t)
-	sliceStruct := llvm.Undef(llvmType)
-	sliceStruct = cb.b.CreateInsertValue(sliceStruct, ptr, ptrFieldIndex, "")
-	sliceStruct = cb.b.CreateInsertValue(sliceStruct, size, lenFieldIndex, "")
-	return sliceStruct
-}
-
-func (cb *llvmCodeBuilder) createSliceSize(size int) llvm.Value {
-	return llvm.ConstInt(llvm.IntType(32), uint64(size), false)
 }
 
 func (cb *llvmCodeBuilder) buildDotExpr(expr *ir.DotExpr, load bool) llvm.Value {
@@ -1103,6 +1103,77 @@ func (cb *llvmCodeBuilder) buildDotExpr(expr *ir.DotExpr, load bool) llvm.Value 
 	default:
 		panic(fmt.Sprintf("%T not handled", t))
 	}
+}
+
+func (cb *llvmCodeBuilder) buildIndexExpr(expr *ir.IndexExpr, load bool) llvm.Value {
+	val := cb.buildExprPtr(expr.X)
+	if val.Type().TypeKind() != llvm.PointerTypeKind {
+		val = cb.createTempStorage(val)
+	}
+
+	index := cb.buildExprVal(expr.Index)
+
+	var gep llvm.Value
+
+	if expr.X.Type().ID() == ir.TSlice {
+		slicePtr := cb.b.CreateStructGEP(val, ptrFieldIndex, "")
+		slicePtr = cb.b.CreateLoad(slicePtr, "")
+		gep = cb.b.CreateInBoundsGEP(slicePtr, []llvm.Value{index}, "")
+	} else {
+		gep = cb.b.CreateInBoundsGEP(val, []llvm.Value{llvm.ConstInt(llvm.Int64Type(), 0, false), index}, "")
+	}
+
+	if load {
+		return cb.b.CreateLoad(gep, "")
+	}
+
+	return gep
+}
+
+func (cb *llvmCodeBuilder) buildSliceExpr(expr *ir.SliceExpr) llvm.Value {
+	val := cb.buildExprPtr(expr.X)
+	start := cb.buildExprVal(expr.Start)
+	end := cb.buildExprVal(expr.End)
+
+	var gep llvm.Value
+	var tptr llvm.Type
+
+	switch t := ir.ToBaseType(expr.X.Type()).(type) {
+	case *ir.ArrayType:
+		gep = cb.b.CreateInBoundsGEP(val, []llvm.Value{llvm.ConstInt(llvm.Int64Type(), 0, false), start}, "")
+		tptr = llvm.PointerType(cb.llvmType(t.Elem), 0)
+	case *ir.SliceType:
+		slicePtr := cb.b.CreateStructGEP(val, ptrFieldIndex, "")
+		slicePtr = cb.b.CreateLoad(slicePtr, "")
+		gep = cb.b.CreateInBoundsGEP(slicePtr, []llvm.Value{start}, "")
+		tptr = llvm.PointerType(cb.llvmType(t.Elem), 0)
+	case *ir.PointerType:
+		tmp := cb.b.CreateLoad(val, "")
+		gep = cb.b.CreateInBoundsGEP(tmp, []llvm.Value{start}, "")
+		tptr = llvm.PointerType(cb.llvmType(t.Elem), 0)
+	default:
+		panic(fmt.Sprintf("Unhandled slice type %T", t))
+	}
+
+	ptr := cb.b.CreateBitCast(gep, tptr, "")
+
+	var size llvm.Value
+	if lit, ok := expr.Start.(*ir.BasicLit); !ok || !lit.Zero() {
+		size = cb.b.CreateSub(end, start, "")
+	} else {
+		size = end
+	}
+
+	return cb.createSliceStruct(ptr, size, expr.Type())
+}
+
+func (cb *llvmCodeBuilder) buildFuncCall(expr *ir.FuncCall) llvm.Value {
+	fun := cb.buildExprVal(expr.X)
+	var args []llvm.Value
+	for _, arg := range expr.Args {
+		args = append(args, cb.buildExprVal(arg.Value))
+	}
+	return cb.b.CreateCall(fun, args, "")
 }
 
 func (cb *llvmCodeBuilder) buildCastExpr(expr *ir.CastExpr) llvm.Value {
@@ -1198,80 +1269,4 @@ func (cb *llvmCodeBuilder) buildLenExpr(expr *ir.LenExpr) llvm.Value {
 	default:
 		panic(fmt.Sprintf("%T not handled", t))
 	}
-}
-
-func (cb *llvmCodeBuilder) buildFuncCall(expr *ir.FuncCall) llvm.Value {
-	fun := cb.buildExprVal(expr.X)
-	var args []llvm.Value
-	for _, arg := range expr.Args {
-		args = append(args, cb.buildExprVal(arg.Value))
-	}
-	return cb.b.CreateCall(fun, args, "")
-}
-
-func (cb *llvmCodeBuilder) buildAddressExpr(expr *ir.AddressExpr, load bool) llvm.Value {
-	val := cb.buildExprPtr(expr.X)
-	return val
-}
-
-func (cb *llvmCodeBuilder) buildIndexExpr(expr *ir.IndexExpr, load bool) llvm.Value {
-	val := cb.buildExprPtr(expr.X)
-	if val.Type().TypeKind() != llvm.PointerTypeKind {
-		val = cb.createTempStorage(val)
-	}
-
-	index := cb.buildExprVal(expr.Index)
-
-	var gep llvm.Value
-
-	if expr.X.Type().ID() == ir.TSlice {
-		slicePtr := cb.b.CreateStructGEP(val, ptrFieldIndex, "")
-		slicePtr = cb.b.CreateLoad(slicePtr, "")
-		gep = cb.b.CreateInBoundsGEP(slicePtr, []llvm.Value{index}, "")
-	} else {
-		gep = cb.b.CreateInBoundsGEP(val, []llvm.Value{llvm.ConstInt(llvm.Int64Type(), 0, false), index}, "")
-	}
-
-	if load {
-		return cb.b.CreateLoad(gep, "")
-	}
-
-	return gep
-}
-
-func (cb *llvmCodeBuilder) buildSliceExpr(expr *ir.SliceExpr) llvm.Value {
-	val := cb.buildExprPtr(expr.X)
-	start := cb.buildExprVal(expr.Start)
-	end := cb.buildExprVal(expr.End)
-
-	var gep llvm.Value
-	var tptr llvm.Type
-
-	switch t := ir.ToBaseType(expr.X.Type()).(type) {
-	case *ir.ArrayType:
-		gep = cb.b.CreateInBoundsGEP(val, []llvm.Value{llvm.ConstInt(llvm.Int64Type(), 0, false), start}, "")
-		tptr = llvm.PointerType(cb.llvmType(t.Elem), 0)
-	case *ir.SliceType:
-		slicePtr := cb.b.CreateStructGEP(val, ptrFieldIndex, "")
-		slicePtr = cb.b.CreateLoad(slicePtr, "")
-		gep = cb.b.CreateInBoundsGEP(slicePtr, []llvm.Value{start}, "")
-		tptr = llvm.PointerType(cb.llvmType(t.Elem), 0)
-	case *ir.PointerType:
-		tmp := cb.b.CreateLoad(val, "")
-		gep = cb.b.CreateInBoundsGEP(tmp, []llvm.Value{start}, "")
-		tptr = llvm.PointerType(cb.llvmType(t.Elem), 0)
-	default:
-		panic(fmt.Sprintf("Unhandled slice type %T", t))
-	}
-
-	ptr := cb.b.CreateBitCast(gep, tptr, "")
-
-	var size llvm.Value
-	if lit, ok := expr.Start.(*ir.BasicLit); !ok || !lit.Zero() {
-		size = cb.b.CreateSub(end, start, "")
-	} else {
-		size = end
-	}
-
-	return cb.createSliceStruct(ptr, size, expr.Type())
 }
