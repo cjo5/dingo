@@ -1,0 +1,30 @@
+include "../common.dg"
+
+include "extra/fqn_include1.dg"
+
+module foo {
+    include "extra/fqn_include1.dg"
+    module bar {
+        include "extra/fqn_include1.dg"
+    }
+}
+
+extern fun main() i32 {
+    putln(__fqn__) // expect-output:
+
+    putln(baazle.__fqn__) // expect-output: baazle
+    putln(foozle.__fqn__) // expect-output: foozle
+    putln(foozle.baazle.__fqn__) // expect-output: foozle.baazle
+
+    putln(foo.__fqn__) // expect-output: foo
+    putln(foo.baazle.__fqn__) // expect-output: foo.baazle
+    putln(foo.foozle.__fqn__) // expect-output: foo.foozle
+    putln(foo.foozle.baazle.__fqn__) // expect-output: foo.foozle.baazle
+    
+    putln(foo.bar.__fqn__) // expect-output: foo.bar
+    putln(foo.bar.baazle.__fqn__) // expect-output: foo.bar.baazle
+    putln(foo.bar.foozle.__fqn__) // expect-output: foo.bar.foozle
+    putln(foo.bar.foozle.baazle.__fqn__) // expect-output: foo.bar.foozle.baazle
+
+    return 0
+}

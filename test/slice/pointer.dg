@@ -5,7 +5,7 @@ extern fun main() c_int {
     var ptr = &var data
     val slice = &var ptr[:1]
 
-    putiln(len(slice)) // expect-output: 1
+    putiln(len(slice) as i32) // expect-output: 1
     putiln(slice[0]) // expect-output: 9
 
     slice[0]++

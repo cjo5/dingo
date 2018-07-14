@@ -1,0 +1,4 @@
+include "self.dg"
+
+// expect-error(1): cycle detected
+// expect-dgc: >> [0] ^ included by [0]

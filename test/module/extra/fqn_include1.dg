@@ -1,0 +1,5 @@
+include "fqn_include2.dg"
+
+module foozle {
+    include "fqn_include2.dg"
+}

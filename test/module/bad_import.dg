@@ -1,0 +1,11 @@
+import bam // expect-error: undefined public module 'bam'
+import foo.bar: __fqn__ // expect-error: '__fqn__' is builtin and cannot be imported
+import foo.bar: baz // expect-error: 'baz' is private and cannot be imported
+
+fun foo(){}
+import foo // expect-dgc: re: error\(6\): redefinition of 'foo' \(different definition is at .*:5:5\)
+
+extern fun main() c_int {
+    bar.baz() // expect-error: 'baz' is private
+    return 0
+}

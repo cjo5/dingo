@@ -1,10 +1,9 @@
-//include "common.dg"
+fun putiln(a i32) {}
 
-alias s1 i32
-
-/*
-extern fun main() c_int {
-
+extern fun main() i32 {
+    putiln(foo) // expect-output: 10
+    //putiln(bar()) // expect-output: 100
     return 0
 }
-*/
+
+import _ = mod1: foo = bar, bar = baz

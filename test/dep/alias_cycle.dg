@@ -1,5 +1,5 @@
-alias a b
-alias b a
+alias a = b
+alias b = a
 
 // expect-error(1): cycle detected
 // expect-dgc: re: .*:1:7:a uses \[1\]

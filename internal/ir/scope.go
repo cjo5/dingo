@@ -3,37 +3,40 @@ package ir
 import "bytes"
 import "fmt"
 
-// ScopeID identifies the type of scope.
-type ScopeID int
+// ScopeKind identifies the kind of scope.
+type ScopeKind int
 
-// Scope IDs.
+// Scope kinds.
 const (
-	RootScope ScopeID = iota
-	TopScope
+	BuiltinScope ScopeKind = iota
+	ModuleScope
 	LocalScope
 	FieldScope
 )
 
 type Scope struct {
-	ID      ScopeID
-	FQN     string
+	Kind    ScopeKind
 	Parent  *Scope
+	CUID    int
 	Defer   bool
 	Symbols map[string]*Symbol
 }
 
 // NewScope creates a new scope nested in the parent scope.
-func NewScope(id ScopeID, fqn string, parent *Scope) *Scope {
-	const n = 4 // Initial scope capacity
-	return &Scope{id, fqn, parent, false, make(map[string]*Symbol, n)}
+func NewScope(kind ScopeKind, parent *Scope, CUID int) *Scope {
+	return &Scope{
+		Parent:  parent,
+		CUID:    CUID,
+		Symbols: make(map[string]*Symbol),
+	}
 }
 
-func (s ScopeID) String() string {
+func (s ScopeKind) String() string {
 	switch s {
-	case RootScope:
-		return "RootScope"
-	case TopScope:
-		return "TopScope"
+	case BuiltinScope:
+		return "BuiltinScope"
+	case ModuleScope:
+		return "ModuleScope"
 	case LocalScope:
 		return "LocalScope"
 	case FieldScope:
@@ -46,7 +49,7 @@ func (s ScopeID) String() string {
 func (s *Scope) String() string {
 	var buf bytes.Buffer
 	idx := 0
-	buf.WriteString(fmt.Sprintf("%s %s (%d)\n", s.FQN, s.ID, len(s.Symbols)))
+	buf.WriteString(fmt.Sprintf("%s (%d)\n", s.Kind, len(s.Symbols)))
 	for k, v := range s.Symbols {
 		buf.WriteString(fmt.Sprintf("%s = %s", k, v))
 		idx++
@@ -57,10 +60,10 @@ func (s *Scope) String() string {
 	return buf.String()
 }
 
-func (s *Scope) Insert(sym *Symbol) *Symbol {
+func (s *Scope) Insert(alias string, sym *Symbol) *Symbol {
 	var existing *Symbol
-	if existing = s.Symbols[sym.Name]; existing == nil {
-		s.Symbols[sym.Name] = sym
+	if existing = s.Symbols[alias]; existing == nil {
+		s.Symbols[alias] = sym
 	}
 	return existing
 }

@@ -97,7 +97,7 @@ func (e *ErrorList) AddWarning(pos token.Position, format string, args ...interf
 	e.Warnings = append(e.Warnings, err)
 }
 
-func (e *ErrorList) AddGeneric3(pos token.Position, err error) {
+func (e *ErrorList) AddGeneric2(pos token.Position, err error) {
 	switch t := err.(type) {
 	case *ErrorList:
 		e.Append(t)
@@ -113,7 +113,7 @@ func (e *ErrorList) AddGeneric3(pos token.Position, err error) {
 }
 
 func (e *ErrorList) AddGeneric1(err error) {
-	e.AddGeneric3(token.NoPosition, err)
+	e.AddGeneric2(token.NoPosition, err)
 }
 
 func (e *ErrorList) Append(other *ErrorList) {

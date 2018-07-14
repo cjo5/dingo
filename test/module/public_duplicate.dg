@@ -1,0 +1,3 @@
+pub module foo { // expect-dgc: re: error\(1\): redefinition of public module 'foo' \(different definition is at '.*:1:12'\)
+
+}

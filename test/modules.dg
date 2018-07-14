@@ -1,0 +1,18 @@
+include "../std/lib.dg"
+
+module foo {
+    pub module bar {
+        pub fun hello() {
+            mroot.putln(__fqn__)
+        }
+    }
+
+}
+
+module quux {
+    pub module bar {
+        pub fun hello() {
+            mroot.putln(__fqn__)
+        }
+    }
+}

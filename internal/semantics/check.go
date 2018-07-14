@@ -1,57 +1,43 @@
 package semantics
 
 import (
-	"fmt"
-
 	"github.com/jhnl/dingo/internal/common"
 	"github.com/jhnl/dingo/internal/ir"
 	"github.com/jhnl/dingo/internal/token"
 )
 
-// Check will resolve identifiers, look for cyclic dependencies between identifiers, and type check.
-func Check(set *ir.ModuleSet, target ir.Target) error {
-	c := newChecker(set, target)
+var builtinScope *ir.Scope
 
-	c.buildSymbolTable()
-	c.buildDependencyGraph()
-	c.checkTypes()
-	c.sortDecls()
-
-	return c.errors
-}
-
-const (
-	exprModeNone = 0
-	exprModeType = 1
-	exprModeFunc = 2
-	exprModeDot  = 3
-)
-
-var builtinScope = ir.NewScope(ir.RootScope, "-", nil)
+const builtinSymFlags = ir.SymFlagBuiltin | ir.SymFlagDefined
 
 func addBuiltinType(t ir.Type) {
-	addBuiltinAliasType(t.ID().String(), t)
+	addBuiltinAliasType(t.Kind().String(), t)
 }
 
 func addBuiltinAliasType(name string, t ir.Type) {
-	sym := ir.NewSymbol(ir.TypeSymbol, builtinScope, true, ir.DGABI, name, token.NoPosition)
+	sym := ir.NewSymbol(ir.TypeSymbol, builtinScope, -1, "", name, token.NoPosition)
+	sym.Public = true
+	sym.Flags |= builtinSymFlags
 	sym.T = t
-	builtinScope.Insert(sym)
+	builtinScope.Insert(name, sym)
 }
 
 func init() {
+	builtinScope = ir.NewScope(ir.BuiltinScope, nil, -1)
+
 	addBuiltinType(ir.TBuiltinVoid)
 	addBuiltinType(ir.TBuiltinBool)
-	addBuiltinType(ir.TBuiltinUInt64)
-	addBuiltinType(ir.TBuiltinInt64)
-	addBuiltinType(ir.TBuiltinUInt32)
-	addBuiltinType(ir.TBuiltinInt32)
-	addBuiltinType(ir.TBuiltinUInt16)
-	addBuiltinType(ir.TBuiltinInt16)
-	addBuiltinType(ir.TBuiltinUInt8)
 	addBuiltinType(ir.TBuiltinInt8)
-	addBuiltinType(ir.TBuiltinFloat64)
+	addBuiltinType(ir.TBuiltinUInt8)
+	addBuiltinType(ir.TBuiltinInt16)
+	addBuiltinType(ir.TBuiltinUInt16)
+	addBuiltinType(ir.TBuiltinInt32)
+	addBuiltinType(ir.TBuiltinUInt32)
+	addBuiltinType(ir.TBuiltinInt64)
+	addBuiltinType(ir.TBuiltinUInt64)
+	addBuiltinType(ir.TBuiltinUSize)
 	addBuiltinType(ir.TBuiltinFloat32)
+	addBuiltinType(ir.TBuiltinFloat64)
 
 	// TODO: Change to distinct types
 	addBuiltinAliasType("c_void", ir.TBuiltinVoid)
@@ -63,40 +49,47 @@ func init() {
 	addBuiltinAliasType("c_uint", ir.TBuiltinUInt32)
 	addBuiltinAliasType("c_longlong", ir.TBuiltinInt64)
 	addBuiltinAliasType("c_ulonglong", ir.TBuiltinUInt64)
-	addBuiltinAliasType("c_usize", ir.TBuiltinUInt64)
+	addBuiltinAliasType("c_usize", ir.TBuiltinUSize)
 	addBuiltinAliasType("c_float", ir.TBuiltinFloat32)
 	addBuiltinAliasType("c_double", ir.TBuiltinFloat64)
 }
 
+// Check semantics.
+func Check(fileMatrix ir.FileMatrix, target ir.Target) (*ir.DeclMatrix, error) {
+	c := newChecker(target)
+	modMatrix := c.createModuleMatrix(fileMatrix)
+	c.initDgObjectMatrix(modMatrix)
+	c.checkTypes()
+	declMatrix := c.createDeclMatrix()
+	return declMatrix, c.errors
+}
+
+const (
+	modeCheck int = iota
+	modeTypeExpr
+	modeDotExpr
+)
+
 type checker struct {
-	set        *ir.ModuleSet
-	target     ir.Target
-	errors     *common.ErrorList
-	decls      map[*ir.Symbol]ir.TopDecl
-	constExprs map[*ir.Symbol]ir.Expr
+	target ir.Target
+	errors *common.ErrorList
 
-	// State that can change during node visits
-	scope     *ir.Scope
-	declTrace []ir.TopDecl
-	exprMode  int
-	signature bool
-	declSym   *ir.Symbol
-	fqn       string
-	loopCount int
-}
+	objectMatrix  []*dgObjectList
+	rootScope     *ir.Scope
+	currentSymKey int
 
-func newChecker(set *ir.ModuleSet, target ir.Target) *checker {
-	c := &checker{set: set, target: target, scope: builtinScope}
-	c.errors = &common.ErrorList{}
-	c.decls = make(map[*ir.Symbol]ir.TopDecl)
-	c.constExprs = make(map[*ir.Symbol]ir.Expr)
-	return c
-}
+	objectMap  map[int]*dgObject
+	constMap   map[int]ir.Expr
+	importMap  map[string]*ir.Symbol
+	incomplete map[*dgObject]bool
 
-func (c *checker) resetWalkState() {
-	c.declTrace = nil
-	c.declSym = nil
-	c.fqn = ""
+	// Ast traversal state
+	object *dgObject
+	scope  *ir.Scope
+	sym    *ir.Symbol // Symbol of current declaration (top or local)
+	mode   int
+	step   int
+	loop   int
 }
 
 func stmtList(stmts []ir.Stmt, visit func(ir.Stmt)) {
@@ -105,57 +98,54 @@ func stmtList(stmts []ir.Stmt, visit func(ir.Stmt)) {
 	}
 }
 
-func (c *checker) openScope(id ir.ScopeID, fqn string) {
-	c.scope = ir.NewScope(id, fqn, c.scope)
+func newChecker(target ir.Target) *checker {
+	return &checker{
+		target:        target,
+		errors:        &common.ErrorList{},
+		currentSymKey: 1,
+		rootScope:     ir.NewScope(ir.BuiltinScope, nil, -1),
+		objectMap:     make(map[int]*dgObject),
+		constMap:      make(map[int]ir.Expr),
+		importMap:     make(map[string]*ir.Symbol),
+		incomplete:    make(map[*dgObject]bool),
+	}
+}
+
+func (c *checker) nextSymKey() int {
+	key := c.currentSymKey
+	c.currentSymKey++
+	return key
+}
+
+func (c *checker) setSym(sym *ir.Symbol) {
+	c.sym = sym
+}
+
+func (c *checker) setMode(mode int) int {
+	prev := c.mode
+	c.mode = mode
+	return prev
+}
+
+func (c *checker) setScope(scope *ir.Scope) *ir.Scope {
+	prev := c.scope
+	c.scope = scope
+	return prev
+}
+
+func (c *checker) openScope(kind ir.ScopeKind) {
+	c.scope = ir.NewScope(kind, c.scope, c.scope.CUID)
 }
 
 func (c *checker) closeScope() {
 	c.scope = c.scope.Parent
 }
 
-func setScope(c *checker, scope *ir.Scope) (*checker, *ir.Scope) {
-	curr := c.scope
-	c.scope = scope
-	return c, curr
-}
-
-func (c *checker) addTopDeclSym(decl ir.TopDecl, name *ir.Ident, id ir.SymbolID, abi *ir.Ident) *ir.Symbol {
-	public := decl.Visibility().Is(token.Public)
-	effectiveABI := ir.DGABI
-	if abi != nil {
-		effectiveABI = abi.Literal
-	}
-	sym := c.insert(c.scope, id, public, effectiveABI, name.Literal, name.Pos())
-	if sym != nil {
-		c.decls[sym] = decl
-	}
-	return sym
-}
-
-func (c *checker) pushTopDecl(decl ir.TopDecl) {
-	c.declTrace = append(c.declTrace, decl)
-}
-
-func (c *checker) popTopDecl() {
-	n := len(c.declTrace)
-	if n > 0 {
-		c.declTrace = c.declTrace[:n-1]
-	}
-}
-
-func (c *checker) topDecl() ir.TopDecl {
-	n := len(c.declTrace)
-	if n > 0 {
-		return c.declTrace[n-1]
-	}
-	return nil
-}
-
 func (c *checker) error(pos token.Position, format string, args ...interface{}) {
 	c.errors.Add(pos, format, args...)
 }
 
-func (c *checker) errorNode(node ir.Node, format string, args ...interface{}) {
+func (c *checker) nodeError(node ir.Node, format string, args ...interface{}) {
 	pos := node.Pos()
 	endPos := node.EndPos()
 	c.errors.AddRange(pos, endPos, format, args...)
@@ -165,16 +155,6 @@ func (c *checker) warning(pos token.Position, format string, args ...interface{}
 	c.errors.AddWarning(pos, format, args...)
 }
 
-func (c *checker) insert(scope *ir.Scope, id ir.SymbolID, public bool, abi string, name string, pos token.Position) *ir.Symbol {
-	sym := ir.NewSymbol(id, scope, public, abi, name, pos)
-	if existing := scope.Insert(sym); existing != nil {
-		msg := fmt.Sprintf("redefinition of '%s' (previously defined at %s)", name, existing.DefPos)
-		c.error(pos, msg)
-		return nil
-	}
-	return sym
-}
-
 func (c *checker) lookup(name string) *ir.Symbol {
 	if existing := c.scope.Lookup(name); existing != nil {
 		return existing
@@ -182,10 +162,19 @@ func (c *checker) lookup(name string) *ir.Symbol {
 	return nil
 }
 
-// Returns false if an error should be reported
-func checkTypes(t1 ir.Type, t2 ir.Type) bool {
-	if ir.IsUntyped(t1) || ir.IsUntyped(t2) {
-		return true
+func (c *checker) tryAddDep(sym *ir.Symbol, pos token.Position) {
+	if sym.Kind != ir.ModuleSymbol && sym.Key > 0 {
+		if obj, ok := c.objectMap[sym.Key]; ok {
+			edge := &depEdge{
+				pos:    pos,
+				sym:    c.sym,
+				istype: c.mode == modeTypeExpr,
+			}
+			c.object.addEdge(obj, edge)
+			if !obj.checked || obj.incomplete {
+				c.object.incomplete = true
+				c.incomplete[c.object] = true
+			}
+		}
 	}
-	return t1.Equals(t2)
 }

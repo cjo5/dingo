@@ -1,0 +1,18 @@
+include "../common.dg"
+
+extern fun main() i32 {
+    putiln(foo) // expect-output: 10
+    putiln(bar()) // expect-output: 100
+    local() 
+    // expect-output: 20
+    // expect-output: 200
+    return 0
+}
+
+import _ = mod1: foo = bar, bar = baz
+
+fun local() {
+    import _ = mod2: (foo = bar, bar = baz)
+    putiln(foo)
+    putiln(bar())
+}

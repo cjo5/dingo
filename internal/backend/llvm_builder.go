@@ -24,8 +24,8 @@ type llvmCodeBuilder struct {
 	objectfiles []string
 
 	mod        llvm.Module
-	values     map[*ir.Symbol]llvm.Value
-	types      llvmTypeContext
+	valueMap   map[int]llvm.Value
+	typeMap    llvmTypeMap
 	signature  bool
 	inFunction bool
 
@@ -83,11 +83,11 @@ const ptrFieldIndex = 0
 const lenFieldIndex = 1
 
 // BuildLLVM code.
-func BuildLLVM(set *ir.ModuleSet, target ir.Target, config *common.BuildConfig) error {
+func BuildLLVM(matrix *ir.DeclMatrix, target ir.Target, config *common.BuildConfig) error {
 	llvmTarget := target.(*llvmTarget)
 
 	cb := newBuilder(llvmTarget, config)
-	cb.validateModuleSet(set)
+	cb.validateMatrix(matrix)
 
 	if cb.errors.IsError() {
 		return cb.errors
@@ -95,8 +95,8 @@ func BuildLLVM(set *ir.ModuleSet, target ir.Target, config *common.BuildConfig) 
 
 	defer cb.deleteObjects()
 
-	for _, mod := range set.Modules {
-		if !cb.buildModule(mod) {
+	for _, list := range matrix.Decls {
+		if !cb.buildLLVModule(list) {
 			return cb.errors
 		}
 	}
@@ -124,55 +124,44 @@ func newBuilder(target *llvmTarget, config *common.BuildConfig) *llvmCodeBuilder
 	return cb
 }
 
-func (cb *llvmCodeBuilder) validateModuleSet(set *ir.ModuleSet) {
-	for _, mod := range set.Modules {
-		if len(mod.FQN) == 0 {
-			cb.errors.Add(mod.Path, "no module name")
-		}
-	}
-
-	mod := set.FindModule("main")
-	if mod != nil {
-		cb.validateMainFunc(mod)
+func (cb *llvmCodeBuilder) validateMatrix(matrix *ir.DeclMatrix) {
+	sym := matrix.RootScope.Lookup("main")
+	if sym != nil && sym.Kind == ir.FuncSymbol {
+		cb.validateMainFunc(sym)
 	} else {
-		cb.errors.AddGeneric1(fmt.Errorf("no main module"))
+		cb.errors.AddGeneric1(fmt.Errorf("no main function"))
 	}
 }
 
-func (cb *llvmCodeBuilder) validateMainFunc(mod *ir.Module) {
-	mainFunc := mod.FindFuncSymbol("main")
-	if mainFunc != nil {
-		tmain := mainFunc.T.(*ir.FuncType)
-		pos := mainFunc.DefPos
+func (cb *llvmCodeBuilder) validateMainFunc(mainFunc *ir.Symbol) {
+	tmain := ir.ToBaseType(mainFunc.T).(*ir.FuncType)
+	pos := mainFunc.Pos
 
-		if !tmain.C {
-			cb.errors.Add(pos, "'main' must be declared as a C function")
-		}
+	if !tmain.C {
+		cb.errors.Add(pos, "'main' must be declared as a C function")
+	}
 
-		if len(tmain.Params) > 0 {
-			param0 := tmain.Params[0]
-			if param0.T.ID() != ir.TInt32 {
-				cb.errors.Add(pos, "first parameter of 'main' must have type %s (has type %s)", ir.TInt32, param0.T)
-			}
+	if len(tmain.Params) > 0 {
+		param0 := tmain.Params[0]
+		if param0.T.Kind() != ir.TInt32 {
+			cb.errors.Add(pos, "first parameter of 'main' must have type %s (has type %s)", ir.TInt32, param0.T)
 		}
+	}
 
-		if len(tmain.Params) > 1 {
-			param1 := tmain.Params[1]
-			texpected := ir.NewPointerType(ir.NewPointerType(ir.NewBasicType(ir.TInt8), true), true)
-			if !param1.T.Equals(texpected) {
-				cb.errors.Add(pos, "second parameter of 'main' must have type %s (has type %s)", texpected, param1.T)
-			}
+	if len(tmain.Params) > 1 {
+		param1 := tmain.Params[1]
+		texpected := ir.NewPointerType(ir.NewPointerType(ir.NewBasicType(ir.TInt8), true), true)
+		if !param1.T.Equals(texpected) {
+			cb.errors.Add(pos, "second parameter of 'main' must have type %s (has type %s)", texpected, param1.T)
 		}
+	}
 
-		if len(tmain.Params) > 2 {
-			cb.errors.Add(pos, "'main' can have no more than 2 parameters (got %d)", len(tmain.Params))
-		}
+	if len(tmain.Params) > 2 {
+		cb.errors.Add(pos, "'main' can have no more than 2 parameters (got %d)", len(tmain.Params))
+	}
 
-		if tmain.Return.ID() != ir.TInt32 {
-			cb.errors.Add(pos, "'main' must have return type %s (has type %s)", ir.TInt32, tmain.Return)
-		}
-	} else {
-		cb.errors.Add(mod.Path, "no main function")
+	if tmain.Return.Kind() != ir.TInt32 {
+		cb.errors.Add(pos, "'main' must have return type %s (has type %s)", ir.TInt32, tmain.Return)
 	}
 }
 
@@ -182,29 +171,26 @@ func (cb *llvmCodeBuilder) deleteObjects() {
 	}
 }
 
-func (cb *llvmCodeBuilder) buildModule(mod *ir.Module) bool {
-	cb.mod = llvm.NewModule(mod.FQN)
-	cb.values = make(map[*ir.Symbol]llvm.Value)
-	cb.types = make(llvmTypeContext)
+func (cb *llvmCodeBuilder) buildLLVModule(list *ir.DeclList) bool {
+	cb.mod = llvm.NewModule(list.Filename)
+	cb.valueMap = make(map[int]llvm.Value)
+	cb.typeMap = make(llvmTypeMap)
 	cb.inFunction = false
-
 	cb.signature = true
-	for _, decl := range mod.Decls {
+	for _, decl := range list.Decls {
 		cb.buildDecl(decl)
 	}
-
 	cb.signature = false
-	for _, decl := range mod.Decls {
+	for _, decl := range list.Decls {
 		sym := decl.Symbol()
-		if sym.IsType() || sym.ModFQN() == mod.FQN {
+		if sym.Kind == ir.TypeSymbol || sym.CUID == list.CUID {
 			cb.buildDecl(decl)
 		}
 	}
-
-	return cb.finalizeModule(mod)
+	return cb.finalizeLLVModule(list)
 }
 
-func (cb *llvmCodeBuilder) finalizeModule(mod *ir.Module) bool {
+func (cb *llvmCodeBuilder) finalizeLLVModule(list *ir.DeclList) bool {
 	if cb.errors.IsError() {
 		return false
 	}
@@ -217,8 +203,8 @@ func (cb *llvmCodeBuilder) finalizeModule(mod *ir.Module) bool {
 		panic(err)
 	}
 
-	_, filename := filepath.Split(mod.Path.Filename)
-	filename = strings.TrimSuffix(filename, filepath.Ext(mod.Path.Filename))
+	_, filename := filepath.Split(list.Filename)
+	filename = strings.TrimSuffix(filename, filepath.Ext(list.Filename))
 
 	objectfile := filename + ".o"
 	outputmode := llvm.ObjectFile
@@ -242,51 +228,46 @@ func (cb *llvmCodeBuilder) finalizeModule(mod *ir.Module) bool {
 }
 
 func (cb *llvmCodeBuilder) llvmType(t ir.Type) llvm.Type {
-	return llvmType(t, &cb.types)
+	return llvmType(t, &cb.typeMap)
 }
 
 func (cb *llvmCodeBuilder) buildDecl(decl ir.Decl) {
-	switch t := decl.(type) {
-	case *ir.TypeTopDecl:
+	switch decl := decl.(type) {
+	case *ir.ImportDecl:
 	case *ir.TypeDecl:
-	case *ir.ValTopDecl:
-		cb.buildValTopDecl(t)
 	case *ir.ValDecl:
-		cb.buildValDecl(t)
+		if decl.Sym.IsTopDecl() {
+			cb.buildValTopDecl(decl)
+		} else {
+			cb.buildValDecl(decl)
+		}
 	case *ir.FuncDecl:
-		cb.buildFuncDecl(t)
+		cb.buildFuncDecl(decl)
 	case *ir.StructDecl:
-		cb.buildStructDecl(t)
+		cb.buildStructDecl(decl)
 	default:
 		panic(fmt.Sprintf("Unhandled decl %T", decl))
 	}
 }
 
-func (cb *llvmCodeBuilder) buildValTopDecl(decl *ir.ValTopDecl) {
+func (cb *llvmCodeBuilder) buildValTopDecl(decl *ir.ValDecl) {
 	sym := decl.Sym
 	if cb.signature {
 		loc := llvm.AddGlobal(cb.mod, cb.llvmType(sym.T), mangle(sym))
-
-		switch decl.Visibility() {
-		case token.Public:
-			loc.SetLinkage(llvm.ExternalLinkage)
-		case token.Private:
-			loc.SetLinkage(llvm.InternalLinkage)
-		}
-
-		cb.values[sym] = loc
+		loc.SetLinkage(llvmLinkage(sym))
+		cb.valueMap[sym.Key] = loc
 		return
 	}
 
 	init := cb.buildExprVal(decl.Initializer)
-	loc := cb.values[sym]
+	loc := cb.valueMap[sym.Key]
 	loc.SetInitializer(init)
 }
 
 func (cb *llvmCodeBuilder) buildValDecl(decl *ir.ValDecl) {
 	sym := decl.Sym
 	loc := cb.b.CreateAlloca(cb.llvmType(sym.T), sym.Name)
-	cb.values[decl.Sym] = loc
+	cb.valueMap[decl.Sym.Key] = loc
 
 	init := cb.buildExprVal(decl.Initializer)
 	cb.b.CreateStore(init, loc)
@@ -312,13 +293,7 @@ func (cb *llvmCodeBuilder) buildFuncDecl(decl *ir.FuncDecl) {
 		funType := llvm.FunctionType(retType, paramTypes, false)
 		fun = llvm.AddFunction(cb.mod, name, funType)
 
-		switch decl.Visibility() {
-		case token.Public:
-			fun.SetLinkage(llvm.ExternalLinkage)
-		case token.Private:
-			fun.SetLinkage(llvm.InternalLinkage)
-		}
-
+		fun.SetLinkage(llvmLinkage(decl.Sym))
 		return
 	} else if decl.SignatureOnly() {
 		return
@@ -327,7 +302,7 @@ func (cb *llvmCodeBuilder) buildFuncDecl(decl *ir.FuncDecl) {
 	entryBlock := llvm.AddBasicBlock(fun, ".entry")
 	cb.b.SetInsertPointAtEnd(entryBlock)
 
-	if tfun.Return.ID() != ir.TVoid {
+	if tfun.Return.Kind() != ir.TVoid {
 		cb.retValue = cb.b.CreateAlloca(cb.llvmType(tfun.Return), ".retval")
 	}
 
@@ -335,7 +310,7 @@ func (cb *llvmCodeBuilder) buildFuncDecl(decl *ir.FuncDecl) {
 		sym := decl.Params[i].Sym
 		loc := cb.b.CreateAlloca(p.Type(), sym.Name)
 		cb.b.CreateStore(p, loc)
-		cb.values[sym] = loc
+		cb.valueMap[sym.Key] = loc
 	}
 
 	cb.level = 0
@@ -354,7 +329,7 @@ func (cb *llvmCodeBuilder) buildFuncDecl(decl *ir.FuncDecl) {
 	retBlock.MoveAfter(cb.b.GetInsertBlock())
 	cb.b.SetInsertPointAtEnd(retBlock)
 
-	if tfun.Return.ID() == ir.TVoid {
+	if tfun.Return.Kind() == ir.TVoid {
 		cb.b.CreateRetVoid()
 	} else {
 		res := cb.b.CreateLoad(cb.retValue, "")
@@ -369,7 +344,7 @@ func (cb *llvmCodeBuilder) buildFuncDecl(decl *ir.FuncDecl) {
 func (cb *llvmCodeBuilder) buildStructDecl(decl *ir.StructDecl) {
 	if cb.signature {
 		structt := cb.mod.Context().StructCreateNamed(mangle(decl.Sym))
-		cb.types[decl.Sym] = structt
+		cb.typeMap[decl.Sym.Key] = structt
 		return
 	}
 
@@ -377,14 +352,14 @@ func (cb *llvmCodeBuilder) buildStructDecl(decl *ir.StructDecl) {
 		return
 	}
 
-	structt := cb.types[decl.Sym]
+	tstruct := cb.typeMap[decl.Sym.Key]
 
 	var types []llvm.Type
 	for _, field := range decl.Fields {
 		types = append(types, cb.llvmType(field.Sym.T))
 	}
 
-	structt.StructSetBody(types, false)
+	tstruct.StructSetBody(types, false)
 }
 
 func (cb *llvmCodeBuilder) buildStmt(stmt ir.Stmt) bool {
@@ -683,7 +658,7 @@ func (cb *llvmCodeBuilder) buildIfStmt(stmt *ir.IfStmt) bool {
 
 func (cb *llvmCodeBuilder) buildForStmt(stmt *ir.ForStmt) {
 	if stmt.Init != nil {
-		cb.buildValDecl(stmt.Init)
+		cb.buildStmt(stmt.Init)
 	}
 
 	loopBlock := llvm.AddBasicBlock(cb.fun, formatTokLabel(stmt.Tok, "body", stmt.Pos()))
@@ -779,44 +754,46 @@ func (cb *llvmCodeBuilder) buildExprPtr(expr ir.Expr) llvm.Value {
 }
 
 func (cb *llvmCodeBuilder) buildExpr(expr ir.Expr, load bool) llvm.Value {
-	switch expr2 := expr.(type) {
+	switch expr := expr.(type) {
 	case *ir.Ident:
-		return cb.buildIdent(expr2, load)
+		return cb.buildIdent(expr, load)
 	case *ir.BasicLit:
-		return cb.buildBasicLit(expr2)
+		return cb.buildBasicLit(expr)
 	case *ir.StructLit:
-		return cb.buildStructLit(expr2)
+		return cb.buildStructLit(expr)
 	case *ir.ArrayLit:
-		return cb.buildArrayLit(expr2)
+		return cb.buildArrayLit(expr)
 	case *ir.BinaryExpr:
-		return cb.buildBinaryExpr(expr2)
+		return cb.buildBinaryExpr(expr)
 	case *ir.UnaryExpr:
-		return cb.buildUnaryExpr(expr2, load)
+		return cb.buildUnaryExpr(expr, load)
 	case *ir.DotExpr:
-		return cb.buildDotExpr(expr2, load)
+		return cb.buildDotExpr(expr, load)
 	case *ir.IndexExpr:
-		return cb.buildIndexExpr(expr2, load)
+		return cb.buildIndexExpr(expr, load)
 	case *ir.SliceExpr:
-		return cb.buildSliceExpr(expr2)
+		return cb.buildSliceExpr(expr)
 	case *ir.FuncCall:
-		return cb.buildFuncCall(expr2)
+		return cb.buildFuncCall(expr)
 	case *ir.CastExpr:
-		return cb.buildCastExpr(expr2)
+		return cb.buildCastExpr(expr)
 	case *ir.LenExpr:
-		return cb.buildLenExpr(expr2)
+		return cb.buildLenExpr(expr)
 	case *ir.ConstExpr:
-		return cb.buildExpr(expr2.X, load)
+		return cb.buildExpr(expr.X, load)
+	case *ir.DefaultInit:
+		return cb.buildDefaultInit(expr.T)
 	default:
-		panic(fmt.Sprintf("Unhandled expr %T", expr2))
+		panic(fmt.Sprintf("Unhandled expr %T", expr))
 	}
 }
 
 func (cb *llvmCodeBuilder) buildIdent(expr *ir.Ident, load bool) llvm.Value {
-	if expr.Sym.ID == ir.FuncSymbol {
+	if expr.Sym.Kind == ir.FuncSymbol {
 		return cb.mod.NamedFunction(mangle(expr.Sym))
 	}
 
-	if val, ok := cb.values[expr.Sym]; ok {
+	if val, ok := cb.valueMap[expr.Sym.Key]; ok {
 		if load {
 			return cb.b.CreateLoad(val, expr.Sym.Name)
 		}
@@ -826,6 +803,46 @@ func (cb *llvmCodeBuilder) buildIdent(expr *ir.Ident, load bool) llvm.Value {
 	panic(fmt.Sprintf("%s not found", expr.Sym))
 }
 
+func (cb *llvmCodeBuilder) buildDefaultInit(t ir.Type) llvm.Value {
+	tllvm := cb.llvmType(t)
+	switch t := t.(type) {
+	case *ir.BasicType:
+		if t.Kind() == ir.TBool {
+			return llvm.ConstInt(tllvm, 0, false)
+		} else if ir.IsIntegerType(t) {
+			return llvm.ConstInt(tllvm, 0, false)
+		} else if ir.IsFloatType(t) {
+			return llvm.ConstFloat(tllvm, 0)
+		}
+		panic(fmt.Sprintf("Unhandled type %T", t))
+	case *ir.StructType:
+		val := llvm.Undef(cb.typeMap[t.Sym.Key])
+		for i, field := range t.Fields {
+			fieldVal := cb.buildDefaultInit(field.T)
+			val = cb.b.CreateInsertValue(val, fieldVal, i, "")
+		}
+		return val
+	case *ir.ArrayType:
+		val := llvm.Undef(tllvm)
+		for i := 0; i < t.Size; i++ {
+			elemVal := cb.buildDefaultInit(t.Elem)
+			val = cb.b.CreateInsertValue(val, elemVal, i, "")
+		}
+		return val
+	case *ir.PointerType:
+		return llvm.ConstPointerNull(tllvm)
+	case *ir.SliceType:
+		tptr := llvm.PointerType(cb.llvmType(t.Elem), 0)
+		ptr := llvm.ConstPointerNull(tptr)
+		size := cb.createSliceSize(0)
+		return cb.createSliceStruct(ptr, size, t)
+	case *ir.FuncType:
+		return llvm.ConstPointerNull(tllvm)
+	default:
+		panic(fmt.Sprintf("Unhandled type %T", t))
+	}
+}
+
 func (cb *llvmCodeBuilder) buildBasicLit(expr *ir.BasicLit) llvm.Value {
 	if expr.Tok == token.String {
 		raw := expr.AsString()
@@ -833,7 +850,7 @@ func (cb *llvmCodeBuilder) buildBasicLit(expr *ir.BasicLit) llvm.Value {
 		var ptr llvm.Value
 
 		if cb.inFunction {
-			ptr = cb.b.CreateGlobalStringPtr(expr.AsString(), ".str")
+			ptr = cb.b.CreateGlobalStringPtr(raw, ".str")
 		} else {
 			typ := llvm.ArrayType(llvm.Int8Type(), strLen+1) // +1 is for null-terminator
 			arr := llvm.AddGlobal(cb.mod, typ, ".str")
@@ -845,11 +862,11 @@ func (cb *llvmCodeBuilder) buildBasicLit(expr *ir.BasicLit) llvm.Value {
 			ptr = llvm.ConstBitCast(arr, llvm.PointerType(llvm.Int8Type(), 0))
 		}
 
-		if expr.T.ID() == ir.TSlice {
+		if expr.T.Kind() == ir.TSlice {
 			size := cb.createSliceSize(strLen)
 			slice := cb.createSliceStruct(ptr, size, expr.Type())
 			return slice
-		} else if expr.T.ID() == ir.TPointer {
+		} else if expr.T.Kind() == ir.TPointer {
 			return ptr
 		}
 
@@ -893,12 +910,12 @@ func (cb *llvmCodeBuilder) createSliceStruct(ptr llvm.Value, size llvm.Value, t 
 }
 
 func (cb *llvmCodeBuilder) createSliceSize(size int) llvm.Value {
-	return llvm.ConstInt(llvm.IntType(32), uint64(size), false)
+	return llvm.ConstInt(llvmSizeType(), uint64(size), false)
 }
 
 func (cb *llvmCodeBuilder) buildStructLit(expr *ir.StructLit) llvm.Value {
 	tstruct := ir.ToBaseType(expr.T).(*ir.StructType)
-	llvmType := cb.types[tstruct.Sym]
+	llvmType := cb.typeMap[tstruct.Sym.Key]
 	structLit := llvm.Undef(llvmType)
 
 	for argIndex, arg := range expr.Args {
@@ -941,10 +958,10 @@ func (cb *llvmCodeBuilder) createMathOp(op token.Token, t ir.Type, left llvm.Val
 	case token.Div:
 		if ir.IsFloatType(t) {
 			return cb.b.CreateFDiv(left, right, "")
-		} else if ir.IsUnsignedType(t) {
-			return cb.b.CreateUDiv(left, right, "")
+		} else if ir.IsSignedType(t) {
+			return cb.b.CreateSDiv(left, right, "")
 		}
-		return cb.b.CreateSDiv(left, right, "")
+		return cb.b.CreateUDiv(left, right, "")
 	case token.Mod:
 		if ir.IsFloatType(t) {
 			return cb.b.CreateFRem(left, right, "")
@@ -1101,7 +1118,7 @@ func (cb *llvmCodeBuilder) buildDotExpr(expr *ir.DotExpr, load bool) llvm.Value 
 		}
 		return gep
 	default:
-		panic(fmt.Sprintf("%T not handled", t))
+		panic(fmt.Sprintf("%T not handled at %s", t, expr.X.Pos()))
 	}
 }
 
@@ -1115,7 +1132,7 @@ func (cb *llvmCodeBuilder) buildIndexExpr(expr *ir.IndexExpr, load bool) llvm.Va
 
 	var gep llvm.Value
 
-	if expr.X.Type().ID() == ir.TSlice {
+	if expr.X.Type().Kind() == ir.TSlice {
 		slicePtr := cb.b.CreateStructGEP(val, ptrFieldIndex, "")
 		slicePtr = cb.b.CreateLoad(slicePtr, "")
 		gep = cb.b.CreateInBoundsGEP(slicePtr, []llvm.Value{index}, "")
@@ -1233,9 +1250,9 @@ func (cb *llvmCodeBuilder) buildCastExpr(expr *ir.CastExpr) llvm.Value {
 			unhandled = true
 		}
 	default:
-		if from.ID() == ir.TPointer && to.ID() == ir.TPointer {
+		if from.Kind() == ir.TPointer && to.Kind() == ir.TPointer {
 			res = cb.b.CreateBitCast(val, cb.llvmType(to), "")
-		} else if from.ID() == ir.TSlice && to.ID() == ir.TSlice {
+		} else if from.Kind() == ir.TSlice && to.Kind() == ir.TSlice {
 			slice1 := ir.ToBaseType(from).(*ir.SliceType)
 			slice2 := ir.ToBaseType(to).(*ir.SliceType)
 			if slice1.Elem.Equals(slice2.Elem) {
@@ -1258,7 +1275,7 @@ func (cb *llvmCodeBuilder) buildCastExpr(expr *ir.CastExpr) llvm.Value {
 func (cb *llvmCodeBuilder) buildLenExpr(expr *ir.LenExpr) llvm.Value {
 	switch t := ir.ToBaseType(expr.X.Type()).(type) {
 	case *ir.ArrayType:
-		return llvm.ConstInt(llvm.Int32Type(), uint64(t.Size), false)
+		return llvm.ConstInt(llvmSizeType(), uint64(t.Size), false)
 	case *ir.SliceType:
 		val := cb.buildExprPtr(expr.X)
 		if val.Type().TypeKind() != llvm.PointerTypeKind {

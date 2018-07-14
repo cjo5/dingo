@@ -1,7 +1,7 @@
 include "../common.dg"
 
-alias foo1 i32
-alias foo2 bar
+alias foo1 = i32
+alias foo2 = bar
 
 extern fun main() c_int {
     var a foo1 = 1
@@ -16,4 +16,4 @@ extern fun main() c_int {
     return 0
 }
 
-alias bar i32
+alias bar = i32

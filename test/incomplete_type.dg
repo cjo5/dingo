@@ -6,7 +6,7 @@ fun bar() {
     var e &[void] // expect-error: incomplete type &[void]
     var f [i32] // expect-error: incomplete type [i32]
 
-    var g = [1, 2]
+    var g = [i32]{1, 2}
     var h = g[:] // expect-error: expression has incomplete type [i32]
 
 }

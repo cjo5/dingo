@@ -6,7 +6,7 @@ fun putln(str &[i8]) {
 }
 
 fun putiln(i i32) {
-    puti64(i as i64)
+    puti64(i)
     putchar('\n')
 }
 
@@ -19,13 +19,13 @@ fun putbool(b bool) {
 }
 
 fun put(str &[i8]) {
-    for i = 0; i < len(str); i++ {
-        putchar(str[i] as i32)
+    for i usize = 0; i < len(str); i++ {
+        putchar(str[i])
     }
 }
 
 fun puti32(i i32) {
-    puti64(i as i64)
+    puti64(i)
 }
 
 fun puti64(i i64) {

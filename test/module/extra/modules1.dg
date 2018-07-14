@@ -1,0 +1,21 @@
+pub module mod1 {
+    pub import mod2
+
+    pub struct Foo {
+        a i32
+    }
+
+    pub val bar i32 = 10
+
+    pub fun baz() i32 {
+        return 100
+    }
+}
+
+pub module foo {
+    pub module bar {
+        fun baz() {
+
+        }
+    }
+}

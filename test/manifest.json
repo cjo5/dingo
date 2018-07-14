@@ -3,37 +3,44 @@
         "tests": [
             "alias.dg",
             "bad_cast.dg",
-            "bad_const.dg",
             "bad_sizeof.dg",
-            "const.dg",
             "defer.dg",
             "if.dg",
             "incomplete_type.dg",
             "sizeof.dg",
             "type_in_expr.dg",
+            "use_before_decl.dg",
             "void.dg"
         ]
     },
     {
         "dir": "dep",
         "tests": [
+            "alias.dg",
+            "alias_cycle.dg",
             "functions.dg",
             "function_val.dg",
             "function_signature.dg",
-            "alias.dg",
+            "import_cycle.dg",
+            "nested_alias_cycle.dg",
             "structs.dg",
-            "struct_cycle.dg",
-            "const_cycle.dg",
-            "alias_cycle.dg",
-            "nested_alias_cycle.dg"
+            "struct_cycle.dg"
         ]
     },
     {
         "dir": "function",
         "tests": [
-            "literal.dg",
             "arguments.dg",
-            "bad_arguments.dg"
+            "bad_arguments.dg",
+            "literal.dg"
+        ]
+    },
+    {
+        "dir": "include",
+        "tests": [
+            "cycle1.dg",
+            "nested_cycle1.dg",
+            "self.dg"
         ]
     },
     {
@@ -49,10 +56,36 @@
     },
     {
         "dir": "module",
-        "modules": ["a.dg", "b.dg"],
         "tests": [
+            "bad_scope.dg",
+            "fqn.dg",
+            "scope.dg",
+            "private_duplicate.dg"
+        ]
+    },
+    {
+        "dir": "module",
+        "modules": [
+            "extra/public_module.dg"
+        ],
+        "tests": [
+            "public_duplicate.dg",
+            "private_public_no_duplicate.dg"
+        ]
+    },
+    {
+        "dir": "module",
+        "modules": [
+            "extra/modules1.dg",
+            "extra/modules2.dg"
+        ],
+        "tests": [
+            "bad_import.dg",
+            "bad_import_local.dg",
             "import.dg",
-            "import_alias.dg"
+            "import_items.dg",
+            "import_local.dg",
+            "import_relative.dg"
         ]
     },
     {

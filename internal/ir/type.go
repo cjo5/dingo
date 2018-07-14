@@ -9,30 +9,31 @@ import (
 	"github.com/jhnl/dingo/internal/token"
 )
 
-// TypeID identifies the base type.
-type TypeID int
+// TypeKind identifies the base type.
+type TypeKind int
 
-// Type IDs
+// Type kinds.
 const (
-	TUntyped TypeID = iota
+	TUntyped1 TypeKind = iota
+	TUntyped2
+
 	TVoid
 	TBool
 
-	TUInt8
+	TConstInt
+	TConstFloat
+
 	TInt8
-	TUInt16
+	TUInt8
 	TInt16
-	TUInt32
+	TUInt16
 	TInt32
-	TUInt64
+	TUInt32
 	TInt64
+	TUInt64
+	TUSize
 	TFloat32
 	TFloat64
-
-	// Only used as intermediary types when evaluating constant expressions.
-	TBigInt
-	TBigFloat
-	//
 
 	TModule
 	TStruct
@@ -43,32 +44,34 @@ const (
 )
 
 var types = [...]string{
-	TUntyped:  "untyped",
-	TVoid:     "void",
-	TBool:     "bool",
-	TUInt8:    "u8",
-	TInt8:     "i8",
-	TUInt16:   "u16",
-	TInt16:    "i16",
-	TUInt32:   "u32",
-	TInt32:    "i32",
-	TUInt64:   "u64",
-	TInt64:    "i64",
-	TFloat32:  "f32",
-	TFloat64:  "f64",
-	TBigInt:   "int",
-	TBigFloat: "float",
-	TModule:   "module",
-	TStruct:   "struct",
-	TArray:    "array",
-	TSlice:    "slice",
-	TPointer:  "pointer",
-	TFunc:     "fun",
+	TUntyped1:   "untyped1",
+	TUntyped2:   "untyped2",
+	TVoid:       "void",
+	TBool:       "bool",
+	TConstInt:   "int",
+	TConstFloat: "float",
+	TInt8:       "i8",
+	TUInt8:      "u8",
+	TInt16:      "i16",
+	TUInt16:     "u16",
+	TInt32:      "i32",
+	TUInt32:     "u32",
+	TInt64:      "i64",
+	TUInt64:     "u64",
+	TUSize:      "usize",
+	TFloat32:    "f32",
+	TFloat64:    "f64",
+	TModule:     "module",
+	TStruct:     "struct",
+	TArray:      "array",
+	TSlice:      "slice",
+	TPointer:    "pointer",
+	TFunc:       "fun",
 }
 
-func (id TypeID) String() string {
+func (id TypeKind) String() string {
 	s := ""
-	if 0 <= id && id < TypeID(len(types)) {
+	if 0 <= id && id < TypeKind(len(types)) {
 		s = types[id]
 	} else {
 		s = "unknown"
@@ -78,19 +81,23 @@ func (id TypeID) String() string {
 
 // Built-in types.
 var (
-	TBuiltinUntyped = Type(NewBasicType(TUntyped))
-	TBuiltinVoid    = Type(NewBasicType(TVoid))
-	TBuiltinBool    = Type(NewBasicType(TBool))
-	TBuiltinUInt64  = Type(NewBasicType(TUInt64))
-	TBuiltinInt64   = Type(NewBasicType(TInt64))
-	TBuiltinUInt32  = Type(NewBasicType(TUInt32))
-	TBuiltinInt32   = Type(NewBasicType(TInt32))
-	TBuiltinUInt16  = Type(NewBasicType(TUInt16))
-	TBuiltinInt16   = Type(NewBasicType(TInt16))
-	TBuiltinUInt8   = Type(NewBasicType(TUInt8))
-	TBuiltinInt8    = Type(NewBasicType(TInt8))
-	TBuiltinFloat64 = Type(NewBasicType(TFloat64))
-	TBuiltinFloat32 = Type(NewBasicType(TFloat32))
+	TBuiltinUntyped1   = Type(NewBasicType(TUntyped1))
+	TBuiltinUntyped2   = Type(NewBasicType(TUntyped2))
+	TBuiltinVoid       = Type(NewBasicType(TVoid))
+	TBuiltinBool       = Type(NewBasicType(TBool))
+	TBuiltinConstInt   = Type(NewBasicType(TConstInt))
+	TBuiltinConstFloat = Type(NewBasicType(TConstFloat))
+	TBuiltinInt8       = Type(NewBasicType(TInt8))
+	TBuiltinUInt8      = Type(NewBasicType(TUInt8))
+	TBuiltinInt16      = Type(NewBasicType(TInt16))
+	TBuiltinUInt16     = Type(NewBasicType(TUInt16))
+	TBuiltinInt32      = Type(NewBasicType(TInt32))
+	TBuiltinUInt32     = Type(NewBasicType(TUInt32))
+	TBuiltinInt64      = Type(NewBasicType(TInt64))
+	TBuiltinUInt64     = Type(NewBasicType(TUInt64))
+	TBuiltinUSize      = Type(NewBasicType(TUSize))
+	TBuiltinFloat32    = Type(NewBasicType(TFloat32))
+	TBuiltinFloat64    = Type(NewBasicType(TFloat64))
 )
 
 // Big ints and floats are used when evaluating constant expressions and checking for overflow.
@@ -118,9 +125,9 @@ var (
 	BigFloatZero = big.NewFloat(0)
 )
 
-// Type interface is implemented by all types, and is the main representation of types in the compiler.
+// Type interface is implemented by all types and is the main representation of types in the compiler.
 type Type interface {
-	ID() TypeID
+	Kind() TypeKind
 	String() string
 	// Equals and CastableTo are symmetric
 	Equals(Type) bool
@@ -133,11 +140,11 @@ type Target interface {
 }
 
 type baseType struct {
-	id TypeID
+	kind TypeKind
 }
 
-func (t *baseType) ID() TypeID {
-	return t.id
+func (t *baseType) Kind() TypeKind {
+	return t.kind
 }
 
 type BasicType struct {
@@ -145,12 +152,12 @@ type BasicType struct {
 }
 
 func (t *BasicType) String() string {
-	return t.id.String()
+	return t.kind.String()
 }
 
 func (t *BasicType) Equals(other Type) bool {
 	if t2, ok := other.(*BasicType); ok {
-		return t.id == t2.id
+		return t.kind == t2.kind
 	}
 	return false
 }
@@ -172,7 +179,7 @@ type ModuleType struct {
 }
 
 func (t *ModuleType) String() string {
-	return t.Sym.ModFQN()
+	return t.Sym.ModFQN
 }
 
 func (t *ModuleType) Equals(other Type) bool {
@@ -190,9 +197,10 @@ type Field struct {
 
 type StructType struct {
 	baseType
-	Sym    *Symbol
-	Scope  *Scope
-	Fields []Field
+	TypedBody bool
+	Sym       *Symbol
+	Scope     *Scope
+	Fields    []Field
 }
 
 func (t *StructType) String() string {
@@ -201,7 +209,7 @@ func (t *StructType) String() string {
 
 func (t *StructType) Equals(other Type) bool {
 	if t2, ok := other.(*StructType); ok {
-		return t.Sym == t2.Sym
+		return t.Sym.FQN() == t2.Sym.FQN()
 	}
 	return false
 }
@@ -303,7 +311,7 @@ func (t *PointerType) Equals(other Type) bool {
 func (t *PointerType) CastableTo(other Type) bool {
 	if t2, ok := other.(*PointerType); ok {
 		switch {
-		case t.Elem.ID() == TVoid || t2.Elem.ID() == TVoid:
+		case t.Elem.Kind() == TVoid || t2.Elem.Kind() == TVoid:
 			return true
 		case t.Elem.Equals(t2.Elem):
 			return true
@@ -333,7 +341,7 @@ func (t *FuncType) String() string {
 		}
 	}
 	buf.WriteString(")")
-	if t.Return.ID() != TVoid {
+	if t.Return.Kind() != TVoid {
 		buf.WriteString(" ")
 		buf.WriteString(t.Return.String())
 	}
@@ -365,49 +373,50 @@ func (t *FuncType) CastableTo(other Type) bool {
 	return t.Equals(other)
 }
 
-func NewBasicType(id TypeID) *BasicType {
+func NewBasicType(kind TypeKind) *BasicType {
 	t := &BasicType{}
-	t.id = id
+	t.kind = kind
 	return t
 }
 
 func NewModuleType(sym *Symbol, scope *Scope) *ModuleType {
 	t := &ModuleType{Sym: sym, Scope: scope}
-	t.id = TModule
+	t.kind = TModule
 	return t
 }
 
 func NewStructType(sym *Symbol, scope *Scope) *StructType {
 	t := &StructType{Sym: sym, Scope: scope}
-	t.id = TStruct
+	t.kind = TStruct
 	return t
 }
 
-func (t *StructType) SetBody(fields []Field) {
+func (t *StructType) SetBody(fields []Field, typedBody bool) {
 	t.Fields = fields
+	t.TypedBody = typedBody
 }
 
 func NewArrayType(elem Type, size int) *ArrayType {
 	t := &ArrayType{Elem: elem, Size: size}
-	t.id = TArray
+	t.kind = TArray
 	return t
 }
 
 func NewSliceType(elem Type, readOnly bool, absorbedPtr bool) *SliceType {
 	t := &SliceType{Elem: elem, ReadOnly: readOnly, Ptr: absorbedPtr}
-	t.id = TSlice
+	t.kind = TSlice
 	return t
 }
 
 func NewPointerType(elem Type, readOnly bool) *PointerType {
 	t := &PointerType{Elem: elem, ReadOnly: readOnly}
-	t.id = TPointer
+	t.kind = TPointer
 	return t
 }
 
 func NewFuncType(params []Field, ret Type, c bool) *FuncType {
 	t := &FuncType{Params: params, Return: ret, C: c}
-	t.id = TFunc
+	t.kind = TFunc
 	return t
 }
 
@@ -415,102 +424,36 @@ func ToBaseType(t Type) Type {
 	return t
 }
 
-func IsTypeID(t Type, ids ...TypeID) bool {
-	for _, id := range ids {
-		if t.ID() == id {
-			return true
-		}
-	}
-	return false
-}
-
-func IsImplicitCastNeeded(from Type, to Type) bool {
-	switch tfrom := from.(type) {
-	case *SliceType:
-		if tto, ok := to.(*SliceType); ok {
-			if !tfrom.ReadOnly && tto.ReadOnly {
-				return tfrom.Elem.Equals(tto.Elem)
-			}
-		}
-	case *PointerType:
-		if tto, ok := to.(*PointerType); ok {
-			if !tfrom.ReadOnly && tto.ReadOnly {
-				return (tto.Elem.ID() == TVoid) || (tfrom.Elem.Equals(tto.Elem))
-			} else if tfrom.ReadOnly == tto.ReadOnly {
-				return (tto.Elem.ID() == TVoid) && (tfrom.Elem.ID() != TVoid)
-			}
-		}
-	}
-	return false
-}
-
-func IsIncompleteType(t1 Type, outer Type) bool {
-	incomplete := false
-	switch t2 := t1.(type) {
-	case *BasicType:
-		if t2.ID() == TVoid {
-			if outer == nil || outer.ID() != TPointer {
-				incomplete = true
-			}
-		}
-	case *StructType:
-		if t2.Opaque() {
-			if outer == nil || outer.ID() != TPointer {
-				incomplete = true
-			}
-		}
-	case *ArrayType:
-		incomplete = IsIncompleteType(t2.Elem, t2)
-	case *SliceType:
-		if !t2.Ptr {
-			incomplete = true
-		} else {
-			incomplete = IsIncompleteType(t2.Elem, t2)
-		}
-	case *PointerType:
-		incomplete = IsIncompleteType(t2.Elem, t2)
-	}
-	return incomplete
-}
-
-func IsCompilerType(t1 Type) bool {
-	switch t2 := t1.(type) {
-	case *PointerType:
-		return IsUntyped(t2.Elem)
-	case *ArrayType:
-		return IsCompilerType(t2.Elem)
-	case *BasicType:
-		return IsTypeID(t2, TUntyped, TBigInt, TBigFloat)
-	default:
+func IsSignedType(t Type) bool {
+	switch t.Kind() {
+	case TConstInt, TInt64, TInt32, TInt16, TInt8:
 		return true
 	}
-}
-
-func IsUntyped(t Type) bool {
-	return t.ID() == TUntyped
-}
-
-func IsUntypedPointer(t Type) bool {
-	if tptr, ok := t.(*PointerType); ok {
-		return IsUntyped(tptr.Elem)
-	}
 	return false
-}
-
-func IsSignedType(t Type) bool {
-	return IsTypeID(t, TBigInt, TInt64, TInt32, TInt16, TInt8)
 }
 
 func IsUnsignedType(t Type) bool {
-	return IsTypeID(t, TBigInt, TUInt64, TUInt32, TUInt16, TUInt8)
+	switch t.Kind() {
+	case TUSize, TUInt64, TUInt32, TUInt16, TUInt8:
+		return true
+	}
+	return false
 }
 
 func IsIntegerType(t Type) bool {
-	return IsTypeID(t, TBigInt, TUInt64, TInt64, TUInt32, TInt32, TUInt16, TInt16, TUInt8, TInt8)
+	switch t.Kind() {
+	case TConstInt, TUSize, TUInt64, TInt64, TUInt32, TInt32, TUInt16, TInt16, TUInt8, TInt8:
+		return true
+	}
+	return false
 }
 
 func IsFloatType(t Type) bool {
-	return IsTypeID(t, TBigFloat, TFloat64, TFloat32)
+	switch t.Kind() {
+	case TConstFloat, TFloat64, TFloat32:
+		return true
+	}
+	return false
 }
 
 func IsNumericType(t Type) bool {

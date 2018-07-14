@@ -3,201 +3,172 @@ package semantics
 import (
 	"fmt"
 
-	"github.com/jhnl/dingo/internal/common"
 	"github.com/jhnl/dingo/internal/ir"
 	"github.com/jhnl/dingo/internal/token"
 )
 
 func (c *checker) checkTypes() {
-	c.resetWalkState()
-	c.checkModuleSet(true)
-	c.checkModuleSet(false)
-}
-
-func (c *checker) checkModuleSet(signature bool) {
-	c.set.ResetDeclColors()
-	c.signature = signature
-	for _, mod := range c.set.Modules {
-		for _, decl := range mod.Decls {
-			c.checkTopDecl(decl)
+	c.step = 0
+	for _, objList := range c.objectMatrix {
+		for _, obj := range objList.objects {
+			c.checkDgObject(obj)
 		}
+	}
+	c.step++
+	for decl := range c.incomplete {
+		c.checkIncompleteDgObject(decl)
 	}
 }
 
-func (c *checker) checkDependencyGraph(decl ir.TopDecl) {
-	graph := *decl.DependencyGraph()
-	for dep, node := range graph {
-		if !node.Weak {
-			c.checkTopDecl(dep)
-		}
-	}
-}
-
-func (c *checker) checkTopDecl(decl ir.TopDecl) {
-	if decl.Symbol() == nil {
+func (c *checker) checkIncompleteDgObject(obj *dgObject) {
+	if obj.color != whiteColor {
 		return
 	}
-
-	if decl.Color() != ir.WhiteColor {
-		return
+	obj.color = grayColor
+	for dep := range obj.deps {
+		if obj.incomplete {
+			c.checkIncompleteDgObject(dep)
+		}
 	}
-
-	sym := decl.Symbol()
-	defer setScope(setScope(c, sym.Parent))
-
-	c.pushTopDecl(decl)
-	decl.SetColor(ir.GrayColor)
-	c.typeswitchDecl(decl)
-	decl.SetColor(ir.BlackColor)
-	c.popTopDecl()
+	c.checkDgObject(obj)
+	obj.color = blackColor
 }
 
-func (c *checker) setWeakDependencies(decl ir.TopDecl) {
-	graph := *decl.DependencyGraph()
-	switch decl.(type) {
-	case *ir.TypeTopDecl:
-	case *ir.ValTopDecl:
-	case *ir.FuncDecl:
-		for k, v := range graph {
-			sym := k.Symbol()
-			if sym.ID == ir.FuncSymbol {
-				v.Weak = true
-			}
-		}
-	case *ir.StructDecl:
-		for _, v := range graph {
-			weakCount := 0
-			for i := 0; i < len(v.Links); i++ {
-				link := v.Links[i]
-				if link.Sym == nil || link.Sym.T == nil {
-					weakCount++
-				} else if link.IsType {
-					t := link.Sym.T
-					if t.ID() == ir.TPointer || t.ID() == ir.TSlice || t.ID() == ir.TFunc {
-						weakCount++
-					}
-				}
-			}
-			if weakCount == len(v.Links) {
-				v.Weak = true
-			}
-		}
-	default:
-		panic(fmt.Sprintf("Unhandled top decl %T", decl))
-	}
-}
-
-func (c *checker) typeswitchDecl(decl ir.Decl) {
-	switch decl := decl.(type) {
-	case *ir.TypeTopDecl:
-		if !c.signature {
-			return
-		}
-		c.setWeakDependencies(decl)
-		c.checkDependencyGraph(decl)
-		c.checkTypeDecl(decl.Sym, &decl.TypeDeclSpec)
+func (c *checker) checkDgObject(obj *dgObject) {
+	c.object = obj
+	switch decl := obj.d.(type) {
+	case *ir.ImportDecl:
+		c.checkImportDecl(decl)
+		c.object.checked = true
 	case *ir.TypeDecl:
-		if decl.Sym != nil {
-			c.checkTypeDecl(decl.Sym, &decl.TypeDeclSpec)
-		}
-	case *ir.ValTopDecl:
-		if c.signature {
-			return
-		}
-		c.setWeakDependencies(decl)
-		c.checkDependencyGraph(decl)
-		c.checkValDecl(decl.Sym, &decl.ValDeclSpec, true)
-		if !ir.IsUntyped(decl.Sym.T) && decl.Sym.ID != ir.ConstSymbol {
-			init := decl.Initializer
-			if !checkCompileTimeConstant(init) {
-				c.error(init.Pos(), "top-level initializer must be a compile-time constant")
-			}
-		}
+		c.checkTypeDecl(decl)
+		c.object.checked = true
 	case *ir.ValDecl:
-		if decl.Sym != nil {
-			c.checkValDecl(decl.Sym, &decl.ValDeclSpec, decl.Init())
+		c.checkValDecl(decl)
+		c.object.checked = true
+		if !isUntyped(decl.Sym.T) {
+			init := decl.Initializer
+			if !decl.Sym.IsConst() {
+				c.error(init.Pos(), "top-level initializer must be a compile-time constant")
+				decl.Sym.T = ir.TBuiltinUntyped2
+			}
 		}
 	case *ir.FuncDecl:
 		c.checkFuncDecl(decl)
 	case *ir.StructDecl:
+		c.object.checked = true
 		c.checkStructDecl(decl)
 	default:
 		panic(fmt.Sprintf("Unhandled decl %T", decl))
 	}
 }
 
-func (c *checker) checkTypeDecl(sym *ir.Symbol, decl *ir.TypeDeclSpec) {
-	decl.Type = c.checkTypeExpr(decl.Type, true, false)
-	tdecl := decl.Type.Type()
-
-	if ir.IsUntyped(tdecl) {
-		sym.T = ir.TBuiltinUntyped
-	} else {
-		sym.T = tdecl
+func (c *checker) checkLocalDecl(decl ir.Decl) {
+	switch decl := decl.(type) {
+	case *ir.ImportDecl:
+		c.checkImportDecl(decl)
+	case *ir.TypeDecl:
+		c.checkTypeDecl(decl)
+	case *ir.ValDecl:
+		c.checkValDecl(decl)
+	default:
+		panic(fmt.Sprintf("Unhandled decl %T", decl))
 	}
 }
 
-func (c *checker) checkValDecl(sym *ir.Symbol, decl *ir.ValDeclSpec, defaultInit bool) {
-	if decl.Decl.OneOf(token.Const, token.Val) {
-		sym.Flags |= ir.SymFlagReadOnly
+func (c *checker) checkImportDecl(decl *ir.ImportDecl) {
+	for _, item := range decl.Items {
+		itemSym := item.Name.Sym
+		if itemSym == nil || !isUnresolvedType(itemSym.T) {
+			continue
+		}
+		tmod := decl.Sym.T.(*ir.ModuleType)
+		importedSym := tmod.Scope.Lookup(itemSym.Name)
+		titem := ir.TBuiltinUntyped2
+		if importedSym == nil {
+			c.error(item.Name.Pos(), "undeclared identifier '%s' in module '%s'", item.Name.Literal, decl.Sym.ModFQN)
+		} else if !importedSym.Public {
+			c.error(item.Name.Pos(), "'%s' is private and cannot be imported", item.Name.Literal)
+		} else if importedSym.IsBuiltin() {
+			c.error(item.Name.Pos(), "'%s' is builtin and cannot be imported", item.Name.Literal)
+		} else {
+			c.tryAddDep(importedSym, itemSym.Pos)
+			titem = importedSym.T
+			if !isUnresolvedType(titem) {
+				itemSym.Kind = importedSym.Kind
+				itemSym.Key = importedSym.Key
+				itemSym.Flags |= (importedSym.Flags & (ir.SymFlagReadOnly | ir.SymFlagConst))
+			}
+		}
+		itemSym.T = titem
 	}
+}
 
-	var tdecl ir.Type
+func (c *checker) checkTypeDecl(decl *ir.TypeDecl) {
+	if !isUnresolvedType(decl.Sym.T) {
+		return
+	}
+	c.sym = decl.Sym
+	decl.Type = c.checkTypeExpr(decl.Type, true, false)
+	decl.Sym.T = decl.Type.Type()
+	c.sym = nil
+}
 
+func (c *checker) checkValDecl(decl *ir.ValDecl) {
+	if !isUnresolvedType(decl.Sym.T) {
+		return
+	}
+	c.sym = decl.Sym
 	if decl.Type != nil {
 		decl.Type = c.checkTypeExpr(decl.Type, true, true)
-		tdecl = decl.Type.Type()
-
-		if ir.IsUntyped(tdecl) {
-			sym.T = tdecl
-			return
-		}
 	}
-
 	if decl.Initializer != nil {
-		decl.Initializer = c.makeTypedExpr(decl.Initializer, tdecl)
-		tinit := decl.Initializer.Type()
-
-		if decl.Type == nil {
-			if tdecl == nil {
-				tdecl = tinit
-			}
+		decl.Initializer = c.checkExpr(decl.Initializer)
+	}
+	c.sym = nil
+	if tpunt := puntExprs(decl.Type, decl.Initializer); tpunt != nil {
+		decl.Sym.T = tpunt
+		return
+	}
+	tres := ir.TBuiltinUntyped2
+	if decl.Initializer != nil {
+		var tdecl ir.Type
+		if decl.Type != nil {
+			tdecl = decl.Type.Type()
+			decl.Initializer = c.finalizeExpr(decl.Initializer, tdecl)
 		} else {
-			if ir.IsUntyped(tdecl) || ir.IsUntyped(tinit) {
-				tdecl = ir.TBuiltinUntyped
-			} else if !tdecl.Equals(tinit) {
-				c.error(decl.Initializer.Pos(), "type mismatch %s and %s", tdecl, tinit)
-				tdecl = ir.TBuiltinUntyped
-			}
+			decl.Initializer = c.finalizeExpr(decl.Initializer, nil)
+			tdecl = decl.Initializer.Type()
 		}
-
-		if decl.Decl.Is(token.Const) && !ir.IsUntyped(tdecl) {
-			if !checkCompileTimeConstant(decl.Initializer) {
-				c.error(decl.Initializer.Pos(), "const initializer must be a compile-time constant")
-				tdecl = ir.TBuiltinUntyped
-			}
+		tinit := decl.Initializer.Type()
+		if tdecl.Equals(tinit) {
+			tres = tdecl
+		} else {
+			c.error(decl.Initializer.Pos(), "type mismatch %s and %s", tdecl, tinit)
 		}
-	} else if decl.Type == nil {
-		c.error(decl.Name.Pos(), "missing type or initializer")
-		tdecl = ir.TBuiltinUntyped
-	} else if defaultInit {
-		decl.Initializer = createDefaultLit(tdecl)
+	} else {
+		tres = decl.Type.Type()
 	}
-
-	// Wait to set type until the final step in order to be able to detect cycles
-	sym.T = tdecl
-
-	if decl.Decl.Is(token.Const) && !ir.IsUntyped(tdecl) {
-		c.constExprs[sym] = decl.Initializer
+	if !isUntyped(tres) {
+		if decl.Initializer == nil {
+			decl.Initializer = ir.NewDefaultInit(tres)
+		}
+		if decl.Decl.Is(token.Val) {
+			decl.Sym.Flags |= ir.SymFlagReadOnly
+		}
+		if checkCompileTimeConstant(decl.Initializer) {
+			decl.Sym.Flags |= ir.SymFlagConst
+		}
 	}
+	decl.Sym.T = tres
 }
 
 func checkCompileTimeConstant(expr ir.Expr) bool {
 	constant := true
-
 	switch t := expr.(type) {
 	case *ir.BasicLit:
 	case *ir.ConstExpr:
+	case *ir.DefaultInit:
 	case *ir.StructLit:
 		for _, arg := range t.Args {
 			if !checkCompileTimeConstant(arg.Value) {
@@ -211,203 +182,219 @@ func checkCompileTimeConstant(expr ir.Expr) bool {
 			}
 		}
 	case *ir.Ident:
-		if t.Sym == nil || t.Sym.ID != ir.FuncSymbol {
+		if t.Sym == nil || t.Sym.Kind != ir.FuncSymbol {
 			return false
 		}
 	default:
 		constant = false
 	}
-
 	return constant
 }
 
 func (c *checker) checkFuncDecl(decl *ir.FuncDecl) {
-	if c.signature {
-		c.checkDependencyGraph(decl)
-
-		c.checkIdent(decl.Name)
-
-		defer setScope(setScope(c, decl.Scope))
-
-		var params []ir.Field
-		untyped := false
-
+	defer c.setScope(c.setScope(decl.Scope))
+	if isUnresolvedType(decl.Sym.T) {
+		var tpunt ir.Type
 		for _, param := range decl.Params {
-			c.typeswitchDecl(param)
-			if param.Sym == nil || ir.IsUntyped(param.Sym.T) {
-				untyped = true
-			}
-
-			if !untyped {
-				params = append(params, ir.Field{Name: param.Sym.Name, T: param.Sym.T})
+			if param.Sym != nil {
+				c.checkValDecl(param)
+				tpunt = untyped(param.Sym.T, tpunt)
+			} else {
+				tpunt = ir.TBuiltinUntyped2
 			}
 		}
-
 		decl.Return.Type = c.checkTypeExpr(decl.Return.Type, true, false)
 		tret := decl.Return.Type.Type()
-
-		if ir.IsUntyped(tret) {
-			untyped = true
-		}
-
-		tfun := ir.TBuiltinUntyped
-
-		if !untyped {
+		tpunt = untyped(tret, tpunt)
+		if tpunt != nil {
+			decl.Sym.T = tpunt
+		} else {
+			var params []ir.Field
+			for _, param := range decl.Params {
+				params = append(params, ir.Field{Name: param.Sym.Name, T: param.Type.Type()})
+			}
 			cabi := (decl.Sym.ABI == ir.CABI)
-			tfun = ir.NewFuncType(params, tret, cabi)
-			if decl.Sym.T != nil && !checkTypes(decl.Sym.T, tfun) {
-				c.error(decl.Name.Pos(), "redeclaration of '%s' (previously declared with a different signature at %s)",
-					decl.Name.Literal, decl.Sym.DeclPos)
+			tfun := ir.NewFuncType(params, tret, cabi)
+			if isTypeMismatch(decl.Sym.T, tfun) {
+				c.error(decl.Name.Pos(), "redeclaration of '%s' (previous declaration at %s)", decl.Name.Literal, decl.Sym.Pos)
+				decl.Sym.T = ir.TBuiltinUntyped2
+			} else {
+				decl.Sym.T = tfun
 			}
 		}
-
-		if decl.Sym.T == nil {
-			decl.Sym.T = tfun
-		}
-
-		return
-	} else if decl.SignatureOnly() {
-		return
+		c.object.checked = true
 	}
-
-	c.checkDependencyGraph(decl)
-	c.setWeakDependencies(decl)
-
-	defer setScope(setScope(c, decl.Scope))
-	c.typeswitchStmt(decl.Body)
+	if !decl.SignatureOnly() {
+		c.checkStmt(decl.Body)
+	}
 }
 
 func (c *checker) checkStructDecl(decl *ir.StructDecl) {
 	if decl.Opaque && decl.Sym.IsDefined() {
 		return
 	}
-
-	if c.signature {
-		if decl.Sym.T == nil {
-			decl.Sym.T = ir.NewStructType(decl.Sym, decl.Scope)
-		}
+	tstruct := ir.ToBaseType(decl.Sym.T).(*ir.StructType)
+	if tstruct.TypedBody {
 		return
 	}
-
-	c.checkDependencyGraph(decl)
-
-	untyped := false
-	defer setScope(setScope(c, decl.Scope))
-
+	var tpunt ir.Type
 	for _, field := range decl.Fields {
-		c.typeswitchDecl(field)
-		if field.Sym == nil || ir.IsUntyped(field.Sym.T) {
-			untyped = true
+		if field.Sym != nil {
+			c.checkValDecl(field)
+			tpunt = untyped(field.Sym.T, tpunt)
+		} else {
+			tpunt = ir.TBuiltinUntyped2
 		}
 	}
-
-	c.setWeakDependencies(decl)
-
-	if !untyped {
-		var fields []ir.Field
-		for _, field := range decl.Fields {
+	typedBody := true
+	if tpunt != nil {
+		if tpunt.Kind() == ir.TUntyped2 {
+			decl.Sym.T = tpunt
+			return
+		}
+		typedBody = false
+	}
+	var fields []ir.Field
+	for _, field := range decl.Fields {
+		if field.Sym != nil {
 			fields = append(fields, ir.Field{Name: field.Sym.Name, T: field.Type.Type()})
 		}
-		tstruct := ir.ToBaseType(decl.Sym.T).(*ir.StructType)
-		tstruct.SetBody(fields)
 	}
+	tstruct.SetBody(fields, typedBody)
 }
 
-func (c *checker) typeswitchStmt(stmt ir.Stmt) {
+func (c *checker) checkStmt(stmt ir.Stmt) {
 	switch stmt := stmt.(type) {
 	case *ir.BlockStmt:
-		defer setScope(setScope(c, stmt.Scope))
-		stmtList(stmt.Stmts, c.typeswitchStmt)
-	case *ir.DeclStmt:
-		c.typeswitchDecl(stmt.D)
-	case *ir.IfStmt:
-		stmt.Cond = c.typeswitchExpr(stmt.Cond)
-		if !checkTypes(stmt.Cond.Type(), ir.TBuiltinBool) {
-			c.error(stmt.Cond.Pos(), "condition should have type %s (got %s)", ir.TBool, stmt.Cond.Type())
+		if c.step == 0 {
+			c.openScope(ir.LocalScope)
+			stmt.Scope = c.scope
+			c.closeScope()
 		}
-		c.typeswitchStmt(stmt.Body)
+		prevScope := c.setScope(stmt.Scope)
+		stmtList(stmt.Stmts, c.checkStmt)
+		c.setScope(prevScope)
+	case *ir.DeclStmt:
+		if c.step == 0 {
+			c.insertLocalDeclSymbol(stmt.D, c.object.CUID(), c.object.modFQN())
+		}
+		if stmt.D.Symbol() != nil {
+			c.checkLocalDecl(stmt.D)
+		}
+	case *ir.IfStmt:
+		if isUnresolvedExpr(stmt.Cond) {
+			stmt.Cond = c.checkExpr(stmt.Cond)
+			if isTypeMismatch(stmt.Cond.Type(), ir.TBuiltinBool) {
+				c.error(stmt.Cond.Pos(), "condition expects type %s (got %s)", ir.TBool, stmt.Cond.Type())
+				stmt.Cond.SetType(ir.TBuiltinUntyped2)
+			}
+		}
+		c.checkStmt(stmt.Body)
 		if stmt.Else != nil {
-			c.typeswitchStmt(stmt.Else)
+			c.checkStmt(stmt.Else)
 		}
 	case *ir.ForStmt:
-		defer setScope(setScope(c, stmt.Body.Scope))
+		if c.step == 0 {
+			c.openScope(ir.LocalScope)
+			stmt.Body.Scope = c.scope
+			c.closeScope()
+		}
+		prevScope := c.setScope(stmt.Body.Scope)
 		if stmt.Init != nil {
-			c.typeswitchDecl(stmt.Init)
+			c.checkStmt(stmt.Init)
 		}
 		if stmt.Cond != nil {
-			stmt.Cond = c.typeswitchExpr(stmt.Cond)
-			if !checkTypes(stmt.Cond.Type(), ir.TBuiltinBool) {
-				c.error(stmt.Cond.Pos(), "condition should have type %s (got %s)", ir.TBool, stmt.Cond.Type())
+			if isUnresolvedExpr(stmt.Cond) {
+				stmt.Cond = c.checkExpr(stmt.Cond)
+				if isTypeMismatch(stmt.Cond.Type(), ir.TBuiltinBool) {
+					c.error(stmt.Cond.Pos(), "condition expects type %s (got %s)", ir.TBool, stmt.Cond.Type())
+					stmt.Cond.SetType(ir.TBuiltinUntyped2)
+				}
 			}
 		}
 		if stmt.Inc != nil {
-			c.typeswitchStmt(stmt.Inc)
+			c.checkStmt(stmt.Inc)
 		}
-		c.loopCount++
-		stmtList(stmt.Body.Stmts, c.typeswitchStmt)
-		c.loopCount--
+		c.loop++
+		stmtList(stmt.Body.Stmts, c.checkStmt)
+		c.loop--
+		c.setScope(prevScope)
 	case *ir.ReturnStmt:
-		mismatch := false
-		funDecl, _ := c.topDecl().(*ir.FuncDecl)
-		retType := funDecl.Return.Type.Type()
-		if ir.IsUntyped(retType) {
+		if stmt.X != nil {
+			stmt.X = c.checkExpr(stmt.X)
+		}
+		fun := c.object.d.(*ir.FuncDecl)
+		if puntExprs(fun.Return.Type, stmt.X) != nil {
 			return
 		}
-		exprType := ir.TBuiltinVoid
+		tret := fun.Return.Type.Type()
+		texpr := ir.TBuiltinVoid
+		mismatch := false
 		if stmt.X == nil {
-			if retType.ID() != ir.TVoid {
+			if tret.Kind() != ir.TVoid {
 				mismatch = true
 			}
 		} else {
-			stmt.X = c.makeTypedExpr(stmt.X, retType)
-
-			if !checkTypes(stmt.X.Type(), retType) {
-				exprType = stmt.X.Type()
+			stmt.X = c.finalizeExpr(stmt.X, tret)
+			if isTypeMismatch(stmt.X.Type(), tret) {
+				texpr = stmt.X.Type()
 				mismatch = true
 			}
 		}
 		if mismatch {
-			c.error(stmt.Pos(), "function has return type %s (got %s)", retType, exprType)
+			c.error(stmt.Pos(), "function expects return type %s (got %s)", tret, texpr)
 		}
 	case *ir.DeferStmt:
 		c.scope.Defer = true
-		c.typeswitchStmt(stmt.S)
+		c.checkStmt(stmt.S)
 	case *ir.BranchStmt:
-		if c.loopCount == 0 {
+		if c.step == 0 && c.loop == 0 {
 			c.error(stmt.Pos(), "'%s' can only be used in a loop", stmt.Tok)
 		}
 	case *ir.AssignStmt:
-		stmt.Left = c.typeswitchExpr(stmt.Left)
-		left := stmt.Left
-		if ir.IsUntyped(left.Type()) {
-			// Do nothing
-		} else if !left.Lvalue() {
-			c.error(left.Pos(), "expression is not an lvalue")
-		} else if left.ReadOnly() {
-			c.error(left.Pos(), "expression is read-only")
-		} else {
-			stmt.Right = c.makeTypedExpr(stmt.Right, left.Type())
-			right := stmt.Right
-			if !checkTypes(left.Type(), right.Type()) {
-				c.errorNode(stmt, "type mismatch %s and %s", left.Type(), right.Type())
+		if isUnresolvedExprs(stmt.Left, stmt.Right) {
+			stmt.Left = c.checkExpr(stmt.Left)
+			stmt.Right = c.checkExpr(stmt.Right)
+			if puntExprs(stmt.Left, stmt.Right) != nil {
+				return
+			}
+			left := stmt.Left
+			err := false
+			if !left.Lvalue() {
+				err = true
+				c.error(left.Pos(), "expression is not an lvalue")
+			} else if left.ReadOnly() {
+				err = true
+				c.error(left.Pos(), "expression is read-only")
 			}
 			if stmt.Assign != token.Assign {
 				if !ir.IsNumericType(left.Type()) {
-					c.errorNode(left, "type %s is not numeric", left.Type())
+					err = true
+					c.nodeError(left, "type %s is not numeric", left.Type())
+				}
+			}
+			if !err {
+				stmt.Right = c.finalizeExpr(stmt.Right, left.Type())
+				right := stmt.Right
+				if isTypeMismatch(left.Type(), right.Type()) {
+					c.nodeError(stmt, "type mismatch %s and %s", left.Type(), right.Type())
 				}
 			}
 		}
 	case *ir.ExprStmt:
-		stmt.X = c.makeTypedExpr(stmt.X, nil)
-		if stmt.X.Type().ID() == ir.TUntyped {
-			common.Assert(c.errors.IsError(), "expr at %s is untyped and no error was reported", stmt.X.Pos())
+		if isUnresolvedExpr(stmt.X) {
+			stmt.X = c.checkExpr(stmt.X)
+			stmt.X = c.finalizeExpr(stmt.X, nil)
 		}
 	default:
 		panic(fmt.Sprintf("Unhandled stmt %T", stmt))
 	}
 }
 
-func (c *checker) typeswitchExpr(expr ir.Expr) ir.Expr {
+func (c *checker) checkExpr(expr ir.Expr) ir.Expr {
+	if !isUnresolvedExpr(expr) {
+		return expr
+	}
 	switch expr := expr.(type) {
 	case *ir.PointerTypeExpr:
 		return c.checkPointerTypeExpr(expr)
@@ -441,21 +428,50 @@ func (c *checker) typeswitchExpr(expr ir.Expr) ir.Expr {
 		return c.checkLenExpr(expr)
 	case *ir.SizeExpr:
 		return c.checkSizeExpr(expr)
+	case *ir.ConstExpr:
+		return expr
 	default:
-		panic(fmt.Sprintf("Unhandled expr %T", expr))
+		panic(fmt.Sprintf("Unhandled expr %T at %s", expr, expr.Pos()))
 	}
 }
 
+func (c *checker) finalizeExpr(expr ir.Expr, target ir.Type) ir.Expr {
+	if isUntypedExpr(expr) || (target != nil && isUntyped(target)) {
+		return expr
+	}
+
+	checkIncomplete := false
+	texpr := expr.Type()
+
+	switch expr := expr.(type) {
+	case *ir.SliceExpr:
+		checkIncomplete = true
+	case *ir.UnaryExpr:
+		if expr.Op.OneOf(token.Addr, token.Deref) {
+			checkIncomplete = true
+		}
+	}
+
+	if checkIncomplete && isIncompleteType(texpr, nil) {
+		c.nodeError(expr, "expression has incomplete type %s", texpr)
+		expr.SetType(ir.TBuiltinUntyped2)
+		return expr
+	}
+
+	return ensureCompatibleType(expr, target)
+}
+
 func (c *checker) checkTypeExpr(expr ir.Expr, root bool, checkVoid bool) ir.Expr {
-	prevMode := c.exprMode
-	c.exprMode = exprModeType
-	expr = c.typeswitchExpr(expr)
-	c.exprMode = prevMode
-	if root {
-		if expr.Type().ID() != ir.TVoid || checkVoid {
-			if ir.IsIncompleteType(expr.Type(), nil) {
-				c.errorNode(expr, "incomplete type %s", expr.Type())
-				expr.SetType(ir.TBuiltinUntyped)
+	prevMode := c.setMode(modeTypeExpr)
+	expr = c.checkExpr(expr)
+	c.mode = prevMode
+	texpr := expr.Type()
+	if root && !isUntyped(texpr) {
+		if texpr.Kind() != ir.TVoid || checkVoid {
+			if isIncompleteType(texpr, nil) {
+				c.nodeError(expr, "incomplete type %s", texpr)
+				expr.SetType(ir.TBuiltinUntyped2)
+				texpr = expr.Type()
 			}
 		}
 	}
@@ -464,13 +480,13 @@ func (c *checker) checkTypeExpr(expr ir.Expr, root bool, checkVoid bool) ir.Expr
 
 func (c *checker) checkPointerTypeExpr(expr *ir.PointerTypeExpr) ir.Expr {
 	expr.X = c.checkTypeExpr(expr.X, false, false)
-
+	if tpunt := puntExprs(expr.X); tpunt != nil {
+		expr.T = tpunt
+		return expr
+	}
 	ro := expr.Decl.Is(token.Val)
 	tx := expr.X.Type()
-
-	if ir.IsUntyped(tx) {
-		expr.T = ir.TBuiltinUntyped
-	} else if tslice, ok := tx.(*ir.SliceType); ok {
+	if tslice, ok := tx.(*ir.SliceType); ok {
 		if !tslice.Ptr {
 			tslice.Ptr = true
 			tslice.ReadOnly = ro
@@ -481,92 +497,132 @@ func (c *checker) checkPointerTypeExpr(expr *ir.PointerTypeExpr) ir.Expr {
 	} else {
 		expr.T = ir.NewPointerType(tx, ro)
 	}
-
 	return expr
 }
 
 func (c *checker) checkArrayTypeExpr(expr *ir.ArrayTypeExpr) ir.Expr {
-	arraySize := 0
-
+	if expr.Size != nil && isUnresolvedExpr(expr.Size) {
+		prevMode := c.setMode(modeCheck)
+		expr.Size = c.checkExpr(expr.Size)
+		expr.Size = c.finalizeExpr(expr.Size, nil)
+		c.mode = prevMode
+	}
+	expr.X = c.checkTypeExpr(expr.X, false, false)
+	if tpunt := puntExprs(expr.Size, expr.X); tpunt != nil {
+		expr.T = tpunt
+		return expr
+	}
+	size := 0
 	if expr.Size != nil {
-		prevMode := c.exprMode
-		c.exprMode = exprModeNone
-		expr.Size = c.makeTypedExpr(expr.Size, ir.TBuiltinInt32)
-		c.exprMode = prevMode
-
-		err := false
-
-		size := expr.Size
-		if ir.IsUntyped(size.Type()) {
-			err = true
-		} else if size.Type().ID() != ir.TInt32 {
-			c.error(expr.Size.Pos(), "array size must be of type %s (got %s)", ir.TInt32, size.Type())
-			err = true
-		} else if lit, ok := size.(*ir.BasicLit); !ok {
+		if !ir.IsIntegerType(expr.Size.Type()) {
+			c.error(expr.Size.Pos(), "array size expects an integer type (got %s)", expr.Size.Type())
+			expr.Size.SetType(ir.TBuiltinUntyped2)
+		} else if lit, ok := expr.Size.(*ir.BasicLit); !ok {
 			c.error(expr.Size.Pos(), "array size is not a constant expression")
-			err = true
+			expr.Size.SetType(ir.TBuiltinUntyped2)
 		} else if lit.NegatigeInteger() {
 			c.error(expr.Size.Pos(), "array size cannot be negative")
-			err = true
+			expr.Size.SetType(ir.TBuiltinUntyped2)
 		} else if lit.Zero() {
 			c.error(expr.Size.Pos(), "array size cannot be zero")
-			err = true
+			expr.Size.SetType(ir.TBuiltinUntyped2)
 		} else {
-			arraySize = int(lit.AsU64())
+			size = int(lit.AsU64())
 		}
-
-		if err {
-			expr.T = ir.TBuiltinUntyped
+		if size == 0 {
+			expr.T = ir.TBuiltinUntyped2
 			return expr
 		}
 	}
-
-	expr.X = c.checkTypeExpr(expr.X, false, false)
 	tx := expr.X.Type()
-
-	if ir.IsUntyped(tx) {
-		expr.T = ir.TBuiltinUntyped
-	} else if arraySize != 0 {
-		expr.T = ir.NewArrayType(tx, arraySize)
-	} else {
+	if size == 0 {
 		expr.T = ir.NewSliceType(tx, true, false)
+	} else {
+		expr.T = ir.NewArrayType(tx, size)
 	}
-
 	return expr
 }
 
 func (c *checker) checkFuncTypeExpr(expr *ir.FuncTypeExpr) ir.Expr {
 	var params []ir.Field
-	untyped := false
+	var tpunt ir.Type
 	for i, param := range expr.Params {
 		expr.Params[i].Type = c.checkTypeExpr(param.Type, true, true)
-		if !untyped {
-			tparam := expr.Params[i].Type.Type()
-			params = append(params, ir.Field{Name: param.Name.Literal, T: tparam})
-			if ir.IsUntyped(tparam) {
-				untyped = true
-			}
-		}
+		tparam := expr.Params[i].Type.Type()
+		params = append(params, ir.Field{Name: param.Name.Literal, T: tparam})
+		tpunt = untyped(tparam, tpunt)
 	}
-
 	expr.Return.Type = c.checkTypeExpr(expr.Return.Type, true, false)
-	if ir.IsUntyped(expr.Return.Type.Type()) {
-		untyped = true
+	tpunt = untyped(expr.Return.Type.Type(), tpunt)
+	if tpunt != nil {
+		expr.T = tpunt
+		return expr
 	}
+	cabi := false
+	if expr.ABI != nil {
+		if expr.ABI.Literal == ir.CABI {
+			cabi = true
+		} else if !ir.IsValidABI(expr.ABI.Literal) {
+			c.error(expr.ABI.Pos(), "unknown abi '%s'", expr.ABI.Literal)
+			expr.T = ir.TBuiltinUntyped2
+			return expr
+		}
+	}
+	expr.T = ir.NewFuncType(params, expr.Return.Type.Type(), cabi)
+	return expr
+}
 
-	if !untyped {
-		cabi := false
-		if expr.ABI != nil {
-			if expr.ABI.Literal == ir.CABI {
-				cabi = true
-			} else if !ir.IsValidABI(expr.ABI.Literal) {
-				c.error(expr.ABI.Pos(), "unknown abi '%s'", expr.ABI.Literal)
+func (c *checker) resolveIdent(expr *ir.Ident) (*ir.Symbol, bool) {
+	ok := true
+	sym := c.lookup(expr.Literal)
+	if sym == nil {
+		ok = false
+		c.error(expr.Pos(), "undeclared identifier '%s'", expr.Literal)
+	} else if c.mode != modeDotExpr {
+		if c.mode == modeTypeExpr {
+			if sym.Kind != ir.TypeSymbol {
+				ok = false
+				c.error(expr.Pos(), "'%s' is not a type", sym.Name)
+			}
+		} else {
+			if sym.Kind == ir.ModuleSymbol {
+				ok = false
+				c.error(expr.Pos(), "module '%s' cannot be used in an expression", sym.Name)
+			} else if sym.Kind == ir.TypeSymbol {
+				ok = false
+				c.error(expr.Pos(), "type %s cannot be used in an expression", sym.T)
 			}
 		}
-		expr.T = ir.NewFuncType(params, expr.Return.Type.Type(), cabi)
-	} else {
-		expr.T = ir.TBuiltinUntyped
+		if ok {
+			if !sym.Public && sym.ParentCUID() != c.object.parentCUID() {
+				ok = false
+				c.error(expr.Pos(), "'%s' is private", expr.Literal)
+			}
+		}
 	}
+	return sym, ok
+}
+
+func (c *checker) checkIdent(expr *ir.Ident) ir.Expr {
+	if c.step == 0 {
+		if sym, ok := c.resolveIdent(expr); ok {
+			expr.Sym = sym
+		} else {
+			expr.T = ir.TBuiltinUntyped2
+			return expr
+		}
+	} else if expr.T.Kind() == ir.TUntyped2 {
+		return expr
+	}
+
+	sym := expr.Sym
+	expr.T = sym.T
+
+	if sym.IsBuiltin() && sym.IsConst() {
+		return c.constMap[sym.Key]
+	}
+
+	c.tryAddDep(sym, expr.Pos())
 
 	return expr
 }

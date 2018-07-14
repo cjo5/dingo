@@ -17,6 +17,7 @@ fun cat(filename &c_char) c_int {
         perror(filename)
         return 1
     }
+    defer fclose(file)
 
     var buffer [i8:1024]
     var n c_usize = 1
@@ -37,6 +38,5 @@ fun cat(filename &c_char) c_int {
         putln("read failed")
     }
 
-    fclose(file)
     return err
 }

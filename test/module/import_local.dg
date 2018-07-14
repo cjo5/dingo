@@ -1,0 +1,11 @@
+include "../common.dg"
+
+extern fun main() c_int {
+    f() // expect-output: 10
+    return 0
+}
+
+fun f() {
+    import m = mod1
+    putiln(m.bar)
+}

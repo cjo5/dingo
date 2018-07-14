@@ -4,7 +4,7 @@ extern fun main() c_int {
     var f1 = Foo{}
     var f2 = Foo{a: 9, b: Bar{c: 11, f: &var f1}}
 
-    printFoo(&f2)
+    print_foo(&f2)
     // expect-output: 9
     // expect-output: 11
 
@@ -14,7 +14,7 @@ extern fun main() c_int {
     return 0
 }
 
-fun printFoo(f &Foo) {
+fun print_foo(f &Foo) {
     putiln(f.a)
     putiln(f.b.c)
 }

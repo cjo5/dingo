@@ -85,7 +85,6 @@ const (
 	Module
 	Include
 	Import
-	Const
 	Var
 	Val
 	AliasType
@@ -94,6 +93,9 @@ const (
 	Public
 	Private
 	Extern
+
+	ParentMod
+	SelfMod
 
 	True
 	False
@@ -106,6 +108,7 @@ const (
 	Pointer Token = And
 	Deref   Token = Mul
 	Addr    Token = And
+	RootMod Token = Dot
 )
 
 var tokens = [...]string{
@@ -176,7 +179,6 @@ var tokens = [...]string{
 	Module:    "module",
 	Include:   "include",
 	Import:    "import",
-	Const:     "const",
 	Var:       "var",
 	Val:       "val",
 	AliasType: "alias",
@@ -185,6 +187,9 @@ var tokens = [...]string{
 	Public:    "pub",
 	Private:   "priv",
 	Extern:    "extern",
+
+	ParentMod: "msuper",
+	SelfMod:   "mself",
 
 	True:  "true",
 	False: "false",
@@ -263,7 +268,7 @@ type Position struct {
 }
 
 func NewPosition1(filename string) Position {
-	return Position{Filename: filename, Offset: 0, Line: -1, Column: -1}
+	return Position{Filename: filename}
 }
 
 // NoPosition means it wasn't part of a file.
@@ -275,7 +280,7 @@ func (p Position) String() string {
 		buf.WriteString(p.Filename)
 	}
 
-	if p.Line > -1 {
+	if p.Line > 0 {
 		if buf.Len() > 0 {
 			buf.WriteString(":")
 		}

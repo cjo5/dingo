@@ -1,0 +1,7 @@
+module foo {
+    
+}
+
+module foo { // expect-dgc: re: error\(5\): redefinition of private module 'foo' \(different definition is at '.*:1:8'\)
+
+}

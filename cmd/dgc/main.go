@@ -8,7 +8,7 @@ import (
 
 	"github.com/jhnl/dingo/internal/backend"
 	"github.com/jhnl/dingo/internal/common"
-	"github.com/jhnl/dingo/internal/module"
+	"github.com/jhnl/dingo/internal/frontend"
 	"github.com/jhnl/dingo/internal/semantics"
 )
 
@@ -53,35 +53,23 @@ func printErrors(errors *common.ErrorList) {
 }
 
 func build(filenames []string, config *common.BuildConfig, errors *common.ErrorList) {
-	set, err := module.Load(filenames)
+	fileList1, err := frontend.Load(filenames)
 	addError(err, errors)
 
 	if errors.IsError() {
 		return
-	}
-
-	if config.Verbose {
-		for _, mod := range set.Modules {
-			fmt.Println("Module", mod.FQN)
-			for _, file := range mod.Files {
-				fmt.Println("  File", file.Filename)
-				for _, dep := range file.FileDeps {
-					fmt.Println("    Include", dep.Literal)
-				}
-			}
-		}
 	}
 
 	target := backend.NewLLVMTarget()
 
-	err = semantics.Check(set, target)
+	cunitSet, err := semantics.Check(fileList1, target)
 	addError(err, errors)
 
 	if errors.IsError() {
 		return
 	}
 
-	err = backend.BuildLLVM(set, target, config)
+	err = backend.BuildLLVM(cunitSet, target, config)
 	addError(err, errors)
 }
 

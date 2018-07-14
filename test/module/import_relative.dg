@@ -1,0 +1,17 @@
+include "../common.dg"
+
+import .foo.bar
+
+module foo {
+    import mself.bar
+    module baaz {
+        import msuper.bar
+    }
+}
+
+extern fun main() c_int {
+    putln(bar.__fqn__) // expect-output: foo.bar
+    putln(foo.bar.__fqn__) // expect-output: foo.bar
+    putln(foo.baaz.bar.__fqn__) // expect-output: foo.bar
+    return 0
+}

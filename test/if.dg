@@ -45,7 +45,7 @@ extern fun main() c_int {
         putln("!foo.b") // expect-output: !foo.b
     }
 
-    val bar = [true, false]
+    val bar = [bool]{true, false}
 
     if bar[0] {
         putln("bar[0]") // expect-output: bar[0]

@@ -1,33 +1,33 @@
 include "common.dg"
 
 extern fun main() i32 {
-    putiln(sizeof(i8)) // expect-output: 1
-    putiln(sizeof(i16)) // expect-output: 2
-    putiln(sizeof(i32)) // expect-output: 4
-    putiln(sizeof(i64)) // expect-output: 8
+    putiln(sizeof(i8) as i32) // expect-output: 1
+    putiln(sizeof(i16) as i32) // expect-output: 2
+    putiln(sizeof(i32) as i32) // expect-output: 4
+    putiln(sizeof(i64) as i32) // expect-output: 8
 
-    alias MyType i64
-    putiln(sizeof(MyType)) // expect-output: 8
+    alias MyType = i64
+    putiln(sizeof(MyType) as i32) // expect-output: 8
 
-    putiln(sizeof(u8)) // expect-output: 1
-    putiln(sizeof(u16)) // expect-output: 2
-    putiln(sizeof(u32)) // expect-output: 4
-    putiln(sizeof(u64)) // expect-output: 8
+    putiln(sizeof(u8) as i32) // expect-output: 1
+    putiln(sizeof(u16) as i32) // expect-output: 2
+    putiln(sizeof(u32) as i32) // expect-output: 4
+    putiln(sizeof(u64) as i32) // expect-output: 8
     
-    putiln(sizeof(f32)) // expect-output: 4
-    putiln(sizeof(f64)) // expect-output: 8
+    putiln(sizeof(f32) as i32) // expect-output: 4
+    putiln(sizeof(f64) as i32) // expect-output: 8
 
-    putiln(sizeof(bool)) // expect-output: 1
+    putiln(sizeof(bool) as i32) // expect-output: 1
 
-    putiln(sizeof([i32:5])) // expect-output: 20
+    putiln(sizeof([i32:5]) as i32) // expect-output: 20
 
-    putiln(sizeof(&[i32])) // expect-output: 16
+    putiln(sizeof(&[i32]) as i32) // expect-output: 16
 
-    putiln(sizeof(Foo)) // expect-output: 16
+    putiln(sizeof(Foo) as i32) // expect-output: 16
 
-    putiln(sizeof(&Foo)) // expect-output: 8
-    putiln(sizeof(&u8)) // expect-output: 8
-    putiln(sizeof(&i32)) // expect-output: 8
+    putiln(sizeof(&Foo) as i32) // expect-output: 8
+    putiln(sizeof(&u8) as i32) // expect-output: 8
+    putiln(sizeof(&i32) as i32) // expect-output: 8
 
     return 0
 }

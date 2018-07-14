@@ -1,0 +1,114 @@
+include "../common.dg"
+
+include "extra/scope_include1.dg"
+
+fun print_fqn() {
+    putln("root")
+}
+
+fun print_scope_fqn() {
+    .print_fqn()
+    msuper.print_fqn()
+    mself.print_fqn()
+}
+
+module foo {
+    include "extra/scope_include1.dg"
+
+    fun print_fqn() {
+        .putln(__fqn__)
+    }
+
+    fun print_scope_fqn() {
+        .print_fqn()
+        msuper.print_fqn()
+        mself.print_fqn()
+    }
+
+    module bar {
+        include "extra/scope_include1.dg"
+
+        fun print_fqn() {
+            .putln(__fqn__)
+        }
+
+        fun print_scope_fqn() {
+            .print_fqn()
+            msuper.print_fqn()
+            mself.print_fqn()
+        }
+
+        module car {
+            fun print_msuper_msuper_fqn() {
+                msuper.msuper.print_fqn()
+            }
+        } 
+    }
+}
+
+extern fun main() i32 {
+    print_scope_fqn()
+    // expect-output: root
+    // expect-output: root
+    // expect-output: root
+
+    baazle.print_scope_fqn()
+    // expect-output: root
+    // expect-output: root
+    // expect-output: baazle
+
+    foozle.print_scope_fqn()
+    // expect-output: root
+    // expect-output: root
+    // expect-output: foozle
+
+    foozle.baazle.print_scope_fqn()
+    // expect-output: root
+    // expect-output: foozle
+    // expect-output: foozle.baazle
+
+    foo.print_scope_fqn()
+    // expect-output: root
+    // expect-output: root
+    // expect-output: foo
+
+    foo.baazle.print_scope_fqn()
+    // expect-output: root
+    // expect-output: foo
+    // expect-output: foo.baazle
+
+    foo.foozle.print_scope_fqn()
+    // expect-output: root
+    // expect-output: foo
+    // expect-output: foo.foozle
+
+    foo.foozle.baazle.print_scope_fqn()
+    // expect-output: root
+    // expect-output: foo.foozle
+    // expect-output: foo.foozle.baazle
+    
+    foo.bar.print_scope_fqn()
+    // expect-output: root
+    // expect-output: foo
+    // expect-output: foo.bar
+
+    foo.bar.baazle.print_scope_fqn()
+    // expect-output: root
+    // expect-output: foo.bar
+    // expect-output: foo.bar.baazle
+
+    foo.bar.foozle.print_scope_fqn()
+    // expect-output: root
+    // expect-output: foo.bar
+    // expect-output: foo.bar.foozle
+
+    foo.bar.foozle.baazle.print_scope_fqn()
+    // expect-output: root
+    // expect-output: foo.bar.foozle
+    // expect-output: foo.bar.foozle.baazle
+
+    foo.bar.car.print_msuper_msuper_fqn()
+    // expect-output: foo
+
+    return 0
+}

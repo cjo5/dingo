@@ -9,41 +9,54 @@ const CABI = "c"
 // DGABI name.
 const DGABI = "dg"
 
-// SymbolID identifies the type of symbol.
-type SymbolID int
+// SymbolKind identifies the kind of symbol.
+type SymbolKind int
 
-// Symbol IDs.
+// Symbol kinds.
 const (
-	ValSymbol SymbolID = iota
-	ConstSymbol
+	ValSymbol SymbolKind = iota
 	FuncSymbol
 	ModuleSymbol
-	StructSymbol
 	TypeSymbol
+	ImportSymbol
 )
 
 // Symbol flags.
 const (
 	SymFlagReadOnly = 1 << 1
-	SymFlagDefined  = 1 << 2
+	SymFlagConst    = 1 << 2
+	SymFlagDefined  = 1 << 3
+	SymFlagTopDecl  = 1 << 4
+	SymFlagBuiltin  = 1 << 5
 )
 
-// Symbol represents a unique symbol/identifier.
+// Symbol represents any kind of symbol/identifier in the source code.
 type Symbol struct {
-	ID      SymbolID
-	Parent  *Scope
-	Public  bool
-	ABI     string
-	Name    string
-	DeclPos token.Position
-	DefPos  token.Position // Different from DeclPos if symbol was declared before defined
-	T       Type
-	Flags   int
+	Kind   SymbolKind
+	Parent *Scope
+	CUID   int
+	Key    int
+	Public bool
+	ABI    string
+	ModFQN string
+	Name   string
+	Pos    token.Position
+	T      Type
+	Flags  int
 }
 
 // NewSymbol creates a new symbol.
-func NewSymbol(id SymbolID, parent *Scope, public bool, abi string, name string, pos token.Position) *Symbol {
-	return &Symbol{ID: id, Parent: parent, Public: public, ABI: abi, Name: name, DeclPos: pos, DefPos: pos, Flags: 0}
+func NewSymbol(kind SymbolKind, parent *Scope, CUID int, modFQN string, name string, pos token.Position) *Symbol {
+	return &Symbol{
+		Kind:   kind,
+		Parent: parent,
+		CUID:   CUID,
+		ABI:    DGABI,
+		ModFQN: modFQN,
+		Name:   name,
+		Pos:    pos,
+		T:      TBuiltinUntyped1,
+	}
 }
 
 func IsValidABI(abi string) bool {
@@ -56,61 +69,57 @@ func IsValidABI(abi string) bool {
 	return true
 }
 
-func (s SymbolID) String() string {
+func (s SymbolKind) String() string {
 	switch s {
 	case ValSymbol:
 		return "val"
-	case ConstSymbol:
-		return "const"
 	case FuncSymbol:
 		return "fun"
 	case ModuleSymbol:
 		return "module"
-	case StructSymbol:
-		return "struct"
 	case TypeSymbol:
 		return "type"
+	case ImportSymbol:
+		return "import"
 	default:
-		return "Symbol " + string(s)
+		return "symbol " + string(s)
 	}
 }
 
 func (s *Symbol) String() string {
-	return fmt.Sprintf("%s:%s:%s", s.ID, s.DeclPos, s.Name)
+	return fmt.Sprintf("%s:%s:%s", s.Kind, s.Pos, s.Name)
 }
 
-func (s *Symbol) ReadOnly() bool {
+func (s *Symbol) IsReadOnly() bool {
 	return (s.Flags & SymFlagReadOnly) != 0
+}
+
+func (s *Symbol) IsConst() bool {
+	return (s.Flags & SymFlagConst) != 0
 }
 
 func (s *Symbol) IsDefined() bool {
 	return (s.Flags & SymFlagDefined) != 0
 }
 
-func (s *Symbol) IsUntyped() bool {
-	if s.T == nil || IsUntyped(s.T) {
-		return true
-	}
-	return false
+func (s *Symbol) IsTopDecl() bool {
+	return (s.Flags & SymFlagTopDecl) != 0
 }
 
-func (s *Symbol) IsType() bool {
-	switch s.ID {
-	case StructSymbol:
-		return true
-	case TypeSymbol:
-		return true
-	}
-	return false
-}
-
-func (s *Symbol) ModFQN() string {
-	return s.Parent.FQN
+func (s *Symbol) IsBuiltin() bool {
+	return (s.Flags & SymFlagBuiltin) != 0
 }
 
 func (s *Symbol) FQN() string {
-	if s.ID == ModuleSymbol {
-		return s.ModFQN()
+	if s.Kind == ModuleSymbol {
+		return s.ModFQN
 	}
-	return fmt.Sprintf("%s.%s", s.ModFQN(), s.Name)
+	if len(s.ModFQN) > 0 {
+		return fmt.Sprintf("%s.%s", s.ModFQN, s.Name)
+	}
+	return s.Name
+}
+
+func (s *Symbol) ParentCUID() int {
+	return s.Parent.CUID
 }

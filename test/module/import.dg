@@ -1,17 +1,17 @@
 include "../common.dg"
 
-import a
+import mod1
 
 extern fun main() c_int {
-    val f1 = a.Foo{a: 1}
+    val f1 = mod1.Foo{a: 1}
     putiln(f1.a) // expect-output: 1
-    putiln(a.bar) // expect-output: 10
-    putiln(a.zoo()) // expect-output: 11
+    putiln(mod1.bar) // expect-output: 10
+    putiln(mod1.baz()) // expect-output: 100
 
-    val f2 = a.b.Foo{a: 2}
+    val f2 = mod1.mod2.Foo{a: 2}
     putiln(f2.a) // expect-output: 2
-    putiln(a.b.bar) // expect-output: 20
-    putiln(a.b.zoo()) // expect-output: 21
+    putiln(mod1.mod2.bar) // expect-output: 20
+    putiln(mod1.mod2.baz()) // expect-output: 200
 
     return 0
 }

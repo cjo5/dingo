@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/jhnl/dingo/internal/backend"
+	"github.com/jhnl/dingo/internal/frontend"
 
 	"github.com/jhnl/dingo/internal/semantics"
 
@@ -20,14 +21,14 @@ import (
 
 	"github.com/jhnl/dingo/internal/ir"
 	"github.com/jhnl/dingo/internal/token"
-
-	"github.com/jhnl/dingo/internal/module"
 )
 
 func main() {
 	var manifest string
+	var explicitTests string
 
 	flag.StringVar(&manifest, "manifest", "", "Test manifest")
+	flag.StringVar(&explicitTests, "test", "", "Explicit tests -- remaining arguments are interpreted as modules")
 	flag.Parse()
 
 	var groups []*testGroup
@@ -37,9 +38,18 @@ func main() {
 		groups = readTestManifest(manifest)
 		tester.baseDir = filepath.Dir(manifest)
 	} else {
-		groups = createTestGroups(flag.Args())
+		var tests []string
+		var modules []string
+		if len(explicitTests) > 0 {
+			tests = strings.Split(explicitTests, " ")
+		} else {
+			tests = flag.Args()
+		}
+		groups = createTestGroups(tests)
+		tester.defaultModules = modules
 	}
 
+	tester.total = countTests(groups)
 	tester.runTestGroups("", groups)
 	fmt.Printf("\nFinished %d test(s)\n%s: %d %s: %d %s: %d %s: %d\n\n",
 		tester.total, statusSuccess, tester.success,
@@ -48,7 +58,8 @@ func main() {
 }
 
 type testRunner struct {
-	baseDir string
+	baseDir        string
+	defaultModules []string
 
 	// stats
 	total   int
@@ -141,6 +152,14 @@ func createTestGroups(testFiles []string) []*testGroup {
 	return groups
 }
 
+func countTests(groups []*testGroup) int {
+	count := 0
+	for _, group := range groups {
+		count += len(group.Tests)
+	}
+	return count
+}
+
 func toTestName(testDir string, testFile string) string {
 	ext := filepath.Ext(testFile)
 	baseName := filepath.Base(testFile)
@@ -149,9 +168,16 @@ func toTestName(testDir string, testFile string) string {
 	return testName
 }
 
+func toTestLine(name string, index int, count int) string {
+	countStr := fmt.Sprintf("%d", count)
+	indexStr := fmt.Sprintf("%d", index)
+	line := fmt.Sprintf("%s%s/%s %s", strings.Repeat(" ", len(countStr)-len(indexStr)), indexStr, countStr, name)
+	return line
+}
+
 func (t *testRunner) runTestGroups(baseDir string, groups []*testGroup) {
-	dots := 50
-	for _, group := range groups {
+	testIndex := 1
+	for groupIndex, group := range groups {
 		testDir := filepath.Join(baseDir, group.Dir)
 		status := statusSuccess
 
@@ -164,12 +190,14 @@ func (t *testRunner) runTestGroups(baseDir string, groups []*testGroup) {
 		if status != statusSuccess {
 			if len(group.Tests) > 0 {
 				for _, testFile := range group.Tests {
-					testName := toTestName(testDir, testFile)
-					fmt.Printf("TEST %s%s[%s]\n", testName, strings.Repeat(".", dots-len(testName)), status)
+					line := toTestLine(toTestName(testDir, testFile), testIndex, t.total)
+					fmt.Printf("TEST %s ... %s\n", line, status)
 					t.updateStats(status)
+					testIndex++
 				}
 			} else {
-				fmt.Printf("GROUP %s%s[%s]\n", testDir, strings.Repeat(".", dots-1-len(testDir)), status)
+				line := toTestLine(testDir, groupIndex, len(groups))
+				fmt.Printf("GROUP %s ... %s\n", line, status)
 				t.updateStats(status)
 			}
 			continue
@@ -177,12 +205,14 @@ func (t *testRunner) runTestGroups(baseDir string, groups []*testGroup) {
 
 		for _, testFile := range group.Tests {
 			testName := toTestName(testDir, testFile)
-			fmt.Printf("TEST %s%s", testName, strings.Repeat(".", dots-len(testName)))
+			line := toTestLine(testName, testIndex, t.total)
+			fmt.Printf("TEST %s ... ", line)
 
 			result := t.runTest(testName, testDir, testFile, group.Modules)
 			t.updateStats(result.status)
+			testIndex++
 
-			fmt.Printf("[%s]\n", result.status)
+			fmt.Printf("%s\n", result.status)
 			for _, txt := range result.reason {
 				fmt.Printf("  >> %s\n", txt)
 			}
@@ -191,7 +221,6 @@ func (t *testRunner) runTestGroups(baseDir string, groups []*testGroup) {
 }
 
 func (t *testRunner) updateStats(res status) {
-	t.total++
 	switch res {
 	case statusSuccess:
 		t.success++
@@ -207,9 +236,12 @@ func (t *testRunner) updateStats(res status) {
 func (t *testRunner) runTest(testName string, testDir string, testFile string, testModules []string) *testResult {
 	var filenames []string
 	filenames = append(filenames, filepath.Join(t.baseDir, testDir, testFile))
-
 	for _, mod := range testModules {
 		filename := filepath.Join(t.baseDir, testDir, mod)
+		filenames = append(filenames, filename)
+	}
+	for _, defaultMod := range t.defaultModules {
+		filename := filepath.Join(t.baseDir, testDir, defaultMod)
 		filenames = append(filenames, filename)
 	}
 
@@ -218,20 +250,10 @@ func (t *testRunner) runTest(testName string, testDir string, testFile string, t
 	errors := &common.ErrorList{}
 
 	result := &testResult{status: statusSuccess}
-	set, err := module.Load(filenames)
+	fileList, err := frontend.Load(filenames)
 
-	if set != nil {
-		if mod := set.FindModule("main"); mod != nil {
-			file := mod.FindFileWithFQN("main")
-			expectedCompilerOutput, expectedExeOutput = parseTestDescription(file.Comments, result)
-		} else {
-			result.status = statusFail
-			result.addReason("no main module")
-		}
-
-		if result.status != statusSuccess {
-			return result
-		}
+	if fileList != nil {
+		expectedCompilerOutput, expectedExeOutput = parseTestDescription(fileList[0][0].Comments, result)
 	}
 
 	config := common.NewBuildConfig()
@@ -239,9 +261,9 @@ func (t *testRunner) runTest(testName string, testDir string, testFile string, t
 
 	if !addError(err, errors) {
 		target := backend.NewLLVMTarget()
-		err = semantics.Check(set, target)
+		cunitSet, err := semantics.Check(fileList, target)
 		if !addError(err, errors) {
-			err = backend.BuildLLVM(set, target, config)
+			err = backend.BuildLLVM(cunitSet, target, config)
 			addError(err, errors)
 		}
 	}
@@ -287,24 +309,24 @@ func addError(newError error, errors *common.ErrorList) bool {
 func addCompilerOutput(errors []*common.Error, output *[]*testOutput) {
 	for _, err := range errors {
 		pos := err.Pos
-
 		msg := fmt.Sprintf("%s(%d): %s", err.ID, pos.Line, err.Msg)
 		*output = append(*output, &testOutput{pos: pos, text: msg})
-
 		for _, line := range err.Context {
+			line = strings.TrimSpace(line)
 			*output = append(*output, &testOutput{pos: pos, text: line})
 		}
 	}
 }
 
 func addExeOutput(bytes []byte, output *[]*testOutput) {
-	tmp := strings.Split(string(bytes), "\n")
-	for i, line := range tmp {
-		line = strings.TrimSpace(line)
-		if len(line) > 0 {
-			pos := token.Position{Line: i + 1, Column: 1}
-			*output = append(*output, &testOutput{pos: pos, text: line})
+	lines := strings.Split(string(bytes), "\n")
+	for i := 0; i < len(lines); i++ {
+		line := strings.TrimSpace(lines[i])
+		if len(line) == 0 && (i+1) == len(lines) {
+			break
 		}
+		pos := token.Position{Line: i + 1, Column: 1}
+		*output = append(*output, &testOutput{pos: pos, text: line})
 	}
 }
 

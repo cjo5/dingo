@@ -1,0 +1,15 @@
+include "scope_include2.dg"
+
+module foozle {
+    include "scope_include2.dg"
+    
+    fun print_fqn() {
+        .putln(__fqn__)
+    }
+
+    fun print_scope_fqn() {
+        .print_fqn()
+        msuper.print_fqn()
+        mself.print_fqn()
+    }
+}

@@ -1,0 +1,5 @@
+include "cycle2.dg"
+
+// expect-error(1): cycle detected
+// expect-dgc: >> [0] ^ included by [1]
+// expect-dgc: re: .*cycle1\.dg:1:9 included by \[0\]

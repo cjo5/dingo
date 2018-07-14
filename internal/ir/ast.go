@@ -11,14 +11,15 @@ import (
 const (
 	AstFlagNoInit = 1 << 0
 	AstFlagAnon   = 1 << 1
+	AstFlagPublic = 1 << 2
 )
 
 // Node interface.
 type Node interface {
 	node()
 	Pos() token.Position
-	EndPos() token.Position
 	SetPos(token.Position)
+	EndPos() token.Position
 	SetEndPos(token.Position)
 	SetRange(token.Position, token.Position)
 }
@@ -28,16 +29,6 @@ type Decl interface {
 	Node
 	declNode()
 	Symbol() *Symbol
-}
-
-// TopDecl represents a top-level declaration.
-type TopDecl interface {
-	Decl
-	DependencyGraph() *DeclDependencyGraph
-	Color() Color
-	SetColor(Color)
-	Visibility() token.Token
-	SetVisibility(token.Token)
 }
 
 // Stmt is the main interface for statement nodes.
@@ -67,12 +58,12 @@ func (n *baseNode) Pos() token.Position {
 	return n.firstPos
 }
 
-func (n *baseNode) EndPos() token.Position {
-	return n.lastPos
-}
-
 func (n *baseNode) SetPos(pos token.Position) {
 	n.firstPos = pos
+}
+
+func (n *baseNode) EndPos() token.Position {
+	return n.lastPos
 }
 
 func (n *baseNode) SetEndPos(pos token.Position) {
@@ -97,153 +88,49 @@ func (d *baseDecl) Symbol() *Symbol {
 	return d.Sym
 }
 
-// Color is used to color nodes during dfs when sorting dependencies.
-type Color int
-
-// The node colors.
-//
-// White: node not visited
-// Gray: node visit in progress
-// Black: node visit finished
-const (
-	WhiteColor Color = iota
-	GrayColor
-	BlackColor
-)
-
-func (c Color) String() string {
-	switch c {
-	case WhiteColor:
-		return "White"
-	case GrayColor:
-		return "Gray"
-	case BlackColor:
-		return "Black"
-	default:
-		return "-"
-	}
-}
-
-type DeclDependencyGraph map[TopDecl]*DeclDependency
-
-type DeclDependency struct {
-	Weak  bool
-	Links []DeclDependencyLink
-}
-
-type DeclDependencyLink struct {
-	Sym    *Symbol
-	IsType bool
-	Pos    token.Position
-}
-
-type Directive struct {
-	Name *Ident
-}
-
-type baseTopDecl struct {
-	baseDecl
-	Deps       DeclDependencyGraph
-	color      Color
-	visibility token.Token
-}
-
-func (d *baseTopDecl) DependencyGraph() *DeclDependencyGraph {
-	return &d.Deps
-}
-
-func (d *baseTopDecl) Color() Color {
-	return d.color
-}
-
-func (d *baseTopDecl) SetColor(color Color) {
-	d.color = color
-}
-
-func (d *baseTopDecl) Visibility() token.Token {
-	return d.visibility
-}
-
-func (d *baseTopDecl) SetVisibility(visibility token.Token) {
-	d.visibility = visibility
-}
-
 type BadDecl struct {
 	baseDecl
 	From token.Token
 	To   token.Token
 }
 
-type Comment struct {
-	Tok     token.Token
-	Pos     token.Position
-	Literal string
+type ImportDecl struct {
+	baseDecl
+	Decl  token.Token
+	Alias *Ident
+	Name  Expr
+	Items []*ImportItem
 }
 
-type File struct {
-	baseNode
-	Filename string
-	ModName  Expr
-	FileDeps []*FileDependency
-	ModDeps  []*ModuleDependency
-	Comments []*Comment
+type ImportItem struct {
+	Visibilty token.Token
+	Alias     *Ident
+	Name      *Ident
 }
 
-type FileDependency struct {
-	baseNode
-	Literal *BasicLit
-}
-
-type ModuleDependency struct {
-	baseNode
-	Visibility token.Token
-	ModName    Expr
-	Alias      *Ident
-}
-
-type TypeDeclSpec struct {
+type TypeDecl struct {
+	baseDecl
 	Decl token.Token
 	Name *Ident
 	Type Expr
 }
 
-type TypeTopDecl struct {
-	baseTopDecl
-	TypeDeclSpec
-}
-
-type TypeDecl struct {
+type ValDecl struct {
 	baseDecl
-	TypeDeclSpec
-}
-
-type ValDeclSpec struct {
 	Decl        token.Token
 	Name        *Ident
 	Type        Expr
 	Initializer Expr
+	Flags       int
 }
 
-type ValTopDecl struct {
-	baseTopDecl
-	ValDeclSpec
-	ABI *Ident
-}
-
-type ValDecl struct {
-	baseDecl
-	ValDeclSpec
-	Flags int
-}
-
-func (d *ValDecl) Init() bool {
+func (d *ValDecl) DefaultInit() bool {
 	return (d.Flags & AstFlagNoInit) == 0
 }
 
 // FuncDecl represents a function (with body) or a function signature.
 type FuncDecl struct {
-	baseTopDecl
-	ABI    *Ident
+	baseDecl
 	Name   *Ident
 	Lparen token.Token
 	Params []*ValDecl
@@ -258,7 +145,7 @@ func (d *FuncDecl) SignatureOnly() bool { return d.Body == nil }
 
 // StructDecl represents a struct declaration.
 type StructDecl struct {
-	baseTopDecl
+	baseDecl
 	Name   *Ident
 	Opaque bool
 	Fields []*ValDecl
@@ -303,7 +190,7 @@ type IfStmt struct {
 type ForStmt struct {
 	baseStmt
 	Tok  token.Token
-	Init *ValDecl
+	Init Stmt
 	Inc  Stmt
 	Cond Expr
 	Body *BlockStmt
@@ -347,7 +234,7 @@ func (x *baseExpr) exprNode() {}
 
 func (x *baseExpr) Type() Type {
 	if x.T == nil {
-		return TBuiltinUntyped
+		return TBuiltinUntyped1
 	}
 	return x.T
 }
@@ -394,12 +281,16 @@ type Ident struct {
 	Sym     *Symbol
 }
 
+func NewIdent1(tok token.Token) *Ident {
+	return &Ident{Tok: tok, Literal: tok.String()}
+}
+
 func NewIdent2(tok token.Token, literal string) *Ident {
 	return &Ident{Tok: tok, Literal: literal}
 }
 
 func (x *Ident) Lvalue() bool {
-	if x.Sym != nil && x.Sym.ID == ValSymbol {
+	if x.Sym != nil && x.Sym.Kind == ValSymbol {
 		return true
 	}
 	return false
@@ -407,28 +298,24 @@ func (x *Ident) Lvalue() bool {
 
 func (x *Ident) ReadOnly() bool {
 	if x.Sym != nil {
-		return x.Sym.ReadOnly()
+		return x.Sym.IsReadOnly()
 	}
 	return false
 }
 
-func (x *Ident) SetSymbol(sym *Symbol) {
-	x.Sym = sym
-	if sym != nil {
-		x.T = sym.T
-	} else {
-		x.T = nil
-	}
-}
-
 type BasicLit struct {
 	baseExpr
-	Prefix  Expr // Ident or DotExpr
-	Suffix  Expr // Ident or DotExpr
-	Tok     token.Token
-	Value   string
-	Raw     interface{}
-	Rewrite int
+	Prefix Expr // Ident or DotExpr
+	Suffix Expr // Ident or DotExpr
+	Tok    token.Token
+	Value  string
+	Raw    interface{}
+}
+
+func NewStringLit(value string) *BasicLit {
+	lit := &BasicLit{Tok: token.String}
+	lit.Raw = value
+	return lit
 }
 
 func (x *BasicLit) AsString() string {
@@ -443,6 +330,11 @@ func (x *BasicLit) AsU64() uint64 {
 func (x *BasicLit) NegatigeInteger() bool {
 	bigInt := x.Raw.(*big.Int)
 	return bigInt.Sign() < 0
+}
+
+func (x *BasicLit) PositiveInteger() bool {
+	bigInt := x.Raw.(*big.Int)
+	return bigInt.Sign() > 0
 }
 
 func (x *BasicLit) Zero() bool {
@@ -476,6 +368,8 @@ type StructLit struct {
 
 type ArrayLit struct {
 	baseExpr
+	Elem         Expr
+	Size         Expr
 	Initializers []Expr
 }
 
@@ -593,12 +487,22 @@ type ConstExpr struct {
 	X Expr
 }
 
-func ExprNameToText(expr Expr) string {
+type DefaultInit struct {
+	baseExpr
+}
+
+func NewDefaultInit(t Type) Expr {
+	init := &DefaultInit{}
+	init.T = t
+	return init
+}
+
+func ExprToFQN(expr Expr) string {
 	switch t := expr.(type) {
 	case *Ident:
 		return t.Literal
 	case *DotExpr:
-		x := ExprNameToText(t.X)
+		x := ExprToFQN(t.X)
 		if len(x) == 0 {
 			return ""
 		}
