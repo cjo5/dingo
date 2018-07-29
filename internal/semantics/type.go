@@ -50,7 +50,7 @@ func (c *checker) checkDgObject(obj *dgObject) {
 			init := decl.Initializer
 			if !decl.Sym.IsConst() {
 				c.error(init.Pos(), "top-level initializer must be a compile-time constant")
-				decl.Sym.T = ir.TBuiltinUntyped2
+				decl.Sym.T = ir.TBuiltinInvalid
 			}
 		}
 	case *ir.FuncDecl:
@@ -84,7 +84,7 @@ func (c *checker) checkImportDecl(decl *ir.ImportDecl) {
 		}
 		tmod := decl.Sym.T.(*ir.ModuleType)
 		importedSym := tmod.Scope.Lookup(itemSym.Name)
-		titem := ir.TBuiltinUntyped2
+		titem := ir.TBuiltinInvalid
 		if importedSym == nil {
 			c.error(item.Name.Pos(), "undeclared identifier '%s' in module '%s'", item.Name.Literal, decl.Sym.ModFQN)
 		} else if !importedSym.Public {
@@ -130,7 +130,7 @@ func (c *checker) checkValDecl(decl *ir.ValDecl) {
 		decl.Sym.T = tpunt
 		return
 	}
-	tres := ir.TBuiltinUntyped2
+	tres := ir.TBuiltinInvalid
 	if decl.Initializer != nil {
 		var tdecl ir.Type
 		if decl.Type != nil {
@@ -200,7 +200,7 @@ func (c *checker) checkFuncDecl(decl *ir.FuncDecl) {
 				c.checkValDecl(param)
 				tpunt = untyped(param.Sym.T, tpunt)
 			} else {
-				tpunt = ir.TBuiltinUntyped2
+				tpunt = ir.TBuiltinInvalid
 			}
 		}
 		decl.Return.Type = c.checkTypeExpr(decl.Return.Type, true, false)
@@ -217,7 +217,7 @@ func (c *checker) checkFuncDecl(decl *ir.FuncDecl) {
 			tfun := ir.NewFuncType(params, tret, cabi)
 			if isTypeMismatch(decl.Sym.T, tfun) {
 				c.error(decl.Name.Pos(), "redeclaration of '%s' (previous declaration at %s)", decl.Name.Literal, decl.Sym.Pos)
-				decl.Sym.T = ir.TBuiltinUntyped2
+				decl.Sym.T = ir.TBuiltinInvalid
 			} else {
 				decl.Sym.T = tfun
 			}
@@ -243,12 +243,12 @@ func (c *checker) checkStructDecl(decl *ir.StructDecl) {
 			c.checkValDecl(field)
 			tpunt = untyped(field.Sym.T, tpunt)
 		} else {
-			tpunt = ir.TBuiltinUntyped2
+			tpunt = ir.TBuiltinInvalid
 		}
 	}
 	typedBody := true
 	if tpunt != nil {
-		if tpunt.Kind() == ir.TUntyped2 {
+		if tpunt.Kind() == ir.TInvalid {
 			decl.Sym.T = tpunt
 			return
 		}
@@ -286,7 +286,7 @@ func (c *checker) checkStmt(stmt ir.Stmt) {
 			stmt.Cond = c.checkExpr(stmt.Cond)
 			if isTypeMismatch(stmt.Cond.Type(), ir.TBuiltinBool) {
 				c.error(stmt.Cond.Pos(), "condition expects type %s (got %s)", ir.TBool, stmt.Cond.Type())
-				stmt.Cond.SetType(ir.TBuiltinUntyped2)
+				stmt.Cond.SetType(ir.TBuiltinInvalid)
 			}
 		}
 		c.checkStmt(stmt.Body)
@@ -308,7 +308,7 @@ func (c *checker) checkStmt(stmt ir.Stmt) {
 				stmt.Cond = c.checkExpr(stmt.Cond)
 				if isTypeMismatch(stmt.Cond.Type(), ir.TBuiltinBool) {
 					c.error(stmt.Cond.Pos(), "condition expects type %s (got %s)", ir.TBool, stmt.Cond.Type())
-					stmt.Cond.SetType(ir.TBuiltinUntyped2)
+					stmt.Cond.SetType(ir.TBuiltinInvalid)
 				}
 			}
 		}
@@ -454,7 +454,7 @@ func (c *checker) finalizeExpr(expr ir.Expr, target ir.Type) ir.Expr {
 
 	if checkIncomplete && isIncompleteType(texpr, nil) {
 		c.nodeError(expr, "expression has incomplete type %s", texpr)
-		expr.SetType(ir.TBuiltinUntyped2)
+		expr.SetType(ir.TBuiltinInvalid)
 		return expr
 	}
 
@@ -470,7 +470,7 @@ func (c *checker) checkTypeExpr(expr ir.Expr, root bool, checkVoid bool) ir.Expr
 		if texpr.Kind() != ir.TVoid || checkVoid {
 			if isIncompleteType(texpr, nil) {
 				c.nodeError(expr, "incomplete type %s", texpr)
-				expr.SetType(ir.TBuiltinUntyped2)
+				expr.SetType(ir.TBuiltinInvalid)
 				texpr = expr.Type()
 			}
 		}
@@ -516,21 +516,21 @@ func (c *checker) checkArrayTypeExpr(expr *ir.ArrayTypeExpr) ir.Expr {
 	if expr.Size != nil {
 		if !ir.IsIntegerType(expr.Size.Type()) {
 			c.error(expr.Size.Pos(), "array size expects an integer type (got %s)", expr.Size.Type())
-			expr.Size.SetType(ir.TBuiltinUntyped2)
+			expr.Size.SetType(ir.TBuiltinInvalid)
 		} else if lit, ok := expr.Size.(*ir.BasicLit); !ok {
 			c.error(expr.Size.Pos(), "array size is not a constant expression")
-			expr.Size.SetType(ir.TBuiltinUntyped2)
+			expr.Size.SetType(ir.TBuiltinInvalid)
 		} else if lit.NegatigeInteger() {
 			c.error(expr.Size.Pos(), "array size cannot be negative")
-			expr.Size.SetType(ir.TBuiltinUntyped2)
+			expr.Size.SetType(ir.TBuiltinInvalid)
 		} else if lit.Zero() {
 			c.error(expr.Size.Pos(), "array size cannot be zero")
-			expr.Size.SetType(ir.TBuiltinUntyped2)
+			expr.Size.SetType(ir.TBuiltinInvalid)
 		} else {
 			size = int(lit.AsU64())
 		}
 		if size == 0 {
-			expr.T = ir.TBuiltinUntyped2
+			expr.T = ir.TBuiltinInvalid
 			return expr
 		}
 	}
@@ -564,7 +564,7 @@ func (c *checker) checkFuncTypeExpr(expr *ir.FuncTypeExpr) ir.Expr {
 			cabi = true
 		} else if !ir.IsValidABI(expr.ABI.Literal) {
 			c.error(expr.ABI.Pos(), "unknown abi '%s'", expr.ABI.Literal)
-			expr.T = ir.TBuiltinUntyped2
+			expr.T = ir.TBuiltinInvalid
 			return expr
 		}
 	}
@@ -608,10 +608,10 @@ func (c *checker) checkIdent(expr *ir.Ident) ir.Expr {
 		if sym, ok := c.resolveIdent(expr); ok {
 			expr.Sym = sym
 		} else {
-			expr.T = ir.TBuiltinUntyped2
+			expr.T = ir.TBuiltinInvalid
 			return expr
 		}
-	} else if expr.T.Kind() == ir.TUntyped2 {
+	} else if expr.T.Kind() == ir.TInvalid {
 		return expr
 	}
 

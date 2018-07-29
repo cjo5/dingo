@@ -23,8 +23,8 @@ func puntExprs(exprs ...ir.Expr) ir.Type {
 }
 
 func untyped(t ir.Type, prev ir.Type) ir.Type {
-	if prev == nil || prev.Kind() == ir.TUntyped1 {
-		if isTypeOneOf(t, ir.TUntyped1, ir.TUntyped2) {
+	if prev == nil || prev.Kind() == ir.TUnknown {
+		if isTypeOneOf(t, ir.TUnknown, ir.TInvalid) {
 			return t
 		}
 	}
@@ -37,7 +37,7 @@ func untypedExpr(expr ir.Expr, prev ir.Type) ir.Type {
 }
 
 func isUntyped(t ir.Type) bool {
-	return isTypeOneOf(t, ir.TUntyped1, ir.TUntyped2)
+	return isTypeOneOf(t, ir.TUnknown, ir.TInvalid)
 }
 
 func isUntypedExpr(expr ir.Expr) bool {
@@ -46,7 +46,7 @@ func isUntypedExpr(expr ir.Expr) bool {
 }
 
 func isUnresolvedType(t ir.Type) bool {
-	return t.Kind() == ir.TUntyped1
+	return t.Kind() == ir.TUnknown
 }
 
 func isUnresolvedExpr(expr ir.Expr) bool {
@@ -124,7 +124,7 @@ func isIncompleteType(t ir.Type, outer ir.Type) bool {
 
 func isNullPointerType(t ir.Type) bool {
 	if tptr, ok := t.(*ir.PointerType); ok {
-		return tptr.Elem.Kind() == ir.TUntyped1
+		return tptr.Elem.Kind() == ir.TUnknown
 	}
 	return false
 }
@@ -234,7 +234,7 @@ func tryImplicitCast(expr ir.Expr, target ir.Type) (ir.Expr, bool) {
 			}
 		}
 	case *ir.PointerType:
-		if from.Kind() == ir.TUntyped1 {
+		if from.Kind() == ir.TUnknown {
 			if isTypeOneOf(to, ir.TPointer, ir.TSlice, ir.TFunc) {
 				cast = true
 			}

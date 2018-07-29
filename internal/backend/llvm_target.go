@@ -112,7 +112,7 @@ func llvmSliceType(t *ir.SliceType, ctx *llvmTypeMap) llvm.Type {
 
 func llvmPointerType(t *ir.PointerType, ctx *llvmTypeMap) llvm.Type {
 	var telem llvm.Type
-	if t.Elem.Kind() == ir.TUntyped1 || t.Elem.Kind() == ir.TVoid {
+	if t.Elem.Kind() == ir.TUnknown || t.Elem.Kind() == ir.TVoid {
 		telem = llvm.Int8Type()
 	} else {
 		telem = llvmType(t.Elem, ctx)

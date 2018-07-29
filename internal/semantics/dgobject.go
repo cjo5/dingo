@@ -186,7 +186,7 @@ func (c *checker) createDgObject(decl *ir.TopDecl, CUID int, modFQN string) *dgO
 		decl.Sym = c.insertSymbol(c.scope, sym.Name, sym)
 		if decl.Sym != nil {
 			decl.Scope = ir.NewScope(ir.FieldScope, nil, CUID)
-			if decl.Sym.T.Kind() == ir.TUntyped1 || !decl.Opaque {
+			if decl.Sym.T.Kind() == ir.TUnknown || !decl.Opaque {
 				tstruct := ir.NewStructType(decl.Sym, decl.Scope)
 				if decl.Opaque {
 					tstruct.SetBody(nil, true)
@@ -196,7 +196,7 @@ func (c *checker) createDgObject(decl *ir.TopDecl, CUID int, modFQN string) *dgO
 					for _, field := range decl.Fields {
 						c.insertLocalDeclSymbol(field, CUID, modFQN)
 						if field.Sym != nil {
-							fields = append(fields, ir.Field{Name: field.Sym.Name, T: ir.TBuiltinUntyped1})
+							fields = append(fields, ir.Field{Name: field.Sym.Name, T: ir.TBuiltinUnknown})
 						}
 					}
 					c.setScope(prevScope)

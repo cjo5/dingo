@@ -20,7 +20,7 @@ func (c *checker) checkStructLit(expr *ir.StructLit) ir.Expr {
 		} else if sym := ir.ExprSymbol(expr.Name); sym != nil {
 			if sym.Kind != ir.TypeSymbol || sym.T.Kind() != ir.TStruct {
 				c.error(expr.Name.Pos(), "'%s' is not a struct", sym.Name)
-				expr.Name.SetType(ir.TBuiltinUntyped2)
+				expr.Name.SetType(ir.TBuiltinInvalid)
 				return expr
 			}
 		}
@@ -41,7 +41,7 @@ func (c *checker) checkStructLit(expr *ir.StructLit) ir.Expr {
 	}
 
 	if !tstruct.TypedBody {
-		expr.T = ir.TBuiltinUntyped1
+		expr.T = ir.TBuiltinUnknown
 		return expr
 	}
 
@@ -76,21 +76,21 @@ func (c *checker) checkArrayLit(expr *ir.ArrayLit) ir.Expr {
 		expr.Size = c.finalizeExpr(expr.Size, nil)
 		if !ir.IsIntegerType(expr.Size.Type()) {
 			c.error(expr.Size.Pos(), "array size expects an integer type (got %s)", expr.Size.Type())
-			expr.Size.SetType(ir.TBuiltinUntyped2)
+			expr.Size.SetType(ir.TBuiltinInvalid)
 		} else if lit, ok := expr.Size.(*ir.BasicLit); !ok {
 			c.error(expr.Size.Pos(), "array size is not a constant expression")
-			expr.Size.SetType(ir.TBuiltinUntyped2)
+			expr.Size.SetType(ir.TBuiltinInvalid)
 		} else if lit.NegatigeInteger() {
 			c.error(expr.Size.Pos(), "array size cannot be negative")
-			expr.Size.SetType(ir.TBuiltinUntyped2)
+			expr.Size.SetType(ir.TBuiltinInvalid)
 		} else if lit.Zero() {
 			c.error(expr.Size.Pos(), "array size cannot be zero")
-			expr.Size.SetType(ir.TBuiltinUntyped2)
+			expr.Size.SetType(ir.TBuiltinInvalid)
 		} else {
 			size = int(lit.AsU64())
 		}
 		if size == 0 {
-			expr.T = ir.TBuiltinUntyped2
+			expr.T = ir.TBuiltinInvalid
 			return expr
 		}
 	}
@@ -98,13 +98,13 @@ func (c *checker) checkArrayLit(expr *ir.ArrayLit) ir.Expr {
 	if size == 0 {
 		if len(expr.Initializers) == 0 {
 			c.error(expr.Pos(), "array literal must have a size")
-			expr.T = ir.TBuiltinUntyped2
+			expr.T = ir.TBuiltinInvalid
 			return expr
 		}
 	} else {
 		if size != len(expr.Initializers) {
 			c.error(expr.Pos(), "array size %d different from number of elements %d", size, len(expr.Initializers))
-			expr.T = ir.TBuiltinUntyped2
+			expr.T = ir.TBuiltinInvalid
 			return expr
 		}
 	}
@@ -116,7 +116,7 @@ func (c *checker) checkArrayLit(expr *ir.ArrayLit) ir.Expr {
 		expr.Initializers[i] = init
 		if isTypeMismatch(telem, init.Type()) {
 			c.error(init.Pos(), "type mismatch of array element (expected type %s, got type %s)", telem, init.Type())
-			telem = ir.TBuiltinUntyped2
+			telem = ir.TBuiltinInvalid
 			break
 		}
 	}
@@ -152,7 +152,7 @@ func (c *checker) checkDotExpr(expr *ir.DotExpr) ir.Expr {
 	case *ir.StructType:
 		if tx.Opaque() {
 			c.nodeError(expr.X, "expression has incomplete type %s", tx)
-			expr.T = ir.TBuiltinUntyped2
+			expr.T = ir.TBuiltinInvalid
 		} else {
 
 			prevScope := c.setScope(tx.Scope)
@@ -161,7 +161,7 @@ func (c *checker) checkDotExpr(expr *ir.DotExpr) ir.Expr {
 				expr.Name.T = sym.T
 				expr.T = sym.T
 			} else {
-				expr.T = ir.TBuiltinUntyped2
+				expr.T = ir.TBuiltinInvalid
 			}
 			c.setScope(prevScope)
 		}
@@ -170,7 +170,7 @@ func (c *checker) checkDotExpr(expr *ir.DotExpr) ir.Expr {
 	}
 
 	if expr.T == nil {
-		expr.T = ir.TBuiltinUntyped2
+		expr.T = ir.TBuiltinInvalid
 	}
 
 	return expr
@@ -210,7 +210,7 @@ func (c *checker) checkIndexExpr(expr *ir.IndexExpr) ir.Expr {
 	}
 
 	if expr.T == nil {
-		expr.T = ir.TBuiltinUntyped2
+		expr.T = ir.TBuiltinInvalid
 	}
 
 	return expr
@@ -308,7 +308,7 @@ func (c *checker) checkSliceExpr(expr *ir.SliceExpr) ir.Expr {
 	}
 
 	if expr.T == nil {
-		expr.T = ir.TBuiltinUntyped2
+		expr.T = ir.TBuiltinInvalid
 	}
 
 	return expr
@@ -325,7 +325,7 @@ func (c *checker) checkFuncCall(expr *ir.FuncCall) ir.Expr {
 			tpunt = tx
 		} else if tx.Kind() != ir.TFunc {
 			c.nodeError(expr.X, "expression is not callable (has type %s)", tx)
-			tpunt = ir.TBuiltinUntyped2
+			tpunt = ir.TBuiltinInvalid
 		}
 	}
 
@@ -454,7 +454,7 @@ func (c *checker) checkCastExpr(expr *ir.CastExpr) ir.Expr {
 	}
 
 	if expr.T == nil {
-		expr.T = ir.TBuiltinUntyped2
+		expr.T = ir.TBuiltinInvalid
 	}
 
 	return expr
@@ -476,7 +476,7 @@ func (c *checker) checkLenExpr(expr *ir.LenExpr) ir.Expr {
 		expr.T = ir.TBuiltinUSize
 	default:
 		c.error(expr.X.Pos(), "type %s does not have a length", tx)
-		expr.T = ir.TBuiltinUntyped2
+		expr.T = ir.TBuiltinInvalid
 	}
 	return expr
 }
@@ -489,7 +489,7 @@ func (c *checker) checkSizeExpr(expr *ir.SizeExpr) ir.Expr {
 	}
 	tx := expr.X.Type()
 	if isUntypedBody(tx) {
-		expr.T = ir.TBuiltinUntyped1
+		expr.T = ir.TBuiltinUnknown
 		return expr
 	}
 	size := c.target.Sizeof(tx)
@@ -524,7 +524,7 @@ func (c *checker) checkBinaryExpr(expr *ir.BinaryExpr) ir.Expr {
 
 	if !tleft.Equals(tright) {
 		c.nodeError(expr, "type mismatch %s and %s", tleft, tright)
-		expr.T = ir.TBuiltinUntyped2
+		expr.T = ir.TBuiltinInvalid
 		return expr
 	}
 
@@ -558,7 +558,7 @@ func (c *checker) checkBinaryExpr(expr *ir.BinaryExpr) ir.Expr {
 
 	if badop {
 		c.nodeError(expr, "operator '%s' cannot be performed on types %s and %s", expr.Op, expr.Left.Type(), expr.Right.Type())
-		texpr = ir.TBuiltinUntyped2
+		texpr = ir.TBuiltinInvalid
 	}
 
 	expr.T = texpr
@@ -620,7 +620,7 @@ func (c *checker) checkUnaryExpr(expr *ir.UnaryExpr) ir.Expr {
 	}
 
 	if expr.T == nil {
-		expr.T = ir.TBuiltinUntyped2
+		expr.T = ir.TBuiltinInvalid
 	}
 
 	return expr
@@ -687,7 +687,7 @@ func (c *checker) checkBasicLit(expr *ir.BasicLit) ir.Expr {
 			expr.Raw = val
 			expr.T = ir.NewBasicType(ir.TConstInt)
 		} else {
-			expr.T = ir.TBuiltinUntyped2
+			expr.T = ir.TBuiltinInvalid
 		}
 	} else if expr.Tok == token.String {
 		if expr.Raw == nil {
@@ -702,11 +702,11 @@ func (c *checker) checkBasicLit(expr *ir.BasicLit) ir.Expr {
 						expr.Raw = raw
 					} else {
 						c.error(expr.Prefix.Pos(), "invalid string prefix '%s'", prefix)
-						expr.T = ir.TBuiltinUntyped2
+						expr.T = ir.TBuiltinInvalid
 					}
 				}
 			} else {
-				expr.T = ir.TBuiltinUntyped2
+				expr.T = ir.TBuiltinInvalid
 			}
 		}
 	} else if expr.Tok == token.Integer {
@@ -740,7 +740,7 @@ func (c *checker) checkBasicLit(expr *ir.BasicLit) ir.Expr {
 					target = ir.TBuiltinInt8
 				default:
 					c.error(expr.Suffix.Pos(), "invalid int suffix '%s'", suffix)
-					target = ir.TBuiltinUntyped2
+					target = ir.TBuiltinInvalid
 				}
 			}
 
@@ -767,7 +767,7 @@ func (c *checker) checkBasicLit(expr *ir.BasicLit) ir.Expr {
 			}
 
 			if expr.T == nil {
-				expr.T = ir.TBuiltinUntyped2
+				expr.T = ir.TBuiltinInvalid
 			}
 		}
 	} else if expr.Tok == token.Float {
@@ -783,7 +783,7 @@ func (c *checker) checkBasicLit(expr *ir.BasicLit) ir.Expr {
 					target = ir.TBuiltinFloat32
 				default:
 					c.error(expr.Suffix.Pos(), "invalid float suffix '%s'", suffix)
-					target = ir.TBuiltinUntyped2
+					target = ir.TBuiltinInvalid
 				}
 			}
 
@@ -800,11 +800,11 @@ func (c *checker) checkBasicLit(expr *ir.BasicLit) ir.Expr {
 			}
 
 			if expr.T == nil {
-				expr.T = ir.TBuiltinUntyped2
+				expr.T = ir.TBuiltinInvalid
 			}
 		}
 	} else if expr.Tok == token.Null {
-		expr.T = ir.NewPointerType(ir.TBuiltinUntyped1, false)
+		expr.T = ir.NewPointerType(ir.TBuiltinUnknown, false)
 	} else {
 		panic(fmt.Sprintf("Unhandled literal %s at %s", expr.Tok, expr.Pos()))
 	}

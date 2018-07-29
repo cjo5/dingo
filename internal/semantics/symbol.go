@@ -100,7 +100,7 @@ func (c *checker) insertImportSymbols(decl *ir.ImportDecl, CUID int, modFQN stri
 		decl.Alias.SetRange(pos, pos)
 	}
 	importedCUID := -1
-	importedTMod := ir.TBuiltinUntyped1
+	importedTMod := ir.TBuiltinInvalid
 	if mod, ok := c.importMap[fqn]; ok {
 		importedCUID = mod.CUID
 		importedTMod = mod.T

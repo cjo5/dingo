@@ -55,7 +55,7 @@ func NewSymbol(kind SymbolKind, parent *Scope, CUID int, modFQN string, name str
 		ModFQN: modFQN,
 		Name:   name,
 		Pos:    pos,
-		T:      TBuiltinUntyped1,
+		T:      TBuiltinUnknown,
 	}
 }
 

@@ -14,8 +14,8 @@ type TypeKind int
 
 // Type kinds.
 const (
-	TUntyped1 TypeKind = iota
-	TUntyped2
+	TUnknown TypeKind = iota
+	TInvalid
 
 	TVoid
 	TBool
@@ -44,8 +44,8 @@ const (
 )
 
 var types = [...]string{
-	TUntyped1:   "untyped1",
-	TUntyped2:   "untyped2",
+	TUnknown:    "unknown",
+	TInvalid:    "invalid",
 	TVoid:       "void",
 	TBool:       "bool",
 	TConstInt:   "int",
@@ -81,8 +81,8 @@ func (id TypeKind) String() string {
 
 // Built-in types.
 var (
-	TBuiltinUntyped1   = Type(NewBasicType(TUntyped1))
-	TBuiltinUntyped2   = Type(NewBasicType(TUntyped2))
+	TBuiltinUnknown    = Type(NewBasicType(TUnknown))
+	TBuiltinInvalid    = Type(NewBasicType(TInvalid))
 	TBuiltinVoid       = Type(NewBasicType(TVoid))
 	TBuiltinBool       = Type(NewBasicType(TBool))
 	TBuiltinConstInt   = Type(NewBasicType(TConstInt))

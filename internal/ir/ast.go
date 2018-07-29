@@ -234,7 +234,7 @@ func (x *baseExpr) exprNode() {}
 
 func (x *baseExpr) Type() Type {
 	if x.T == nil {
-		return TBuiltinUntyped1
+		return TBuiltinUnknown
 	}
 	return x.T
 }
