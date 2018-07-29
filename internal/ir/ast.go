@@ -88,12 +88,6 @@ func (d *baseDecl) Symbol() *Symbol {
 	return d.Sym
 }
 
-type BadDecl struct {
-	baseDecl
-	From token.Token
-	To   token.Token
-}
-
 type ImportDecl struct {
 	baseDecl
 	Decl  token.Token
@@ -159,13 +153,6 @@ type baseStmt struct {
 }
 
 func (s *baseStmt) stmtNode() {}
-
-// BadStmt is a placeholder node for a statement that failed parsing.
-type BadStmt struct {
-	baseStmt
-	From token.Token
-	To   token.Token
-}
 
 type BlockStmt struct {
 	baseStmt
@@ -249,10 +236,6 @@ func (x *baseExpr) Lvalue() bool {
 
 func (x *baseExpr) ReadOnly() bool {
 	return false
-}
-
-type BadExpr struct {
-	baseExpr
 }
 
 type PointerTypeExpr struct {

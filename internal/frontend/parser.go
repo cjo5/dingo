@@ -35,9 +35,7 @@ func parseFile(filename string) (*ir.File, error) {
 	return p.file, nil
 }
 
-type parseError struct {
-	tok token.Token
-}
+type parseError int
 
 type parser struct {
 	lexer  lexer
@@ -92,6 +90,7 @@ func (p *parser) sync() {
 	lbrace := p.blockCount
 	semi := false
 	p.blockCount = 0
+	p.next()
 	for {
 		switch p.token {
 		case token.Public, token.Private,
@@ -132,7 +131,7 @@ func (p *parser) expect3(expected token.Token, alts []token.Token, sync bool) bo
 		p.error(p.pos, "expected %s", buf.String())
 
 		if sync {
-			panic(parseError{p.token})
+			panic(parseError(0))
 		}
 
 		return false
@@ -154,7 +153,7 @@ func (p *parser) expectSemi1(sync bool) bool {
 		if !p.token.OneOf(token.Semicolon, token.EOF) {
 			p.error(p.pos, "expected semicolon or newline")
 			if sync {
-				panic(parseError{p.token})
+				panic(parseError(0))
 			}
 			return false
 		}
@@ -196,9 +195,11 @@ func (p *parser) parseModuleBody(mod *ir.IncompleteModule, modIndex int, block b
 				}
 			} else {
 				decl := p.parseTopDecl(visibility)
+				sync = false
 				if decl != nil {
 					mod.Decls = append(mod.Decls, decl)
-					sync = false
+				} else {
+					ok = false
 				}
 			}
 		}
@@ -290,8 +291,7 @@ func (p *parser) parseTopDecl(visibility token.Token) (topDecl *ir.TopDecl) {
 			p.expectSemi()
 		} else {
 			p.error(p.pos, "expected '%s', '%s' or '%s'", token.Var, token.Val, token.Func)
-			p.next()
-			p.sync()
+			panic(parseError(0))
 		}
 	} else if p.token.Is(token.Func) {
 		decl = p.parseFuncDecl()
@@ -375,8 +375,7 @@ func (p *parser) parseDecl(topDecl bool) ir.Decl {
 		decl = p.parseValDecl()
 	} else {
 		p.error(p.pos, "expected declaration")
-		p.next()
-		p.sync()
+		panic(parseError(0))
 	}
 	return decl
 }
@@ -551,8 +550,7 @@ func (p *parser) parseValDecl() *ir.ValDecl {
 		decl.SetEndPos(decl.Type.EndPos())
 	} else {
 		p.error(p.pos, "expected type or assignment")
-		p.next()
-		panic(parseError{p.token})
+		panic(parseError(0))
 	}
 	return decl
 }
@@ -633,9 +631,8 @@ func (p *parser) parseFuncSignature() (params []*ir.ValDecl, ret *ir.ValDecl) {
 func (p *parser) parseStmt() (stmt ir.Stmt, sync bool) {
 	defer func() {
 		if r := recover(); r != nil {
-			if err, ok := r.(parseError); ok {
+			if _, ok := r.(parseError); ok {
 				p.sync()
-				stmt = &ir.BadStmt{From: err.tok, To: p.prev}
 				sync = true
 			} else {
 				panic(r)
@@ -839,8 +836,7 @@ func (p *parser) parseType(optional bool) ir.Expr {
 		return nil
 	}
 	p.error(p.pos, "expected type")
-	p.next()
-	panic(parseError{p.token})
+	panic(parseError(0))
 }
 
 func (p *parser) parsePointerType() ir.Expr {
@@ -1143,8 +1139,7 @@ func (p *parser) parseBasicLit(prefix ir.Expr) ir.Expr {
 		return lit
 	default:
 		p.error(p.pos, "expected expression")
-		p.next()
-		panic(parseError{p.token})
+		panic(parseError(0))
 	}
 }
 
