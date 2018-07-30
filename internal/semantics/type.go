@@ -320,29 +320,27 @@ func (c *checker) checkStmt(stmt ir.Stmt) {
 		c.loop--
 		c.setScope(prevScope)
 	case *ir.ReturnStmt:
-		if stmt.X != nil {
+		if stmt.X != nil && isUnresolvedExpr(stmt.X) {
 			stmt.X = c.checkExpr(stmt.X)
+			if isUntypedExpr(stmt.X) {
+				return
+			}
 		}
 		fun := c.object.d.(*ir.FuncDecl)
-		if puntExprs(fun.Return.Type, stmt.X) != nil {
+		tret := fun.Return.Type.Type()
+		if isUntyped(tret) {
 			return
 		}
-		tret := fun.Return.Type.Type()
-		texpr := ir.TBuiltinVoid
-		mismatch := false
 		if stmt.X == nil {
-			if tret.Kind() != ir.TVoid {
-				mismatch = true
-			}
+			stmt.X = ir.NewIdent1(token.Placeholder)
+			stmt.X.SetType(ir.TBuiltinVoid)
 		} else {
 			stmt.X = c.finalizeExpr(stmt.X, tret)
-			if isTypeMismatch(stmt.X.Type(), tret) {
-				texpr = stmt.X.Type()
-				mismatch = true
-			}
 		}
-		if mismatch {
+		texpr := stmt.X.Type()
+		if isTypeMismatch(texpr, tret) {
 			c.error(stmt.Pos(), "function expects return type %s (got %s)", tret, texpr)
+			stmt.X.SetType(ir.TBuiltinInvalid)
 		}
 	case *ir.DeferStmt:
 		c.scope.Defer = true

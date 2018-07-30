@@ -44,7 +44,7 @@ func (c *checker) insertLocalDeclSymbol(decl ir.Decl, CUID int, modFQN string) {
 		sym.Key = c.nextSymKey()
 		sym.Flags = ir.SymFlagDefined
 		sym.Public = (decl.Flags & ir.AstFlagPublic) != 0
-		if decl.Name.Tok != token.Underscore {
+		if decl.Name.Tok != token.Placeholder {
 			sym = c.insertSymbol(c.scope, sym.Name, sym)
 		}
 		decl.Sym = sym
@@ -95,7 +95,7 @@ func (c *checker) insertImportSymbols(decl *ir.ImportDecl, CUID int, modFQN stri
 		if len(nameParts) > 0 {
 			decl.Alias = ir.NewIdent2(token.Ident, nameParts[len(nameParts)-1])
 		} else {
-			decl.Alias = ir.NewIdent1(token.Underscore)
+			decl.Alias = ir.NewIdent1(token.Placeholder)
 		}
 		decl.Alias.SetRange(pos, pos)
 	}
@@ -117,7 +117,7 @@ func (c *checker) insertImportSymbols(decl *ir.ImportDecl, CUID int, modFQN stri
 	sym.T = importedTMod
 	sym.Public = public
 	sym.Flags = ir.SymFlagReadOnly | defaultFlags
-	if decl.Alias.Tok != token.Underscore {
+	if decl.Alias.Tok != token.Placeholder {
 		sym = c.insertSymbol(c.scope, sym.Name, sym)
 	}
 	decl.Sym = sym

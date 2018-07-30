@@ -442,21 +442,21 @@ func (cb *llvmCodeBuilder) deferOrBranchTarget(branchTok token.Token) llvm.Basic
 	return cb.branchTarget(branchTok)
 }
 
-func (cb *llvmCodeBuilder) buildBlockStmt(stmt *ir.BlockStmt) bool {
+func (cb *llvmCodeBuilder) buildBlockStmt(blockStmt *ir.BlockStmt) bool {
 	initialBlock := cb.b.GetInsertBlock()
 
-	if stmt.Scope.Defer {
+	if blockStmt.Scope.Defer {
 		deferCtx := &deferContext{}
 		deferCtx.level = cb.level + 1
-		deferCtx.headerBlock = llvm.AddBasicBlock(cb.fun, formatLabel("defer.header", stmt.Pos()))
-		deferCtx.mainBlock = llvm.AddBasicBlock(cb.fun, formatLabel("defer.block", stmt.Pos()))
-		deferCtx.footerBlock = llvm.AddBasicBlock(cb.fun, formatLabel("defer.footer", stmt.Pos()))
-		deferCtx.brBlock = llvm.AddBasicBlock(cb.fun, formatLabel("defer.br", stmt.Pos()))
-		deferCtx.exitBlock = llvm.AddBasicBlock(cb.fun, formatLabel("defer.exit", stmt.Pos()))
+		deferCtx.headerBlock = llvm.AddBasicBlock(cb.fun, formatLabel("defer.header", blockStmt.Pos()))
+		deferCtx.mainBlock = llvm.AddBasicBlock(cb.fun, formatLabel("defer.block", blockStmt.Pos()))
+		deferCtx.footerBlock = llvm.AddBasicBlock(cb.fun, formatLabel("defer.footer", blockStmt.Pos()))
+		deferCtx.brBlock = llvm.AddBasicBlock(cb.fun, formatLabel("defer.br", blockStmt.Pos()))
+		deferCtx.exitBlock = llvm.AddBasicBlock(cb.fun, formatLabel("defer.exit", blockStmt.Pos()))
 
 		deferCtx.headerBlock.MoveAfter(cb.b.GetInsertBlock())
 		cb.b.SetInsertPointAtEnd(deferCtx.headerBlock)
-		deferCtx.brTarget = cb.b.CreateAlloca(llvm.PointerType(llvm.Int8Type(), 0), formatLabel("defer.braddr", stmt.Pos()))
+		deferCtx.brTarget = cb.b.CreateAlloca(llvm.PointerType(llvm.Int8Type(), 0), formatLabel("defer.braddr", blockStmt.Pos()))
 		cb.b.CreateStore(llvm.ConstNull(llvm.PointerType(llvm.Int8Type(), 0)), deferCtx.brTarget)
 
 		cb.b.CreateBr(deferCtx.mainBlock)
@@ -469,28 +469,28 @@ func (cb *llvmCodeBuilder) buildBlockStmt(stmt *ir.BlockStmt) bool {
 	terminate := false
 	cb.level++
 
-	for index, item := range stmt.Stmts {
-		switch stmt2 := item.(type) {
+	for index, stmt := range blockStmt.Stmts {
+		switch stmt := stmt.(type) {
 		case *ir.DeferStmt:
 			deferCtx := cb.defers[len(cb.defers)-1]
-			block := llvm.AddBasicBlock(cb.fun, formatLabel("defer.stmt", stmt2.Pos()))
-			deferCtx.stmts = append(deferCtx.stmts, &deferStmt{stmt: stmt2.S, block: block})
+			block := llvm.AddBasicBlock(cb.fun, formatLabel("defer.stmt", stmt.Pos()))
+			deferCtx.stmts = append(deferCtx.stmts, &deferStmt{stmt: stmt.S, block: block})
 		case *ir.ReturnStmt:
-			if stmt2.X != nil {
-				val := cb.buildExprVal(stmt2.X)
+			if stmt.X.Type().Kind() != ir.TVoid {
+				val := cb.buildExprVal(stmt.X)
 				cb.b.CreateStore(val, cb.retValue)
 			}
 			branchTok = token.Return
 			terminate = true
 		case *ir.BranchStmt:
-			branchTok = stmt2.Tok
+			branchTok = stmt.Tok
 			terminate = true
 		default:
-			terminate = cb.buildStmt(stmt2)
+			terminate = cb.buildStmt(stmt)
 		}
 		if terminate {
-			if (index + 1) < len(stmt.Stmts) {
-				cb.errors.AddWarning(stmt.Stmts[index+1].Pos(), "unreachable code")
+			if (index + 1) < len(blockStmt.Stmts) {
+				cb.errors.AddWarning(blockStmt.Stmts[index+1].Pos(), "unreachable code")
 			}
 			break
 		}
@@ -502,7 +502,7 @@ func (cb *llvmCodeBuilder) buildBlockStmt(stmt *ir.BlockStmt) bool {
 		cb.buildDeferBrTargets(branchTok)
 	}
 
-	if stmt.Scope.Defer {
+	if blockStmt.Scope.Defer {
 		deferCtx := cb.defers[len(cb.defers)-1]
 		cb.defers = cb.defers[:len(cb.defers)-1]
 

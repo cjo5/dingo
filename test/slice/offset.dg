@@ -27,7 +27,7 @@ extern fun main() c_int {
 
 fun print_slice(slice &[i32]) {
     for i usize = 0; i < len(slice); i++ {
-        puti32(slice[i])
+        puti(slice[i])
         if (i+1) < len(slice) {
             put(", ")
         }

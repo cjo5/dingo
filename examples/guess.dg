@@ -1,0 +1,30 @@
+include "../std/lib.dg"
+
+extern fun main() i32 {
+    val t = time(null)
+    srand(t as u32)
+    val answer = rand()%100 + 1
+    var correct_guess = false
+    var buf [c_char:100]
+    putln("Guess a number between 1-100")
+    while !correct_guess {
+        put(": ")
+        val line = getln(&var buf[:], true)
+        if len(line) == 0 {
+            putln("Too long line")
+        } else {
+            val guess = atoi(&line[0])
+            if guess == 0 {
+                putln("Bad input")
+            } elif guess < answer {
+                putln("Higher")
+            } elif guess > answer {
+                putln("Lower")
+            } else {
+                putln("Correct!")
+                correct_guess = true
+            }
+        }
+    }
+    return 0
+}

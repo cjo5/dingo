@@ -431,7 +431,7 @@ func (p *parser) parseImportName() (alias *ir.Ident, name ir.Expr) {
 		return
 	}
 	var ident *ir.Ident
-	if p.token.Is(token.Underscore) {
+	if p.token.Is(token.Placeholder) {
 		alias = ir.NewIdent2(p.token, p.literal)
 		alias.SetRange(p.pos, p.endPos())
 		p.next()
@@ -572,7 +572,7 @@ func (p *parser) parseField(flags int, defaultDecl token.Token) *ir.ValDecl {
 	tok, lit := p.token, p.literal
 	startPos, endPos := p.pos, p.endPos()
 
-	if p.token.Is(token.Underscore) {
+	if p.token.Is(token.Placeholder) {
 		p.next()
 		decl.Type = p.parseType(false)
 	} else if isdecl {
@@ -588,7 +588,7 @@ func (p *parser) parseField(flags int, defaultDecl token.Token) *ir.ValDecl {
 		if decl.Type == nil {
 			decl.Type = &ir.Ident{Tok: tok, Literal: lit}
 			decl.SetRange(startPos, endPos)
-			tok, lit = token.Underscore, token.Underscore.String()
+			tok, lit = token.Placeholder, token.Placeholder.String()
 			startPos, endPos = token.NoPosition, token.NoPosition
 		}
 	}
@@ -619,7 +619,7 @@ func (p *parser) parseFuncSignature() (params []*ir.ValDecl, ret *ir.ValDecl) {
 	ret = &ir.ValDecl{}
 	ret.SetPos(p.pos)
 	ret.Decl = token.Val
-	ret.Name = ir.NewIdent2(token.Underscore, token.Underscore.String())
+	ret.Name = ir.NewIdent2(token.Placeholder, token.Placeholder.String())
 	ret.Type = p.parseType(true)
 	if ret.Type == nil {
 		ret.Type = ir.NewIdent2(token.Ident, ir.TVoid.String())

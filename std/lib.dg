@@ -5,8 +5,8 @@ fun putln(str &[i8]) {
     putchar('\n')
 }
 
-fun putiln(i i32) {
-    puti64(i)
+fun putiln(i i64) {
+    puti(i)
     putchar('\n')
 }
 
@@ -24,22 +24,45 @@ fun put(str &[i8]) {
     }
 }
 
-fun puti32(i i32) {
-    puti64(i)
-}
-
-fun puti64(i i64) {
+fun puti(i i64) {
     if i < 0 {
         putchar('-')
-        putu64(-i as u64)
+        putu(-i as u64)
     } else {
-        putu64(i as u64)
+        putu(i as u64)
     }
 }
 
-fun putu64(i u64) {
+fun putu(i u64) {
     if i >= 10 {
-        putu64(i/10)
+        putu(i/10)
     }
     putchar(('0' + i%10) as i32)
+}
+
+fun getln(buf &var [i8], null_terminate bool) &var [i8] {
+    var max = len(buf)
+    if null_terminate && max > 0 {
+        max--
+    }
+    var end = false
+    var n usize
+    while n < max && !end {
+        val ch = getchar()
+        if ch == '\r' {
+            // Wait for '\n'
+        } elif ch == '\n' {
+            end = true
+        } else {
+            buf[n] = ch as i8
+            n++
+        }
+    }
+    if n == max && !end {
+        return null
+    }
+    if null_terminate {
+        buf[n] = 0
+    }
+    return &var buf[:n]
 }

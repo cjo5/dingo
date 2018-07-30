@@ -1,11 +1,11 @@
 include "../common.dg"
 
 fun print_foo(f Foo) {
-    puti32(f.a)
+    puti(f.a)
     putchar(' ')
-    puti32(f.b)
+    puti(f.b)
     putchar(' ')
-    puti32(f.c)
+    puti(f.c)
     putchar('\n')
 }
 

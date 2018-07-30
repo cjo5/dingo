@@ -105,10 +105,11 @@ const (
 
 // Alias
 const (
-	Pointer Token = And
-	Deref   Token = Mul
-	Addr    Token = And
-	RootMod Token = Dot
+	Addr        Token = And
+	Deref       Token = Mul
+	Placeholder Token = Underscore
+	Pointer     Token = And
+	RootMod     Token = Dot
 )
 
 var tokens = [...]string{
