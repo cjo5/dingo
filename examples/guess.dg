@@ -1,15 +1,15 @@
 include "../std/lib.dg"
 
 extern fun main() i32 {
-    val t = time(null)
-    srand(t as u32)
+    val tm = time(null)
+    srand(tm as u32)
     val answer = rand()%100 + 1
     var correct_guess = false
-    var buf [c_char:100]
+    var buffer [c_char:100]
     putln("Guess a number between 1-100")
     while !correct_guess {
         put(": ")
-        val line = getln(&var buf[:], true)
+        val line = getln(&var buffer[:], true)
         if len(line) == 0 {
             putln("Too long line")
         } else {

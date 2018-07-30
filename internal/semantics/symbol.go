@@ -9,6 +9,9 @@ import (
 )
 
 func (c *checker) insertSymbol(scope *ir.Scope, alias string, sym *ir.Symbol) *ir.Symbol {
+	if alias == token.Placeholder.String() {
+		return sym
+	}
 	if existing := scope.Insert(alias, sym); existing != nil {
 		if sym.Kind != existing.Kind || (sym.IsDefined() && existing.IsDefined()) {
 			c.error(sym.Pos, "redefinition of '%s' (different definition is at %s)", sym.Name, existing.Pos)
@@ -30,27 +33,49 @@ func (c *checker) insertSymbol(scope *ir.Scope, alias string, sym *ir.Symbol) *i
 	return sym
 }
 
-func (c *checker) insertLocalDeclSymbol(decl ir.Decl, CUID int, modFQN string) {
-	switch decl := decl.(type) {
-	case *ir.ImportDecl:
-		c.insertImportSymbols(decl, CUID, modFQN, false, false)
-	case *ir.TypeDecl:
-		sym := ir.NewSymbol(ir.TypeSymbol, c.scope, CUID, modFQN, decl.Name.Literal, decl.Name.Pos())
-		sym.Key = c.nextSymKey()
-		sym.Flags = ir.SymFlagDefined
-		decl.Sym = c.insertSymbol(c.scope, sym.Name, sym)
-	case *ir.ValDecl:
-		sym := ir.NewSymbol(ir.ValSymbol, c.scope, CUID, modFQN, decl.Name.Literal, decl.Name.Pos())
-		sym.Key = c.nextSymKey()
-		sym.Flags = ir.SymFlagDefined
-		sym.Public = (decl.Flags & ir.AstFlagPublic) != 0
-		if decl.Name.Tok != token.Placeholder {
-			sym = c.insertSymbol(c.scope, sym.Name, sym)
-		}
-		decl.Sym = sym
-	default:
-		panic(fmt.Sprintf("Unhandled decl %T", decl))
+func (c *checker) insertBuiltinModuleFieldSymbols(CUID int, modFQN string) {
+	sym := ir.NewSymbol(ir.ValSymbol, c.scope, CUID, modFQN, "__fqn__", token.NoPosition)
+	sym.Key = c.nextSymKey()
+	sym.Public = true
+	sym.Flags = builtinSymFlags | ir.SymFlagConst
+	sym.T = ir.NewSliceType(ir.TBuiltinInt8, true, true)
+	lit := ir.NewStringLit(modFQN)
+	lit.T = sym.T
+	c.scope.Insert(sym.Name, sym)
+	c.constMap[sym.Key] = lit
+}
+
+func (c *checker) newTopDeclSymbol(kind ir.SymbolKind, CUID int, modFQN string, abi string, public bool, name *ir.Ident, definition bool) *ir.Symbol {
+	flags := ir.SymFlagTopDecl
+	if definition {
+		flags |= ir.SymFlagDefined
 	}
+	sym := ir.NewSymbol(kind, c.scope, CUID, modFQN, name.Literal, name.Pos())
+	sym.Key = c.nextSymKey()
+	sym.Public = public
+	sym.ABI = abi
+	sym.Flags = flags
+	return sym
+}
+
+func (c *checker) setLocalTypeDeclSymbol(decl *ir.TypeDecl, CUID int, modFQN string) {
+	sym := ir.NewSymbol(ir.TypeSymbol, c.scope, CUID, modFQN, decl.Name.Literal, decl.Name.Pos())
+	sym.Key = c.nextSymKey()
+	sym.Flags = ir.SymFlagDefined
+	decl.Sym = sym
+}
+
+func (c *checker) setLocalValDeclSymbol(decl *ir.ValDecl, CUID int, modFQN string) {
+	sym := ir.NewSymbol(ir.ValSymbol, c.scope, CUID, modFQN, decl.Name.Literal, decl.Name.Pos())
+	sym.Key = c.nextSymKey()
+	sym.Flags = ir.SymFlagDefined
+	sym.Public = (decl.Flags & ir.AstFlagPublic) != 0
+	decl.Sym = sym
+}
+
+func (c *checker) insertLocalValDeclSymbol(decl *ir.ValDecl, CUID int, modFQN string) {
+	c.setLocalValDeclSymbol(decl, CUID, modFQN)
+	decl.Sym = c.insertSymbol(c.scope, decl.Sym.Name, decl.Sym)
 }
 
 func (c *checker) insertImportSymbols(decl *ir.ImportDecl, CUID int, modFQN string, topDecl bool, public bool) {
@@ -117,10 +142,7 @@ func (c *checker) insertImportSymbols(decl *ir.ImportDecl, CUID int, modFQN stri
 	sym.T = importedTMod
 	sym.Public = public
 	sym.Flags = ir.SymFlagReadOnly | defaultFlags
-	if decl.Alias.Tok != token.Placeholder {
-		sym = c.insertSymbol(c.scope, sym.Name, sym)
-	}
-	decl.Sym = sym
+	decl.Sym = c.insertSymbol(c.scope, sym.Name, sym)
 	for _, item := range decl.Items {
 		if item.Alias == nil {
 			item.Alias = ir.NewIdent2(token.Ident, item.Name.Literal)

@@ -66,11 +66,32 @@ func (c *checker) checkDgObject(obj *dgObject) {
 func (c *checker) checkLocalDecl(decl ir.Decl) {
 	switch decl := decl.(type) {
 	case *ir.ImportDecl:
-		c.checkImportDecl(decl)
+		if c.step == 0 {
+			c.insertImportSymbols(decl, c.object.CUID(), c.object.modFQN(), false, false)
+		}
+		if decl.Sym != nil {
+			c.checkImportDecl(decl)
+		}
 	case *ir.TypeDecl:
-		c.checkTypeDecl(decl)
+		if c.step == 0 {
+			c.setLocalTypeDeclSymbol(decl, c.object.CUID(), c.object.modFQN())
+		}
+		if decl.Sym != nil {
+			c.checkTypeDecl(decl)
+		}
+		if c.step == 0 {
+			decl.Sym = c.insertSymbol(c.scope, decl.Sym.Name, decl.Sym)
+		}
 	case *ir.ValDecl:
-		c.checkValDecl(decl)
+		if c.step == 0 {
+			c.setLocalValDeclSymbol(decl, c.object.CUID(), c.object.modFQN())
+		}
+		if decl.Sym != nil {
+			c.checkValDecl(decl)
+		}
+		if c.step == 0 {
+			decl.Sym = c.insertSymbol(c.scope, decl.Sym.Name, decl.Sym)
+		}
 	default:
 		panic(fmt.Sprintf("Unhandled decl %T", decl))
 	}
@@ -108,24 +129,20 @@ func (c *checker) checkTypeDecl(decl *ir.TypeDecl) {
 	if !isUnresolvedType(decl.Sym.T) {
 		return
 	}
-	c.sym = decl.Sym
-	decl.Type = c.checkTypeExpr(decl.Type, true, false)
+	decl.Type = c.checkRootTypeExpr(decl.Type, false)
 	decl.Sym.T = decl.Type.Type()
-	c.sym = nil
 }
 
 func (c *checker) checkValDecl(decl *ir.ValDecl) {
 	if !isUnresolvedType(decl.Sym.T) {
 		return
 	}
-	c.sym = decl.Sym
 	if decl.Type != nil {
-		decl.Type = c.checkTypeExpr(decl.Type, true, true)
+		decl.Type = c.checkRootTypeExpr(decl.Type, true)
 	}
 	if decl.Initializer != nil {
 		decl.Initializer = c.checkExpr(decl.Initializer)
 	}
-	c.sym = nil
 	if tpunt := puntExprs(decl.Type, decl.Initializer); tpunt != nil {
 		decl.Sym.T = tpunt
 		return
@@ -203,7 +220,7 @@ func (c *checker) checkFuncDecl(decl *ir.FuncDecl) {
 				tpunt = ir.TBuiltinInvalid
 			}
 		}
-		decl.Return.Type = c.checkTypeExpr(decl.Return.Type, true, false)
+		decl.Return.Type = c.checkRootTypeExpr(decl.Return.Type, false)
 		tret := decl.Return.Type.Type()
 		tpunt = untyped(tret, tpunt)
 		if tpunt != nil {
@@ -216,7 +233,7 @@ func (c *checker) checkFuncDecl(decl *ir.FuncDecl) {
 			cabi := (decl.Sym.ABI == ir.CABI)
 			tfun := ir.NewFuncType(params, tret, cabi)
 			if isTypeMismatch(decl.Sym.T, tfun) {
-				c.error(decl.Name.Pos(), "redeclaration of '%s' (previous declaration at %s)", decl.Name.Literal, decl.Sym.Pos)
+				c.error(decl.Name.Pos(), "redeclaration of '%s' (different declaration is at %s)", decl.Name.Literal, decl.Sym.Pos)
 				decl.Sym.T = ir.TBuiltinInvalid
 			} else {
 				decl.Sym.T = tfun
@@ -275,12 +292,7 @@ func (c *checker) checkStmt(stmt ir.Stmt) {
 		stmtList(stmt.Stmts, c.checkStmt)
 		c.setScope(prevScope)
 	case *ir.DeclStmt:
-		if c.step == 0 {
-			c.insertLocalDeclSymbol(stmt.D, c.object.CUID(), c.object.modFQN())
-		}
-		if stmt.D.Symbol() != nil {
-			c.checkLocalDecl(stmt.D)
-		}
+		c.checkLocalDecl(stmt.D)
 	case *ir.IfStmt:
 		if isUnresolvedExpr(stmt.Cond) {
 			stmt.Cond = c.checkExpr(stmt.Cond)
@@ -389,6 +401,13 @@ func (c *checker) checkStmt(stmt ir.Stmt) {
 	}
 }
 
+func (c *checker) checkExpr2(expr ir.Expr, mode int) ir.Expr {
+	prevMode := c.setMode(mode)
+	expr = c.checkExpr(expr)
+	c.mode = prevMode
+	return expr
+}
+
 func (c *checker) checkExpr(expr ir.Expr) ir.Expr {
 	if !isUnresolvedExpr(expr) {
 		return expr
@@ -396,6 +415,8 @@ func (c *checker) checkExpr(expr ir.Expr) ir.Expr {
 	switch expr := expr.(type) {
 	case *ir.PointerTypeExpr:
 		return c.checkPointerTypeExpr(expr)
+	case *ir.SliceTypeExpr:
+		return c.checkSliceTypeExpr(expr)
 	case *ir.ArrayTypeExpr:
 		return c.checkArrayTypeExpr(expr)
 	case *ir.FuncTypeExpr:
@@ -459,12 +480,10 @@ func (c *checker) finalizeExpr(expr ir.Expr, target ir.Type) ir.Expr {
 	return ensureCompatibleType(expr, target)
 }
 
-func (c *checker) checkTypeExpr(expr ir.Expr, root bool, checkVoid bool) ir.Expr {
-	prevMode := c.setMode(modeTypeExpr)
-	expr = c.checkExpr(expr)
-	c.mode = prevMode
+func (c *checker) checkRootTypeExpr(expr ir.Expr, checkVoid bool) ir.Expr {
+	expr = c.checkExpr2(expr, modeType)
 	texpr := expr.Type()
-	if root && !isUntyped(texpr) {
+	if !isUntyped(texpr) {
 		if texpr.Kind() != ir.TVoid || checkVoid {
 			if isIncompleteType(texpr, nil) {
 				c.nodeError(expr, "incomplete type %s", texpr)
@@ -477,7 +496,7 @@ func (c *checker) checkTypeExpr(expr ir.Expr, root bool, checkVoid bool) ir.Expr
 }
 
 func (c *checker) checkPointerTypeExpr(expr *ir.PointerTypeExpr) ir.Expr {
-	expr.X = c.checkTypeExpr(expr.X, false, false)
+	expr.X = c.checkExpr2(expr.X, modeIndirectType)
 	if tpunt := puntExprs(expr.X); tpunt != nil {
 		expr.T = tpunt
 		return expr
@@ -498,46 +517,45 @@ func (c *checker) checkPointerTypeExpr(expr *ir.PointerTypeExpr) ir.Expr {
 	return expr
 }
 
-func (c *checker) checkArrayTypeExpr(expr *ir.ArrayTypeExpr) ir.Expr {
-	if expr.Size != nil && isUnresolvedExpr(expr.Size) {
-		prevMode := c.setMode(modeCheck)
-		expr.Size = c.checkExpr(expr.Size)
-		expr.Size = c.finalizeExpr(expr.Size, nil)
-		c.mode = prevMode
+func (c *checker) checkSliceTypeExpr(expr *ir.SliceTypeExpr) ir.Expr {
+	expr.X = c.checkExpr2(expr.X, modeIndirectType)
+	tx := expr.X.Type()
+	if isUntyped(tx) {
+		expr.T = tx
+	} else {
+		expr.T = ir.NewSliceType(tx, true, false)
 	}
-	expr.X = c.checkTypeExpr(expr.X, false, false)
+	return expr
+}
+
+func (c *checker) checkArrayTypeExpr(expr *ir.ArrayTypeExpr) ir.Expr {
+	if isUnresolvedExpr(expr.Size) {
+		expr.Size = c.checkExpr2(expr.Size, modeCheck)
+		expr.Size = c.finalizeExpr(expr.Size, nil)
+	}
+	expr.X = c.checkExpr(expr.X)
 	if tpunt := puntExprs(expr.Size, expr.X); tpunt != nil {
 		expr.T = tpunt
 		return expr
 	}
 	size := 0
-	if expr.Size != nil {
-		if !ir.IsIntegerType(expr.Size.Type()) {
-			c.error(expr.Size.Pos(), "array size expects an integer type (got %s)", expr.Size.Type())
-			expr.Size.SetType(ir.TBuiltinInvalid)
-		} else if lit, ok := expr.Size.(*ir.BasicLit); !ok {
-			c.error(expr.Size.Pos(), "array size is not a constant expression")
-			expr.Size.SetType(ir.TBuiltinInvalid)
-		} else if lit.NegatigeInteger() {
-			c.error(expr.Size.Pos(), "array size cannot be negative")
-			expr.Size.SetType(ir.TBuiltinInvalid)
-		} else if lit.Zero() {
-			c.error(expr.Size.Pos(), "array size cannot be zero")
-			expr.Size.SetType(ir.TBuiltinInvalid)
-		} else {
-			size = int(lit.AsU64())
-		}
-		if size == 0 {
-			expr.T = ir.TBuiltinInvalid
-			return expr
-		}
+	if !ir.IsIntegerType(expr.Size.Type()) {
+		c.error(expr.Size.Pos(), "array size expects an integer type (got %s)", expr.Size.Type())
+	} else if lit, ok := expr.Size.(*ir.BasicLit); !ok {
+		c.error(expr.Size.Pos(), "array size is not a constant expression")
+	} else if lit.NegatigeInteger() {
+		c.error(expr.Size.Pos(), "array size cannot be negative")
+	} else if lit.Zero() {
+		c.error(expr.Size.Pos(), "array size cannot be zero")
+	} else {
+		size = int(lit.AsU64())
+	}
+	if size == 0 {
+		expr.T = ir.TBuiltinInvalid
+		return expr
 	}
 	tx := expr.X.Type()
-	if size == 0 {
-		expr.T = ir.NewSliceType(tx, true, false)
-	} else {
-		expr.T = ir.NewArrayType(tx, size)
-	}
+	expr.T = ir.NewArrayType(tx, size)
 	return expr
 }
 
@@ -545,12 +563,12 @@ func (c *checker) checkFuncTypeExpr(expr *ir.FuncTypeExpr) ir.Expr {
 	var params []ir.Field
 	var tpunt ir.Type
 	for i, param := range expr.Params {
-		expr.Params[i].Type = c.checkTypeExpr(param.Type, true, true)
+		expr.Params[i].Type = c.checkRootTypeExpr(param.Type, true)
 		tparam := expr.Params[i].Type.Type()
 		params = append(params, ir.Field{Name: param.Name.Literal, T: tparam})
 		tpunt = untyped(tparam, tpunt)
 	}
-	expr.Return.Type = c.checkTypeExpr(expr.Return.Type, true, false)
+	expr.Return.Type = c.checkRootTypeExpr(expr.Return.Type, false)
 	tpunt = untyped(expr.Return.Type.Type(), tpunt)
 	if tpunt != nil {
 		expr.T = tpunt
@@ -576,8 +594,8 @@ func (c *checker) resolveIdent(expr *ir.Ident) (*ir.Symbol, bool) {
 	if sym == nil {
 		ok = false
 		c.error(expr.Pos(), "undeclared identifier '%s'", expr.Literal)
-	} else if c.mode != modeDotExpr {
-		if c.mode == modeTypeExpr {
+	} else if c.mode != modeDot {
+		if c.isTypeMode() {
 			if sym.Kind != ir.TypeSymbol {
 				ok = false
 				c.error(expr.Pos(), "'%s' is not a type", sym.Name)
@@ -591,11 +609,11 @@ func (c *checker) resolveIdent(expr *ir.Ident) (*ir.Symbol, bool) {
 				c.error(expr.Pos(), "type %s cannot be used in an expression", sym.T)
 			}
 		}
-		if ok {
-			if !sym.Public && sym.ParentCUID() != c.object.parentCUID() {
-				ok = false
-				c.error(expr.Pos(), "'%s' is private", expr.Literal)
-			}
+	}
+	if ok {
+		if !sym.Public && sym.ParentCUID() != c.object.parentCUID() {
+			ok = false
+			c.error(expr.Pos(), "'%s' is private", expr.Literal)
 		}
 	}
 	return sym, ok

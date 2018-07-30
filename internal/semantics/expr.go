@@ -13,7 +13,7 @@ import (
 
 func (c *checker) checkStructLit(expr *ir.StructLit) ir.Expr {
 	if isUnresolvedExpr(expr.Name) {
-		expr.Name = c.checkTypeExpr(expr.Name, true, true)
+		expr.Name = c.checkRootTypeExpr(expr.Name, true)
 		if tpunt := puntExprs(expr.Name); tpunt != nil {
 			expr.T = tpunt
 			return expr
@@ -51,7 +51,7 @@ func (c *checker) checkStructLit(expr *ir.StructLit) ir.Expr {
 }
 
 func (c *checker) checkArrayLit(expr *ir.ArrayLit) ir.Expr {
-	expr.Elem = c.checkTypeExpr(expr.Elem, true, true)
+	expr.Elem = c.checkRootTypeExpr(expr.Elem, true)
 	tpunt := untypedExpr(expr.Elem, nil)
 	if expr.Size != nil {
 		expr.Size = c.checkExpr(expr.Size)
@@ -132,9 +132,7 @@ func (c *checker) checkArrayLit(expr *ir.ArrayLit) ir.Expr {
 
 func (c *checker) checkDotExpr(expr *ir.DotExpr) ir.Expr {
 	if isUnresolvedExpr(expr.X) {
-		prevMode := c.setMode(modeDotExpr)
-		expr.X = c.checkExpr(expr.X)
-		c.mode = prevMode
+		expr.X = c.checkExpr2(expr.X, modeDot)
 		expr.X = tryDeref(expr.X)
 	}
 
@@ -431,7 +429,7 @@ func (c *checker) checkArgumentList(tobj ir.Type, args []*ir.ArgExpr, fields []i
 }
 
 func (c *checker) checkCastExpr(expr *ir.CastExpr) ir.Expr {
-	expr.ToType = c.checkTypeExpr(expr.ToType, true, true)
+	expr.ToType = c.checkRootTypeExpr(expr.ToType, true)
 	expr.X = c.checkExpr(expr.X)
 
 	if tpunt := puntExprs(expr.ToType, expr.X); tpunt != nil {
@@ -482,7 +480,7 @@ func (c *checker) checkLenExpr(expr *ir.LenExpr) ir.Expr {
 }
 
 func (c *checker) checkSizeExpr(expr *ir.SizeExpr) ir.Expr {
-	expr.X = c.checkTypeExpr(expr.X, true, true)
+	expr.X = c.checkRootTypeExpr(expr.X, true)
 	if tpunt := puntExprs(expr.X); tpunt != nil {
 		expr.T = tpunt
 		return expr

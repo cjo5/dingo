@@ -31,9 +31,8 @@ type dgObject struct {
 }
 
 type depEdge struct {
-	pos    token.Position
-	sym    *ir.Symbol
-	istype bool
+	pos            token.Position
+	isIndirectType bool
 }
 
 func newDgObjectList(filename string, CUID int) *dgObjectList {
@@ -124,18 +123,6 @@ func (c *checker) initDgObjectMatrix(modMatrix moduleMatrix) {
 	}
 }
 
-func (c *checker) insertBuiltinModuleFieldSymbols(CUID int, modFQN string) {
-	sym := ir.NewSymbol(ir.ValSymbol, c.scope, CUID, modFQN, "__fqn__", token.NoPosition)
-	sym.Key = c.nextSymKey()
-	sym.Public = true
-	sym.Flags = builtinSymFlags | ir.SymFlagConst
-	sym.T = ir.NewSliceType(ir.TBuiltinInt8, true, true)
-	lit := ir.NewStringLit(modFQN)
-	lit.T = sym.T
-	c.scope.Insert(sym.Name, sym)
-	c.constMap[sym.Key] = lit
-}
-
 func (c *checker) createDgObject(decl *ir.TopDecl, CUID int, modFQN string) *dgObject {
 	abi := ir.DGABI
 	if decl.ABI != nil {
@@ -169,9 +156,9 @@ func (c *checker) createDgObject(decl *ir.TopDecl, CUID int, modFQN string) *dgO
 			defer c.closeScope()
 			decl.Scope = c.scope
 			for _, param := range decl.Params {
-				c.insertLocalDeclSymbol(param, CUID, modFQN)
+				c.insertLocalValDeclSymbol(param, CUID, modFQN)
 			}
-			c.insertLocalDeclSymbol(decl.Return, CUID, modFQN)
+			c.insertLocalValDeclSymbol(decl.Return, CUID, modFQN)
 			if decl.Body != nil {
 				decl.Body.Scope = decl.Scope
 			}
@@ -194,7 +181,7 @@ func (c *checker) createDgObject(decl *ir.TopDecl, CUID int, modFQN string) *dgO
 					var fields []ir.Field
 					prevScope := c.setScope(decl.Scope)
 					for _, field := range decl.Fields {
-						c.insertLocalDeclSymbol(field, CUID, modFQN)
+						c.insertLocalValDeclSymbol(field, CUID, modFQN)
 						if field.Sym != nil {
 							fields = append(fields, ir.Field{Name: field.Sym.Name, T: ir.TBuiltinUnknown})
 						}
@@ -213,19 +200,6 @@ func (c *checker) createDgObject(decl *ir.TopDecl, CUID int, modFQN string) *dgO
 		return nil
 	}
 	return newDgObject(decl.D, definition)
-}
-
-func (c *checker) newTopDeclSymbol(kind ir.SymbolKind, CUID int, modFQN string, abi string, public bool, name *ir.Ident, definition bool) *ir.Symbol {
-	flags := ir.SymFlagTopDecl
-	if definition {
-		flags |= ir.SymFlagDefined
-	}
-	sym := ir.NewSymbol(kind, c.scope, CUID, modFQN, name.Literal, name.Pos())
-	sym.Key = c.nextSymKey()
-	sym.Public = public
-	sym.ABI = abi
-	sym.Flags = flags
-	return sym
 }
 
 func (c *checker) createDeclMatrix() *ir.DeclMatrix {
@@ -328,11 +302,8 @@ func isWeakDep(from *dgObject, edges []*depEdge, to *dgObject) bool {
 	case *ir.StructDecl:
 		weakCount := 0
 		for _, edge := range edges {
-			if edge.istype {
-				t := edge.sym.T
-				if t.Kind() == ir.TPointer || t.Kind() == ir.TSlice || t.Kind() == ir.TFunc {
-					weakCount++
-				}
+			if edge.isIndirectType {
+				weakCount++
 			}
 		}
 		if weakCount == len(edges) {

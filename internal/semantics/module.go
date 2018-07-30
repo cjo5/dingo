@@ -31,31 +31,13 @@ type moduleMatrix []moduleList
 func (c *checker) createModuleMatrix(fileMatrix ir.FileMatrix) moduleMatrix {
 	var modMatrix moduleMatrix
 	for _, fileList := range fileMatrix {
-		modMap, ok := c.createModuleMap(fileList, len(modMatrix))
-		if !ok {
-			continue
-		}
-		modList := moduleList{
-			filename: fileList[0].Filename,
-		}
-		for fqn, mod := range modMap {
-			if len(fqn) > 0 {
-				if mod.sym.Public {
-					if existing, ok := c.importMap[fqn]; ok {
-						c.errors.Add(mod.sym.Pos, "redefinition of public module '%s' (different definition is at '%s')", fqn, existing.Pos)
-					} else {
-						c.importMap[fqn] = mod.sym
-					}
-				}
-			}
-			modList.mods = append(modList.mods, mod)
-		}
+		modList := c.createModuleList(fileList, len(modMatrix))
 		modMatrix = append(modMatrix, modList)
 	}
 	return modMatrix
 }
 
-func (c *checker) createModuleMap(fileList ir.FileList, CUID int) (map[string]*module, bool) {
+func (c *checker) createModuleList(fileList ir.FileList, CUID int) moduleList {
 	mods := make([][]*module, len(fileList))
 
 	for fileID, file := range fileList {
@@ -82,8 +64,8 @@ func (c *checker) createModuleMap(fileList ir.FileList, CUID int) (map[string]*m
 		mods[fileID] = mods2
 	}
 
-	modMap := make(map[string]*module)
-	modsOK := true
+	modList := moduleList{filename: fileList[0].Filename}
+	localMap := make(map[string]token.Position)
 
 	for index1, fileMods := range mods {
 		var fileModParents []*module
@@ -94,7 +76,8 @@ func (c *checker) createModuleMap(fileList ir.FileList, CUID int) (map[string]*m
 			c.insertBuiltinModuleScopeSymbol(root, root, CUID, ir.SelfModuleName, token.NoPosition)
 			c.insertBuiltinModuleScopeSymbol(root, root, CUID, ir.ParentModuleName, token.NoPosition)
 			c.insertBuiltinModuleScopeSymbol(root, root, CUID, ir.RootModuleName, token.NoPosition)
-			modMap[""] = root
+			modList.mods = append(modList.mods, root)
+			localMap[""] = token.NoPosition
 		} else {
 			// Move root module decls to module where the file was included
 			parentIndex1 := fileMods[0].fileParentIndex1
@@ -122,8 +105,9 @@ func (c *checker) createModuleMap(fileList ir.FileList, CUID int) (map[string]*m
 
 		for index2 := 1; index2 < len(fileMods); index2++ {
 			var modPath []*module
-			parentIndex2 := fileMods[index2].modParentIndex2
-			modPath = append(modPath, fileMods[index2])
+			mod := fileMods[index2]
+			parentIndex2 := mod.modParentIndex2
+			modPath = append(modPath, mod)
 			for parentIndex2 != 0 {
 				parent := fileMods[parentIndex2]
 				parentIndex2 = parent.modParentIndex2
@@ -137,12 +121,11 @@ func (c *checker) createModuleMap(fileList ir.FileList, CUID int) (map[string]*m
 				modPath[i] = modPath[j]
 				modPath[j] = tmp
 			}
-			fqn := fileMods[index2].fqn
-			if existing, ok := modMap[fqn]; ok {
-				modsOK = false
-				c.errors.Add(fileMods[index2].name.Pos(), "redefinition of private module '%s' (different definition is at '%s')", fqn, existing.name.Pos())
+			if existing, ok := localMap[mod.fqn]; ok {
+				c.errors.Add(mod.name.Pos(), "redefinition of private module '%s' (different definition is at '%s')", mod.fqn, existing)
 			} else {
-				modMap[fqn] = fileMods[index2]
+				// Ensure modpath has all entries.
+				// If fqn of current module is foo.bar.baz, then bar is created in foo and baz is created in bar.
 				for i := 0; i < len(modPath)-1; i++ {
 					parent := modPath[i]
 					child := modPath[i+1]
@@ -156,19 +139,31 @@ func (c *checker) createModuleMap(fileList ir.FileList, CUID int) (map[string]*m
 					sym.T = ir.NewModuleType(sym, child.scope)
 					child.sym = sym
 					if existing := parent.scope.Insert(sym.Name, sym); existing != nil {
-						panic(fmt.Sprintf("duplicate fqn %s", fqn))
+						panic(fmt.Sprintf("duplicate fqn %s", mod.fqn))
 					}
 				}
+
+				mod = modPath[len(modPath)-1]
 				parent := modPath[len(modPath)-2]
-				child := modPath[len(modPath)-1]
-				c.insertBuiltinModuleScopeSymbol(child, child, CUID, ir.SelfModuleName, child.name.Pos())
-				c.insertBuiltinModuleScopeSymbol(child, parent, CUID, ir.ParentModuleName, parent.name.Pos())
-				c.insertBuiltinModuleScopeSymbol(child, root, CUID, ir.RootModuleName, token.NoPosition)
+
+				c.insertBuiltinModuleScopeSymbol(mod, mod, CUID, ir.SelfModuleName, mod.name.Pos())
+				c.insertBuiltinModuleScopeSymbol(mod, parent, CUID, ir.ParentModuleName, parent.name.Pos())
+				c.insertBuiltinModuleScopeSymbol(mod, root, CUID, ir.RootModuleName, token.NoPosition)
+
+				localMap[mod.fqn] = mod.name.Pos()
+				modList.mods = append(modList.mods, mod)
+				if mod.sym.Public {
+					if existing, ok := c.importMap[mod.fqn]; ok {
+						c.errors.Add(mod.sym.Pos, "redefinition of public module '%s' (different definition is at '%s')", mod.fqn, existing.Pos)
+					} else {
+						c.importMap[mod.fqn] = mod.sym
+					}
+				}
 			}
 		}
 	}
 
-	return modMap, modsOK
+	return modList
 }
 
 func (c *checker) insertBuiltinModuleScopeSymbol(mod *module, scopeMod *module, CUID int, name string, pos token.Position) *ir.Symbol {

@@ -60,14 +60,18 @@ func Check(fileMatrix ir.FileMatrix, target ir.Target) (*ir.DeclMatrix, error) {
 	modMatrix := c.createModuleMatrix(fileMatrix)
 	c.initDgObjectMatrix(modMatrix)
 	c.checkTypes()
+	if c.errors.IsError() {
+		return nil, c.errors
+	}
 	declMatrix := c.createDeclMatrix()
 	return declMatrix, c.errors
 }
 
 const (
 	modeCheck int = iota
-	modeTypeExpr
-	modeDotExpr
+	modeType
+	modeIndirectType
+	modeDot
 )
 
 type checker struct {
@@ -86,7 +90,6 @@ type checker struct {
 	// Ast traversal state
 	object *dgObject
 	scope  *ir.Scope
-	sym    *ir.Symbol // Symbol of current declaration (top or local)
 	mode   int
 	step   int
 	loop   int
@@ -117,14 +120,18 @@ func (c *checker) nextSymKey() int {
 	return key
 }
 
-func (c *checker) setSym(sym *ir.Symbol) {
-	c.sym = sym
-}
-
 func (c *checker) setMode(mode int) int {
 	prev := c.mode
 	c.mode = mode
 	return prev
+}
+
+func (c *checker) isTypeMode() bool {
+	switch c.mode {
+	case modeType, modeIndirectType:
+		return true
+	}
+	return false
 }
 
 func (c *checker) setScope(scope *ir.Scope) *ir.Scope {
@@ -166,9 +173,8 @@ func (c *checker) tryAddDep(sym *ir.Symbol, pos token.Position) {
 	if sym.Kind != ir.ModuleSymbol && sym.Key > 0 {
 		if obj, ok := c.objectMap[sym.Key]; ok {
 			edge := &depEdge{
-				pos:    pos,
-				sym:    c.sym,
-				istype: c.mode == modeTypeExpr,
+				pos:            pos,
+				isIndirectType: c.mode == modeIndirectType,
 			}
 			c.object.addEdge(obj, edge)
 			if !obj.checked || obj.incomplete {

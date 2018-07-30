@@ -827,7 +827,7 @@ func (p *parser) parseType(optional bool) ir.Expr {
 	} else if p.token.OneOf(token.And, token.Land) {
 		return p.parsePointerType()
 	} else if p.token.Is(token.Lbrack) {
-		return p.parseArrayType()
+		return p.parseSliceOrArrayType()
 	} else if p.token.OneOf(token.Extern, token.Func) {
 		return p.parseFuncType()
 	} else if p.token.Is(token.Ident) {
@@ -864,18 +864,21 @@ func (p *parser) parsePointerType() ir.Expr {
 	return pointer
 }
 
-func (p *parser) parseArrayType() ir.Expr {
-	array := &ir.ArrayTypeExpr{}
-	array.SetPos(p.pos)
+func (p *parser) parseSliceOrArrayType() ir.Expr {
+	pos := p.pos
 	p.expect(token.Lbrack)
-	array.X = p.parseType(false)
+	elem := p.parseType(false)
+	var expr ir.Expr
 	if p.token.Is(token.Colon) {
 		p.next()
-		array.Size = p.parseExpr()
+		size := p.parseExpr()
+		expr = &ir.ArrayTypeExpr{X: elem, Size: size}
+	} else {
+		expr = &ir.SliceTypeExpr{X: elem}
 	}
-	array.SetEndPos(p.endPos())
+	expr.SetRange(pos, p.endPos())
 	p.expect(token.Rbrack)
-	return array
+	return expr
 }
 
 func (p *parser) parseFuncType() ir.Expr {

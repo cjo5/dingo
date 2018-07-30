@@ -1,9 +1,6 @@
-fun putiln(a i32) {}
+fun putiln(a i32){}
 
 extern fun main() i32 {
-    putiln(foo) // expect-output: 10
-    //putiln(bar()) // expect-output: 100
+    val a = a
     return 0
 }
-
-import _ = mod1: foo = bar, bar = baz

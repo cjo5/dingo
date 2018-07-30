@@ -244,10 +244,15 @@ type PointerTypeExpr struct {
 	X    Expr
 }
 
+type SliceTypeExpr struct {
+	baseExpr
+	X Expr
+}
+
 type ArrayTypeExpr struct {
 	baseExpr
-	Size Expr
 	X    Expr
+	Size Expr
 }
 
 type FuncTypeExpr struct {

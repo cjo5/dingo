@@ -13,7 +13,7 @@ fun foo() {
     while undef > 1 {} // expect-error: undeclared identifier 'undef'
     for ; undef > 1; {} // expect-error: undeclared identifier 'undef'
     bar(undef) // expect-error: undeclared identifier 'undef'
-    var undef i32 = 1
+    var undef i32 = undef // expect-error: undeclared identifier 'undef'
 }
 
 fun bar(a i32){}
