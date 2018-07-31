@@ -1,38 +1,38 @@
 include "../common.dg"
 
 extern fun main() c_int {
-    putbool(2 == 2) // expect-output: true
-    putbool(1 == 2) // expect-output: false
-    putbool(1 != 2) // expect-output: true
-    putbool(1 != 1) // expect-output: false
-    putbool(1 < 2) // expect-output: true
-    putbool(2 < 1) // expect-output: false
-    putbool(2 > 1) // expect-output: true
-    putbool(1 > 2) // expect-output: false
-    putbool(1 <= 2) // expect-output: true
-    putbool(2 <= 2) // expect-output: true
-    putbool(2 <= 1) // expect-output: false
-    putbool(2 >= 1) // expect-output: true
-    putbool(2 >= 2) // expect-output: true
-    putbool(1 >= 2) // expect-output: false
+    putbool(2 == 2) // expect: true
+    putbool(1 == 2) // expect: false
+    putbool(1 != 2) // expect: true
+    putbool(1 != 1) // expect: false
+    putbool(1 < 2) // expect: true
+    putbool(2 < 1) // expect: false
+    putbool(2 > 1) // expect: true
+    putbool(1 > 2) // expect: false
+    putbool(1 <= 2) // expect: true
+    putbool(2 <= 2) // expect: true
+    putbool(2 <= 1) // expect: false
+    putbool(2 >= 1) // expect: true
+    putbool(2 >= 2) // expect: true
+    putbool(1 >= 2) // expect: false
 
     val two = 2
     val one = 1
 
-    putbool(two == two) // expect-output: true
-    putbool(one == two) // expect-output: false
-    putbool(one != two) // expect-output: true
-    putbool(one != one) // expect-output: false
-    putbool(one < two) // expect-output: true
-    putbool(two < one) // expect-output: false
-    putbool(two > one) // expect-output: true
-    putbool(one > two) // expect-output: false
-    putbool(one <= two) // expect-output: true
-    putbool(two <= two) // expect-output: true
-    putbool(two <= one) // expect-output: false
-    putbool(two >= one) // expect-output: true
-    putbool(two >= two) // expect-output: true
-    putbool(one >= two) // expect-output: false
+    putbool(two == two) // expect: true
+    putbool(one == two) // expect: false
+    putbool(one != two) // expect: true
+    putbool(one != one) // expect: false
+    putbool(one < two) // expect: true
+    putbool(two < one) // expect: false
+    putbool(two > one) // expect: true
+    putbool(one > two) // expect: false
+    putbool(one <= two) // expect: true
+    putbool(two <= two) // expect: true
+    putbool(two <= one) // expect: false
+    putbool(two >= one) // expect: true
+    putbool(two >= two) // expect: true
+    putbool(one >= two) // expect: false
 
     return 0
 }

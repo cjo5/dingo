@@ -11,10 +11,10 @@ extern fun main() c_int {
         i--
     }
     
-    // expect-output: 4
-    // expect-output: 3
-    // expect-output: 3
-    // expect-output: 2
+    // expect: 4
+    // expect: 3
+    // expect: 3
+    // expect: 2
 
     return 0
 }

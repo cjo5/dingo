@@ -1,6 +1,6 @@
-fun putiln(a i32){}
+include "common.dg"
 
 extern fun main() i32 {
-    val a = a
+    putln("hej 123 abc") // expected: hej <re>\d+</re> <re>\w+
     return 0
 }

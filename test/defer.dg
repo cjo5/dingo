@@ -124,98 +124,98 @@ fun test_modify_retval() i32 {
 
 extern fun main() i32 {
     test_nested_scopes()
-    // expect-output: nested_scopes_start1
-    // expect-output: nested_scopes_start2
-    // expect-output: nested_scopes_end2
-    // expect-output: nested_scopes_end1
-    // expect-output: nested_scopes_done
+    // expect: nested_scopes_start1
+    // expect: nested_scopes_start2
+    // expect: nested_scopes_end2
+    // expect: nested_scopes_end1
+    // expect: nested_scopes_done
 
     test_if1(1)
-    // expect-output: if1_1
-    // expect-output: if1_done
+    // expect: if1_1
+    // expect: if1_done
 
     test_if1(2)
-    // expect-output: if1_2
-    // expect-output: if1_done
+    // expect: if1_2
+    // expect: if1_done
 
     test_if2(1)
-    // expect-output: if2_1
-    // expect-output: if2_done
+    // expect: if2_1
+    // expect: if2_done
 
     test_if2(2)
-    // expect-output: if2_2
-    // expect-output: if2_done
+    // expect: if2_2
+    // expect: if2_done
 
     test_if3(1)
-    // expect-output: if3_1_start
-    // expect-output: if3_1_end
-    // expect-output: if3_done
+    // expect: if3_1_start
+    // expect: if3_1_end
+    // expect: if3_done
 
     test_if3(2)
-    // expect-output: if3_2_start
-    // expect-output: if3_2_end
-    // expect-output: if3_done
+    // expect: if3_2_start
+    // expect: if3_2_end
+    // expect: if3_done
 
     test_if3(3)
-    // expect-output: if3_3_start
-    // expect-output: if3_3_end
-    // expect-output: if3_done
+    // expect: if3_3_start
+    // expect: if3_3_end
+    // expect: if3_done
 
     test_for(1)
-    // expect-output: 0
-    // expect-output: for
-    // expect-output: for
-    // expect-output: 2
-    // expect-output: for
-    // expect-output: for_done1
-    // expect-output: for_done2
+    // expect: 0
+    // expect: for
+    // expect: for
+    // expect: 2
+    // expect: for
+    // expect: for_done1
+    // expect: for_done2
 
     test_for(2)
-    // expect-output: 0
-    // expect-output: for
-    // expect-output: for
-    // expect-output: for_done1
-    // expect-output: for_done2
+    // expect: 0
+    // expect: for
+    // expect: for
+    // expect: for_done1
+    // expect: for_done2
 
     test_for(3)
-    // expect-output: 0
-    // expect-output: for
-    // expect-output: for
-    // expect-output: for_done2
+    // expect: 0
+    // expect: for
+    // expect: for
+    // expect: for_done2
 
     test_nested_for()
-    // expect-output: 0
-    // expect-output: 1
-    // expect-output: nested_for_done
+    // expect: 0
+    // expect: 1
+    // expect: nested_for_done
 
     test_for_chain(1)
-    // expect-output: for_chain_it2
-    // expect-output: for_chain_it1
-    // expect-output: for_chain_it2
-    // expect-output: for_chain_it1
-    // expect-output: for_chain_done
+    // expect: for_chain_it2
+    // expect: for_chain_it1
+    // expect: for_chain_it2
+    // expect: for_chain_it1
+    // expect: for_chain_done
 
     test_for_chain(2)
-    // expect-output: for_chain_break
-    // expect-output: for_chain_it2
-    // expect-output: for_chain_it1
-    // expect-output: for_chain_done
+    // expect: for_chain_break
+    // expect: for_chain_it2
+    // expect: for_chain_it1
+    // expect: for_chain_done
 
     test_for_chain(3)
-    // expect-output: for_chain_fallthrough
-    // expect-output: for_chain_it2
-    // expect-output: for_chain_it1
-    // expect-output: for_chain_fallthrough
-    // expect-output: for_chain_it2
-    // expect-output: for_chain_it1
-    // expect-output: for_chain_done
+    // expect: for_chain_fallthrough
+    // expect: for_chain_it2
+    // expect: for_chain_it1
+    // expect: for_chain_fallthrough
+    // expect: for_chain_it2
+    // expect: for_chain_it1
+    // expect: for_chain_done
 
-    test_for_skip(1) // expect-output: for_skip_done
-    test_for_skip(2) // expect-output: for_skip_done
+    test_for_skip(1) // expect: for_skip_done
+    test_for_skip(2) // expect: for_skip_done
 
-    test_return_skip(1) // expect-output: return_skip_done
+    test_return_skip(1) // expect: return_skip_done
 
-    putiln(test_modify_retval()) // expect-output: 4
+    putiln(test_modify_retval()) // expect: 4
 
     return 0
 }

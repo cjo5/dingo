@@ -1,11 +1,11 @@
 include "../common.dg"
 
 extern fun main() i32 {
-    putiln(foo) // expect-output: 10
-    putiln(bar()) // expect-output: 100
+    putiln(foo) // expect: 10
+    putiln(bar()) // expect: 100
     local() 
-    // expect-output: 20
-    // expect-output: 200
+    // expect: 20
+    // expect: 200
     return 0
 }
 

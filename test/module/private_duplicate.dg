@@ -2,6 +2,6 @@ module foo {
     
 }
 
-module foo { // expect-dgc: re: error\(5\): redefinition of private module 'foo' \(different definition is at '.*:1:8'\)
+module foo { // expect-error: redefinition of private module 'foo' (different definition is at '<re>.*:1:8</re>')
 
 }

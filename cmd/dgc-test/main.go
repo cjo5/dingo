@@ -50,9 +50,9 @@ func main() {
 	}
 
 	tester.total = countTests(groups)
-	tester.runTestGroups("", groups)
-	fmt.Printf("\nFinished %d test(s)\n%s: %d %s: %d %s: %d %s: %d\n\n",
-		tester.total, statusSuccess, tester.success,
+	tester.runTestGroups(groups)
+	fmt.Printf("\n%s: %d/%d %s: %d %s: %d %s: %d\n\n",
+		statusSuccess, tester.success, tester.total,
 		statusSkip, tester.skip, statusFail, tester.fail,
 		statusBad, tester.bad)
 }
@@ -76,19 +76,6 @@ type testGroup struct {
 	Tests   []string
 }
 
-type testOutput struct {
-	pos  token.Position
-	text string
-}
-
-type outputKind int
-
-const (
-	unknownOutput outputKind = iota
-	exeOutput
-	compilerOutput
-)
-
 type testResult struct {
 	status status
 	reason []string
@@ -97,6 +84,30 @@ type testResult struct {
 func (r *testResult) addReason(format string, args ...interface{}) {
 	msg := fmt.Sprintf(format, args...)
 	r.reason = append(r.reason, msg)
+}
+
+type testOutput struct {
+	pos  token.Position
+	text string
+}
+
+type testOutputPattern struct {
+	pos   token.Position
+	text  string
+	parts []patternPart
+}
+
+func (t *testOutputPattern) addPart(text string, regex *regexp.Regexp) {
+	part := patternPart{
+		text:  text,
+		regex: regex,
+	}
+	t.parts = append(t.parts, part)
+}
+
+type patternPart struct {
+	text  string
+	regex *regexp.Regexp
 }
 
 type status int
@@ -111,13 +122,13 @@ const (
 func (t status) String() string {
 	switch t {
 	case statusSuccess:
-		return common.BoldGreen("OK")
+		return common.BoldGreen("ok")
 	case statusFail:
-		return common.BoldRed("FAIL")
+		return common.BoldRed("fail")
 	case statusSkip:
-		return common.BoldPurple("SKIP")
+		return common.BoldPurple("skip")
 	case statusBad:
-		return common.BoldRed("BAD")
+		return common.BoldRed("bad")
 	default:
 		return "-"
 	}
@@ -175,10 +186,10 @@ func toTestLine(name string, index int, count int) string {
 	return line
 }
 
-func (t *testRunner) runTestGroups(baseDir string, groups []*testGroup) {
+func (t *testRunner) runTestGroups(groups []*testGroup) {
 	testIndex := 1
 	for groupIndex, group := range groups {
-		testDir := filepath.Join(baseDir, group.Dir)
+		testDir := group.Dir
 		status := statusSuccess
 
 		if group.Disable {
@@ -191,13 +202,13 @@ func (t *testRunner) runTestGroups(baseDir string, groups []*testGroup) {
 			if len(group.Tests) > 0 {
 				for _, testFile := range group.Tests {
 					line := toTestLine(toTestName(testDir, testFile), testIndex, t.total)
-					fmt.Printf("TEST %s ... %s\n", line, status)
+					fmt.Printf("test %s ... %s\n", line, status)
 					t.updateStats(status)
 					testIndex++
 				}
 			} else {
 				line := toTestLine(testDir, groupIndex, len(groups))
-				fmt.Printf("GROUP %s ... %s\n", line, status)
+				fmt.Printf("group %s ... %s\n", line, status)
 				t.updateStats(status)
 			}
 			continue
@@ -206,7 +217,7 @@ func (t *testRunner) runTestGroups(baseDir string, groups []*testGroup) {
 		for _, testFile := range group.Tests {
 			testName := toTestName(testDir, testFile)
 			line := toTestLine(testName, testIndex, t.total)
-			fmt.Printf("TEST %s ... ", line)
+			fmt.Printf("test %s ... ", line)
 
 			result := t.runTest(testName, testDir, testFile, group.Modules)
 			t.updateStats(result.status)
@@ -245,17 +256,20 @@ func (t *testRunner) runTest(testName string, testDir string, testFile string, t
 		filenames = append(filenames, filename)
 	}
 
-	var expectedCompilerOutput []*testOutput
-	var expectedExeOutput []*testOutput
-	errors := &common.ErrorList{}
+	var expectedCompilerOutput []*testOutputPattern
+	var expectedExeOutput []*testOutputPattern
 
 	result := &testResult{status: statusSuccess}
 	fileList, err := frontend.Load(filenames)
 
 	if fileList != nil {
 		expectedCompilerOutput, expectedExeOutput = parseTestDescription(fileList[0][0].Comments, result)
+		if result.status != statusSuccess {
+			return result
+		}
 	}
 
+	errors := &common.ErrorList{}
 	config := common.NewBuildConfig()
 	config.Exe = filepath.Join(os.TempDir(), strings.Replace(testName, "/", "_", -1))
 
@@ -330,66 +344,65 @@ func addExeOutput(bytes []byte, output *[]*testOutput) {
 	}
 }
 
-func compareOutput(expectedOutput []*testOutput, actualOutput []*testOutput, result *testResult) {
-	expectedIdx := 0
-	actualIdx := 0
-	regexPrefix := "re:"
+func compareOutput(expectedOutput []*testOutputPattern, actualOutput []*testOutput, result *testResult) {
+	expectedIndex := 0
+	actualIndex := 0
 
-	for ; expectedIdx < len(expectedOutput); expectedIdx++ {
-		expected := expectedOutput[expectedIdx]
+	for ; expectedIndex < len(expectedOutput) &&
+		actualIndex < len(actualOutput); expectedIndex, actualIndex = expectedIndex+1, actualIndex+1 {
+		expected := expectedOutput[expectedIndex]
+		actual := actualOutput[actualIndex]
+		offset := 0
+		partCount := 0
 
-		if actualIdx >= len(actualOutput) {
-			break
-		}
-
-		actual := actualOutput[actualIdx]
-		actualIdx++
-		match := true
-
-		if strings.HasPrefix(expected.text, regexPrefix) {
-			pattern := strings.TrimSpace(expected.text[len(regexPrefix):])
-			regex, err := regexp.Compile(pattern)
-			if err != nil {
-				result.addReason("bad regex: %s: %s", expected.pos, err)
+		for _, part := range expected.parts {
+			partText := part.text
+			if part.regex != nil {
+				found := part.regex.FindString(actual.text[offset:])
+				offset += len(found)
 			} else {
-				found := regex.FindString(actual.text)
-				match = found == actual.text
+				partLen := len(partText)
+				remaining := (len(actual.text) - offset) - partLen
+				if remaining < 0 || actual.text[offset:offset+partLen] != partText {
+					break
+				}
+				offset += partLen
 			}
-		} else {
-			match = expected.text == actual.text
+			partCount++
 		}
 
-		if !match {
-			result.addReason("%s(%s): %s", common.BoldGreen("expected"), expected.pos, expected.text)
-			result.addReason("     %s(%s): %s", common.BoldRed("got"), actual.pos, actual.text)
+		if offset != len(actual.text) || partCount != len(expected.parts) {
+			result.addReason("%s(%s): '%s'", common.BoldGreen("expected"), expected.pos, expected.text)
+			result.addReason("     %s(%s): '%s'", common.BoldRed("got"), actual.pos, actual.text)
 		}
 	}
 
-	if actualIdx < len(actualOutput) {
+	if actualIndex < len(actualOutput) {
 		result.addReason("%s:", common.BoldRed("got"))
-		for i := actualIdx; i < len(actualOutput); i++ {
-			result.addReason("[%d] (%s): %s", i+1, actualOutput[i].pos, actualOutput[i].text)
+		for i := actualIndex; i < len(actualOutput); i++ {
+			result.addReason("[%d] (%s): '%s'", i+1, actualOutput[i].pos, actualOutput[i].text)
 		}
 	}
 
-	if expectedIdx < len(expectedOutput) {
+	if expectedIndex < len(expectedOutput) {
 		result.addReason("%s:", common.BoldGreen("expected"))
-		for i := expectedIdx; i < len(expectedOutput); i++ {
-			result.addReason("[%d] (%s): %s", i+1, expectedOutput[i].pos, expectedOutput[i].text)
+		for i := expectedIndex; i < len(expectedOutput); i++ {
+			result.addReason("[%d] (%s): '%s'", i+1, expectedOutput[i].pos, expectedOutput[i].text)
 		}
 	}
 }
 
-var lineNumRegex *regexp.Regexp
+var expectArgRegex *regexp.Regexp
 
 func init() {
+	// https://github.com/google/re2/wiki/Syntax
+	// ('+'|'-')? \w+
 	var err error
-	lineNumRegex, err = regexp.Compile("\\((?:\\+|-)?\\d+\\)")
+	expectArgRegex, err = regexp.Compile("\\((?:\\+|-)?\\w+\\)")
 	if err != nil {
 		panic(err)
 	}
 }
-
 func match(lit *string, prefix string) bool {
 	if strings.HasPrefix(*lit, prefix) {
 		(*lit) = (*lit)[len(prefix):]
@@ -398,49 +411,78 @@ func match(lit *string, prefix string) bool {
 	return false
 }
 
-func parseTestDescription(comments []*ir.Comment, result *testResult) (compiler []*testOutput, exe []*testOutput) {
+func parseTestDescription(comments []*ir.Comment, result *testResult) (compiler []*testOutputPattern, exe []*testOutputPattern) {
 	for _, comment := range comments {
 		// Only check single-line comments
 		if comment.Tok.Is(token.Comment) {
-			lit := comment.Literal[2:]
-			lit = strings.TrimSpace(lit)
+			raw := strings.TrimSpace(comment.Literal[2:])
+			lit := raw
+			pattern := &testOutputPattern{pos: comment.Pos, text: raw}
 
-			if match(&lit, "expect-") {
+			if match(&lit, "expect") {
 				ok := false
+				isCompilerOutput := false
+				isLineNum := false
+				lineNum := comment.Pos.Line
 
-				if match(&lit, "output:") {
-					lit = strings.TrimSpace(lit)
-					exe = append(exe, &testOutput{pos: comment.Pos, text: lit})
-					ok = true
-				} else if match(&lit, "dgc:") {
-					lit = strings.TrimSpace(lit)
-					compiler = append(compiler, &testOutput{pos: comment.Pos, text: lit})
-					ok = true
-				} else if match(&lit, "error") {
-					lineNum := comment.Pos.Line
+				if match(&lit, "-error") {
+					isLineNum = true
+					isCompilerOutput = true
+					pattern.addPart(common.ErrorMsg.String(), nil)
+				}
 
-					rematch := lineNumRegex.FindString(lit)
-					if len(rematch) > 0 {
-						lit = lit[len(rematch):]
-						rematch = rematch[1 : len(rematch)-1]
+				rematch := expectArgRegex.FindString(lit)
+				if len(rematch) > 0 {
+					lit = lit[len(rematch):]
+					rematch = rematch[1 : len(rematch)-1]
+					unknownArg := true
 
-						res, _ := strconv.ParseInt(rematch, 10, 32)
-						if strings.HasPrefix(rematch, "+") || strings.HasPrefix(rematch, "-") {
-							lineNum += int(res)
-						} else {
-							lineNum = int(res)
+					if isCompilerOutput {
+						if rematch == "_" {
+							unknownArg = false
+							isLineNum = false
+						} else if res, err := strconv.ParseInt(rematch, 10, 32); err == nil {
+							unknownArg = false
+							isLineNum = true
+							if strings.HasPrefix(rematch, "+") || strings.HasPrefix(rematch, "-") {
+								lineNum += int(res)
+							} else {
+								lineNum = int(res)
+							}
+						}
+					} else {
+						if rematch == "dgc" {
+							unknownArg = false
+							isCompilerOutput = true
 						}
 					}
 
-					if match(&lit, ":") {
-						lit = strings.TrimSpace(lit)
-						lit = fmt.Sprintf("%s(%d): %s", common.ErrorMsg, lineNum, lit)
-						compiler = append(compiler, &testOutput{pos: comment.Pos, text: lit})
-						ok = true
+					if unknownArg {
+						result.status = statusBad
+						result.addReason("unknown test arg '%s' at '%s'", rematch, comment.Pos)
+						continue
 					}
 				}
 
-				if !ok {
+				if match(&lit, ":") {
+					if isLineNum {
+						pattern.addPart(fmt.Sprintf("(%d): ", lineNum), nil)
+					}
+					if err := addPatternParts(lit, comment.Pos, pattern); err != nil {
+						result.status = statusBad
+						result.addReason(err.Error())
+						continue
+					}
+					ok = true
+				}
+
+				if ok {
+					if isCompilerOutput {
+						compiler = append(compiler, pattern)
+					} else {
+						exe = append(exe, pattern)
+					}
+				} else {
 					result.status = statusBad
 					result.addReason("bad test description at '%s'", comment.Pos)
 				}
@@ -449,4 +491,45 @@ func parseTestDescription(comments []*ir.Comment, result *testResult) (compiler 
 	}
 
 	return compiler, exe
+}
+
+func addPatternParts(line string, pos token.Position, pattern *testOutputPattern) error {
+	line = strings.TrimSpace(line)
+	offset := 0
+	partOffset := 0
+	partLen := 0
+	isRegex := false
+	for offset < len(line) {
+		tag := ""
+		if isRegex {
+			tag = "</re>"
+		} else {
+			tag = "<re>"
+		}
+		hasTag := false
+		if strings.HasPrefix(line[offset:], tag) {
+			hasTag = true
+			offset += len(tag)
+		} else {
+			offset++
+			partLen++
+		}
+		if hasTag || offset == len(line) {
+			partText := line[partOffset : partOffset+partLen]
+			var regex *regexp.Regexp
+			if isRegex {
+				var err error
+				partText = strings.TrimSpace(partText)
+				regex, err = regexp.Compile(partText)
+				if err != nil {
+					return fmt.Errorf("bad regex: %s: %s: %s", pos, partText, err)
+				}
+			}
+			pattern.addPart(partText, regex)
+			isRegex = !isRegex
+			partOffset = offset
+			partLen = 0
+		}
+	}
+	return nil
 }

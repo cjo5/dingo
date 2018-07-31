@@ -13,10 +13,10 @@ extern fun main() c_int {
         }
     }
 
-    // expect-output: 2
-    // expect-output: 4
-    // expect-output: 4
-    // expect-output: 6
+    // expect: 2
+    // expect: 4
+    // expect: 4
+    // expect: 6
 
     var i = 5 
     while i >= 1 {
@@ -36,15 +36,15 @@ extern fun main() c_int {
        i--
     }
 
-    // expect-output: 10
-    // expect-output: 8
-    // expect-output: 6
-    // expect-output: 8
-    // expect-output: 6
-    // expect-output: 4
-    // expect-output: 6
-    // expect-output: 4
-    // expect-output: 2
+    // expect: 10
+    // expect: 8
+    // expect: 6
+    // expect: 8
+    // expect: 6
+    // expect: 4
+    // expect: 6
+    // expect: 4
+    // expect: 2
 
     return 0
 }

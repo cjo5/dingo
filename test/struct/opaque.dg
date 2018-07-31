@@ -26,4 +26,4 @@ struct Baz { // expect-error: struct must have at least 1 field
 
 pub struct Bax
 
-struct Bax // expect-dgc: re: error\(29\): redeclaration of 'Bax' \(different declaration is at .*27:12\)
+struct Bax // expect-error: redeclaration of 'Bax' (different declaration is at <re>.*27:12</re>)

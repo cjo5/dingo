@@ -7,11 +7,11 @@ extern fun main() c_int {
         i--
     }
     
-    // expect-output: 5
-    // expect-output: 4
-    // expect-output: 3
-    // expect-output: 2
-    // expect-output: 1
+    // expect: 5
+    // expect: 4
+    // expect: 3
+    // expect: 2
+    // expect: 1
 
     return 0
 }

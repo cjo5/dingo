@@ -5,13 +5,13 @@ alias foo2 = bar
 
 extern fun main() c_int {
     var a foo1 = 1
-    putiln(a) // expect-output: 1
+    putiln(a) // expect: 1
 
     var b foo2 = 2
-    putiln(b) // expect-output: 2
+    putiln(b) // expect: 2
 
     var c bar = 3
-    putiln(c) // expect-output: 3
+    putiln(c) // expect: 3
 
     return 0
 }

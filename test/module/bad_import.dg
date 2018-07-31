@@ -3,7 +3,7 @@ import foo.bar: __fqn__ // expect-error: '__fqn__' is builtin and cannot be impo
 import foo.bar: baz // expect-error: 'baz' is private and cannot be imported
 
 fun foo(){}
-import foo // expect-dgc: re: error\(6\): redefinition of 'foo' \(different definition is at .*:5:5\)
+import foo // expect-error: redefinition of 'foo' (different definition is at <re>.*:5:5</re>)
 
 extern fun main() c_int {
     bar.baz() // expect-error: 'baz' is private

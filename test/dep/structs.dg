@@ -5,11 +5,11 @@ extern fun main() c_int {
     var f2 = Foo{a: 9, b: Bar{c: 11, f: &var f1}}
 
     print_foo(&f2)
-    // expect-output: 9
-    // expect-output: 11
+    // expect: 9
+    // expect: 11
 
     f2.b.f.a = 13
-    putiln(f1.a) // expect-output: 13
+    putiln(f1.a) // expect: 13
 
     return 0
 }

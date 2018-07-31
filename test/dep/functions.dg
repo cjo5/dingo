@@ -2,10 +2,10 @@ include "../common.dg"
 
 extern fun main() c_int {
     foo(2)
-    // expect-output: foo
-    // expect-output: bar
-    // expect-output: foo
-    // expect-output: bar
+    // expect: foo
+    // expect: bar
+    // expect: foo
+    // expect: bar
     
     return 0
 }

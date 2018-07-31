@@ -3,6 +3,6 @@ alias b = c
 alias c = a
 
 // expect-error(1): cycle detected
-// expect-dgc: re: .*:1:7:a uses \[1\]
-// expect-dgc: re: .*:2:7:b uses \[2\]
-// expect-dgc: re: .*:3:7:c uses \[0\]
+// expect(dgc): <re>.*:1:7:a uses \[1\]
+// expect(dgc): <re>.*:2:7:b uses \[2\]
+// expect(dgc): <re>.*:3:7:c uses \[0\]

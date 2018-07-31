@@ -5,11 +5,11 @@ extern fun main() c_int {
     var ptr = &var data
     val slice = &var ptr[:1]
 
-    putiln(len(slice) as i32) // expect-output: 1
-    putiln(slice[0]) // expect-output: 9
+    putiln(len(slice) as i32) // expect: 1
+    putiln(slice[0]) // expect: 9
 
     slice[0]++
-    putiln(data) // expect-output: 10
+    putiln(data) // expect: 10
 
     return 0
 }

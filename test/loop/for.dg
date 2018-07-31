@@ -5,11 +5,11 @@ extern fun main() c_int {
         putiln(i)
     }
     
-    // expect-output: 0
-    // expect-output: 1
-    // expect-output: 2
-    // expect-output: 3
-    // expect-output: 4
+    // expect: 0
+    // expect: 1
+    // expect: 2
+    // expect: 3
+    // expect: 4
 
     return 0
 }

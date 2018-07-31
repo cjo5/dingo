@@ -3,22 +3,22 @@ include "../common.dg"
 extern fun main() c_int {
     var arr = [i32]{0, 1, 2, 3, 4}
 
-    putln("arr[:]") // expect-output: arr[:]
-    print_slice(&arr[:]) // expect-output: 0, 1, 2, 3, 4
+    putln("arr[:]") // expect: arr[:]
+    print_slice(&arr[:]) // expect: 0, 1, 2, 3, 4
 
-    putln("\narr[1:3]") // expect-output: arr[1:3]
-    print_slice(&arr[1:3]) // expect-output: 1, 2
+    putln("\narr[1:3]") // expect: arr[1:3]
+    print_slice(&arr[1:3]) // expect: 1, 2
 
-    putln("\narr[1:]") // expect-output: arr[1:]
-    print_slice(&arr[1:]) // expect-output: 1, 2, 3, 4
+    putln("\narr[1:]") // expect: arr[1:]
+    print_slice(&arr[1:]) // expect: 1, 2, 3, 4
 
-    putln("\narr[:3]") // expect-output: arr[:3]
-    print_slice(&arr[:3]) // expect-output: 0, 1, 2
+    putln("\narr[:3]") // expect: arr[:3]
+    print_slice(&arr[:3]) // expect: 0, 1, 2
 
     reverse(&var arr[:])
 
-    putln("\nreverse arr[:]") // expect-output: reverse arr[:]
-    print_slice(&arr[:]) // expect-output: 4, 3, 2, 1, 0
+    putln("\nreverse arr[:]") // expect: reverse arr[:]
+    print_slice(&arr[:]) // expect: 4, 3, 2, 1, 0
 
     putln("")
 

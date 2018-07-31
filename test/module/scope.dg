@@ -48,67 +48,67 @@ module foo {
 
 extern fun main() i32 {
     print_scope_fqn()
-    // expect-output: root
-    // expect-output: root
-    // expect-output: root
+    // expect: root
+    // expect: root
+    // expect: root
 
     baazle.print_scope_fqn()
-    // expect-output: root
-    // expect-output: root
-    // expect-output: baazle
+    // expect: root
+    // expect: root
+    // expect: baazle
 
     foozle.print_scope_fqn()
-    // expect-output: root
-    // expect-output: root
-    // expect-output: foozle
+    // expect: root
+    // expect: root
+    // expect: foozle
 
     foozle.baazle.print_scope_fqn()
-    // expect-output: root
-    // expect-output: foozle
-    // expect-output: foozle.baazle
+    // expect: root
+    // expect: foozle
+    // expect: foozle.baazle
 
     foo.print_scope_fqn()
-    // expect-output: root
-    // expect-output: root
-    // expect-output: foo
+    // expect: root
+    // expect: root
+    // expect: foo
 
     foo.baazle.print_scope_fqn()
-    // expect-output: root
-    // expect-output: foo
-    // expect-output: foo.baazle
+    // expect: root
+    // expect: foo
+    // expect: foo.baazle
 
     foo.foozle.print_scope_fqn()
-    // expect-output: root
-    // expect-output: foo
-    // expect-output: foo.foozle
+    // expect: root
+    // expect: foo
+    // expect: foo.foozle
 
     foo.foozle.baazle.print_scope_fqn()
-    // expect-output: root
-    // expect-output: foo.foozle
-    // expect-output: foo.foozle.baazle
+    // expect: root
+    // expect: foo.foozle
+    // expect: foo.foozle.baazle
     
     foo.bar.print_scope_fqn()
-    // expect-output: root
-    // expect-output: foo
-    // expect-output: foo.bar
+    // expect: root
+    // expect: foo
+    // expect: foo.bar
 
     foo.bar.baazle.print_scope_fqn()
-    // expect-output: root
-    // expect-output: foo.bar
-    // expect-output: foo.bar.baazle
+    // expect: root
+    // expect: foo.bar
+    // expect: foo.bar.baazle
 
     foo.bar.foozle.print_scope_fqn()
-    // expect-output: root
-    // expect-output: foo.bar
-    // expect-output: foo.bar.foozle
+    // expect: root
+    // expect: foo.bar
+    // expect: foo.bar.foozle
 
     foo.bar.foozle.baazle.print_scope_fqn()
-    // expect-output: root
-    // expect-output: foo.bar.foozle
-    // expect-output: foo.bar.foozle.baazle
+    // expect: root
+    // expect: foo.bar.foozle
+    // expect: foo.bar.foozle.baazle
 
     foo.bar.car.print_msuper_msuper_fqn()
-    // expect-output: foo
+    // expect: foo
 
     return 0
 }

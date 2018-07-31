@@ -1,16 +1,16 @@
 include "../common.dg"
 
 extern fun main() c_int {
-    putiln(5+5) // expect-output: 10
-    putiln(7-5) // expect-output: 2
-    putiln(2-5) // expect-output: -3
-    putiln(5*5) // expect-output: 25
-    putiln(-5*5) // expect-output: -25
-    putiln(25/5) // expect-output: 5
-    putiln(-25/5) // expect-output: -5
-    putiln(5*2+1) // expect-output: 11
-    putiln(5*(2+1)) // expect-output: 15
-    putchar('a'+2) // expect-output: c
+    putiln(5+5) // expect: 10
+    putiln(7-5) // expect: 2
+    putiln(2-5) // expect: -3
+    putiln(5*5) // expect: 25
+    putiln(-5*5) // expect: -25
+    putiln(25/5) // expect: 5
+    putiln(-25/5) // expect: -5
+    putiln(5*2+1) // expect: 11
+    putiln(5*(2+1)) // expect: 15
+    putchar('a'+2) // expect: c
 
     return 0
 }

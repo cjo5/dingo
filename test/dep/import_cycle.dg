@@ -7,5 +7,5 @@ pub module bar {
 }
 
 // expect-error(2): cycle detected
-// expect-dgc: re: .*:2:16:bar uses \[1\]
-// expect-dgc: re: .*:6:16:foo uses \[0\]
+// expect(dgc): <re>.*:2:16:bar uses \[1\]
+// expect(dgc): <re>.*:6:16:foo uses \[0\]

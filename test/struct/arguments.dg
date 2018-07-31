@@ -19,28 +19,28 @@ extern fun main() c_int {
     var f Foo
 
     f = Foo{a: 1, b: 2, c: 3}
-    print_foo(f) // expect-output: 1 2 3
+    print_foo(f) // expect: 1 2 3
 
     f = Foo{4, b: 5, c: 6} 
-    print_foo(f) // expect-output: 4 5 6
+    print_foo(f) // expect: 4 5 6
 
     f = Foo{7, 8, c: 9}
-    print_foo(f) // expect-output: 7 8 9 
+    print_foo(f) // expect: 7 8 9 
 
     f = Foo{10, 11, 12}
-    print_foo(f) // expect-output: 10 11 12
+    print_foo(f) // expect: 10 11 12
 
     f = Foo{c:3, a: 1, b: 2}
-    print_foo(f) // expect-output: 1 2 3
+    print_foo(f) // expect: 1 2 3
 
     f = Foo{4, c: 6, b: 5} 
-    print_foo(f) // expect-output: 4 5 6
+    print_foo(f) // expect: 4 5 6
 
     f = Foo{}
-    print_foo(f) // expect-output: 0 0 0
+    print_foo(f) // expect: 0 0 0
 
     f = Foo{b: 2}
-    print_foo(f) // expect-output: 0 2 0
+    print_foo(f) // expect: 0 2 0
 
     return 0
 }

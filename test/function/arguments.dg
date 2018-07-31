@@ -10,13 +10,13 @@ fun foo(a i32, b i32, c i32) {
 }
 
 extern fun main() c_int {
-    foo(a: 1, b: 2, c: 3) // expect-output: 1 2 3
-    foo(4, b: 5, c: 6) // expect-output: 4 5 6
-    foo(7, 8, c: 9) // expect-output: 7 8 9 
-    foo(10, 11, 12) // expect-output: 10 11 12
+    foo(a: 1, b: 2, c: 3) // expect: 1 2 3
+    foo(4, b: 5, c: 6) // expect: 4 5 6
+    foo(7, 8, c: 9) // expect: 7 8 9 
+    foo(10, 11, 12) // expect: 10 11 12
 
-    foo(c:3, a: 1, b: 2) // expect-output: 1 2 3
-    foo(4, c: 6, b: 5) // expect-output: 4 5 6
+    foo(c:3, a: 1, b: 2) // expect: 1 2 3
+    foo(4, c: 6, b: 5) // expect: 4 5 6
 
     return 0
 }
