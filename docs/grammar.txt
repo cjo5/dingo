@@ -19,7 +19,7 @@ ExternDecl = Extern (ValDecl | FuncDecl)
 StructDecl = 'struct' IDENT StructBody?
 FuncDecl = 'fun' IDENT FuncSignature Block?
 Decl = TypeDecl | ValDecl | ImportDecl
-TypeDecl = 'alias' IDENT '=' Type
+TypeDecl = 'typealias' IDENT '=' Type
 ValDecl = ('val' | 'var') IDENT (Type | (Type? '=' Expr))
 
 ImportDecl = ('import' | 'importlocal') ImportName [':' ('('ImportList')' | ImportList) ]

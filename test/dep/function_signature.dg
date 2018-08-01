@@ -28,4 +28,4 @@ struct Foo {
     a i32
 }
 
-alias Bar = i32
+typealias Bar = i32

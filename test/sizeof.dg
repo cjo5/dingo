@@ -6,7 +6,7 @@ extern fun main() i32 {
     putiln(sizeof(i32) as i32) // expect: 4
     putiln(sizeof(i64) as i32) // expect: 8
 
-    alias MyType = i64
+    typealias MyType = i64
     putiln(sizeof(MyType) as i32) // expect: 8
 
     putiln(sizeof(u8) as i32) // expect: 1

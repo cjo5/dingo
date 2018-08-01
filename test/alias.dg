@@ -1,6 +1,6 @@
 include "common.dg"
 
-alias s1 = i32
+typealias s1 = i32
 
 extern fun main() c_int {
     val a1 s1 = 1
@@ -8,7 +8,7 @@ extern fun main() c_int {
     putiln(a1) // expect: 1
     putiln(a2) // expect: 0
 
-    alias s2 = Foo
+    typealias s2 = Foo
 
     var b1 s2 = s2{a: 1}
     var b2 s2
@@ -16,33 +16,33 @@ extern fun main() c_int {
     putiln(b1.a) // expect: 2
     putiln(b2.a) // expect: 0
 
-    alias s3 = [s1:5]
+    typealias s3 = [s1:5]
 
     var c1 s3 = [i32]{1, 2, 3, 4, 5}
     var c2 s3
     putiln(c1[2]) // expect: 3
     putiln(c2[2]) // expect: 0
 
-    alias s4 = s1
+    typealias s4 = s1
 
     var d1 s4 = 4
     var d2 s4
     putiln(d1) // expect: 4
     putiln(d2) // expect: 0
 
-    alias s5 = &s1
+    typealias s5 = &s1
 
     var e1 s5 = &a1
     var e2 s5
     putiln(*e1) // expect: 1
 
-    alias s6 = &[s1]
+    typealias s6 = &[s1]
 
     var g1 s6 = &c1[:]
     var g2 s6
     putiln(g1[1]) // expect: 2
 
-    alias s7 = fun(i32)i32
+    typealias s7 = fun(i32)i32
 
     val h1 s7 = fun(a i32) i32 {
         return a*a

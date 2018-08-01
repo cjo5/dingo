@@ -1,8 +1,8 @@
-alias a = b
-alias b = c
-alias c = a
+typealias a = b
+typealias b = c
+typealias c = a
 
 // expect-error(1): cycle detected
-// expect(dgc): <re>.*:1:7:a</re> uses [1]
-// expect(dgc): <re>.*:2:7:b</re> uses [2]
-// expect(dgc): <re>.*:3:7:c</re> uses [0]
+// expect(dgc): <re>.*:1:11:a</re> uses [1]
+// expect(dgc): <re>.*:2:11:b</re> uses [2]
+// expect(dgc): <re>.*:3:11:c</re> uses [0]

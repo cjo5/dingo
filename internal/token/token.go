@@ -184,7 +184,7 @@ var tokens = [...]string{
 	Importlocal: "importlocal",
 	Var:         "var",
 	Val:         "val",
-	AliasType:   "alias",
+	AliasType:   "typealias",
 	Func:        "fun",
 	Struct:      "struct",
 	Public:      "pub",
