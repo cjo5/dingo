@@ -151,6 +151,8 @@ func (c *checker) insertImportSymbols(decl *ir.ImportDecl, CUID int, modFQN stri
 	defaultFlags := 0
 	if topDecl {
 		defaultFlags |= ir.SymFlagTopDecl
+	} else {
+		defaultFlags |= ir.SymFlagDefined
 	}
 	symKey := c.nextSymKey()
 	sym := ir.NewSymbol(ir.ModuleSymbol, c.scope, importedCUID, fqn, decl.Alias.Literal, decl.Alias.Pos())
