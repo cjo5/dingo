@@ -1,6 +1,6 @@
 import bam // expect-error: undefined public module 'bam'
-import foo.bar: __fqn__ // expect-error: '__fqn__' is builtin and cannot be imported
-import foo.bar: baz // expect-error: 'baz' is private and cannot be imported
+import foo.bar: __fqn__ // expect-error: builtin '__fqn__' cannot be imported
+import foo.bar: baz // expect-error: private 'baz' cannot be imported
 
 fun foo(){}
 import foo // expect-error: redefinition of 'foo' (different definition is at <re>.*:5:5</re>)

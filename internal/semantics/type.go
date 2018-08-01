@@ -114,17 +114,17 @@ func (c *checker) checkImportDecl(decl *ir.ImportDecl) {
 		if importedSym == nil {
 			c.error(item.Name.Pos(), "undeclared identifier '%s' in module '%s'", item.Name.Literal, decl.Sym.ModFQN)
 		} else if importedSym.IsBuiltin() {
-			c.error(item.Name.Pos(), "'%s' is builtin and cannot be imported", item.Name.Literal)
+			c.error(item.Name.Pos(), "builtin '%s' cannot be imported", importedSym.Name)
 		} else {
 			visibilityOK := true
 			if decl.Decl == token.Import {
 				if !importedSym.Public {
-					c.error(item.Name.Pos(), "'%s' is private and cannot be imported", item.Name.Literal)
+					c.error(item.Name.Pos(), "private '%s' cannot be imported", importedSym.Name)
 					visibilityOK = false
 				}
 			} else {
 				if !importedSym.Public && itemSym.Public {
-					c.error(item.Name.Pos(), "'%s' is private and cannot be re-exported as public", item.Name.Literal)
+					c.error(item.Name.Pos(), "private '%s' cannot be re-exported as public", importedSym.Name)
 					visibilityOK = false
 				}
 			}

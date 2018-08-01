@@ -1,4 +1,4 @@
-include "../common.dg"
+include "common.dg"
 
 extern fun main() c_int {
     putbool(2 == 2) // expect: true

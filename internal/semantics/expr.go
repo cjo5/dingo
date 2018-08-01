@@ -164,7 +164,7 @@ func (c *checker) checkDotExpr(expr *ir.DotExpr) ir.Expr {
 			c.setScope(prevScope)
 		}
 	default:
-		c.error(expr.X.Pos(), "type %s does not support field access", tx)
+		c.error(expr.X.Pos(), "expression cannot be used for field access (has type %s)", tx)
 	}
 
 	if expr.T == nil {
@@ -204,7 +204,7 @@ func (c *checker) checkIndexExpr(expr *ir.IndexExpr) ir.Expr {
 			expr.T = telem
 		}
 	} else {
-		c.error(expr.X.Pos(), "type %s cannot be indexed", expr.X.Type())
+		c.error(expr.X.Pos(), "expression cannot be indexed (has type %s)", expr.X.Type())
 	}
 
 	if expr.T == nil {
@@ -302,7 +302,7 @@ func (c *checker) checkSliceExpr(expr *ir.SliceExpr) ir.Expr {
 			expr.T = ir.NewSliceType(telem, ro, false)
 		}
 	} else {
-		c.nodeError(expr.X, "type %s cannot be sliced", tx)
+		c.nodeError(expr.X, "expression cannot be sliced (has type %s)", tx)
 	}
 
 	if expr.T == nil {
@@ -322,7 +322,7 @@ func (c *checker) checkFuncCall(expr *ir.FuncCall) ir.Expr {
 		if isUntyped(tx) {
 			tpunt = tx
 		} else if tx.Kind() != ir.TFunc {
-			c.nodeError(expr.X, "expression is not callable (has type %s)", tx)
+			c.nodeError(expr.X, "expression cannot be invoked (has type %s)", tx)
 			tpunt = ir.TBuiltinInvalid
 		}
 	}

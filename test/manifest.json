@@ -3,10 +3,15 @@
         "tests": [
             "alias.dg",
             "bad_cast.dg",
+            "bad_expr.dg",
             "bad_sizeof.dg",
+            "comparison.dg",
             "defer.dg",
             "if.dg",
             "incomplete_type.dg",
+            "literals.dg",
+            "logic.dg",
+            "math.dg",
             "sizeof.dg",
             "type_in_expr.dg",
             "use_before_decl.dg",
@@ -81,22 +86,12 @@
         ],
         "tests": [
             "bad_import.dg",
-            "bad_import_in_function.dg",
             "bad_importlocal.dg",
             "import.dg",
             "importlocal.dg",
             "import_in_function.dg",
             "import_items.dg",
             "import_relative.dg"
-        ]
-    },
-    {
-        "dir": "primitives",
-        "tests": [
-            "comparison.dg",
-            "literals.dg",
-            "logic.dg",
-            "math.dg"
         ]
     },
     {

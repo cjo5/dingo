@@ -139,7 +139,7 @@ func (c *checker) insertImportSymbols(decl *ir.ImportDecl, CUID int, modFQN stri
 			importedTMod = mod.T
 			if public && !mod.Public {
 				public = false
-				c.error(decl.Name.Pos(), "module '%s' is private and cannot be re-exported as public", fqn)
+				c.error(decl.Name.Pos(), "private module '%s' cannot be re-exported as public", fqn)
 			}
 		} else {
 			c.error(decl.Name.Pos(), "undefined local module '%s'", fqn)

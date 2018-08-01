@@ -104,8 +104,6 @@ func (p *parser) sync() {
 		case token.Rbrace:
 			if lbrace > 0 {
 				lbrace--
-			} else if lbrace == 0 {
-				return
 			}
 		case token.EOF:
 			return

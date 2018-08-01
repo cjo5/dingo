@@ -1,5 +1,5 @@
-pub importlocal foo // expect-error: module 'foo' is private and cannot be re-exported as public
-importlocal foo: pub bar // expect-error: 'bar' is private and cannot be re-exported as public
+pub importlocal foo // expect-error: private module 'foo' cannot be re-exported as public
+importlocal foo: pub bar // expect-error: private 'bar' cannot be re-exported as public
 importlocal bar // expect-error: undefined local module 'bar'
 
 module foo {

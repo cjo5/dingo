@@ -1,9 +1,0 @@
-include "../common.dg"
-
-extern fun main() c_int {
-    {
-        import m = mod1
-    }
-    putiln(m.bar) // expect-error: undeclared identifier 'm'
-    return 0
-}
