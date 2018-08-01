@@ -1,9 +1,5 @@
 include "common.dg"
 
-extern fun hello()
-extern fun hello()
-extern fun hello()
-
-extern fun hello() {
+pub fun hello() {
     .putln(__fqn__)
 }

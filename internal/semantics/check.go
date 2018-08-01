@@ -87,11 +87,12 @@ type checker struct {
 	incomplete map[*dgObject]bool
 
 	// Ast traversal state
-	object *dgObject
-	scope  *ir.Scope
-	mode   int
-	step   int
-	loop   int
+	objectList *dgObjectList
+	object     *dgObject
+	scope      *ir.Scope
+	mode       int
+	step       int
+	loop       int
 }
 
 func stmtList(stmts []ir.Stmt, visit func(ir.Stmt)) {

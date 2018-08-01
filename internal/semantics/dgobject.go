@@ -16,9 +16,10 @@ const (
 )
 
 type dgObjectList struct {
-	filename string
-	CUID     int
-	objects  []*dgObject
+	filename  string
+	CUID      int
+	importMap map[string]*ir.Symbol
+	objects   []*dgObject
 }
 
 type dgObject struct {
@@ -35,10 +36,11 @@ type depEdge struct {
 	isIndirectType bool
 }
 
-func newDgObjectList(filename string, CUID int) *dgObjectList {
+func newDgObjectList(filename string, CUID int, importMap map[string]*ir.Symbol) *dgObjectList {
 	return &dgObjectList{
-		filename: filename,
-		CUID:     CUID,
+		filename:  filename,
+		CUID:      CUID,
+		importMap: importMap,
 	}
 }
 
@@ -94,7 +96,7 @@ func (d *dgObject) addEdge(to *dgObject, edge *depEdge) {
 
 func (c *checker) initDgObjectMatrix(modMatrix moduleMatrix) {
 	for CUID, modList := range modMatrix {
-		objList := newDgObjectList(modList.filename, CUID)
+		c.objectList = newDgObjectList(modList.filename, CUID, modList.importMap)
 		for _, mod := range modList.mods {
 			c.scope = mod.builtinScope
 			c.insertBuiltinModuleFieldSymbols(CUID, mod.fqn)
@@ -102,10 +104,10 @@ func (c *checker) initDgObjectMatrix(modMatrix moduleMatrix) {
 			for _, decl := range mod.decls {
 				obj := c.createDgObject(decl, CUID, mod.fqn)
 				if obj != nil {
-					objList.objects = append(objList.objects, obj)
+					c.objectList.objects = append(c.objectList.objects, obj)
 				}
 			}
-			for _, obj := range objList.objects {
+			for _, obj := range c.objectList.objects {
 				if obj.definition {
 					c.objectMap[obj.key()] = obj
 				} else if _, ok := c.objectMap[obj.key()]; !ok {
@@ -113,7 +115,7 @@ func (c *checker) initDgObjectMatrix(modMatrix moduleMatrix) {
 				}
 			}
 		}
-		c.objectMatrix = append(c.objectMatrix, objList)
+		c.objectMatrix = append(c.objectMatrix, c.objectList)
 	}
 }
 

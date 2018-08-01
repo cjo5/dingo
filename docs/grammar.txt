@@ -5,14 +5,14 @@
 # a+ : 1 or more a
 # a | b : a or b
 
-ModuleBody = (Module | Include | TopLevel)*
+ModuleBody = (Module | Include | TopLevelDecl)*
 Module = 'module' Name '{' ModuleBody '}'
+Include = 'Include' STRING EOS
 ScopeName =  ('mself' | 'msuper' {'.' 'msuper'}) ['.' Name] | '.'? Name
 Name = IDENT ['.' Name]
 EOS = ';' | EOF
 
-Include = 'Include' STRING EOS
-TopLevel = [Visibility? (ExternDecl | StructDecl | FuncDecl | Decl)] EOS
+TopLevelDecl = [Visibility? (ExternDecl | ImportDecl | StructDecl | FuncDecl | Decl)] EOS
 Visibility = 'pub' | 'priv' 
 Extern = 'extern' ['(' IDENT ')']
 ExternDecl = Extern (ValDecl | FuncDecl)

@@ -10,8 +10,8 @@ import (
 
 type module struct {
 	name             *ir.Ident
-	builtinScope     *ir.Scope
 	scope            *ir.Scope
+	builtinScope     *ir.Scope
 	sym              *ir.Symbol
 	decls            []*ir.TopDecl
 	fqn              string
@@ -22,8 +22,9 @@ type module struct {
 }
 
 type moduleList struct {
-	filename string
-	mods     []*module
+	filename  string
+	mods      []*module
+	importMap map[string]*ir.Symbol
 }
 
 type moduleMatrix []moduleList
@@ -56,7 +57,7 @@ func (c *checker) createModuleList(fileList ir.FileList, CUID int) moduleList {
 				fileParentIndex1: file.ParentIndex1,
 				fileParentIndex2: file.ParentIndex2,
 			}
-			mod.builtinScope = ir.NewScope(ir.BuiltinScope, builtinScope, CUID)
+			mod.builtinScope = ir.NewScope(ir.ModuleScope, builtinScope, CUID)
 			mod.scope = ir.NewScope(ir.ModuleScope, mod.builtinScope, CUID)
 			mod.decls = incompleteMod.Decls
 			mods2[modID] = mod
@@ -64,8 +65,10 @@ func (c *checker) createModuleList(fileList ir.FileList, CUID int) moduleList {
 		mods[fileID] = mods2
 	}
 
-	modList := moduleList{filename: fileList[0].Filename}
-	localMap := make(map[string]token.Position)
+	modList := moduleList{
+		filename:  fileList[0].Filename,
+		importMap: make(map[string]*ir.Symbol),
+	}
 
 	for index1, fileMods := range mods {
 		var fileModParents []*module
@@ -75,9 +78,9 @@ func (c *checker) createModuleList(fileList ir.FileList, CUID int) moduleList {
 			// Parent of root module in root file is itself
 			c.insertBuiltinModuleScopeSymbol(root, root, CUID, ir.SelfModuleName, token.NoPosition)
 			c.insertBuiltinModuleScopeSymbol(root, root, CUID, ir.ParentModuleName, token.NoPosition)
-			c.insertBuiltinModuleScopeSymbol(root, root, CUID, ir.RootModuleName, token.NoPosition)
+			root.sym = c.insertBuiltinModuleScopeSymbol(root, root, CUID, ir.RootModuleName, token.NoPosition)
 			modList.mods = append(modList.mods, root)
-			localMap[""] = token.NoPosition
+			modList.importMap[""] = root.sym
 		} else {
 			// Move root module decls to module where the file was included
 			parentIndex1 := fileMods[0].fileParentIndex1
@@ -121,8 +124,8 @@ func (c *checker) createModuleList(fileList ir.FileList, CUID int) moduleList {
 				modPath[i] = modPath[j]
 				modPath[j] = tmp
 			}
-			if existing, ok := localMap[mod.fqn]; ok {
-				c.errors.Add(mod.name.Pos(), "redefinition of private module '%s' (different definition is at '%s')", mod.fqn, existing)
+			if existing, ok := modList.importMap[mod.fqn]; ok {
+				c.errors.Add(mod.name.Pos(), "redefinition of local module '%s' (different definition is at '%s')", mod.fqn, existing.Pos)
 			} else {
 				// Ensure modpath has all entries.
 				// If fqn of current module is foo.bar.baz, then bar is created in foo and baz is created in bar.
@@ -150,7 +153,7 @@ func (c *checker) createModuleList(fileList ir.FileList, CUID int) moduleList {
 				c.insertBuiltinModuleScopeSymbol(mod, parent, CUID, ir.ParentModuleName, parent.name.Pos())
 				c.insertBuiltinModuleScopeSymbol(mod, root, CUID, ir.RootModuleName, token.NoPosition)
 
-				localMap[mod.fqn] = mod.name.Pos()
+				modList.importMap[mod.fqn] = mod.sym
 				modList.mods = append(modList.mods, mod)
 				if mod.sym.Public {
 					if existing, ok := c.importMap[mod.fqn]; ok {

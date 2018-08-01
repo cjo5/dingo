@@ -1,0 +1,16 @@
+include "../common.dg"
+
+importlocal foo: pub bar
+importlocal foo
+
+extern fun main() i32 {
+    foo.bar() // expect: foo
+    bar() // expect: foo
+    return 0
+}
+
+module foo {
+    pub fun bar() {
+        .putln(__fqn__)
+    }
+}

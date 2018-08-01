@@ -10,6 +10,7 @@ import (
 func (c *checker) checkTypes() {
 	c.step = 0
 	for _, objList := range c.objectMatrix {
+		c.objectList = objList
 		for _, obj := range objList.objects {
 			c.checkDgObject(obj)
 		}
@@ -30,6 +31,7 @@ func (c *checker) checkIncompleteDgObject(obj *dgObject) {
 			c.checkIncompleteDgObject(dep)
 		}
 	}
+	c.objectList = c.objectMatrix[obj.CUID()]
 	c.checkDgObject(obj)
 	obj.color = blackColor
 }
@@ -98,6 +100,9 @@ func (c *checker) checkLocalDecl(decl ir.Decl) {
 }
 
 func (c *checker) checkImportDecl(decl *ir.ImportDecl) {
+	if isUntyped(decl.Sym.T) {
+		return
+	}
 	for _, item := range decl.Items {
 		itemSym := item.Name.Sym
 		if itemSym == nil || !isUnresolvedType(itemSym.T) {
@@ -108,17 +113,29 @@ func (c *checker) checkImportDecl(decl *ir.ImportDecl) {
 		titem := ir.TBuiltinInvalid
 		if importedSym == nil {
 			c.error(item.Name.Pos(), "undeclared identifier '%s' in module '%s'", item.Name.Literal, decl.Sym.ModFQN)
-		} else if !importedSym.Public {
-			c.error(item.Name.Pos(), "'%s' is private and cannot be imported", item.Name.Literal)
 		} else if importedSym.IsBuiltin() {
 			c.error(item.Name.Pos(), "'%s' is builtin and cannot be imported", item.Name.Literal)
 		} else {
-			c.tryAddDep(importedSym, itemSym.Pos)
-			titem = importedSym.T
-			if !isUnresolvedType(titem) {
-				itemSym.Kind = importedSym.Kind
-				itemSym.Key = importedSym.Key
-				itemSym.Flags |= (importedSym.Flags & (ir.SymFlagReadOnly | ir.SymFlagConst))
+			visibilityOK := true
+			if decl.Decl == token.Import {
+				if !importedSym.Public {
+					c.error(item.Name.Pos(), "'%s' is private and cannot be imported", item.Name.Literal)
+					visibilityOK = false
+				}
+			} else {
+				if !importedSym.Public && itemSym.Public {
+					c.error(item.Name.Pos(), "'%s' is private and cannot be re-exported as public", item.Name.Literal)
+					visibilityOK = false
+				}
+			}
+			if visibilityOK {
+				c.tryAddDep(importedSym, itemSym.Pos)
+				titem = importedSym.T
+				if !isUnresolvedType(titem) {
+					itemSym.Kind = importedSym.Kind
+					itemSym.Key = importedSym.Key
+					itemSym.Flags |= (importedSym.Flags & (ir.SymFlagReadOnly | ir.SymFlagConst))
+				}
 			}
 		}
 		itemSym.T = titem

@@ -5,4 +5,4 @@ extern fun main() i32 {
     return 0
 }
 
-val hello = 2
+import blah

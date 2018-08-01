@@ -2,6 +2,6 @@ module foo {
     
 }
 
-module foo { // expect-error: redefinition of private module 'foo' (different definition is at '<re>.*:1:8</re>')
+module foo { // expect-error: redefinition of local module 'foo' (different definition is at '<re>.*:1:8</re>')
 
 }

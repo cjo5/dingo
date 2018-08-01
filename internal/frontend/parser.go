@@ -367,7 +367,7 @@ func (p *parser) parseFuncDecl() *ir.FuncDecl {
 
 func (p *parser) parseDecl(topDecl bool) ir.Decl {
 	var decl ir.Decl
-	if p.token.Is(token.Import) {
+	if p.token.OneOf(token.Import, token.Importlocal) {
 		decl = p.parseImportDecl(topDecl)
 	} else if p.token.Is(token.AliasType) {
 		decl = p.parseTypeDecl()
@@ -646,7 +646,7 @@ func (p *parser) parseStmt() (stmt ir.Stmt, sync bool) {
 		stmt = nil
 	} else if p.token.Is(token.Lbrace) {
 		stmt = p.parseBlockStmt()
-	} else if p.token.OneOf(token.Import, token.AliasType, token.Var, token.Val) {
+	} else if p.token.OneOf(token.Import, token.Importlocal, token.AliasType, token.Var, token.Val) {
 		d := p.parseDecl(false)
 		stmt = &ir.DeclStmt{D: d}
 		stmt.SetRange(d.Pos(), d.EndPos())

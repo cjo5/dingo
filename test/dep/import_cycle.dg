@@ -1,11 +1,11 @@
 pub module foo {
-    pub import bar: pub baz
+    pub import .bar: pub baz
 }
 
 pub module bar {
-    pub import foo: pub baz
+    pub import .foo: pub baz
 }
 
 // expect-error(2): cycle detected
-// expect(dgc): <re>.*:2:16:bar uses \[1\]
-// expect(dgc): <re>.*:6:16:foo uses \[0\]
+// expect(dgc): <re>.*:2:17:bar</re> uses [1]
+// expect(dgc): <re>.*:6:17:foo</re> uses [0]

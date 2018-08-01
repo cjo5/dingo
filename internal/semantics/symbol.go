@@ -13,6 +13,10 @@ func (c *checker) insertSymbol(scope *ir.Scope, alias string, sym *ir.Symbol) *i
 		return sym
 	}
 	if existing := scope.Insert(alias, sym); existing != nil {
+		if existing.IsBuiltin() {
+			c.error(sym.Pos, "redefinition of builtin '%s'", alias)
+			return nil
+		}
 		if sym.Kind != existing.Kind || (sym.IsDefined() && existing.IsDefined()) {
 			c.error(sym.Pos, "redefinition of '%s' (different definition is at %s)", sym.Name, existing.Pos)
 			return nil
@@ -79,15 +83,11 @@ func (c *checker) insertLocalValDeclSymbol(decl *ir.ValDecl, CUID int, modFQN st
 }
 
 func (c *checker) insertImportSymbols(decl *ir.ImportDecl, CUID int, modFQN string, topDecl bool, public bool) {
-	fqn := ir.ExprToFQN(decl.Name)
-	nameParts := strings.Split(fqn, ".")
+	nameParts := strings.Split(ir.ExprToFQN(decl.Name), ".")
 	var scopeParts []string
 	// Find relative import components (mroot, msuper, mself) and replace them with the corresponding fqn
 	for _, part := range nameParts {
-		if part == ir.RootModuleName || part == ir.SelfModuleName {
-			scopeParts = append(scopeParts, part)
-			break
-		} else if part == ir.ParentModuleName {
+		if part == ir.RootModuleName || part == ir.ParentModuleName || part == ir.SelfModuleName {
 			scopeParts = append(scopeParts, part)
 		} else {
 			break
@@ -95,19 +95,19 @@ func (c *checker) insertImportSymbols(decl *ir.ImportDecl, CUID int, modFQN stri
 	}
 	if len(scopeParts) > 0 {
 		nameParts = nameParts[len(scopeParts):]
-		sym := c.scope.Lookup(scopeParts[0])
-		for i := 1; i < len(scopeParts); i++ {
-			scope := sym.T.(*ir.ModuleType).Scope
-			sym = scope.Lookup(scopeParts[i])
-		}
-		nameFQN := strings.Join(nameParts, ".")
-		if len(sym.ModFQN) > 0 && len(nameFQN) > 0 {
-			fqn = fmt.Sprintf("%s.%s", sym.ModFQN, nameFQN)
-		} else if len(sym.ModFQN) > 0 {
-			fqn = sym.ModFQN
-		} else {
-			fqn = nameFQN
-		}
+	} else {
+		scopeParts = append(scopeParts, ir.SelfModuleName)
+	}
+	relativeSym := c.scope.Lookup(scopeParts[0])
+	for i := 1; i < len(scopeParts); i++ {
+		scope := relativeSym.T.(*ir.ModuleType).Scope
+		relativeSym = scope.Lookup(scopeParts[i])
+	}
+	fqn := strings.Join(nameParts, ".")
+	if len(relativeSym.ModFQN) > 0 && len(fqn) > 0 {
+		fqn = fmt.Sprintf("%s.%s", relativeSym.ModFQN, fqn)
+	} else if len(relativeSym.ModFQN) > 0 {
+		fqn = relativeSym.ModFQN
 	}
 	if decl.Alias == nil {
 		pos := token.NoPosition
@@ -126,11 +126,27 @@ func (c *checker) insertImportSymbols(decl *ir.ImportDecl, CUID int, modFQN stri
 	}
 	importedCUID := -1
 	importedTMod := ir.TBuiltinInvalid
-	if mod, ok := c.importMap[fqn]; ok {
-		importedCUID = mod.CUID
-		importedTMod = mod.T
+	if decl.Decl == token.Import {
+		if mod, ok := c.importMap[fqn]; ok {
+			importedCUID = mod.CUID
+			importedTMod = mod.T
+		} else {
+			c.error(decl.Name.Pos(), "undefined public module '%s'", fqn)
+		}
 	} else {
-		c.error(decl.Name.Pos(), "undefined public module '%s'", fqn)
+		if mod, ok := c.objectList.importMap[fqn]; ok {
+			importedCUID = mod.CUID
+			importedTMod = mod.T
+			if public && !mod.Public {
+				public = false
+				c.error(decl.Name.Pos(), "module '%s' is private and cannot be re-exported as public", fqn)
+			}
+		} else {
+			c.error(decl.Name.Pos(), "undefined local module '%s'", fqn)
+		}
+	}
+	if isUntyped(importedTMod) {
+		return
 	}
 	defaultFlags := 0
 	if topDecl {

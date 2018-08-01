@@ -81,10 +81,12 @@
         ],
         "tests": [
             "bad_import.dg",
-            "bad_import_local.dg",
+            "bad_import_in_function.dg",
+            "bad_importlocal.dg",
             "import.dg",
+            "importlocal.dg",
+            "import_in_function.dg",
             "import_items.dg",
-            "import_local.dg",
             "import_relative.dg"
         ]
     },
