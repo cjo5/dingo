@@ -1,6 +1,8 @@
 include "common.dg"
 
 extern fun main() i32 {
-    putln("hej 123 abc") // expected: hej <re>\d+</re> <re>\w+
+
     return 0
 }
+
+val hello = 2

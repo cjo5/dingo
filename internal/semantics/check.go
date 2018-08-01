@@ -55,7 +55,7 @@ func init() {
 }
 
 // Check semantics.
-func Check(fileMatrix ir.FileMatrix, target ir.Target) (*ir.DeclMatrix, error) {
+func Check(fileMatrix ir.FileMatrix, target ir.Target) (ir.DeclMatrix, error) {
 	c := newChecker(target)
 	modMatrix := c.createModuleMatrix(fileMatrix)
 	c.initDgObjectMatrix(modMatrix)
@@ -79,7 +79,6 @@ type checker struct {
 	errors *common.ErrorList
 
 	objectMatrix  []*dgObjectList
-	rootScope     *ir.Scope
 	currentSymKey int
 
 	objectMap  map[int]*dgObject
@@ -106,7 +105,6 @@ func newChecker(target ir.Target) *checker {
 		target:        target,
 		errors:        &common.ErrorList{},
 		currentSymKey: 1,
-		rootScope:     ir.NewScope(ir.BuiltinScope, nil, -1),
 		objectMap:     make(map[int]*dgObject),
 		constMap:      make(map[int]ir.Expr),
 		importMap:     make(map[string]*ir.Symbol),

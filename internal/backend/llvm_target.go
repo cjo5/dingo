@@ -148,8 +148,15 @@ func llvmType(t1 ir.Type, ctx *llvmTypeMap) llvm.Type {
 	}
 }
 
-func llvmLinkage(sym *ir.Symbol) llvm.Linkage {
+func isExternalLLVMLinkage(sym *ir.Symbol) bool {
 	if sym.Public || !sym.IsDefined() || sym.ABI != ir.DGABI {
+		return true
+	}
+	return false
+}
+
+func llvmLinkage(sym *ir.Symbol) llvm.Linkage {
+	if isExternalLLVMLinkage(sym) {
 		return llvm.ExternalLinkage
 	}
 	return llvm.InternalLinkage

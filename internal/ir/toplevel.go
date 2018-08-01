@@ -1,6 +1,8 @@
 package ir
 
-import "github.com/jhnl/dingo/internal/token"
+import (
+	"github.com/jhnl/dingo/internal/token"
+)
 
 const RootModuleName = "$rootmod"
 const ParentModuleName = "$parentmod"
@@ -51,10 +53,7 @@ func NewTopDecl(abi *Ident, visibility token.Token, decl Decl) *TopDecl {
 	}
 }
 
-type DeclMatrix struct {
-	Decls     []*DeclList
-	RootScope *Scope
-}
+type DeclMatrix []*DeclList
 
 type DeclList struct {
 	Filename string

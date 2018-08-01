@@ -17,11 +17,12 @@ import (
 )
 
 type llvmCodeBuilder struct {
-	b           llvm.Builder
-	errors      *common.ErrorList
-	target      *llvmTarget
-	config      *common.BuildConfig
-	objectfiles []string
+	b               llvm.Builder
+	errors          *common.ErrorList
+	target          *llvmTarget
+	config          *common.BuildConfig
+	objectFiles     []string
+	externalNameMap map[string]*ir.Symbol
 
 	mod        llvm.Module
 	valueMap   map[int]llvm.Value
@@ -83,11 +84,12 @@ const ptrFieldIndex = 0
 const lenFieldIndex = 1
 
 // BuildLLVM code.
-func BuildLLVM(matrix *ir.DeclMatrix, target ir.Target, config *common.BuildConfig) error {
+func BuildLLVM(matrix ir.DeclMatrix, target ir.Target, config *common.BuildConfig) error {
 	llvmTarget := target.(*llvmTarget)
 
 	cb := newBuilder(llvmTarget, config)
-	cb.validateMatrix(matrix)
+	cb.addExternalNameEntries(matrix)
+	cb.validateExternalNameEntries()
 
 	if cb.errors.IsError() {
 		return cb.errors
@@ -95,7 +97,7 @@ func BuildLLVM(matrix *ir.DeclMatrix, target ir.Target, config *common.BuildConf
 
 	defer cb.deleteObjects()
 
-	for _, list := range matrix.Decls {
+	for _, list := range matrix {
 		if !cb.buildLLVModule(list) {
 			return cb.errors
 		}
@@ -104,7 +106,7 @@ func BuildLLVM(matrix *ir.DeclMatrix, target ir.Target, config *common.BuildConf
 	var args []string
 	args = append(args, "-o")
 	args = append(args, config.Exe)
-	args = append(args, cb.objectfiles...)
+	args = append(args, cb.objectFiles...)
 
 	cmd := exec.Command("cc", args...)
 	if linkOutput, linkErr := cmd.CombinedOutput(); linkErr != nil {
@@ -121,15 +123,35 @@ func newBuilder(target *llvmTarget, config *common.BuildConfig) *llvmCodeBuilder
 	cb.errors = &common.ErrorList{}
 	cb.target = target
 	cb.config = config
+	cb.externalNameMap = make(map[string]*ir.Symbol)
 	return cb
 }
 
-func (cb *llvmCodeBuilder) validateMatrix(matrix *ir.DeclMatrix) {
-	sym := matrix.RootScope.Lookup("main")
+func (cb *llvmCodeBuilder) addExternalNameEntries(matrix ir.DeclMatrix) {
+	for _, list := range matrix {
+		for _, decl := range list.Decls {
+			sym := decl.Symbol()
+			if isExternalLLVMLinkage(sym) && sym.IsDefined() &&
+				(sym.Kind == ir.FuncSymbol || sym.Kind == ir.ValSymbol) {
+				name := mangle(sym)
+				if existing, ok := cb.externalNameMap[name]; ok {
+					if existing != sym {
+						cb.errors.Add(sym.Pos, "link name collision for '%s' (duplicate is at %s)", name, existing.Pos)
+					}
+				} else {
+					cb.externalNameMap[name] = sym
+				}
+			}
+		}
+	}
+}
+
+func (cb *llvmCodeBuilder) validateExternalNameEntries() {
+	sym, _ := cb.externalNameMap["main"]
 	if sym != nil && sym.Kind == ir.FuncSymbol {
 		cb.validateMainFunc(sym)
 	} else {
-		cb.errors.AddGeneric1(fmt.Errorf("no main function"))
+		cb.errors.AddGeneric1(fmt.Errorf("no defined main function"))
 	}
 }
 
@@ -166,7 +188,7 @@ func (cb *llvmCodeBuilder) validateMainFunc(mainFunc *ir.Symbol) {
 }
 
 func (cb *llvmCodeBuilder) deleteObjects() {
-	for _, object := range cb.objectfiles {
+	for _, object := range cb.objectFiles {
 		os.Remove(object)
 	}
 }
@@ -215,7 +237,7 @@ func (cb *llvmCodeBuilder) finalizeLLVModule(list *ir.DeclList) bool {
 			panic(err)
 		}
 
-		cb.objectfiles = append(cb.objectfiles, file.Name())
+		cb.objectFiles = append(cb.objectFiles, file.Name())
 
 		if _, err := file.Write(code.Bytes()); err != nil {
 			panic(err)

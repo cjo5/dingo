@@ -1,18 +1,9 @@
-include "../std/lib.dg"
+include "common.dg"
 
-module foo {
-    pub module bar {
-        pub fun hello() {
-            mroot.putln(__fqn__)
-        }
-    }
+extern fun hello()
+extern fun hello()
+extern fun hello()
 
-}
-
-module quux {
-    pub module bar {
-        pub fun hello() {
-            mroot.putln(__fqn__)
-        }
-    }
+extern fun hello() {
+    .putln(__fqn__)
 }

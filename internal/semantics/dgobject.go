@@ -103,12 +103,6 @@ func (c *checker) initDgObjectMatrix(modMatrix moduleMatrix) {
 				obj := c.createDgObject(decl, CUID, mod.fqn)
 				if obj != nil {
 					objList.objects = append(objList.objects, obj)
-					if obj.definition {
-						sym := obj.sym()
-						if sym.ABI != ir.DGABI || (sym.Public && len(sym.ModFQN) == 0) {
-							c.insertSymbol(c.rootScope, sym.Name, sym)
-						}
-					}
 				}
 			}
 			for _, obj := range objList.objects {
@@ -202,9 +196,8 @@ func (c *checker) createDgObject(decl *ir.TopDecl, CUID int, modFQN string) *dgO
 	return newDgObject(decl.D, definition)
 }
 
-func (c *checker) createDeclMatrix() *ir.DeclMatrix {
-	declMatrix := &ir.DeclMatrix{}
-	declMatrix.RootScope = c.rootScope
+func (c *checker) createDeclMatrix() ir.DeclMatrix {
+	var declMatrix ir.DeclMatrix
 out:
 	for _, objList := range c.objectMatrix {
 		resetColors(c.objectMatrix)
@@ -246,7 +239,7 @@ out:
 			CUID:     objList.CUID,
 			Decls:    sortedDecls,
 		}
-		declMatrix.Decls = append(declMatrix.Decls, declList)
+		declMatrix = append(declMatrix, declList)
 	}
 	return declMatrix
 }
