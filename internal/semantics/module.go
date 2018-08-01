@@ -57,7 +57,7 @@ func (c *checker) createModuleList(fileList ir.FileList, CUID int) moduleList {
 				fileParentIndex1: file.ParentIndex1,
 				fileParentIndex2: file.ParentIndex2,
 			}
-			mod.builtinScope = ir.NewScope(ir.ModuleScope, builtinScope, CUID)
+			mod.builtinScope = ir.NewScope(ir.BuiltinScope, builtinScope, CUID)
 			mod.scope = ir.NewScope(ir.ModuleScope, mod.builtinScope, CUID)
 			mod.decls = incompleteMod.Decls
 			mods2[modID] = mod
