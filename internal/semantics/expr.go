@@ -802,7 +802,7 @@ func (c *checker) checkBasicLit(expr *ir.BasicLit) ir.Expr {
 			}
 		}
 	} else if expr.Tok == token.Null {
-		expr.T = ir.NewPointerType(ir.TBuiltinUnknown, false)
+		expr.T = ir.NewBasicType(ir.TNull)
 	} else {
 		panic(fmt.Sprintf("Unhandled literal %s at %s", expr.Tok, expr.Pos()))
 	}

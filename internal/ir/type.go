@@ -19,6 +19,7 @@ const (
 
 	TVoid
 	TBool
+	TNull
 
 	TConstInt
 	TConstFloat
@@ -48,6 +49,7 @@ var types = [...]string{
 	TInvalid:    "invalid",
 	TVoid:       "void",
 	TBool:       "bool",
+	TNull:       "null",
 	TConstInt:   "int",
 	TConstFloat: "float",
 	TInt8:       "i8",

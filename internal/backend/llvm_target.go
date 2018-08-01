@@ -57,6 +57,8 @@ func llvmBasicType(kind ir.TypeKind) llvm.Type {
 		return llvm.VoidType()
 	case ir.TBool:
 		return llvm.Int1Type()
+	case ir.TNull:
+		return llvm.PointerType(llvm.Int8Type(), 0)
 	case ir.TUInt8, ir.TInt8:
 		return llvm.Int8Type()
 	case ir.TUInt16, ir.TInt16:
@@ -112,7 +114,7 @@ func llvmSliceType(t *ir.SliceType, ctx *llvmTypeMap) llvm.Type {
 
 func llvmPointerType(t *ir.PointerType, ctx *llvmTypeMap) llvm.Type {
 	var telem llvm.Type
-	if t.Elem.Kind() == ir.TUnknown || t.Elem.Kind() == ir.TVoid {
+	if t.Elem.Kind() == ir.TVoid {
 		telem = llvm.Int8Type()
 	} else {
 		telem = llvmType(t.Elem, ctx)

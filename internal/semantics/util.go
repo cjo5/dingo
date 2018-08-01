@@ -122,13 +122,6 @@ func isIncompleteType(t ir.Type, outer ir.Type) bool {
 	return incomplete
 }
 
-func isNullPointerType(t ir.Type) bool {
-	if tptr, ok := t.(*ir.PointerType); ok {
-		return tptr.Elem.Kind() == ir.TUnknown
-	}
-	return false
-}
-
 func tryDeref(expr ir.Expr) ir.Expr {
 	var tres ir.Type
 	switch t1 := ir.ToBaseType(expr.Type()).(type) {
@@ -179,7 +172,7 @@ func tryPromoteConstType(expr ir.Expr, target ir.Type) (ir.Expr, bool) {
 		if ir.IsFloatType(target) {
 			promote = true
 		}
-	} else if isNullPointerType(texpr) {
+	} else if texpr.Kind() == ir.TNull {
 		if target == nil {
 			target = ir.NewPointerType(ir.TBuiltinInt8, false)
 		}
