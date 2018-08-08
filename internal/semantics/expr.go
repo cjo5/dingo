@@ -657,6 +657,8 @@ func (c *checker) unescapeStringLiteral(lit *ir.BasicLit) (string, bool) {
 				ch1 = 0x09
 			} else if ch2 == 'v' {
 				ch1 = 0x0b
+			} else if ch2 == '"' {
+				ch1 = ch2
 			} else {
 				c.error(lit.Pos(), "invalid escape sequence '\\%c'", ch2)
 				return "", false

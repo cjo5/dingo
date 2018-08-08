@@ -2,10 +2,10 @@ A module is a namespace and provides a way to group related code and avoid name 
 Modules can be nested, in which case they share a common prefix.
 An identifier's Fully Qualified Name (FQN) is the path from the root module to the identifier.
 
-module foo {          // FQN: foo
-    var bar i32       // FQN: foo.bar
-    module baz {      // FQN: foo.baz
-        var qux i32   // FQN: foo.baz.qux
+module foo {        // FQN: foo
+    var bar i32     // FQN: foo.bar
+    module baz {    // FQN: foo.baz
+        var qux i32 // FQN: foo.baz.qux
     }
 } 
 
@@ -44,8 +44,8 @@ fun hello() {}
 
 module foo {
     fun bar() {
-        hello()   // error
-        .hello()  // ok
+        hello()    // error
+        .hello()   // ok
         baz.quux() // ok
     }
     module baz {

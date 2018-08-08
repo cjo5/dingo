@@ -1,5 +1,9 @@
 FROM ubuntu:16.04
 
+# Build:    docker build -t dingo .
+# Run:      docker run -it --rm dingo
+# Run args: docker run -it --rm dingo /bin/bash -c "dgc FILES && ./dgexe [ARGS]"
+
 RUN apt-get update && apt-get install -y \
     build-essential \
     cmake \
@@ -26,11 +30,9 @@ WORKDIR $GOPATH/src/github.com/jhnl/dingo
 COPY internal ./internal
 COPY cmd ./cmd
 
-# Install Dingo compiler, test tool, and create entrypoint script
+# Install compiler and test tool
 RUN go install github.com/jhnl/dingo/cmd/dgc \
-    && go install github.com/jhnl/dingo/cmd/dgc-test \
-    && printf '#!/usr/bin/env bash\ndgc $@ && ./dgexe\n' > entrypoint.sh \
-    && chmod +x entrypoint.sh
+    && go install github.com/jhnl/dingo/cmd/dgc-test
 
 # Copy Dingo tests and examples
 # Files specified as arguments to docker run should be located in these directories
@@ -38,5 +40,4 @@ COPY std ./std
 COPY test ./test
 COPY examples/ ./examples
 
-ENTRYPOINT ["./entrypoint.sh"]
-CMD ["test/docker_hello.dg"]
+CMD ["/bin/bash", "-c", "dgc test/docker_hello.dg && ./dgexe"]
