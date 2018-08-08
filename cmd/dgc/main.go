@@ -13,16 +13,20 @@ import (
 )
 
 func main() {
-	config := common.NewBuildConfig()
+	cwd, err := os.Getwd()
+	if err != nil {
+		panic(err)
+	}
+	ctx := common.NewBuildContext(cwd)
 
 	flag.Usage = func() {
-		fmt.Printf("Usage of %s: [options] file\n", os.Args[0])
+		fmt.Printf("Usage of %s: [options] files\n", os.Args[0])
 		flag.PrintDefaults()
 	}
 
-	flag.StringVar(&config.Exe, "exe", "dgexe", "Name of executable")
-	flag.BoolVar(&config.Verbose, "verbose", false, "Print compilation info")
-	flag.BoolVar(&config.LLVMIR, "dump-llvm-ir", false, "Print LLVM IR")
+	flag.StringVar(&ctx.Exe, "exe", "dgexe", "Name of executable")
+	flag.BoolVar(&ctx.Verbose, "verbose", false, "Print compilation info")
+	flag.BoolVar(&ctx.LLVMIR, "dump-llvm-ir", false, "Print LLVM IR")
 	flag.Parse()
 
 	if len(flag.Args()) == 0 {
@@ -30,52 +34,24 @@ func main() {
 		os.Exit(0)
 	}
 
-	errors := &common.ErrorList{}
-	build(flag.Args(), config, errors)
-	printErrors(errors)
+	build(ctx, flag.Args())
 }
 
-func printErrors(errors *common.ErrorList) {
-	errors.Sort()
-	errors.LoadContext()
-
-	for _, warn := range errors.Warnings {
+func build(ctx *common.BuildContext, filenames []string) {
+	if fileMatrix, ok := frontend.Load(ctx, filenames); ok {
+		target := backend.NewLLVMTarget()
+		if declMatrix, ok := semantics.Check(ctx, target, fileMatrix); ok {
+			backend.BuildLLVM(ctx, target, declMatrix)
+		}
+	}
+	ctx.FormatErrors()
+	for _, warn := range ctx.Errors.Warnings {
 		fmt.Printf("%s\n", warn)
 	}
-
-	for _, err := range errors.Errors {
+	for _, err := range ctx.Errors.Errors {
 		fmt.Printf("%s\n", err)
 	}
-
-	if errors.IsError() {
+	if ctx.Errors.IsError() {
 		os.Exit(1)
 	}
-}
-
-func build(filenames []string, config *common.BuildConfig, errors *common.ErrorList) {
-	fileList1, err := frontend.Load(filenames)
-	addError(err, errors)
-
-	if errors.IsError() {
-		return
-	}
-
-	target := backend.NewLLVMTarget()
-
-	cunitSet, err := semantics.Check(fileList1, target)
-	addError(err, errors)
-
-	if errors.IsError() {
-		return
-	}
-
-	err = backend.BuildLLVM(cunitSet, target, config)
-	addError(err, errors)
-}
-
-func addError(newError error, errors *common.ErrorList) {
-	if newError == nil {
-		return
-	}
-	errors.AddGeneric1(newError)
 }

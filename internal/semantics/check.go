@@ -55,16 +55,17 @@ func init() {
 }
 
 // Check semantics.
-func Check(fileMatrix ir.FileMatrix, target ir.Target) (ir.DeclMatrix, error) {
-	c := newChecker(target)
+func Check(ctx *common.BuildContext, target ir.Target, fileMatrix ir.FileMatrix) (ir.DeclMatrix, bool) {
+	ctx.SetCheckpoint()
+	c := newChecker(ctx, target)
 	modMatrix := c.createModuleMatrix(fileMatrix)
 	c.initDgObjectMatrix(modMatrix)
 	c.checkTypes()
-	if c.errors.IsError() {
-		return nil, c.errors
+	if ctx.IsErrorSinceCheckpoint() {
+		return nil, false
 	}
 	declMatrix := c.createDeclMatrix()
-	return declMatrix, c.errors
+	return declMatrix, !ctx.IsErrorSinceCheckpoint()
 }
 
 const (
@@ -75,8 +76,8 @@ const (
 )
 
 type checker struct {
+	ctx    *common.BuildContext
 	target ir.Target
-	errors *common.ErrorList
 
 	objectMatrix  []*dgObjectList
 	currentSymKey int
@@ -101,10 +102,10 @@ func stmtList(stmts []ir.Stmt, visit func(ir.Stmt)) {
 	}
 }
 
-func newChecker(target ir.Target) *checker {
+func newChecker(ctx *common.BuildContext, target ir.Target) *checker {
 	return &checker{
+		ctx:           ctx,
 		target:        target,
-		errors:        &common.ErrorList{},
 		currentSymKey: 1,
 		objectMap:     make(map[int]*dgObject),
 		constMap:      make(map[int]ir.Expr),
@@ -148,17 +149,17 @@ func (c *checker) closeScope() {
 }
 
 func (c *checker) error(pos token.Position, format string, args ...interface{}) {
-	c.errors.Add(pos, format, args...)
+	c.ctx.Errors.Add(pos, format, args...)
 }
 
 func (c *checker) nodeError(node ir.Node, format string, args ...interface{}) {
 	pos := node.Pos()
 	endPos := node.EndPos()
-	c.errors.AddRange(pos, endPos, format, args...)
+	c.ctx.Errors.AddRange(pos, endPos, format, args...)
 }
 
 func (c *checker) warning(pos token.Position, format string, args ...interface{}) {
-	c.errors.AddWarning(pos, format, args...)
+	c.ctx.Errors.AddWarning(pos, format, args...)
 }
 
 func (c *checker) lookup(name string) *ir.Symbol {

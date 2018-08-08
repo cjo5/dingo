@@ -125,7 +125,7 @@ func (c *checker) createModuleList(fileList ir.FileList, CUID int) moduleList {
 				modPath[j] = tmp
 			}
 			if existing, ok := modList.importMap[mod.fqn]; ok {
-				c.errors.Add(mod.name.Pos(), "redefinition of local module '%s' (different definition is at '%s')", mod.fqn, existing.Pos)
+				c.error(mod.name.Pos(), "redefinition of local module '%s' (different definition is at '%s')", mod.fqn, existing.Pos)
 			} else {
 				// Ensure modpath has all entries.
 				// If fqn of current module is foo.bar.baz, then bar is created in foo and baz is created in bar.
@@ -157,7 +157,7 @@ func (c *checker) createModuleList(fileList ir.FileList, CUID int) moduleList {
 				modList.mods = append(modList.mods, mod)
 				if mod.sym.Public {
 					if existing, ok := c.importMap[mod.fqn]; ok {
-						c.errors.Add(mod.sym.Pos, "redefinition of public module '%s' (different definition is at '%s')", mod.fqn, existing.Pos)
+						c.error(mod.sym.Pos, "redefinition of public module '%s' (different definition is at '%s')", mod.fqn, existing.Pos)
 					} else {
 						c.importMap[mod.fqn] = mod.sym
 					}

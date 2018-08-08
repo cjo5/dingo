@@ -3,7 +3,6 @@ package frontend
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
 
 	"github.com/jhnl/dingo/internal/common"
 	"github.com/jhnl/dingo/internal/ir"
@@ -12,13 +11,8 @@ import (
 
 var anonID = 1
 
-func parseFile(filename string) (*ir.File, error) {
-	buf, err := ioutil.ReadFile(filename)
-	if err != nil {
-		return nil, err
-	}
-
-	p := newParser(buf, filename)
+func parseFile(filename string, src []byte) (*ir.File, error) {
+	p := newParser(filename, src)
 
 	mod := &ir.IncompleteModule{ParentIndex: 0}
 	mod.Visibility = token.Private
@@ -52,10 +46,11 @@ type parser struct {
 	anonDecls  []*ir.TopDecl
 }
 
-func newParser(src []byte, filename string) *parser {
-	p := &parser{}
-	p.errors = &common.ErrorList{}
-	p.file = &ir.File{Filename: filename}
+func newParser(filename string, src []byte) *parser {
+	p := &parser{
+		errors: &common.ErrorList{},
+		file:   &ir.File{Filename: filename},
+	}
 	p.lexer.init(src, filename, p.errors)
 	p.next()
 	return p

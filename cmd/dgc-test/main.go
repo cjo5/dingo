@@ -24,6 +24,11 @@ import (
 )
 
 func main() {
+	cwd, err := os.Getwd()
+	if err != nil {
+		panic(err)
+	}
+
 	var manifest string
 	var explicitTests string
 
@@ -32,7 +37,7 @@ func main() {
 	flag.Parse()
 
 	var groups []*testGroup
-	tester := &testRunner{}
+	tester := &testRunner{cwd: cwd}
 
 	if len(manifest) > 0 {
 		groups = readTestManifest(manifest)
@@ -58,6 +63,7 @@ func main() {
 }
 
 type testRunner struct {
+	cwd            string
 	baseDir        string
 	defaultModules []string
 
@@ -256,43 +262,40 @@ func (t *testRunner) runTest(testName string, testDir string, testFile string, t
 		filenames = append(filenames, filename)
 	}
 
+	ctx := common.NewBuildContext(t.cwd)
+	ctx.Exe = filepath.Join(os.TempDir(), strings.Replace(testName, "/", "_", -1))
+
 	var expectedCompilerOutput []*testOutputPattern
 	var expectedExeOutput []*testOutputPattern
 
 	result := &testResult{status: statusSuccess}
-	fileList, err := frontend.Load(filenames)
+	fileMatrix, _ := frontend.Load(ctx, filenames)
 
-	if fileList != nil {
-		expectedCompilerOutput, expectedExeOutput = parseTestDescription(fileList[0][0].Comments, result)
+	if fileMatrix != nil {
+		expectedCompilerOutput, expectedExeOutput = parseTestDescription(fileMatrix[0][0].Comments, result)
 		if result.status != statusSuccess {
 			return result
 		}
 	}
 
-	errors := &common.ErrorList{}
-	config := common.NewBuildConfig()
-	config.Exe = filepath.Join(os.TempDir(), strings.Replace(testName, "/", "_", -1))
-
-	if !addError(err, errors) {
+	if !ctx.Errors.IsError() {
 		target := backend.NewLLVMTarget()
-		cunitSet, err := semantics.Check(fileList, target)
-		if !addError(err, errors) {
-			err = backend.BuildLLVM(cunitSet, target, config)
-			addError(err, errors)
+		if declMatrix, ok := semantics.Check(ctx, target, fileMatrix); ok {
+			backend.BuildLLVM(ctx, target, declMatrix)
 		}
 	}
 
 	var compilerOutput []*testOutput
 
-	errors.Sort()
-	addCompilerOutput(errors.Warnings, &compilerOutput)
-	addCompilerOutput(errors.Errors, &compilerOutput)
+	ctx.Errors.Sort()
+	addCompilerOutput(ctx.Errors.Warnings, &compilerOutput)
+	addCompilerOutput(ctx.Errors.Errors, &compilerOutput)
 	compareOutput(expectedCompilerOutput, compilerOutput, result)
 
 	var exeOutput []*testOutput
 
-	if !errors.IsError() {
-		cmd := exec.Command(config.Exe)
+	if !ctx.Errors.IsError() {
+		cmd := exec.Command(ctx.Exe)
 		bytes, err := cmd.CombinedOutput()
 		if err != nil {
 			result.addReason("internal error: %s", err)
@@ -307,7 +310,7 @@ func (t *testRunner) runTest(testName string, testDir string, testFile string, t
 		result.status = statusFail
 	}
 
-	os.Remove(config.Exe)
+	os.Remove(ctx.Exe)
 
 	return result
 }
@@ -392,13 +395,13 @@ func compareOutput(expectedOutput []*testOutputPattern, actualOutput []*testOutp
 	}
 }
 
-var expectArgRegex *regexp.Regexp
+var expectedArgRegex *regexp.Regexp
 
 func init() {
 	// https://github.com/google/re2/wiki/Syntax
 	// ('+'|'-')? \w+
 	var err error
-	expectArgRegex, err = regexp.Compile("\\((?:\\+|-)?\\w+\\)")
+	expectedArgRegex, err = regexp.Compile("\\((?:\\+|-)?\\w+\\)")
 	if err != nil {
 		panic(err)
 	}
@@ -431,7 +434,7 @@ func parseTestDescription(comments []*ir.Comment, result *testResult) (compiler 
 					pattern.addPart(common.ErrorMsg.String(), nil)
 				}
 
-				rematch := expectArgRegex.FindString(lit)
+				rematch := expectedArgRegex.FindString(lit)
 				if len(rematch) > 0 {
 					lit = lit[len(rematch):]
 					rematch = rematch[1 : len(rematch)-1]

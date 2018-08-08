@@ -2,8 +2,6 @@ package common
 
 import (
 	"fmt"
-	"io/ioutil"
-	"strings"
 
 	"bytes"
 	"sort"
@@ -127,120 +125,6 @@ func (e *ErrorList) Append(other *ErrorList) {
 
 func (e *ErrorList) IsError() bool {
 	return len(e.Errors) > 0
-}
-
-func (e *ErrorList) LoadContext() {
-	loadContext1(e.Warnings)
-	loadContext1(e.Errors)
-}
-
-// TODO: Rewrite
-func loadContext1(errors []*Error) {
-	var buf []byte
-	filename := ""
-
-	for _, e := range errors {
-		if len(e.Context) > 0 {
-			continue
-		}
-
-		if e.Pos.IsValid() {
-			if e.Pos.Filename != filename {
-				buf = nil
-				filename = e.Pos.Filename
-				if len(filename) > 0 {
-					buf2, err := ioutil.ReadFile(filename)
-					if err == nil {
-						buf = buf2
-					}
-				}
-			}
-
-			if e.Pos.Offset <= len(buf) {
-				// Find line start and end
-				start := e.Pos.Offset - 1
-				end := e.Pos.Offset
-				foundStart := false
-				foundEnd := false
-
-				for !(foundStart && foundEnd) {
-					if !foundStart {
-						if start <= 0 {
-							start = 0
-							foundStart = true
-						} else if buf[start] == '\n' {
-							start++
-							foundStart = true
-						} else {
-							start--
-						}
-					}
-
-					if !foundEnd {
-						if end >= len(buf) {
-							end = len(buf)
-							foundEnd = true
-						} else if buf[end] == '\n' {
-							if end > 0 && buf[end-1] == '\r' {
-								end--
-							}
-							foundEnd = true
-						} else {
-							end++
-						}
-					}
-				}
-
-				if start < end {
-					var indent bytes.Buffer
-					spaces := 0
-
-					for _, ch := range buf[start:end] {
-						if ch == ' ' {
-							indent.WriteString(" ")
-							spaces++
-						} else if ch == '\t' {
-							indent.WriteString("    ")
-							spaces++
-						} else {
-							break
-						}
-					}
-
-					line := string(buf[start:end])
-					line = strings.Trim(line, " \t")
-					lineLen := len(line)
-
-					maxLen := 200
-
-					if lineLen > maxLen {
-						line = line[:maxLen+1]
-						lineLen = len(line)
-						line += "..."
-					}
-
-					if lineLen > 0 {
-						lineLen++ // include newline in line length
-
-						line = indent.String() + line
-						e.Context = append(e.Context, line)
-
-						col := (e.Pos.Column - 1) - spaces
-						if col >= 0 && col <= lineLen {
-							mark := indent.String() + strings.Repeat(" ", col)
-							endCol := (e.EndPos.Column - 1 - spaces) - col
-							if e.EndPos.Line == e.Pos.Line && endCol > 1 && endCol < lineLen {
-								mark += BoldGreen(strings.Repeat("~", endCol))
-							} else {
-								mark += BoldGreen("^")
-							}
-							e.Context = append(e.Context, mark)
-						}
-					}
-				}
-			}
-		}
-	}
 }
 
 // Sort errors by filename and line numbers.

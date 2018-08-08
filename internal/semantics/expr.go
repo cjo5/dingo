@@ -6,7 +6,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/jhnl/dingo/internal/common"
 	"github.com/jhnl/dingo/internal/ir"
 	"github.com/jhnl/dingo/internal/token"
 )
@@ -679,7 +678,6 @@ func (c *checker) checkBasicLit(expr *ir.BasicLit) ir.Expr {
 		expr.T = ir.TBuiltinBool
 	} else if expr.Tok == token.Char {
 		if raw, ok := c.unescapeStringLiteral(expr); ok {
-			common.Assert(len(raw) == 1, "Unexpected length on char literal")
 			val := big.NewInt(0)
 			val.SetUint64(uint64(raw[0]))
 			expr.Raw = val

@@ -18,9 +18,8 @@ import (
 
 type llvmCodeBuilder struct {
 	b               llvm.Builder
-	errors          *common.ErrorList
+	ctx             *common.BuildContext
 	target          *llvmTarget
-	config          *common.BuildConfig
 	objectFiles     []string
 	externalNameMap map[string]*ir.Symbol
 
@@ -84,47 +83,47 @@ const ptrFieldIndex = 0
 const lenFieldIndex = 1
 
 // BuildLLVM code.
-func BuildLLVM(matrix ir.DeclMatrix, target ir.Target, config *common.BuildConfig) error {
-	llvmTarget := target.(*llvmTarget)
+func BuildLLVM(ctx *common.BuildContext, target ir.Target, matrix ir.DeclMatrix) bool {
+	ctx.SetCheckpoint()
 
-	cb := newBuilder(llvmTarget, config)
+	llvmTarget := target.(*llvmTarget)
+	cb := newBuilder(ctx, llvmTarget)
 	cb.addExternalNameEntries(matrix)
 	cb.validateExternalNameEntries()
 
-	if cb.errors.IsError() {
-		return cb.errors
+	if ctx.IsErrorSinceCheckpoint() {
+		return false
 	}
 
 	defer cb.deleteObjects()
 
 	for _, list := range matrix {
 		if !cb.buildLLVModule(list) {
-			return cb.errors
+			return false
 		}
 	}
 
 	var args []string
 	args = append(args, "-o")
-	args = append(args, config.Exe)
+	args = append(args, ctx.Exe)
 	args = append(args, cb.objectFiles...)
 
 	cmd := exec.Command("cc", args...)
 	if linkOutput, linkErr := cmd.CombinedOutput(); linkErr != nil {
 		lines := strings.Split(string(linkOutput), "\n")
-		cb.errors.AddContext(token.NoPosition, lines, "link: %s", linkErr)
+		cb.ctx.Errors.AddContext(token.NoPosition, lines, "link: %s", linkErr)
 	}
 
-	return cb.errors
+	return !ctx.IsErrorSinceCheckpoint()
 }
 
-func newBuilder(target *llvmTarget, config *common.BuildConfig) *llvmCodeBuilder {
-	cb := &llvmCodeBuilder{b: llvm.NewBuilder()}
-	cb.b = llvm.NewBuilder()
-	cb.errors = &common.ErrorList{}
-	cb.target = target
-	cb.config = config
-	cb.externalNameMap = make(map[string]*ir.Symbol)
-	return cb
+func newBuilder(ctx *common.BuildContext, target *llvmTarget) *llvmCodeBuilder {
+	return &llvmCodeBuilder{
+		b:               llvm.NewBuilder(),
+		ctx:             ctx,
+		target:          target,
+		externalNameMap: make(map[string]*ir.Symbol),
+	}
 }
 
 func (cb *llvmCodeBuilder) addExternalNameEntries(matrix ir.DeclMatrix) {
@@ -136,7 +135,7 @@ func (cb *llvmCodeBuilder) addExternalNameEntries(matrix ir.DeclMatrix) {
 				name := mangle(sym)
 				if existing, ok := cb.externalNameMap[name]; ok {
 					if existing != sym {
-						cb.errors.Add(sym.Pos, "link name collision for '%s' (duplicate is at %s)", name, existing.Pos)
+						cb.ctx.Errors.Add(sym.Pos, "link name collision for '%s' (duplicate is at %s)", name, existing.Pos)
 					}
 				} else {
 					cb.externalNameMap[name] = sym
@@ -151,7 +150,7 @@ func (cb *llvmCodeBuilder) validateExternalNameEntries() {
 	if sym != nil && sym.Kind == ir.FuncSymbol {
 		cb.validateMainFunc(sym)
 	} else {
-		cb.errors.AddGeneric1(fmt.Errorf("no defined main function"))
+		cb.ctx.Errors.AddGeneric1(fmt.Errorf("no defined main function"))
 	}
 }
 
@@ -160,13 +159,13 @@ func (cb *llvmCodeBuilder) validateMainFunc(mainFunc *ir.Symbol) {
 	pos := mainFunc.Pos
 
 	if !tmain.C {
-		cb.errors.Add(pos, "'main' must be declared as a C function")
+		cb.ctx.Errors.Add(pos, "'main' must be declared as a C function")
 	}
 
 	if len(tmain.Params) > 0 {
 		param0 := tmain.Params[0]
 		if param0.T.Kind() != ir.TInt32 {
-			cb.errors.Add(pos, "first parameter of 'main' must have type %s (has type %s)", ir.TInt32, param0.T)
+			cb.ctx.Errors.Add(pos, "first parameter of 'main' must have type %s (has type %s)", ir.TInt32, param0.T)
 		}
 	}
 
@@ -174,16 +173,16 @@ func (cb *llvmCodeBuilder) validateMainFunc(mainFunc *ir.Symbol) {
 		param1 := tmain.Params[1]
 		texpected := ir.NewPointerType(ir.NewPointerType(ir.NewBasicType(ir.TInt8), true), true)
 		if !param1.T.Equals(texpected) {
-			cb.errors.Add(pos, "second parameter of 'main' must have type %s (has type %s)", texpected, param1.T)
+			cb.ctx.Errors.Add(pos, "second parameter of 'main' must have type %s (has type %s)", texpected, param1.T)
 		}
 	}
 
 	if len(tmain.Params) > 2 {
-		cb.errors.Add(pos, "'main' can have no more than 2 parameters (got %d)", len(tmain.Params))
+		cb.ctx.Errors.Add(pos, "'main' can have no more than 2 parameters (got %d)", len(tmain.Params))
 	}
 
 	if tmain.Return.Kind() != ir.TInt32 {
-		cb.errors.Add(pos, "'main' must have return type %s (has type %s)", ir.TInt32, tmain.Return)
+		cb.ctx.Errors.Add(pos, "'main' must have return type %s (has type %s)", ir.TInt32, tmain.Return)
 	}
 }
 
@@ -213,11 +212,11 @@ func (cb *llvmCodeBuilder) buildLLVModule(list *ir.DeclList) bool {
 }
 
 func (cb *llvmCodeBuilder) finalizeLLVModule(list *ir.DeclList) bool {
-	if cb.errors.IsError() {
+	if cb.ctx.IsErrorSinceCheckpoint() {
 		return false
 	}
 
-	if cb.config.LLVMIR {
+	if cb.ctx.LLVMIR {
 		cb.mod.Dump()
 	}
 
@@ -358,7 +357,7 @@ func (cb *llvmCodeBuilder) buildFuncDecl(decl *ir.FuncDecl) {
 		cb.b.CreateRet(res)
 
 		if !terminated {
-			cb.errors.Add(decl.Body.EndPos(), "missing return")
+			cb.ctx.Errors.Add(decl.Body.EndPos(), "missing return")
 		}
 	}
 }
@@ -512,7 +511,7 @@ func (cb *llvmCodeBuilder) buildBlockStmt(blockStmt *ir.BlockStmt) bool {
 		}
 		if terminate {
 			if (index + 1) < len(blockStmt.Stmts) {
-				cb.errors.AddWarning(blockStmt.Stmts[index+1].Pos(), "unreachable code")
+				cb.ctx.Errors.AddWarning(blockStmt.Stmts[index+1].Pos(), "unreachable code")
 			}
 			break
 		}

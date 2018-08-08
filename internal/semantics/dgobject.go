@@ -232,7 +232,7 @@ out:
 					lines = append(lines, line)
 				}
 
-				c.errors.AddContext(sym.Pos, lines, "cycle detected")
+				c.ctx.Errors.AddContext(sym.Pos, lines, "cycle detected")
 				break out
 			}
 		}

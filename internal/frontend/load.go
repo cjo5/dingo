@@ -1,6 +1,7 @@
 package frontend
 
 import (
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -18,66 +19,47 @@ const fileExtension = ".dg"
 type dgFile struct {
 	srcPos            token.Position // Position in parent where file was included
 	path              token.Position // The actual (cleaned) path in the code
-	canonicalPath     token.Position // Used to determine if two paths refer to the same file
+	absPath           token.Position // Used to determine if two paths refer to the same file
 	parsedFile        *ir.File
 	parent            *dgFile
 	children          []*dgFile
 	parentModuleIndex int
 }
 
-type loader struct {
-	errors *common.ErrorList
-	cwd    string
-}
-
 // Load files and includes.
-func Load(filenames []string) (ir.FileMatrix, error) {
-	l := newLoader()
-	cwd, err := os.Getwd()
-	if err != nil {
-		l.errors.AddGeneric1(err)
-		return nil, l.errors
-	}
-	l.cwd = cwd
+func Load(ctx *common.BuildContext, filenames []string) (ir.FileMatrix, bool) {
 	var matrix ir.FileMatrix
+	ctx.SetCheckpoint()
 	for _, filename := range filenames {
-		list := l.loadFileList(filename)
+		list := loadFileList(ctx, filename)
 		if list != nil {
 			matrix = append(matrix, list)
 		}
 	}
-	return matrix, l.errors
+	return matrix, !ctx.IsErrorSinceCheckpoint()
 }
 
-func newLoader() *loader {
-	l := &loader{}
-	l.errors = &common.ErrorList{}
-	return l
-}
-
-func (l *loader) loadFileList(filename string) ir.FileList {
+func loadFileList(ctx *common.BuildContext, filename string) ir.FileList {
 	if !strings.HasSuffix(filename, fileExtension) {
-		l.errors.AddGeneric1(fmt.Errorf("%s does not have file extension %s", filename, fileExtension))
+		ctx.Errors.AddGeneric1(fmt.Errorf("%s does not have file extension %s", filename, fileExtension))
 		return nil
 	}
 
-	root, err := dgFileFromPath(token.NoPosition, l.cwd, "", filename)
+	root, err := dgFileFromPath(token.NoPosition, ctx.Cwd, "", filename)
 	if err != nil {
-		l.errors.AddGeneric1(err)
+		ctx.Errors.AddGeneric1(err)
 		return nil
 	}
 
-	root.parsedFile, err = parseFile(root.path.Filename)
-
-	if err != nil {
-		l.errors.AddGeneric2(root.path, err)
+	root.parsedFile = loadFile(ctx, root.path)
+	if root.parsedFile == nil {
 		return nil
 	}
 
 	root.parsedFile.ParentIndex1 = 0
 	root.parsedFile.ParentIndex2 = 0
 
-	if !l.createIncludeList(root) {
+	if !createIncludeList(ctx, root) {
 		return nil
 	}
 
@@ -88,14 +70,13 @@ func (l *loader) loadFileList(filename string) ir.FileList {
 	for fileID := 0; fileID < len(loadedFiles); fileID++ {
 		file := loadedFiles[fileID]
 		for _, child := range file.children {
-			child.parsedFile, err = parseFile(child.path.Filename)
-			if err != nil {
-				l.errors.AddGeneric2(child.path, err)
+			child.parsedFile = loadFile(ctx, child.path)
+			if child.parsedFile == nil {
 				continue
 			}
 			child.parsedFile.ParentIndex1 = fileID
 			child.parsedFile.ParentIndex2 = child.parentModuleIndex
-			if !l.createIncludeList(child) {
+			if !createIncludeList(ctx, child) {
 				continue
 			}
 			loadedFiles = append(loadedFiles, child)
@@ -106,18 +87,33 @@ func (l *loader) loadFileList(filename string) ir.FileList {
 	return fileList
 }
 
+func loadFile(ctx *common.BuildContext, path token.Position) *ir.File {
+	cachedFile := ctx.LookupFile(path.Filename)
+	if cachedFile == nil {
+		buf, err := ioutil.ReadFile(path.Filename)
+		if err != nil {
+			ctx.Errors.AddGeneric2(path, err)
+			return nil
+		}
+		cachedFile = ctx.NewFile(path.Filename, buf)
+	}
+	parsedFile, err := parseFile(path.Filename, cachedFile.Src)
+	if err != nil {
+		ctx.Errors.AddGeneric2(path, err)
+		return nil
+	}
+	return parsedFile
+}
+
 func dgFileFromPath(src token.Position, cwd string, dir string, filename string) (*dgFile, error) {
 	path := filename
-	canonicalPath := filename
-	if !filepath.IsAbs(filename) {
-		path = filepath.Join(dir, filename)
-		canonicalPath = filepath.Join(cwd, path)
+	if !filepath.IsAbs(path) {
+		path = filepath.Join(dir, path)
 		if !strings.HasPrefix(path, ".") {
 			path = "./" + path
 		}
 	}
 	path = filepath.Clean(path)
-	canonicalPath = filepath.Clean(canonicalPath)
 	if stat, err := os.Stat(path); err != nil {
 		if os.IsNotExist(err) {
 			// Failed to find file
@@ -128,14 +124,14 @@ func dgFileFromPath(src token.Position, cwd string, dir string, filename string)
 		return nil, fmt.Errorf("'%s' is a directory", path)
 	}
 	file := &dgFile{
-		srcPos:        src,
-		path:          token.NewPosition1(path),
-		canonicalPath: token.NewPosition1(canonicalPath),
+		srcPos:  src,
+		path:    token.NewPosition1(path),
+		absPath: token.NewPosition1(token.Abs(cwd, path)),
 	}
 	return file, nil
 }
 
-func (l *loader) createIncludeList(parent *dgFile) bool {
+func createIncludeList(ctx *common.BuildContext, parent *dgFile) bool {
 	parentDir := filepath.Dir(parent.path.Filename)
 	ok := true
 
@@ -149,23 +145,23 @@ func (l *loader) createIncludeList(parent *dgFile) bool {
 			if len(unquoted) == 0 {
 				trace := getIncludedByTrace(parent)
 				if len(trace) > 1 {
-					l.errors.AddContext(includeLit.Pos(), formatIncludeTrace(trace), "invalid path")
+					ctx.Errors.AddContext(includeLit.Pos(), formatIncludeTrace(trace), "invalid path")
 				} else {
-					l.errors.Add(includeLit.Pos(), "invalid path")
+					ctx.Errors.Add(includeLit.Pos(), "invalid path")
 				}
 				ok = false
 				break
 			}
 
-			child, err := dgFileFromPath(includeLit.Pos(), l.cwd, parentDir, unquoted)
+			child, err := dgFileFromPath(includeLit.Pos(), ctx.Cwd, parentDir, unquoted)
 			if err != nil {
-				l.errors.AddGeneric2(includeLit.Pos(), err)
+				ctx.Errors.AddGeneric2(includeLit.Pos(), err)
 				ok = false
 				break
 			}
 
 			if trace, ok := checkIncludeCycle(parent, child); ok {
-				l.errors.AddContext(includeLit.Pos(), formatIncludeTrace(trace), "cycle detected")
+				ctx.Errors.AddContext(includeLit.Pos(), formatIncludeTrace(trace), "cycle detected")
 				ok = false
 				break
 			}
@@ -184,7 +180,7 @@ func checkIncludeCycle(parent *dgFile, child *dgFile) ([]*dgFile, bool) {
 	file := parent
 	for file != nil {
 		trace = append(trace, file)
-		if file.canonicalPath.Filename == child.canonicalPath.Filename {
+		if file.absPath.Filename == child.absPath.Filename {
 			return trace, true
 		}
 		file = file.parent

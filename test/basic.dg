@@ -1,16 +1,6 @@
 include "common.dg"
 
 extern fun main() i32 {
-    importlocal f = foo
-    importlocal f = foo
-    f.hello()
-
-
+    val a = b
     return 0
-}
-
-module foo {
-    fun hello() {
-        .putln(__fqn__)
-    }
 }
