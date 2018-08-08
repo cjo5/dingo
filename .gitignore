@@ -1,5 +1,3 @@
-.vscode/*
 *.o
-.DS_Store
 dgexe
 main
