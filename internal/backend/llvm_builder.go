@@ -5,14 +5,14 @@ import (
 	"os"
 	"strings"
 
-	"github.com/jhnl/dingo/internal/common"
+	"github.com/cjo5/dingo/internal/common"
 
 	"io/ioutil"
 	"os/exec"
 	"path/filepath"
 
-	"github.com/jhnl/dingo/internal/ir"
-	"github.com/jhnl/dingo/internal/token"
+	"github.com/cjo5/dingo/internal/ir"
+	"github.com/cjo5/dingo/internal/token"
 	"llvm.org/llvm/bindings/go/llvm"
 )
 

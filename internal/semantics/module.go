@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/jhnl/dingo/internal/ir"
-	"github.com/jhnl/dingo/internal/token"
+	"github.com/cjo5/dingo/internal/ir"
+	"github.com/cjo5/dingo/internal/token"
 )
 
 type module struct {

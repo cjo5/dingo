@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/jhnl/dingo/internal/ir"
-	"github.com/jhnl/dingo/internal/token"
+	"github.com/cjo5/dingo/internal/ir"
+	"github.com/cjo5/dingo/internal/token"
 )
 
 func (c *checker) insertSymbol(scope *ir.Scope, alias string, sym *ir.Symbol) *ir.Symbol {

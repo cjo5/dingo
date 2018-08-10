@@ -6,7 +6,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/jhnl/dingo/internal/token"
+	"github.com/cjo5/dingo/internal/token"
 )
 
 // BuildContext contains config options and state for the current build.

@@ -6,7 +6,7 @@ import (
 	"math"
 	"math/big"
 
-	"github.com/jhnl/dingo/internal/token"
+	"github.com/cjo5/dingo/internal/token"
 )
 
 // TypeKind identifies the base type.

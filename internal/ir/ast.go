@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/jhnl/dingo/internal/token"
+	"github.com/cjo5/dingo/internal/token"
 )
 
 // AST flags.

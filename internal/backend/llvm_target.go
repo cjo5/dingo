@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/jhnl/dingo/internal/ir"
+	"github.com/cjo5/dingo/internal/ir"
 	"llvm.org/llvm/bindings/go/llvm"
 )
 

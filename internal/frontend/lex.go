@@ -1,8 +1,8 @@
 package frontend
 
 import (
-	"github.com/jhnl/dingo/internal/common"
-	"github.com/jhnl/dingo/internal/token"
+	"github.com/cjo5/dingo/internal/common"
+	"github.com/cjo5/dingo/internal/token"
 )
 
 type lexer struct {

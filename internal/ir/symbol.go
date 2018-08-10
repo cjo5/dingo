@@ -1,6 +1,6 @@
 package ir
 
-import "github.com/jhnl/dingo/internal/token"
+import "github.com/cjo5/dingo/internal/token"
 import "fmt"
 
 // CABI name.

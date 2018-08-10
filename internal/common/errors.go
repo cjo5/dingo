@@ -6,7 +6,7 @@ import (
 	"bytes"
 	"sort"
 
-	"github.com/jhnl/dingo/internal/token"
+	"github.com/cjo5/dingo/internal/token"
 )
 
 // MessageID represents the type of error message.

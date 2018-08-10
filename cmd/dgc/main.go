@@ -6,10 +6,10 @@ import (
 
 	"flag"
 
-	"github.com/jhnl/dingo/internal/backend"
-	"github.com/jhnl/dingo/internal/common"
-	"github.com/jhnl/dingo/internal/frontend"
-	"github.com/jhnl/dingo/internal/semantics"
+	"github.com/cjo5/dingo/internal/backend"
+	"github.com/cjo5/dingo/internal/common"
+	"github.com/cjo5/dingo/internal/frontend"
+	"github.com/cjo5/dingo/internal/semantics"
 )
 
 func main() {

@@ -24,15 +24,15 @@ RUN svn co http://llvm.org/svn/llvm-project/llvm/tags/RELEASE_600/final $GOLLVM 
     && $GOLLVM/bindings/go/build.sh -DCMAKE_BUILD_TYPE=Release -DLLVM_TARGETS_TO_BUILD=host \
     && go install llvm.org/llvm/bindings/go/llvm
 
-WORKDIR $GOPATH/src/github.com/jhnl/dingo
+WORKDIR $GOPATH/src/github.com/cjo5/dingo
 
 # Copy source code
 COPY internal ./internal
 COPY cmd ./cmd
 
 # Install compiler and test tool
-RUN go install github.com/jhnl/dingo/cmd/dgc \
-    && go install github.com/jhnl/dingo/cmd/dgc-test
+RUN go install github.com/cjo5/dingo/cmd/dgc \
+    && go install github.com/cjo5/dingo/cmd/dgc-test
 
 # Copy Dingo tests and examples
 # Files specified as arguments to docker run should be located in these directories
