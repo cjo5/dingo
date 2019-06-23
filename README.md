@@ -1,77 +1,44 @@
-## Dingo
+# Dingo
 
 Dingo is a statically typed and compiled programming language focused on concise syntax, fast build times, full memory control, and easy interop from and to C. 
 
-## Dependencies
-* Go >= 1.6.2
-* LLVM 6.0 and Go bindings
+## Installation
+Ensure Go 1.6 or above and subversion are installed, and that GOPATH is properly set. 
 
-## Example
-```rust
-// C function declarations
-extern fun abs(c_int) c_int
-extern fun putchar(c_int) c_int
-extern fun puts(&c_char) c_int
-
-/*
-    Comment
-    /*
-        Nested comment
-    */
-*/
-extern fun main() c_int {
-    var arr = [i32]{31, 4, -10, 9, 2}
-
-    sort(&var arr[:])
-    puts(c"Sorted ints:")
-    print_slice(&arr[:])
-
-    return 0
-}
-
-fun swap(x &var i32, y &var i32) {
-    val tmp = *x
-    *x = *y
-    *y = tmp
-}
-
-fun sort(slice &var [i32]) {
-    for i usize = 0; i < len(slice)-1; i++ {
-        for j usize = 0; j < len(slice)-1; j++ {
-            if slice[j] > slice[j+1] {
-                swap(&var slice[j], &var slice[j+1])
-            }
-        }
-    }
-}
-
-fun print_slice(slice &[i32]) {
-    for i usize = 0; i < len(slice); i++ {
-        puti(slice[i])
-        puts(c"")
-    }
-}
-
-// Recursively print each digit
-fun puti(i i32) {
-    val i2 = abs(i)
-    if i2 < 10 {
-        if i < 0 {
-            putchar('-')
-        }
-    } else {
-        puti(i/10)
-    }
-    putchar('0' + i2%10)
-}
+Clone and install LLVM 6.0 and Go bindings.
+```
+$ GOLLVM="$GOPATH/src/llvm.org/llvm"
+$ svn co http://llvm.org/svn/llvm-project/llvm/tags/RELEASE_600/final $GOLLVM
+$ $GOLLVM/bindings/go/build.sh -DCMAKE_BUILD_TYPE=Release -DLLVM_TARGETS_TO_BUILD=host
+$ go install llvm.org/llvm/bindings/go/llvm
 ```
 
-Output
+Build and install compiler and test tool.
 ```
-Sorted ints:
--10
-2
-4
-9
-31
+$ go install github.com/cjo5/dingo/cmd/dgc
+$ go install github.com/cjo5/dingo/cmd/dgc-test
 ```
+
+## Usage
+Compile and run program.
+```
+$ dgc examples/hello.dg
+$ ./dgexe
+Hello, world!
+```
+
+Run single test.
+```
+$ dgc-test -test test/math.dg
+test 1/1 math ... ok
+
+ok: 1/1 skip: 0 fail: 0 bad: 0
+```
+
+Run all tests.
+```
+$ dgc-test -manifest test/manifest.json
+```
+
+## Examples
+See [examples](examples) for code samples.

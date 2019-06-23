@@ -1,0 +1,6 @@
+include "../std/lib.dg"
+
+extern fun main() c_int {
+    putln("Hello, world!")
+    return 0
+}

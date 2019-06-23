@@ -1,7 +1,7 @@
-// C function declarations
+include "../std/lib.dg"
+
+// C function declaration
 extern fun abs(c_int) c_int
-extern fun putchar(c_int) c_int
-extern fun puts(&c_char) c_int
 
 /*
     Comment
@@ -13,7 +13,6 @@ extern fun main() c_int {
     var arr = [i32]{31, 4, -10, 9, 2}
 
     sort(&var arr[:])
-    puts(c"Sorted ints:")
     print_slice(&arr[:])
 
     return 0
@@ -37,20 +36,7 @@ fun sort(slice &var [i32]) {
 
 fun print_slice(slice &[i32]) {
     for i usize = 0; i < len(slice); i++ {
-        puti(slice[i])
-        puts(c"")
+        putiln(slice[i])
     }
 }
 
-// Recursively print each digit
-fun puti(i i32) {
-    val i2 = abs(i)
-    if i2 < 10 {
-        if i < 0 {
-            putchar('-')
-        }
-    } else {
-        puti(i/10)
-    }
-    putchar('0' + i2%10)
-}

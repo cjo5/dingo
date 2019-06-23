@@ -56,7 +56,7 @@ func main() {
 
 	tester.total = countTests(groups)
 	tester.runTestGroups(groups)
-	fmt.Printf("\n%s: %d/%d %s: %d %s: %d %s: %d\n\n",
+	fmt.Printf("\n%s: %d/%d %s: %d %s: %d %s: %d\n",
 		statusSuccess, tester.success, tester.total,
 		statusSkip, tester.skip, statusFail, tester.fail,
 		statusBad, tester.bad)
