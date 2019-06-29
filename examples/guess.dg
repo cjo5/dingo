@@ -1,6 +1,6 @@
 include "../std/lib.dg"
 
-extern fun main() i32 {
+extern fun main() c_int {
     val tm = time(null)
     srand(tm as u32)
     val answer = rand()%100 + 1
