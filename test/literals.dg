@@ -1,20 +1,20 @@
 include "common.dg"
 
-extern fun main() c_int {
-    putln("text") // expect: text
+extern fun main(): c_int {
+    println("text") // expect: text
     putchar('k') // expect: k
     putchar('\n')
 
-    putiln(123) // expect: 123
-    putiln(-123) // expect: -123
-    putiln(100_000) // expect: 100000
-    putiln(0x23) // expect: 35
-    putiln(023) // expect: 19
+    printiln(123) // expect: 123
+    printiln(-123) // expect: -123
+    printiln(100_000) // expect: 100000
+    printiln(0x23) // expect: 35
+    printiln(023) // expect: 19
 
     val a1 = true
     val a2 = false
-    val a3 &i32 = null
-    val a4 &[i32] = null
+    val a3: &i32 = null
+    val a4: &[i32] = null
     val a5 = .23
     val a6 = 2e2
 

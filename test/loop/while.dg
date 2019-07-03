@@ -1,9 +1,9 @@
 include "../common.dg"
 
-extern fun main() c_int {
+extern fun main(): c_int {
     var i = 5
     while i > 0 {
-        putiln(i)
+        printiln(i)
         i--
     }
     

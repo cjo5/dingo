@@ -80,6 +80,8 @@ func (l *lexer) lex() (token.Token, token.Position, string) {
 		switch ch1 {
 		case -1:
 			tok = token.EOF
+		case '_':
+			tok = token.Underscore
 		case '(':
 			tok = token.Lparen
 		case ')':
@@ -141,11 +143,9 @@ func (l *lexer) lex() (token.Token, token.Position, string) {
 		case '=':
 			tok = l.lexAltEqual(token.Eq, token.Assign)
 		case '&':
-			tok = l.lexAlt2('&', token.Land, token.And)
-		case '|':
-			tok = l.lexAlt2('|', token.Lor, token.Invalid)
+			tok = token.And
 		case '!':
-			tok = l.lexAltEqual(token.Neq, token.Lnot)
+			tok = l.lexAltEqual(token.Neq, token.Invalid)
 		case '>':
 			tok = l.lexAltEqual(token.GtEq, token.Gt)
 		case '<':
@@ -180,7 +180,7 @@ func isLineTerminator(id token.Token) bool {
 }
 
 func isLetter(ch rune) bool {
-	return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || (ch == '_')
+	return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z')
 }
 
 func isDigit(ch rune, base int) bool {
@@ -265,7 +265,7 @@ func (l *lexer) lexAltEqual(tok0 token.Token, tok1 token.Token) token.Token {
 func (l *lexer) lexIdent() (token.Token, string) {
 	startOffset := l.chOffset
 
-	for isLetter(l.ch) || isDigit(l.ch, 10) {
+	for isLetter(l.ch) || isDigit(l.ch, 10) || l.ch == '_' {
 		l.next()
 	}
 
@@ -274,8 +274,6 @@ func (l *lexer) lexIdent() (token.Token, string) {
 
 	if len(lit) > 1 {
 		tok = token.Lookup(lit)
-	} else if lit == "_" {
-		tok = token.Underscore
 	}
 
 	return tok, lit

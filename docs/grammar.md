@@ -75,7 +75,7 @@ NestedExpr = '(' Expr ')'
 LenExpr = 'len' '(' Expr ')'
 SizeExpr = 'sizeof' '(' Type ')'
 
-ArgExpr = [IDENT '='] Expr
+ArgExpr = [IDENT ':'] Expr
 ArgList = [ArgExpr {',' ArgExpr} ','?]
 
 Primary = [SliceExpr | IndexExpr | FuncCall | DotExpr]

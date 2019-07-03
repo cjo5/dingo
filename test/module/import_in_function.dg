@@ -1,11 +1,11 @@
 include "../common.dg"
 
-extern fun main() c_int {
+extern fun main(): c_int {
     f() // expect: 10
     return 0
 }
 
 fun f() {
     import m = mod1
-    putiln(m.bar)
+    printiln(m.bar)
 }

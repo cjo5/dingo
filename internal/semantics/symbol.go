@@ -38,7 +38,7 @@ func (c *checker) insertSymbol(scope *ir.Scope, alias string, sym *ir.Symbol) *i
 }
 
 func (c *checker) insertBuiltinModuleFieldSymbols(CUID int, modFQN string) {
-	sym := ir.NewSymbol(ir.ValSymbol, c.scope, CUID, modFQN, "__fqn__", token.NoPosition)
+	sym := ir.NewSymbol(ir.ValSymbol, c.scope, CUID, modFQN, "modfqn_", token.NoPosition)
 	sym.Key = c.nextSymKey()
 	sym.Public = true
 	sym.Flags = builtinSymFlags | ir.SymFlagConst

@@ -1,15 +1,15 @@
 include "../common.dg"
 
-extern fun main() c_int {
+extern fun main(): c_int {
     var data = 9
     var ptr = &var data
     val slice = &var ptr[:1]
 
-    putiln(len(slice) as i32) // expect: 1
-    putiln(slice[0]) // expect: 9
+    printiln(len(slice) as i32) // expect: 1
+    printiln(slice[0]) // expect: 9
 
     slice[0]++
-    putiln(data) // expect: 10
+    printiln(data) // expect: 10
 
     return 0
 }

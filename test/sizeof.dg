@@ -1,38 +1,38 @@
 include "common.dg"
 
-extern fun main() i32 {
-    putiln(sizeof(i8) as i32) // expect: 1
-    putiln(sizeof(i16) as i32) // expect: 2
-    putiln(sizeof(i32) as i32) // expect: 4
-    putiln(sizeof(i64) as i32) // expect: 8
+extern fun main(): c_int {
+    printiln(sizeof(i8) as i32) // expect: 1
+    printiln(sizeof(i16) as i32) // expect: 2
+    printiln(sizeof(i32) as i32) // expect: 4
+    printiln(sizeof(i64) as i32) // expect: 8
 
     typealias MyType = i64
-    putiln(sizeof(MyType) as i32) // expect: 8
+    printiln(sizeof(MyType) as i32) // expect: 8
 
-    putiln(sizeof(u8) as i32) // expect: 1
-    putiln(sizeof(u16) as i32) // expect: 2
-    putiln(sizeof(u32) as i32) // expect: 4
-    putiln(sizeof(u64) as i32) // expect: 8
+    printiln(sizeof(u8) as i32) // expect: 1
+    printiln(sizeof(u16) as i32) // expect: 2
+    printiln(sizeof(u32) as i32) // expect: 4
+    printiln(sizeof(u64) as i32) // expect: 8
     
-    putiln(sizeof(f32) as i32) // expect: 4
-    putiln(sizeof(f64) as i32) // expect: 8
+    printiln(sizeof(f32) as i32) // expect: 4
+    printiln(sizeof(f64) as i32) // expect: 8
 
-    putiln(sizeof(bool) as i32) // expect: 1
+    printiln(sizeof(bool) as i32) // expect: 1
 
-    putiln(sizeof([i32:5]) as i32) // expect: 20
+    printiln(sizeof([i32:5]) as i32) // expect: 20
 
-    putiln(sizeof(&[i32]) as i32) // expect: 16
+    printiln(sizeof(&[i32]) as i32) // expect: 16
 
-    putiln(sizeof(Foo) as i32) // expect: 16
+    printiln(sizeof(Foo) as i32) // expect: 16
 
-    putiln(sizeof(&Foo) as i32) // expect: 8
-    putiln(sizeof(&u8) as i32) // expect: 8
-    putiln(sizeof(&i32) as i32) // expect: 8
+    printiln(sizeof(&Foo) as i32) // expect: 8
+    printiln(sizeof(&u8) as i32) // expect: 8
+    printiln(sizeof(&i32) as i32) // expect: 8
 
     return 0
 }
 
 struct Foo {
-    a i32
-    b f64
+    a: i32
+    b: f64
 }

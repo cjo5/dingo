@@ -3,7 +3,7 @@ include "../common.dg"
 importlocal foo: pub bar
 importlocal foo
 
-extern fun main() i32 {
+extern fun main(): c_int {
     foo.bar() // expect: foo
     bar() // expect: foo
     return 0
@@ -11,6 +11,6 @@ extern fun main() i32 {
 
 module foo {
     pub fun bar() {
-        .putln(__fqn__)
+        .println(modfqn_)
     }
 }

@@ -2,54 +2,54 @@ include "common.dg"
 
 fun test_nested_scopes() {
     {
-        putln("nested_scopes_start1")
-        defer putln("nested_scopes_end1")
+        println("nested_scopes_start1")
+        defer println("nested_scopes_end1")
         {
-            putln("nested_scopes_start2")
-            defer putln("nested_scopes_end2")
+            println("nested_scopes_start2")
+            defer println("nested_scopes_end2")
         }
     }
-    putln("nested_scopes_done")
+    println("nested_scopes_done")
 }
 
-fun test_if1(a i32) {
-    defer putln("if1_done")
+fun test_if1(a: i32) {
+    defer println("if1_done")
     if a == 1 {
-        defer putln("if1_1")
+        defer println("if1_1")
         return
     }
-    defer putln("if1_2")
+    defer println("if1_2")
 }
 
-fun test_if2(a i32) i32 {
-    defer putln("if2_done")
+fun test_if2(a: i32): i32 {
+    defer println("if2_done")
     if a == 1 {
-        defer putln("if2_1")
+        defer println("if2_1")
         return 1
     } else {
-        defer putln("if2_2")
+        defer println("if2_2")
         return 3
     }
 }
 
-fun test_if3(a i32) {
+fun test_if3(a: i32) {
     if a == 1 {
-        defer putln("if3_1_end")
-        putln("if3_1_start")
+        defer println("if3_1_end")
+        println("if3_1_start")
     } elif a == 2 {
-        defer putln("if3_2_end")
-        putln("if3_2_start")
+        defer println("if3_2_end")
+        println("if3_2_start")
     } else {
-        defer putln("if3_3_end")
-        putln("if3_3_start")
+        defer println("if3_3_end")
+        println("if3_3_start")
     }
-    putln("if3_done")
+    println("if3_done")
 }
 
-fun test_for(a i32) {
-    defer putln("for_done2")
+fun test_for(a: i32) {
+    defer println("for_done2")
     for i = 0; i < 3; i++ {
-        defer putln("for")
+        defer println("for")
         if i == 1 {
             if a == 1 {
                 continue
@@ -59,16 +59,16 @@ fun test_for(a i32) {
                 return
             }
         }
-        putiln(i)
+        printiln(i)
     }
-    putln("for_done1")
+    println("for_done1")
 }
 
 fun test_nested_for() {
-    defer putln("nested_for_done")
+    defer println("nested_for_done")
     for i = 0; i < 2; i++ {
         for j = 0; j < 2; j++ {
-            defer putiln(i)
+            defer printiln(i)
             if j == 0 {
                 break
             }
@@ -76,53 +76,53 @@ fun test_nested_for() {
     }
 }
 
-fun test_for_chain(a i32) {
-    defer putln("for_chain_done")
+fun test_for_chain(a: i32) {
+    defer println("for_chain_done")
     for i = 0; i < 2; i++ {
-        defer putln("for_chain_it1")
+        defer println("for_chain_it1")
         {
-            defer putln("for_chain_it2")
+            defer println("for_chain_it2")
             if a == 1 {
                 continue
             } elif a == 2 {
-                defer putln("for_chain_break")
+                defer println("for_chain_break")
                 break
             } else {
-                defer putln("for_chain_fallthrough")
+                defer println("for_chain_fallthrough")
             }
         } 
     }
 }
 
-fun test_for_skip(a i32) {
+fun test_for_skip(a: i32) {
     for i = 0; i < 1; i++ {
-        defer putln("for_skip_done")
+        defer println("for_skip_done")
         if a == 1 {
             continue
         } elif a == 2 {
             break
         }
-        defer putln("skip")
+        defer println("skip")
     }
 }
 
-fun test_return_skip(a i32) {
-    defer putln("return_skip_done")
+fun test_return_skip(a: i32) {
+    defer println("return_skip_done")
     {
         if a == 1 {
             return
         }
-        defer putln("skip")
+        defer println("skip")
     }
 }
 
-fun test_modify_retval() i32 {
+fun test_modify_retval(): i32 {
     var a = 4
     defer a = 5
     return a
 }
 
-extern fun main() i32 {
+extern fun main(): c_int {
     test_nested_scopes()
     // expect: nested_scopes_start1
     // expect: nested_scopes_start2
@@ -215,7 +215,7 @@ extern fun main() i32 {
 
     test_return_skip(1) // expect: return_skip_done
 
-    putiln(test_modify_retval()) // expect: 4
+    printiln(test_modify_retval()) // expect: 4
 
     return 0
 }

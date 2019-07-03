@@ -1,13 +1,13 @@
 include "../std/lib.dg"
 
-fun factorial(i i32) i32 {
+fun fac(i: i32): i32 {
     if i <= 1 {
         return 1
     }
-    return factorial(i-1)*i
+    return fac(i-1)*i
 }
 
-extern fun main() c_int {
-    putiln(factorial(5))
+extern fun main(): c_int {
+    printiln(fac(5))
     return 0
 }

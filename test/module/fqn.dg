@@ -9,22 +9,22 @@ module foo {
     }
 }
 
-extern fun main() i32 {
-    putln(__fqn__) // expect:
+extern fun main(): c_int {
+    println(modfqn_) // expect:
 
-    putln(baazle.__fqn__) // expect: baazle
-    putln(foozle.__fqn__) // expect: foozle
-    putln(foozle.baazle.__fqn__) // expect: foozle.baazle
+    println(baazle.modfqn_) // expect: baazle
+    println(foozle.modfqn_) // expect: foozle
+    println(foozle.baazle.modfqn_) // expect: foozle.baazle
 
-    putln(foo.__fqn__) // expect: foo
-    putln(foo.baazle.__fqn__) // expect: foo.baazle
-    putln(foo.foozle.__fqn__) // expect: foo.foozle
-    putln(foo.foozle.baazle.__fqn__) // expect: foo.foozle.baazle
+    println(foo.modfqn_) // expect: foo
+    println(foo.baazle.modfqn_) // expect: foo.baazle
+    println(foo.foozle.modfqn_) // expect: foo.foozle
+    println(foo.foozle.baazle.modfqn_) // expect: foo.foozle.baazle
     
-    putln(foo.bar.__fqn__) // expect: foo.bar
-    putln(foo.bar.baazle.__fqn__) // expect: foo.bar.baazle
-    putln(foo.bar.foozle.__fqn__) // expect: foo.bar.foozle
-    putln(foo.bar.foozle.baazle.__fqn__) // expect: foo.bar.foozle.baazle
+    println(foo.bar.modfqn_) // expect: foo.bar
+    println(foo.bar.baazle.modfqn_) // expect: foo.bar.baazle
+    println(foo.bar.foozle.modfqn_) // expect: foo.bar.foozle
+    println(foo.bar.foozle.baazle.modfqn_) // expect: foo.bar.foozle.baazle
 
     return 0
 }

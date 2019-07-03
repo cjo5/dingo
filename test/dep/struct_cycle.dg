@@ -1,9 +1,9 @@
 struct Foo {
-    b Bar
+    b: Bar
 }
 
 struct Bar {
-    f Foo
+    f: Foo
 }
 
 // expect-error(1): cycle detected

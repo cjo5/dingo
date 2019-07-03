@@ -4,7 +4,7 @@ import (
 	"strconv"
 )
 
-// Token represents a syntax unit.
+// Token represents a syntax atom.
 type Token int
 
 // List of tokens.
@@ -15,12 +15,14 @@ const (
 	Comment
 	MultiComment
 
+	// Identifier and literals
 	Ident
 	Integer
 	Float
 	Char
 	String
 
+	// Speecial chars
 	Lparen
 	Rparen
 	Lbrace
@@ -33,39 +35,31 @@ const (
 	Colon
 	Underscore
 	Directive
-
 	And
-	Lnot
 
-	binopBeg
+	// Arithmetic
 	Add
 	Sub
 	Mul
 	Div
 	Mod
+	Inc
+	Dec
 
-	Land
-	Lor
-
+	// Relational
 	Eq
 	Neq
 	Gt
 	GtEq
 	Lt
 	LtEq
-	binopEnd
 
-	assignBeg
 	Assign
 	AddAssign
 	SubAssign
 	MulAssign
 	DivAssign
 	ModAssign
-	assignEnd
-
-	Inc
-	Dec
 
 	keywordBeg
 	If
@@ -95,6 +89,10 @@ const (
 
 	ParentMod
 	SelfMod
+
+	Land
+	Lor
+	Lnot
 
 	True
 	False
@@ -134,18 +132,15 @@ var tokens = [...]string{
 	Colon:      ":",
 	Underscore: "_",
 	Directive:  "@",
-
-	And:  "&",
-	Lnot: "!",
+	And:        "&",
 
 	Add: "+",
 	Sub: "-",
 	Mul: "*",
 	Div: "/",
 	Mod: "%",
-
-	Land: "&&",
-	Lor:  "||",
+	Inc: "++",
+	Dec: "--",
 
 	Eq:   "==",
 	Neq:  "!=",
@@ -160,9 +155,6 @@ var tokens = [...]string{
 	MulAssign: "*=",
 	DivAssign: "/=",
 	ModAssign: "%=",
-
-	Inc: "++",
-	Dec: "--",
 
 	If:          "if",
 	Else:        "else",
@@ -191,6 +183,10 @@ var tokens = [...]string{
 
 	ParentMod: "msuper",
 	SelfMod:   "mself",
+
+	Land: "and",
+	Lor:  "or",
+	Lnot: "not",
 
 	True:  "true",
 	False: "false",
@@ -233,22 +229,30 @@ func (tok Token) String() string {
 	return s
 }
 
-// IsAssignOp returns true if the token represents an assignment operator:
-// ('=', '+=', '-=', '*=', '/=', '%=')
-func (t Token) IsAssignOp() bool {
-	return assignBeg < t && t < assignEnd
+// IsAssignOp returns true if the token represents an assignment operator.
+func (tok Token) IsAssignOp() bool {
+	switch tok {
+	case Assign, AddAssign, SubAssign, MulAssign, DivAssign, ModAssign:
+		return true
+	}
+	return false
 }
 
-// IsBinaryOp return true if the token represents a binary operator:
-// ('+', '-', '*', '/', '%', '||', '&&', '!=', '==', '>', '>=', '<', '<=')
-func (t Token) IsBinaryOp() bool {
-	return binopBeg < t && t < binopEnd
+// IsBinaryOp return true if the token represents a binary operator.
+func (tok Token) IsBinaryOp() bool {
+	switch tok {
+	case Add, Sub, Mul, Div, Mod,
+		Eq, Neq, Gt, GtEq, Lt, LtEq,
+		Land, Lor:
+		return true
+	}
+	return false
 }
 
 // OneOf returns true if token one of the IDs match.
-func (t Token) OneOf(ids ...Token) bool {
+func (tok Token) OneOf(ids ...Token) bool {
 	for _, id := range ids {
-		if t == id {
+		if tok == id {
 			return true
 		}
 	}
@@ -256,6 +260,6 @@ func (t Token) OneOf(ids ...Token) bool {
 }
 
 // Is returns true if ID matches.
-func (t Token) Is(id Token) bool {
-	return t == id
+func (tok Token) Is(other Token) bool {
+	return tok == other
 }

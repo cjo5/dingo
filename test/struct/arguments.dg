@@ -1,22 +1,22 @@
 include "../common.dg"
 
-fun print_foo(f Foo) {
-    puti(f.a)
+fun print_foo(f: Foo) {
+    printi(f.a)
     putchar(' ')
-    puti(f.b)
+    printi(f.b)
     putchar(' ')
-    puti(f.c)
+    printi(f.c)
     putchar('\n')
 }
 
 struct Foo {
-    a i32
-    b i32
-    c i32
+    a: i32
+    b: i32
+    c: i32
 }
 
-extern fun main() c_int {
-    var f Foo
+extern fun main(): c_int {
+    var f: Foo
 
     f = Foo{a: 1, b: 2, c: 3}
     print_foo(f) // expect: 1 2 3
@@ -30,7 +30,7 @@ extern fun main() c_int {
     f = Foo{10, 11, 12}
     print_foo(f) // expect: 10 11 12
 
-    f = Foo{c:3, a: 1, b: 2}
+    f = Foo{c: 3, a: 1, b: 2}
     print_foo(f) // expect: 1 2 3
 
     f = Foo{4, c: 6, b: 5} 

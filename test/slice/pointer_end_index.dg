@@ -1,4 +1,4 @@
 fun foo() {
-    val a &i32
+    val a: &i32
     val b = &a[:] // expect-error: end index is required when slicing pointer types (got &i32)
 }

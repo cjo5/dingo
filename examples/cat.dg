@@ -1,17 +1,17 @@
 include "../std/lib.dg"
 
-extern fun main(argc c_int, argv &&c_char) c_int {
+extern fun main(argc: c_int, argv: &&c_char): c_int {
     val args = &argv[:argc]
 
     if len(args) != 2 {
-        putln("exactly 1 argument required")
+        println("exactly 1 argument required")
         return 1
     }
     
     return cat(args[1])
 }
 
-fun cat(filename &c_char) c_int {
+fun cat(filename: &c_char): c_int {
     val file = fopen(filename, c"r")
     if file == null {
         perror(filename)
@@ -19,13 +19,13 @@ fun cat(filename &c_char) c_int {
     }
     defer fclose(file)
 
-    var buffer [i8:1024]
-    var n c_usize = 1
-    var total c_usize
+    var buffer: [i8:1024]
+    var n: c_usize = 1
+    var total: c_usize
 
     while n > 0 {
         n = fread(&var buffer[0], 1, 1024, file)
-        put(&buffer[:n])
+        print(&buffer[:n])
         total += n
     }
 
@@ -35,7 +35,7 @@ fun cat(filename &c_char) c_int {
 
     val err = ferror(file)
     if err != 0 {
-        putln("read failed")
+        println("read failed")
     }
 
     return err

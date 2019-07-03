@@ -2,57 +2,57 @@ include "common.dg"
 
 typealias s1 = i32
 
-extern fun main() c_int {
-    val a1 s1 = 1
-    val a2 s1
-    putiln(a1) // expect: 1
-    putiln(a2) // expect: 0
+extern fun main(): c_int {
+    val a1: s1 = 1
+    val a2 :s1
+    printiln(a1) // expect: 1
+    printiln(a2) // expect: 0
 
     typealias s2 = Foo
 
-    var b1 s2 = s2{a: 1}
-    var b2 s2
+    var b1: s2 = s2{a: 1}
+    var b2: s2
     b1.a += 1
-    putiln(b1.a) // expect: 2
-    putiln(b2.a) // expect: 0
+    printiln(b1.a) // expect: 2
+    printiln(b2.a) // expect: 0
 
     typealias s3 = [s1:5]
 
-    var c1 s3 = [i32]{1, 2, 3, 4, 5}
-    var c2 s3
-    putiln(c1[2]) // expect: 3
-    putiln(c2[2]) // expect: 0
+    var c1: s3 = [i32]{1, 2, 3, 4, 5}
+    var c2: s3
+    printiln(c1[2]) // expect: 3
+    printiln(c2[2]) // expect: 0
 
     typealias s4 = s1
 
-    var d1 s4 = 4
-    var d2 s4
-    putiln(d1) // expect: 4
-    putiln(d2) // expect: 0
+    var d1: s4 = 4
+    var d2: s4
+    printiln(d1) // expect: 4
+    printiln(d2) // expect: 0
 
     typealias s5 = &s1
 
-    var e1 s5 = &a1
-    var e2 s5
-    putiln(*e1) // expect: 1
+    var e1: s5 = &a1
+    var e2: s5
+    printiln(*e1) // expect: 1
 
     typealias s6 = &[s1]
 
-    var g1 s6 = &c1[:]
-    var g2 s6
-    putiln(g1[1]) // expect: 2
+    var g1: s6 = &c1[:]
+    var g2: s6
+    printiln(g1[1]) // expect: 2
 
-    typealias s7 = fun(i32)i32
+    typealias s7 = fun(_i32):i32
 
-    val h1 s7 = fun(a i32) i32 {
+    val h1: s7 = fun(a: i32): i32 {
         return a*a
     }
-    val h2 s7
-    putiln(h1(5)) // expect: 25
+    val h2: s7
+    printiln(h1(5)) // expect: 25
 
     return 0
 }
 
 struct Foo {
-    a i32
+    a: i32
 }

@@ -1,5 +1,5 @@
 fun foo() {
-    var field i32
+    var field: i32
     field.x // expect-error: expression cannot be used for field access (has type i32)
     field[0] // expect-error: expression cannot be indexed (has type i32)
     field[:] // expect-error: expression cannot be sliced (has type i32)

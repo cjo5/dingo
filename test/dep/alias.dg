@@ -3,15 +3,15 @@ include "../common.dg"
 typealias foo1 = i32
 typealias foo2 = bar
 
-extern fun main() c_int {
-    var a foo1 = 1
-    putiln(a) // expect: 1
+extern fun main(): c_int {
+    var a: foo1 = 1
+    printiln(a) // expect: 1
 
-    var b foo2 = 2
-    putiln(b) // expect: 2
+    var b: foo2 = 2
+    printiln(b) // expect: 2
 
-    var c bar = 3
-    putiln(c) // expect: 3
+    var c: bar = 3
+    printiln(c) // expect: 3
 
     return 0
 }

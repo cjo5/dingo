@@ -11,7 +11,7 @@ fun foo() {
 
     val f = undef as u32 // expect-error: undeclared identifier 'undef'
 
-    var arr [i32:5]
+    var arr: [i32:5]
     val g = arr[undef] // expect-error: undeclared identifier 'undef'
     val h = &arr[:undef] // expect-error: undeclared identifier 'undef'
 
@@ -25,7 +25,7 @@ fun foo() {
 
     bar(undef) // expect-error: undeclared identifier 'undef'
 
-    var undef i32 = undef // expect-error: undeclared identifier 'undef'
+    var undef: i32 = undef // expect-error: undeclared identifier 'undef'
 
     {
         importlocal q = quux
@@ -34,11 +34,11 @@ fun foo() {
     importlocal q = quux
 }
 
-fun bar(a i32){}
+fun bar(a: i32){}
 struct baz {
-    a i32
+    a: i32
 }
 
 module quux {
-   fun bam() i32{} 
+   fun bam(): i32{} 
 }

@@ -1,53 +1,53 @@
 include "libc.dg"
 
-fun putln(str &[i8]) {
-    put(str)
+fun println(str: &[i8]) {
+    print(str)
     putchar('\n')
 }
 
-fun putiln(i i64) {
-    puti(i)
+fun printiln(i: i64) {
+    printi(i)
     putchar('\n')
 }
 
-fun putbool(b bool) {
+fun printbln(b: bool) {
     if b {
-        put("true\n")
+        println("true")
     } else {
-        put("false\n")
+        println("false")
     }
 }
 
-fun put(str &[i8]) {
-    for i usize = 0; i < len(str); i++ {
+fun print(str: &[i8]) {
+    for i: usize = 0; i < len(str); i++ {
         putchar(str[i])
     }
 }
 
-fun puti(i i64) {
+fun printi(i: i64) {
     if i < 0 {
         putchar('-')
-        putu(-i as u64)
+        printu(-i as u64)
     } else {
-        putu(i as u64)
+        printu(i as u64)
     }
 }
 
-fun putu(i u64) {
+fun printu(i: u64) {
     if i >= 10 {
-        putu(i/10)
+        printu(i/10)
     }
     putchar(('0' + i%10) as i32)
 }
 
-fun getln(buf &var [i8], null_terminate bool) &var [i8] {
+fun readln(buf: &var [i8], null_terminate: bool): &var [i8] {
     var max = len(buf)
-    if null_terminate && max > 0 {
+    if null_terminate and max > 0 {
         max--
     }
     var end = false
-    var n usize
-    while n < max && !end {
+    var n: usize
+    while n < max and not end {
         val ch = getchar()
         if ch == '\r' {
             // Wait for '\n'
@@ -58,7 +58,7 @@ fun getln(buf &var [i8], null_terminate bool) &var [i8] {
             n++
         }
     }
-    if n == max && !end {
+    if n == max and not end {
         return null
     }
     if null_terminate {

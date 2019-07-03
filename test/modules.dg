@@ -1,5 +1,5 @@
 include "common.dg"
 
 pub fun hello() {
-    .putln(__fqn__)
+    .println(__fqn__)
 }

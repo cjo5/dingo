@@ -81,7 +81,7 @@ func (p *parser) endPos() token.Position {
 	return pos
 }
 
-func (p *parser) sync() {
+func (p *parser) syncTopDecl() {
 	lbrace := p.blockCount
 	semi := false
 	p.blockCount = 0
@@ -89,8 +89,7 @@ func (p *parser) sync() {
 	for {
 		switch p.token {
 		case token.Public, token.Private,
-			token.Var, token.Val, token.Func, token.Struct,
-			token.Return, token.If, token.While, token.For, token.Break, token.Continue:
+			token.Var, token.Val, token.Func, token.Struct, token.AliasType:
 			if semi && lbrace == 0 {
 				return
 			}
@@ -197,7 +196,7 @@ func (p *parser) parseModuleBody(mod *ir.IncompleteModule, modIndex int, block b
 			}
 		}
 		if sync {
-			p.sync()
+			p.syncTopDecl()
 			ok = false
 		}
 	}
@@ -263,7 +262,7 @@ func (p *parser) parseTopDecl(visibility token.Token) (topDecl *ir.TopDecl) {
 	defer func() {
 		if r := recover(); r != nil {
 			if _, ok := r.(parseError); ok {
-				p.sync()
+				p.syncTopDecl()
 				topDecl = nil
 			} else {
 				panic(r)
@@ -354,7 +353,7 @@ func (p *parser) parseFuncDecl() *ir.FuncDecl {
 	if p.isSemi() {
 		return decl
 	}
-	decl.Body = p.parseBlock(false)
+	decl.Body = p.parseBlock()
 	return decl
 }
 
@@ -523,7 +522,7 @@ func (p *parser) parseTypeDecl() *ir.TypeDecl {
 	p.next()
 	decl.Name = p.parseIdent()
 	p.expect(token.Assign)
-	decl.Type = p.parseType(true)
+	decl.Type = p.parseType()
 	decl.SetEndPos(decl.Type.EndPos())
 	return decl
 }
@@ -534,7 +533,10 @@ func (p *parser) parseValDecl() *ir.ValDecl {
 	decl.SetPos(p.pos)
 	p.next()
 	decl.Name = p.parseIdent()
-	decl.Type = p.parseType(true)
+	if p.token.Is(token.Colon) {
+		p.next()
+		decl.Type = p.parseType()
+	}
 	if p.token.Is(token.Assign) {
 		p.next()
 		decl.Initializer = p.parseExpr()
@@ -552,42 +554,24 @@ func (p *parser) parseField(flags int, defaultDecl token.Token) *ir.ValDecl {
 	decl := &ir.ValDecl{}
 	decl.SetPos(p.pos)
 	decl.Flags = flags
-
-	isdecl := false
-	if p.token.OneOf(token.Val, token.Var) {
-		isdecl = true
-		decl.Decl = p.token
-		p.next()
-	} else {
-		decl.Decl = defaultDecl
-	}
-
-	tok, lit := p.token, p.literal
-	startPos, endPos := p.pos, p.endPos()
+	decl.Decl = defaultDecl
 
 	if p.token.Is(token.Placeholder) {
+		tok, lit := p.token, p.literal
+		startPos, endPos := p.pos, p.endPos()
+		decl.Name = ir.NewIdent2(tok, lit)
+		decl.Name.SetRange(startPos, endPos)
 		p.next()
-		decl.Type = p.parseType(false)
-	} else if isdecl {
-		p.expect(token.Ident)
-		decl.Type = p.parseType(false)
+		decl.Type = p.parseType()
 	} else {
-		optional := false
-		if p.token.Is(token.Ident) {
+		if p.token.OneOf(token.Val, token.Var) {
+			decl.Decl = p.token
 			p.next()
-			optional = true
 		}
-		decl.Type = p.parseType(optional)
-		if decl.Type == nil {
-			decl.Type = &ir.Ident{Tok: tok, Literal: lit}
-			decl.SetRange(startPos, endPos)
-			tok, lit = token.Placeholder, token.Placeholder.String()
-			startPos, endPos = token.NoPosition, token.NoPosition
-		}
+		decl.Name = p.parseIdent()
+		p.expect(token.Colon)
+		decl.Type = p.parseType()
 	}
-
-	decl.Name = ir.NewIdent2(tok, lit)
-	decl.Name.SetRange(startPos, endPos)
 
 	decl.SetEndPos(decl.Type.EndPos())
 
@@ -613,8 +597,10 @@ func (p *parser) parseFuncSignature() (params []*ir.ValDecl, ret *ir.ValDecl) {
 	ret.SetPos(p.pos)
 	ret.Decl = token.Val
 	ret.Name = ir.NewIdent2(token.Placeholder, token.Placeholder.String())
-	ret.Type = p.parseType(true)
-	if ret.Type == nil {
+	if p.token.Is(token.Colon) {
+		p.next()
+		ret.Type = p.parseType()
+	} else {
 		ret.Type = ir.NewIdent2(token.Ident, ir.TVoid.String())
 		ret.SetRange(endPos, endPos)
 	}
@@ -625,7 +611,6 @@ func (p *parser) parseStmt() (stmt ir.Stmt, sync bool) {
 	defer func() {
 		if r := recover(); r != nil {
 			if _, ok := r.(parseError); ok {
-				p.sync()
 				sync = true
 			} else {
 				panic(r)
@@ -665,40 +650,47 @@ func (p *parser) parseStmt() (stmt ir.Stmt, sync bool) {
 }
 
 func (p *parser) parseBlockStmt() *ir.BlockStmt {
-	return p.parseBlock(true)
+	return p.parseBlock()
 }
 
-func (p *parser) parseBlock(incBody bool) *ir.BlockStmt {
+func (p *parser) parseBlock() *ir.BlockStmt {
 	block := &ir.BlockStmt{}
 	block.SetRange(p.pos, p.pos)
 
 	p.expect(token.Lbrace)
+	prevBlockCount := p.blockCount
+	p.blockCount++
 
-	if incBody {
-		p.blockCount++
-	}
-
-	didSync := false
+	var stmt ir.Stmt
+	sync := false
 
 	for p.token != token.Rbrace && p.token != token.EOF {
-		stmt, sync := p.parseStmt()
+		stmt, sync = p.parseStmt()
 		if stmt != nil {
 			block.Stmts = append(block.Stmts, stmt)
 		}
 		if sync {
-			didSync = true
+			break
 		}
 	}
 
-	block.SetEndPos(p.pos)
+	if sync {
+		for p.blockCount != prevBlockCount && !p.token.Is(token.EOF) {
+			if p.token.Is(token.Lbrace) {
+				p.blockCount++
+			} else if p.token.Is(token.Rbrace) {
+				p.blockCount--
+			}
+			p.next()
+		}
 
-	if p.token.Is(token.Rbrace) || !didSync {
+	} else {
 		p.expect(token.Rbrace)
+		p.blockCount--
+
 	}
 
-	if incBody && !didSync {
-		p.blockCount--
-	}
+	block.SetEndPos(p.pos)
 
 	return block
 }
@@ -745,7 +737,10 @@ func (p *parser) parseForStmt() *ir.ForStmt {
 		s.SetPos(p.pos)
 		decl.Decl = token.Var
 		decl.Name = p.parseIdent()
-		decl.Type = p.parseType(true)
+		if p.token.Is(token.Colon) {
+			p.next()
+			decl.Type = p.parseType()
+		}
 		p.expect(token.Assign)
 		decl.Initializer = p.parseExpr()
 		s.Init = &ir.DeclStmt{D: decl}
@@ -807,17 +802,17 @@ func (p *parser) parseExprOrAssignStmt() ir.Stmt {
 	return stmt
 }
 
-func (p *parser) parseType(optional bool) ir.Expr {
+func (p *parser) parseType() ir.Expr {
 	if p.token.Is(token.Lparen) {
 		pos := p.pos
 		p.next()
-		t := p.parseType(optional)
+		t := p.parseType()
 		if t != nil {
 			p.expect(token.Rparen)
 			t.SetRange(pos, p.pos)
 		}
 		return t
-	} else if p.token.OneOf(token.And, token.Land) {
+	} else if p.token.OneOf(token.And) {
 		return p.parsePointerType()
 	} else if p.token.Is(token.Lbrack) {
 		return p.parseSliceOrArrayType()
@@ -825,8 +820,6 @@ func (p *parser) parseType(optional bool) ir.Expr {
 		return p.parseFuncType()
 	} else if p.token.Is(token.Ident) {
 		return p.parseScopeName()
-	} else if optional {
-		return nil
 	}
 	p.error(p.pos, "expected type")
 	panic(parseError(0))
@@ -834,33 +827,22 @@ func (p *parser) parseType(optional bool) ir.Expr {
 
 func (p *parser) parsePointerType() ir.Expr {
 	pointer := &ir.PointerTypeExpr{}
-	tok, pos := p.token, p.pos
+	pos := p.pos
 	p.next()
 	pointer.Decl = token.Val
 	if p.token.OneOf(token.Var, token.Val) {
 		pointer.Decl = p.token
 		p.next()
 	}
-	pointer.X = p.parseType(false)
+	pointer.X = p.parseType()
 	pointer.SetRange(pos, p.pos)
-	if tok.Is(token.Land) {
-		// && is a single token so double pointer needs to be handled separately
-		inner := &ir.PointerTypeExpr{}
-		inner.Decl = pointer.Decl
-		inner.X = pointer.X
-		pos.Offset++
-		pos.Column++
-		inner.SetRange(pos, p.pos)
-		pointer.Decl = token.Val
-		pointer.X = inner
-	}
 	return pointer
 }
 
 func (p *parser) parseSliceOrArrayType() ir.Expr {
 	pos := p.pos
 	p.expect(token.Lbrack)
-	elem := p.parseType(false)
+	elem := p.parseType()
 	var expr ir.Expr
 	if p.token.Is(token.Colon) {
 		p.next()
@@ -943,7 +925,7 @@ func (p *parser) parseAsExpr(expr ir.Expr) ir.Expr {
 		cast := &ir.CastExpr{}
 		cast.X = expr
 		p.next()
-		cast.ToType = p.parseType(false)
+		cast.ToType = p.parseType()
 		cast.SetRange(expr.Pos(), cast.ToType.EndPos())
 		return cast
 	}
@@ -1005,7 +987,7 @@ func (p *parser) parseSizeExpr() *ir.SizeExpr {
 	sizeof.SetPos(p.pos)
 	p.next()
 	p.expect(token.Lparen)
-	sizeof.X = p.parseType(false)
+	sizeof.X = p.parseType()
 	sizeof.SetEndPos(p.endPos())
 	p.expect(token.Rparen)
 	return sizeof
@@ -1031,7 +1013,7 @@ func (p *parser) parseArgExpr(stop token.Token) *ir.ArgExpr {
 	return arg
 }
 
-func (p *parser) parseArgumentList(stop token.Token) []*ir.ArgExpr {
+func (p *parser) parseArgList(stop token.Token) []*ir.ArgExpr {
 	var args []*ir.ArgExpr
 	if !p.token.Is(stop) {
 		args = append(args, p.parseArgExpr(stop))
@@ -1106,7 +1088,7 @@ func (p *parser) parseFuncCall(expr ir.Expr) ir.Expr {
 	call.SetPos(expr.Pos())
 	call.X = expr
 	p.expect(token.Lparen)
-	call.Args = p.parseArgumentList(token.Rparen)
+	call.Args = p.parseArgList(token.Rparen)
 	call.SetEndPos(p.endPos())
 	p.expect(token.Rparen)
 	return call
@@ -1144,7 +1126,7 @@ func (p *parser) parseStructLit(name ir.Expr) ir.Expr {
 	lit.SetRange(name.Pos(), name.EndPos())
 	p.expect(token.Lbrace)
 	p.blockCount++
-	lit.Args = p.parseArgumentList(token.Rbrace)
+	lit.Args = p.parseArgList(token.Rbrace)
 	p.expect(token.Rbrace)
 	p.blockCount--
 	return lit
@@ -1154,7 +1136,7 @@ func (p *parser) parseArrayLit() ir.Expr {
 	lit := &ir.ArrayLit{}
 	lit.SetPos(p.pos)
 	p.expect(token.Lbrack)
-	lit.Elem = p.parseType(false)
+	lit.Elem = p.parseType()
 	if p.token.Is(token.Colon) {
 		p.next()
 		lit.Size = p.parseExpr()

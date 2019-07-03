@@ -1,12 +1,12 @@
 include "common.dg"
 
-extern fun main() c_int {
+extern fun main(): c_int {
     var data = 5
-    var a &i32 = &data
-    var b &void = a
-    var c &i32 = b as &i32
+    var a: &i32 = &data
+    var b: &void = a
+    var c: &i32 = b as &i32
 
-    putiln(*c) // expect: 5
+    printiln(*c) // expect: 5
 
     return 0
 }

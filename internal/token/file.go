@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 )
 
+// File contains the bytes of a source file being compiled.
 type File struct {
 	Filename string
 	Src      []byte
@@ -19,6 +20,7 @@ type Position struct {
 	Column   int
 }
 
+// Abs returns the absolute path.
 func Abs(cwd string, filename string) string {
 	if filepath.IsAbs(filename) {
 		return filename

@@ -3,7 +3,7 @@ include "../common.dg"
 include "extra/scope_include1.dg"
 
 fun print_fqn() {
-    putln("root")
+    println("root")
 }
 
 fun print_scope_fqn() {
@@ -16,7 +16,7 @@ module foo {
     include "extra/scope_include1.dg"
 
     fun print_fqn() {
-        .putln(__fqn__)
+        .println(modfqn_)
     }
 
     fun print_scope_fqn() {
@@ -29,7 +29,7 @@ module foo {
         include "extra/scope_include1.dg"
 
         fun print_fqn() {
-            .putln(__fqn__)
+            .println(modfqn_)
         }
 
         fun print_scope_fqn() {
@@ -46,7 +46,7 @@ module foo {
     }
 }
 
-extern fun main() i32 {
+extern fun main(): c_int {
     print_scope_fqn()
     // expect: root
     // expect: root

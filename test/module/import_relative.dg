@@ -9,9 +9,9 @@ module foo {
     }
 }
 
-extern fun main() c_int {
-    putln(bar.__fqn__) // expect: foo.bar
-    putln(foo.bar.__fqn__) // expect: foo.bar
-    putln(foo.baaz.bar.__fqn__) // expect: foo.bar
+extern fun main(): c_int {
+    println(bar.modfqn_) // expect: foo.bar
+    println(foo.bar.modfqn_) // expect: foo.bar
+    println(foo.baaz.bar.modfqn_) // expect: foo.bar
     return 0
 }

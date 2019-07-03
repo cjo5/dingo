@@ -1,38 +1,38 @@
 include "common.dg"
 
-extern fun main() c_int {
-    putbool(2 == 2) // expect: true
-    putbool(1 == 2) // expect: false
-    putbool(1 != 2) // expect: true
-    putbool(1 != 1) // expect: false
-    putbool(1 < 2) // expect: true
-    putbool(2 < 1) // expect: false
-    putbool(2 > 1) // expect: true
-    putbool(1 > 2) // expect: false
-    putbool(1 <= 2) // expect: true
-    putbool(2 <= 2) // expect: true
-    putbool(2 <= 1) // expect: false
-    putbool(2 >= 1) // expect: true
-    putbool(2 >= 2) // expect: true
-    putbool(1 >= 2) // expect: false
+extern fun main(): c_int {
+    printbln(2 == 2) // expect: true
+    printbln(1 == 2) // expect: false
+    printbln(1 != 2) // expect: true
+    printbln(1 != 1) // expect: false
+    printbln(1 < 2) // expect: true
+    printbln(2 < 1) // expect: false
+    printbln(2 > 1) // expect: true
+    printbln(1 > 2) // expect: false
+    printbln(1 <= 2) // expect: true
+    printbln(2 <= 2) // expect: true
+    printbln(2 <= 1) // expect: false
+    printbln(2 >= 1) // expect: true
+    printbln(2 >= 2) // expect: true
+    printbln(1 >= 2) // expect: false
 
     val two = 2
     val one = 1
 
-    putbool(two == two) // expect: true
-    putbool(one == two) // expect: false
-    putbool(one != two) // expect: true
-    putbool(one != one) // expect: false
-    putbool(one < two) // expect: true
-    putbool(two < one) // expect: false
-    putbool(two > one) // expect: true
-    putbool(one > two) // expect: false
-    putbool(one <= two) // expect: true
-    putbool(two <= two) // expect: true
-    putbool(two <= one) // expect: false
-    putbool(two >= one) // expect: true
-    putbool(two >= two) // expect: true
-    putbool(one >= two) // expect: false
+    printbln(two == two) // expect: true
+    printbln(one == two) // expect: false
+    printbln(one != two) // expect: true
+    printbln(one != one) // expect: false
+    printbln(one < two) // expect: true
+    printbln(two < one) // expect: false
+    printbln(two > one) // expect: true
+    printbln(one > two) // expect: false
+    printbln(one <= two) // expect: true
+    printbln(two <= two) // expect: true
+    printbln(two <= one) // expect: false
+    printbln(two >= one) // expect: true
+    printbln(two >= two) // expect: true
+    printbln(one >= two) // expect: false
 
     return 0
 }

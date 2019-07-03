@@ -1,6 +1,6 @@
 include "common.dg"
 
-extern fun main() i32 {
+extern fun main(): c_int
     val a = b
     return 0
 }

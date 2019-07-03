@@ -1,6 +1,6 @@
 include "../common.dg"
 
-extern fun main() c_int {
+extern fun main(): c_int {
     for i = 0; i < 5; i++ {
         if (i % 2) == 0 {
             continue
@@ -9,7 +9,7 @@ extern fun main() c_int {
             if (j % 2) == 0 {
                 continue
             }
-            putiln(i+j)
+            printiln(i+j)
         }
     }
 
@@ -30,7 +30,7 @@ extern fun main() c_int {
                j--
                continue
            } 
-            putiln(i+j)
+            printiln(i+j)
            j--
         }
        i--

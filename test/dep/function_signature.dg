@@ -1,31 +1,31 @@
 include "../common.dg"
 
-extern fun main() c_int {
+extern fun main(): c_int {
     val a = Foo{a: 5}
     f1(a) // expect: 5
     f2(&a) // expect: 5
-    val b Bar = 6
+    val b: Bar = 6
     f3(b) // expect: 6
     return 0
 }
 
-fun f1(f Foo) Foo {
-    putiln(f.a)
+fun f1(f: Foo): Foo {
+    printiln(f.a)
     return f
 }
 
-fun f2(f &Foo) &Foo {
-    putiln(f.a)
+fun f2(f: &Foo): &Foo {
+    printiln(f.a)
     return f
 }
 
-fun f3(f Bar) Bar {
-    putiln(f)
+fun f3(f: Bar): Bar {
+    printiln(f)
     return f
 }
 
 struct Foo {
-    a i32
+    a: i32
 }
 
 typealias Bar = i32

@@ -1,13 +1,13 @@
 include "../common.dg"
 
-extern fun main() c_int {
-    val hello extern fun() = extern fun() {
-        putln("Hello!")
+extern fun main(): c_int {
+    val hello: extern fun() = extern fun() {
+        println("Hello!")
     }
 
     hello() // expect: Hello!
 
-    do_operation(5, 2, fun(arg1 i32, arg2 i32) i32 {
+    do_operation(5, 2, fun(arg1: i32, arg2: i32): i32 {
         return arg1 * arg2
     }) 
     // expect: 10
@@ -18,10 +18,10 @@ extern fun main() c_int {
 }
 
 val bye = fun() {
-    putln("Good bye!")
+    println("Good bye!")
 }
 
-fun do_operation(arg1 i32, arg2 i32, op fun(i32, i32) i32) {
+fun do_operation(arg1: i32, arg2: i32, op: fun(_i32, _i32): i32) {
     val res = op(arg1, arg2)
-    putiln(res)
+    printiln(res)
 }

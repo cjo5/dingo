@@ -232,7 +232,7 @@ struct Foo {
     var b: i32   // mutable
 }
 
-val f = Foo{a=5, b=9} // allocated on the stack
+val f = Foo{a: 5, b: 9} // allocated on the stack
 ```
 
 ## Typealias

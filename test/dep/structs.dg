@@ -1,6 +1,6 @@
 include "../common.dg"
 
-extern fun main() c_int {
+extern fun main(): c_int {
     var f1 = Foo{}
     var f2 = Foo{a: 9, b: Bar{c: 11, f: &var f1}}
 
@@ -9,22 +9,22 @@ extern fun main() c_int {
     // expect: 11
 
     f2.b.f.a = 13
-    putiln(f1.a) // expect: 13
+    printiln(f1.a) // expect: 13
 
     return 0
 }
 
-fun print_foo(f &Foo) {
-    putiln(f.a)
-    putiln(f.b.c)
+fun print_foo(f: &Foo) {
+    printiln(f.a)
+    printiln(f.b.c)
 }
 
 struct Foo {
-    a i32
-    b Bar
+    a: i32
+    b: Bar
 }
 
 struct Bar {
-    c i32
-    f &var Foo
+    c: i32
+    f: &var Foo
 }
