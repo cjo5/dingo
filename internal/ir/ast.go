@@ -342,18 +342,6 @@ func (x *BasicLit) AsF64() float64 {
 	return val
 }
 
-type ArgExpr struct {
-	baseNode
-	Name  *Ident
-	Value Expr
-}
-
-type StructLit struct {
-	baseExpr
-	Name Expr // Ident or DotExpr
-	Args []*ArgExpr
-}
-
 type ArrayLit struct {
 	baseExpr
 	Elem         Expr
@@ -448,10 +436,17 @@ func (x *SliceExpr) ReadOnly() bool {
 	return false
 }
 
-type FuncCall struct {
+type ArgExpr struct {
+	baseNode
+	Name  *Ident
+	Value Expr
+}
+
+type AppExpr struct {
 	baseExpr
-	X    Expr
-	Args []*ArgExpr
+	X        Expr
+	Args     []*ArgExpr
+	IsStruct bool
 }
 
 type CastExpr struct {
@@ -566,9 +561,9 @@ func ExprPrec(expr Expr) int {
 		return BinaryPrec(t.Op)
 	case *UnaryExpr:
 		return UnaryPrec(t.Op)
-	case *IndexExpr, *SliceExpr, *DotExpr, *CastExpr, *FuncCall:
+	case *IndexExpr, *SliceExpr, *DotExpr, *CastExpr, *AppExpr:
 		return 1
-	case *BasicLit, *StructLit, *Ident:
+	case *BasicLit, *Ident:
 		return 0
 	default:
 		panic(fmt.Sprintf("Unhandled expr %T", expr))

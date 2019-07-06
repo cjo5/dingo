@@ -10,45 +10,6 @@ import (
 	"github.com/cjo5/dingo/internal/token"
 )
 
-func (c *checker) checkStructLit(expr *ir.StructLit) ir.Expr {
-	if isUnresolvedExpr(expr.Name) {
-		expr.Name = c.checkRootTypeExpr(expr.Name, true)
-		if tpunt := puntExprs(expr.Name); tpunt != nil {
-			expr.T = tpunt
-			return expr
-		} else if sym := ir.ExprSymbol(expr.Name); sym != nil {
-			if sym.Kind != ir.TypeSymbol || sym.T.Kind() != ir.TStruct {
-				c.error(expr.Name.Pos(), "'%s' is not a struct", sym.Name)
-				expr.Name.SetType(ir.TBuiltinInvalid)
-				return expr
-			}
-		}
-	}
-
-	tname := expr.Name.Type()
-	tstruct := ir.ToBaseType(tname).(*ir.StructType)
-	var tpunt ir.Type
-
-	for i, arg := range expr.Args {
-		expr.Args[i].Value = c.checkExpr(arg.Value)
-		tpunt = untypedExpr(expr.Args[i].Value, tpunt)
-	}
-
-	if tpunt != nil {
-		expr.T = tpunt
-		return expr
-	}
-
-	if !tstruct.TypedBody {
-		expr.T = ir.TBuiltinUnknown
-		return expr
-	}
-
-	expr.Args = c.checkArgumentList(tstruct, expr.Args, tstruct.Fields, true)
-	expr.T = tname
-	return expr
-}
-
 func (c *checker) checkArrayLit(expr *ir.ArrayLit) ir.Expr {
 	expr.Elem = c.checkRootTypeExpr(expr.Elem, true)
 	tpunt := untypedExpr(expr.Elem, nil)
@@ -131,7 +92,7 @@ func (c *checker) checkArrayLit(expr *ir.ArrayLit) ir.Expr {
 
 func (c *checker) checkDotExpr(expr *ir.DotExpr) ir.Expr {
 	if isUnresolvedExpr(expr.X) {
-		expr.X = c.checkExpr2(expr.X, modeDot)
+		expr.X = c.checkExpr2(expr.X, modeExprOrType)
 		expr.X = tryDeref(expr.X)
 	}
 
@@ -311,18 +272,29 @@ func (c *checker) checkSliceExpr(expr *ir.SliceExpr) ir.Expr {
 	return expr
 }
 
-func (c *checker) checkFuncCall(expr *ir.FuncCall) ir.Expr {
+func (c *checker) checkAppExpr(expr *ir.AppExpr) ir.Expr {
 	var tpunt ir.Type
 	if isUnresolvedExpr(expr.X) {
-		prevMode := c.setMode(modeCheck)
-		expr.X = c.checkExpr(expr.X)
-		c.mode = prevMode
+		expr.X = c.checkExpr2(expr.X, modeExprOrType)
 		tx := expr.X.Type()
 		if isUntyped(tx) {
 			tpunt = tx
-		} else if tx.Kind() != ir.TFunc {
-			c.nodeError(expr.X, "expression cannot be invoked (has type %s)", tx)
-			tpunt = ir.TBuiltinInvalid
+		} else {
+			ok := false
+			if tx.Kind() == ir.TFunc {
+				ok = true
+			} else if tx.Kind() == ir.TStruct {
+				if sym := ir.ExprSymbol(expr.X); sym != nil {
+					if sym.Kind == ir.TypeSymbol {
+						ok = true
+					}
+				}
+			}
+			if !ok {
+				c.nodeError(expr.X, "non-applicable expression (has type %s)", tx)
+				expr.T = ir.TBuiltinInvalid
+				return expr
+			}
 		}
 	}
 
@@ -337,9 +309,21 @@ func (c *checker) checkFuncCall(expr *ir.FuncCall) ir.Expr {
 	}
 
 	tx := expr.X.Type()
-	tfun := ir.ToBaseType(tx).(*ir.FuncType)
-	expr.Args = c.checkArgumentList(tx, expr.Args, tfun.Params, false)
-	expr.T = tfun.Return
+
+	if tx.Kind() == ir.TFunc {
+		tfun := ir.ToBaseType(tx).(*ir.FuncType)
+		expr.Args = c.checkArgumentList(tx, expr.Args, tfun.Params, false)
+		expr.T = tfun.Return
+	} else { // struct
+		tstruct := ir.ToBaseType(tx).(*ir.StructType)
+		if !tstruct.TypedBody {
+			expr.T = ir.TBuiltinUnknown
+			return expr
+		}
+		expr.Args = c.checkArgumentList(tstruct, expr.Args, tstruct.Fields, true)
+		expr.T = tx
+		expr.IsStruct = true
+	}
 
 	return expr
 }
@@ -368,7 +352,7 @@ func (c *checker) checkArgumentList(tobj ir.Type, args []*ir.ArgExpr, fields []i
 					c.nodeError(arg, "unknown named argument '%s'", arg.Name.Literal)
 				}
 			} else if named {
-				c.nodeError(arg, "positioned argument after named argument is not allowed")
+				c.nodeError(arg, "positional argument after named argument is not allowed")
 				mixed = true
 			} else if argIndex < len(fields) {
 				fieldIndex = argIndex

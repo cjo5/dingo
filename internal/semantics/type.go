@@ -203,11 +203,15 @@ func checkCompileTimeConstant(expr ir.Expr) bool {
 	case *ir.BasicLit:
 	case *ir.ConstExpr:
 	case *ir.DefaultInit:
-	case *ir.StructLit:
-		for _, arg := range t.Args {
-			if !checkCompileTimeConstant(arg.Value) {
-				return false
+	case *ir.AppExpr:
+		if t.IsStruct {
+			for _, arg := range t.Args {
+				if !checkCompileTimeConstant(arg.Value) {
+					return false
+				}
 			}
+		} else {
+			constant = false
 		}
 	case *ir.ArrayLit:
 		for _, elem := range t.Initializers {
@@ -442,8 +446,6 @@ func (c *checker) checkExpr(expr ir.Expr) ir.Expr {
 		return c.checkIdent(expr)
 	case *ir.BasicLit:
 		return c.checkBasicLit(expr)
-	case *ir.StructLit:
-		return c.checkStructLit(expr)
 	case *ir.ArrayLit:
 		return c.checkArrayLit(expr)
 	case *ir.BinaryExpr:
@@ -456,8 +458,8 @@ func (c *checker) checkExpr(expr ir.Expr) ir.Expr {
 		return c.checkIndexExpr(expr)
 	case *ir.SliceExpr:
 		return c.checkSliceExpr(expr)
-	case *ir.FuncCall:
-		return c.checkFuncCall(expr)
+	case *ir.AppExpr:
+		return c.checkAppExpr(expr)
 	case *ir.CastExpr:
 		return c.checkCastExpr(expr)
 	case *ir.LenExpr:
@@ -547,7 +549,7 @@ func (c *checker) checkSliceTypeExpr(expr *ir.SliceTypeExpr) ir.Expr {
 
 func (c *checker) checkArrayTypeExpr(expr *ir.ArrayTypeExpr) ir.Expr {
 	if isUnresolvedExpr(expr.Size) {
-		expr.Size = c.checkExpr2(expr.Size, modeCheck)
+		expr.Size = c.checkExpr2(expr.Size, modeExpr)
 		expr.Size = c.finalizeExpr(expr.Size, nil)
 	}
 	expr.X = c.checkExpr(expr.X)
@@ -611,7 +613,7 @@ func (c *checker) resolveIdent(expr *ir.Ident) (*ir.Symbol, bool) {
 	if sym == nil {
 		ok = false
 		c.error(expr.Pos(), "undeclared identifier '%s'", expr.Literal)
-	} else if c.mode != modeDot {
+	} else if c.mode != modeExprOrType {
 		if c.isTypeMode() {
 			if sym.Kind != ir.TypeSymbol {
 				ok = false

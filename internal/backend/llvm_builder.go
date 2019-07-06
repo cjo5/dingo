@@ -780,8 +780,6 @@ func (cb *llvmCodeBuilder) buildExpr(expr ir.Expr, load bool) llvm.Value {
 		return cb.buildIdent(expr, load)
 	case *ir.BasicLit:
 		return cb.buildBasicLit(expr)
-	case *ir.StructLit:
-		return cb.buildStructLit(expr)
 	case *ir.ArrayLit:
 		return cb.buildArrayLit(expr)
 	case *ir.BinaryExpr:
@@ -794,8 +792,8 @@ func (cb *llvmCodeBuilder) buildExpr(expr ir.Expr, load bool) llvm.Value {
 		return cb.buildIndexExpr(expr, load)
 	case *ir.SliceExpr:
 		return cb.buildSliceExpr(expr)
-	case *ir.FuncCall:
-		return cb.buildFuncCall(expr)
+	case *ir.AppExpr:
+		return cb.buildAppExpr(expr)
 	case *ir.CastExpr:
 		return cb.buildCastExpr(expr)
 	case *ir.LenExpr:
@@ -932,19 +930,6 @@ func (cb *llvmCodeBuilder) createSliceStruct(ptr llvm.Value, size llvm.Value, t 
 
 func (cb *llvmCodeBuilder) createSliceSize(size int) llvm.Value {
 	return llvm.ConstInt(llvmSizeType(), uint64(size), false)
-}
-
-func (cb *llvmCodeBuilder) buildStructLit(expr *ir.StructLit) llvm.Value {
-	tstruct := ir.ToBaseType(expr.T).(*ir.StructType)
-	llvmType := cb.typeMap[tstruct.Sym.Key]
-	structLit := llvm.Undef(llvmType)
-
-	for argIndex, arg := range expr.Args {
-		init := cb.buildExprVal(arg.Value)
-		structLit = cb.b.CreateInsertValue(structLit, init, argIndex, "")
-	}
-
-	return structLit
 }
 
 func (cb *llvmCodeBuilder) buildArrayLit(expr *ir.ArrayLit) llvm.Value {
@@ -1205,7 +1190,19 @@ func (cb *llvmCodeBuilder) buildSliceExpr(expr *ir.SliceExpr) llvm.Value {
 	return cb.createSliceStruct(ptr, size, expr.Type())
 }
 
-func (cb *llvmCodeBuilder) buildFuncCall(expr *ir.FuncCall) llvm.Value {
+func (cb *llvmCodeBuilder) buildAppExpr(expr *ir.AppExpr) llvm.Value {
+	if expr.IsStruct {
+		tstruct := ir.ToBaseType(expr.T).(*ir.StructType)
+		llvmType := cb.typeMap[tstruct.Sym.Key]
+		structLit := llvm.Undef(llvmType)
+
+		for argIndex, arg := range expr.Args {
+			init := cb.buildExprVal(arg.Value)
+			structLit = cb.b.CreateInsertValue(structLit, init, argIndex, "")
+		}
+
+		return structLit
+	}
 	fun := cb.buildExprVal(expr.X)
 	var args []llvm.Value
 	for _, arg := range expr.Args {

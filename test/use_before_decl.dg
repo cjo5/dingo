@@ -1,7 +1,7 @@
 fun foo() {
     val a = undef // expect-error: undeclared identifier 'undef'
 
-    val b = baz{undef} // expect-error: undeclared identifier 'undef'
+    val b = Baz(undef) // expect-error: undeclared identifier 'undef'
 
     val c = [i32]{undef} // expect-error: undeclared identifier 'undef'
 
@@ -35,7 +35,7 @@ fun foo() {
 }
 
 fun bar(a: i32){}
-struct baz {
+struct Baz {
     a: i32
 }
 

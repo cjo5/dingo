@@ -69,10 +69,10 @@ func Check(ctx *common.BuildContext, target ir.Target, fileMatrix ir.FileMatrix)
 }
 
 const (
-	modeCheck int = iota
+	modeExpr int = iota
 	modeType
 	modeIndirectType
-	modeDot
+	modeExprOrType
 )
 
 type checker struct {

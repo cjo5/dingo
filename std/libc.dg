@@ -1,3 +1,6 @@
+// math
+extern fun sqrt(x: c_double): c_double
+
 // stdlib
 extern fun abs(x: c_int): c_int
 extern fun atoi(str: &c_char): c_int

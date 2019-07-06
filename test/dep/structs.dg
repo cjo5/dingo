@@ -1,8 +1,8 @@
 include "../common.dg"
 
 extern fun main(): c_int {
-    var f1 = Foo{}
-    var f2 = Foo{a: 9, b: Bar{c: 11, f: &var f1}}
+    var f1 = Foo()
+    var f2 = Foo(a: 9, b: Bar(c: 11, f: &var f1))
 
     print_foo(&f2)
     // expect: 9

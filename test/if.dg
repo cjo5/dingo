@@ -35,7 +35,7 @@ extern fun main(): c_int {
         println("not d") // expect: not d
     }
 
-    val foo = Foo{a: true, b: false}
+    val foo = Foo(a: true, b: false)
 
     if foo.a {
         println("foo.a") // expect: foo.a

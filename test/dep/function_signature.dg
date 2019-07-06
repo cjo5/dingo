@@ -1,7 +1,7 @@
 include "../common.dg"
 
 extern fun main(): c_int {
-    val a = Foo{a: 5}
+    val a = Foo(a: 5)
     f1(a) // expect: 5
     f2(&a) // expect: 5
     val b: Bar = 6

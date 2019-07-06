@@ -24,7 +24,7 @@ func puntExprs(exprs ...ir.Expr) ir.Type {
 
 func untyped(t ir.Type, prev ir.Type) ir.Type {
 	if prev == nil || prev.Kind() == ir.TUnknown {
-		if isTypeOneOf(t, ir.TUnknown, ir.TInvalid) {
+		if isUntyped(t) {
 			return t
 		}
 	}

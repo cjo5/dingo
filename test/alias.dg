@@ -1,53 +1,53 @@
 include "common.dg"
 
-typealias s1 = i32
+typealias T1 = i32
 
 extern fun main(): c_int {
-    val a1: s1 = 1
-    val a2 :s1
+    val a1: T1 = 1
+    val a2: T1
     printiln(a1) // expect: 1
     printiln(a2) // expect: 0
 
-    typealias s2 = Foo
+    typealias T2 = Foo
 
-    var b1: s2 = s2{a: 1}
-    var b2: s2
+    var b1: T2 = T2(a: 1)
+    var b2: T2
     b1.a += 1
     printiln(b1.a) // expect: 2
     printiln(b2.a) // expect: 0
 
-    typealias s3 = [s1:5]
+    typealias T3 = [T1:5]
 
-    var c1: s3 = [i32]{1, 2, 3, 4, 5}
-    var c2: s3
+    var c1: T3 = [i32]{1, 2, 3, 4, 5}
+    var c2: T3
     printiln(c1[2]) // expect: 3
     printiln(c2[2]) // expect: 0
 
-    typealias s4 = s1
+    typealias T4 = T1
 
-    var d1: s4 = 4
-    var d2: s4
+    var d1: T4 = 4
+    var d2: T4
     printiln(d1) // expect: 4
     printiln(d2) // expect: 0
 
-    typealias s5 = &s1
+    typealias T5 = &T1
 
-    var e1: s5 = &a1
-    var e2: s5
+    var e1: T5 = &a1
+    var e2: T5
     printiln(*e1) // expect: 1
 
-    typealias s6 = &[s1]
+    typealias T6 = &[T1]
 
-    var g1: s6 = &c1[:]
-    var g2: s6
+    var g1: T6 = &c1[:]
+    var g2: T6
     printiln(g1[1]) // expect: 2
 
-    typealias s7 = fun(_i32):i32
+    typealias T7 = fun(_i32):i32
 
-    val h1: s7 = fun(a: i32): i32 {
+    val h1: T7 = fun(a: i32): i32 {
         return a*a
     }
-    val h2: s7
+    val h2: T7
     printiln(h1(5)) // expect: 25
 
     return 0

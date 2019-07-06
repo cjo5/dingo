@@ -14,7 +14,7 @@ extern fun main(): c_int {
     foo(a: 1, b: 2, c: 3, c: 4) // expect-error: duplicate arguments for 'c' at position 3
     foo(a: 1, b: 2, c: 3, d: 4) // expect-error: unknown named argument 'd' 
 
-    foo(a: 1, b: 2, 3) // expect-error: positioned argument after named argument is not allowed
+    foo(a: 1, b: 2, 3) // expect-error: positional argument after named argument is not allowed
 
     foo(1, 2, true) // expect-error: parameter at position 3 expects type i32 (got bool)
 

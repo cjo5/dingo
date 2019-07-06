@@ -643,7 +643,7 @@ func (p *parser) parseStmt() (stmt ir.Stmt, sync bool) {
 		stmt.SetPos(p.pos)
 		p.next()
 	} else {
-		stmt = p.parseExprOrAssignStmt()
+		stmt = p.parseExprStmt()
 	}
 	p.expectSemi()
 	return stmt, sync
@@ -700,7 +700,7 @@ func (p *parser) parseIfStmt() *ir.IfStmt {
 	s.Tok = p.token
 	s.SetPos(p.pos)
 	p.next()
-	s.Cond = p.parseCondition()
+	s.Cond = p.parseExpr()
 	s.Body = p.parseBlockStmt()
 	if p.token == token.Elif {
 		s.Else = p.parseIfStmt()
@@ -721,7 +721,7 @@ func (p *parser) parseWhileStmt() *ir.ForStmt {
 	s.Tok = p.token
 	s.SetPos(p.pos)
 	p.next()
-	s.Cond = p.parseCondition()
+	s.Cond = p.parseExpr()
 	s.Body = p.parseBlockStmt()
 	s.SetEndPos(s.Body.EndPos())
 	return s
@@ -748,11 +748,11 @@ func (p *parser) parseForStmt() *ir.ForStmt {
 	}
 	p.expectSemi()
 	if p.token != token.Semicolon {
-		s.Cond = p.parseCondition()
+		s.Cond = p.parseExpr()
 	}
 	p.expectSemi()
 	if p.token != token.Lbrace {
-		s.Inc = p.parseExprOrAssignStmt()
+		s.Inc = p.parseExprStmt()
 	}
 	s.Body = p.parseBlockStmt()
 	s.SetEndPos(s.Body.EndPos())
@@ -773,11 +773,11 @@ func (p *parser) parseDeferStmt() *ir.DeferStmt {
 	s := &ir.DeferStmt{}
 	s.SetRange(p.pos, p.pos)
 	p.next()
-	s.S = p.parseExprOrAssignStmt()
+	s.S = p.parseExprStmt()
 	return s
 }
 
-func (p *parser) parseExprOrAssignStmt() ir.Stmt {
+func (p *parser) parseExprStmt() ir.Stmt {
 	var stmt ir.Stmt
 	expr := p.parseExpr()
 	if p.token.IsAssignOp() || p.token.OneOf(token.Inc, token.Dec) {
@@ -871,15 +871,11 @@ func (p *parser) parseFuncType() ir.Expr {
 	return fun
 }
 
-func (p *parser) parseCondition() ir.Expr {
-	return p.parseBinaryExpr(true, ir.LowestPrec)
-}
-
 func (p *parser) parseExpr() ir.Expr {
-	return p.parseBinaryExpr(false, ir.LowestPrec)
+	return p.parseBinaryExpr(ir.LowestPrec)
 }
 
-func (p *parser) parseBinaryExpr(condition bool, prec int) ir.Expr {
+func (p *parser) parseBinaryExpr(prec int) ir.Expr {
 	var expr ir.Expr
 	pos := p.pos
 
@@ -894,12 +890,12 @@ func (p *parser) parseBinaryExpr(condition bool, prec int) ir.Expr {
 				p.next()
 			}
 		}
-		expr = p.parseOperand(condition)
+		expr = p.parseOperand()
 		endPos := expr.EndPos()
 		expr = &ir.UnaryExpr{Op: op, Decl: decl, X: expr}
 		expr.SetRange(pos, endPos)
 	} else {
-		expr = p.parseOperand(condition)
+		expr = p.parseOperand()
 	}
 
 	expr = p.parseAsExpr(expr)
@@ -911,7 +907,7 @@ func (p *parser) parseBinaryExpr(condition bool, prec int) ir.Expr {
 			break
 		}
 		p.next()
-		right := p.parseBinaryExpr(condition, opPrec-1)
+		right := p.parseBinaryExpr(opPrec - 1)
 		bin := &ir.BinaryExpr{Left: expr, Op: op, Right: right}
 		bin.SetRange(bin.Left.Pos(), bin.Right.EndPos())
 		expr = bin
@@ -932,14 +928,7 @@ func (p *parser) parseAsExpr(expr ir.Expr) ir.Expr {
 	return expr
 }
 
-func (p *parser) tryParseStructLit(expr ir.Expr, condition bool) ir.Expr {
-	if p.token.Is(token.Lbrace) && !condition {
-		expr = p.parseStructLit(expr)
-	}
-	return expr
-}
-
-func (p *parser) parseOperand(condition bool) ir.Expr {
+func (p *parser) parseOperand() ir.Expr {
 	var expr ir.Expr
 	if p.token.Is(token.Lparen) {
 		pos := p.pos
@@ -955,12 +944,9 @@ func (p *parser) parseOperand(condition bool) ir.Expr {
 		expr = p.parseName()
 		if p.token.Is(token.String) {
 			expr = p.parseBasicLit(expr)
-		} else {
-			expr = p.tryParseStructLit(expr, condition)
 		}
 	} else if p.token.OneOf(token.RootMod, token.ParentMod, token.SelfMod) {
 		expr = p.parseScopeName()
-		expr = p.tryParseStructLit(expr, condition)
 	} else if p.token.Is(token.Lbrack) {
 		expr = p.parseArrayLit()
 	} else if p.token.OneOf(token.Func, token.Extern) {
@@ -1032,7 +1018,7 @@ func (p *parser) parsePrimary(expr ir.Expr) ir.Expr {
 	if p.token.Is(token.Lbrack) {
 		return p.parseSliceOrIndexExpr(expr)
 	} else if p.token.Is(token.Lparen) {
-		return p.parsePrimary(p.parseFuncCall(expr))
+		return p.parsePrimary(p.parseAppExpr(expr))
 	} else if p.token.Is(token.Dot) {
 		return p.parsePrimary(p.parseDotExpr(expr))
 	}
@@ -1083,15 +1069,15 @@ func (p *parser) parseDotExpr(expr ir.Expr) *ir.DotExpr {
 	return dot
 }
 
-func (p *parser) parseFuncCall(expr ir.Expr) ir.Expr {
-	call := &ir.FuncCall{}
-	call.SetPos(expr.Pos())
-	call.X = expr
+func (p *parser) parseAppExpr(expr ir.Expr) ir.Expr {
+	app := &ir.AppExpr{}
+	app.SetPos(expr.Pos())
+	app.X = expr
 	p.expect(token.Lparen)
-	call.Args = p.parseArgList(token.Rparen)
-	call.SetEndPos(p.endPos())
+	app.Args = p.parseArgList(token.Rparen)
+	app.SetEndPos(p.endPos())
 	p.expect(token.Rparen)
-	return call
+	return app
 }
 
 func (p *parser) parseBasicLit(prefix ir.Expr) ir.Expr {
@@ -1119,17 +1105,6 @@ func (p *parser) parseBasicLit(prefix ir.Expr) ir.Expr {
 		p.error(p.pos, "expected expression")
 		panic(parseError(0))
 	}
-}
-
-func (p *parser) parseStructLit(name ir.Expr) ir.Expr {
-	lit := &ir.StructLit{Name: name}
-	lit.SetRange(name.Pos(), name.EndPos())
-	p.expect(token.Lbrace)
-	p.blockCount++
-	lit.Args = p.parseArgList(token.Rbrace)
-	p.expect(token.Rbrace)
-	p.blockCount--
-	return lit
 }
 
 func (p *parser) parseArrayLit() ir.Expr {
