@@ -171,11 +171,11 @@ fun say_hello() {
     println("hello")
 }
 
-fun add(a: i32, b: i32): i32 {
+fun add(a: i32, b: i32) i32 {
     return a + b
 }
 
-fun inc(var a: i32): i32 {
+fun inc(var a: i32) i32 {
     a += 1
     return a
 }
@@ -189,7 +189,7 @@ Function parameters are immutable by default, but can be made mutable by preceed
 
 Functions can be used as values and also defined inline (function literals). Though note that function literals are not closures and do not have access to variables in the enclosing scope.
 ```rust
-val add_val: fun (_ i32, _ i32): i32 = add
+val add_val: fun (_ i32, _ i32) i32 = add
 val sub = fun(a: i32, b: i32) i32 {
     return a - b
 }
@@ -343,7 +343,7 @@ References are currently used for C pointers, though no pointer arithmetic is al
 ```rust
 // Functions defined in C can be called from Dingo
 extern fun free(ptr: &c_void)
-extern fun malloc(size: c_usize): &var c_void
+extern fun malloc(size: c_usize) &var c_void
 
 // Functions defined in Dingo can be called from C
 extern fun do_stuff() {
@@ -355,7 +355,7 @@ Using ```extern``` on functions will enable C ABI and disable name mangling.
 
 **main**
 ```rust
-extern fun main(argc: c_int, argv: &&c_char): c_int {
+extern fun main(argc: c_int, argv: &&c_char) c_int {
     return 0
 }
 ```

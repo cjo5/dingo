@@ -6,7 +6,7 @@ include "../std/lib.dg"
         Nested comment
     */
 */
-extern fun main(): c_int {
+extern fun main() c_int {
     var arr = [i32]{31, 4, -10, 9, 2}
 
     sort(&var arr[:])

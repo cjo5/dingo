@@ -3,7 +3,7 @@ include "../common.dg"
 typealias foo1 = i32
 typealias foo2 = bar
 
-extern fun main(): c_int {
+extern fun main() c_int {
     var a: foo1 = 1
     printiln(a) // expect: 1
 

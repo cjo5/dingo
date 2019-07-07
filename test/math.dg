@@ -1,6 +1,6 @@
 include "common.dg"
 
-extern fun main(): c_int {
+extern fun main() c_int {
     printiln(5+5) // expect: 10
     printiln(7-5) // expect: 2
     printiln(2-5) // expect: -3

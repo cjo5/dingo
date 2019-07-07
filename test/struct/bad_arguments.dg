@@ -6,7 +6,7 @@ struct Foo {
     c: i32
 }
 
-extern fun main(): c_int {
+extern fun main() c_int {
     var f: Foo
 
     f = Foo(1, 2) // expect-error: too few arguments (got 2 but expected 3)

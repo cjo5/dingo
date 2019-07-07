@@ -1,6 +1,6 @@
 include "../common.dg"
 
-extern fun main(): c_int {
+extern fun main() c_int {
     var f1 = Foo()
     var f2 = Foo(a: 9, b: Bar(c: 11, f: &var f1))
 

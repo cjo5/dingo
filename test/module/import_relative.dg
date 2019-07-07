@@ -9,7 +9,7 @@ module foo {
     }
 }
 
-extern fun main(): c_int {
+extern fun main() c_int {
     println(bar.modfqn_) // expect: foo.bar
     println(foo.bar.modfqn_) // expect: foo.bar
     println(foo.baaz.bar.modfqn_) // expect: foo.bar

@@ -2,7 +2,7 @@ include "common.dg"
 
 typealias T1 = i32
 
-extern fun main(): c_int {
+extern fun main() c_int {
     val a1: T1 = 1
     val a2: T1
     printiln(a1) // expect: 1
@@ -42,9 +42,9 @@ extern fun main(): c_int {
     var g2: T6
     printiln(g1[1]) // expect: 2
 
-    typealias T7 = fun(_i32):i32
+    typealias T7 = fun(_i32)i32
 
-    val h1: T7 = fun(a: i32): i32 {
+    val h1: T7 = fun(a: i32) i32 {
         return a*a
     }
     val h2: T7

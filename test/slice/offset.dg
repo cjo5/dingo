@@ -1,6 +1,6 @@
 include "../common.dg"
 
-extern fun main(): c_int {
+extern fun main() c_int {
     var arr = [i32]{0, 1, 2, 3, 4}
 
     println("arr[:]") // expect: arr[:]

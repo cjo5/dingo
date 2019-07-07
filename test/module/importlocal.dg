@@ -3,7 +3,7 @@ include "../common.dg"
 importlocal foo: pub bar
 importlocal foo
 
-extern fun main(): c_int {
+extern fun main() c_int {
     foo.bar() // expect: foo
     bar() // expect: foo
     return 0

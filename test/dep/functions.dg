@@ -1,6 +1,6 @@
 include "../common.dg"
 
-extern fun main(): c_int {
+extern fun main() c_int {
     foo(2)
     // expect: foo
     // expect: bar

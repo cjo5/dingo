@@ -597,10 +597,8 @@ func (p *parser) parseFuncSignature() (params []*ir.ValDecl, ret *ir.ValDecl) {
 	ret.SetPos(p.pos)
 	ret.Decl = token.Val
 	ret.Name = ir.NewIdent2(token.Placeholder, token.Placeholder.String())
-	if p.token.Is(token.Colon) {
-		p.next()
-		ret.Type = p.parseType()
-	} else {
+	ret.Type = p.tryParseType(false)
+	if ret.Type == nil {
 		ret.Type = ir.NewIdent2(token.Ident, ir.TVoid.String())
 		ret.SetRange(endPos, endPos)
 	}
@@ -801,8 +799,11 @@ func (p *parser) parseExprStmt() ir.Stmt {
 	}
 	return stmt
 }
-
 func (p *parser) parseType() ir.Expr {
+	return p.tryParseType(true)
+}
+
+func (p *parser) tryParseType(required bool) ir.Expr {
 	if p.token.Is(token.Lparen) {
 		pos := p.pos
 		p.next()
@@ -820,9 +821,11 @@ func (p *parser) parseType() ir.Expr {
 		return p.parseFuncType()
 	} else if p.token.Is(token.Ident) {
 		return p.parseScopeName()
+	} else if required {
+		p.error(p.pos, "expected type")
+		panic(parseError(0))
 	}
-	p.error(p.pos, "expected type")
-	panic(parseError(0))
+	return nil
 }
 
 func (p *parser) parsePointerType() ir.Expr {

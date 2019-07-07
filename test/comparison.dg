@@ -1,6 +1,6 @@
 include "common.dg"
 
-extern fun main(): c_int {
+extern fun main() c_int {
     printbln(2 == 2) // expect: true
     printbln(1 == 2) // expect: false
     printbln(1 != 2) // expect: true

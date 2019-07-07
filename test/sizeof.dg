@@ -1,6 +1,6 @@
 include "common.dg"
 
-extern fun main(): c_int {
+extern fun main() c_int {
     printiln(sizeof(i8) as i32) // expect: 1
     printiln(sizeof(i16) as i32) // expect: 2
     printiln(sizeof(i32) as i32) // expect: 4

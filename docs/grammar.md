@@ -36,7 +36,7 @@ ImportItem      ::= [('_' | IDENT) '='] IDENT
 
 Field           ::= ('_' | (['val' | 'var'] IDENT ':')) Type
 StructBody      ::= '{' {Field ';'} '}'
-FuncSignature   ::= '(' [Field {',' Field} ','?] ')' [':' Type]
+FuncSignature   ::= '(' [Field {',' Field} ','?] ')' Type?
 ```
 
 ## Types

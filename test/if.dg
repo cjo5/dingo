@@ -1,6 +1,6 @@
 include "common.dg"
 
-extern fun main(): c_int {
+extern fun main() c_int {
     if true {
         println("true") // expect: true
     }
@@ -19,7 +19,7 @@ extern fun main(): c_int {
         println("not b") // expect: not b
     }
 
-    val c = fun(): bool {
+    val c = fun() bool {
         return true
     }
 
@@ -27,7 +27,7 @@ extern fun main(): c_int {
         println("c") // expect: c
     }
 
-    val d = fun(): bool {
+    val d = fun() bool {
         return false
     }
 

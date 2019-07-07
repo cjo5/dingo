@@ -40,5 +40,5 @@ struct Baz {
 }
 
 module quux {
-   fun bam(): i32{} 
+   fun bam() i32{} 
 }

@@ -2,6 +2,6 @@ module foo {
 
 }
 
-extern fun main(): c_int {
+extern fun main() c_int {
     return 0
 }

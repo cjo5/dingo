@@ -1,26 +1,26 @@
 // math
-extern fun sqrt(x: c_double): c_double
+extern fun sqrt(x: c_double) c_double
 
 // stdlib
-extern fun abs(x: c_int): c_int
-extern fun atoi(str: &c_char): c_int
+extern fun abs(x: c_int) c_int
+extern fun atoi(str: &c_char) c_int
 extern fun exit(status: c_int)
 extern fun free(ptr: &c_void)
-extern fun malloc(size: c_usize): &var c_void
-extern fun rand(): c_int
+extern fun malloc(size: c_usize) &var c_void
+extern fun rand() c_int
 extern fun srand(_ c_uint)
 
 // stdio
 struct C_FILE
-extern fun fclose(stream: &var C_FILE): c_int
-extern fun ferror(stream: &var C_FILE): c_int
-extern fun fopen(filename: &c_char, mode: &c_char): &var C_FILE
-extern fun fread(ptr: &var c_void, size: c_usize, nmemb: c_usize, stream: &var C_FILE): c_usize
-extern fun getchar(): c_int
-extern fun gets(str: &var c_char): &var c_char
+extern fun fclose(stream: &var C_FILE) c_int
+extern fun ferror(stream: &var C_FILE) c_int
+extern fun fopen(filename: &c_char, mode: &c_char) &var C_FILE
+extern fun fread(ptr: &var c_void, size: c_usize, nmemb: c_usize, stream: &var C_FILE) c_usize
+extern fun getchar() c_int
+extern fun gets(str: &var c_char) &var c_char
 extern fun perror(str: &c_char)
-extern fun putchar(ch: c_int): c_int
-extern fun puts(str: &c_char): c_int
+extern fun putchar(ch: c_int) c_int
+extern fun puts(str: &c_char) c_int
 
 // time
-extern fun time(tm: &void): c_int
+extern fun time(tm: &void) c_int

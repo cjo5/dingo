@@ -1,6 +1,6 @@
 include "../common.dg"
 
-extern fun main(): c_int {
+extern fun main() c_int {
     val a = Foo(a: 5)
     f1(a) // expect: 5
     f2(&a) // expect: 5
@@ -9,17 +9,17 @@ extern fun main(): c_int {
     return 0
 }
 
-fun f1(f: Foo): Foo {
+fun f1(f: Foo) Foo {
     printiln(f.a)
     return f
 }
 
-fun f2(f: &Foo): &Foo {
+fun f2(f: &Foo) &Foo {
     printiln(f.a)
     return f
 }
 
-fun f3(f: Bar): Bar {
+fun f3(f: Bar) Bar {
     printiln(f)
     return f
 }

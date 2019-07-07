@@ -15,7 +15,7 @@ struct Foo {
     c: i32
 }
 
-extern fun main(): c_int {
+extern fun main() c_int {
     var f: Foo
 
     f = Foo(a: 1, b: 2, c: 3)

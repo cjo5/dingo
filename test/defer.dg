@@ -21,7 +21,7 @@ fun test_if1(a: i32) {
     defer println("if1_2")
 }
 
-fun test_if2(a: i32): i32 {
+fun test_if2(a: i32) i32 {
     defer println("if2_done")
     if a == 1 {
         defer println("if2_1")
@@ -116,13 +116,13 @@ fun test_return_skip(a: i32) {
     }
 }
 
-fun test_modify_retval(): i32 {
+fun test_modify_retval() i32 {
     var a = 4
     defer a = 5
     return a
 }
 
-extern fun main(): c_int {
+extern fun main() c_int {
     test_nested_scopes()
     // expect: nested_scopes_start1
     // expect: nested_scopes_start2

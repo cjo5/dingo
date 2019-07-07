@@ -40,7 +40,7 @@ fun printu(i: u64) {
     putchar(('0' + i%10) as i32)
 }
 
-fun readln(buf: &var [i8], null_terminate: bool): &var [i8] {
+fun readln(buf: &var [i8], null_terminate: bool) &var [i8] {
     var max = len(buf)
     if null_terminate and max > 0 {
         max--

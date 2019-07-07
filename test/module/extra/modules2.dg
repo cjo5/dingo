@@ -5,7 +5,7 @@ pub module mod2 {
 
     pub val bar: i32 = 20
 
-    pub fun baz(): i32 {
+    pub fun baz() i32 {
         return 200
     }
 }
