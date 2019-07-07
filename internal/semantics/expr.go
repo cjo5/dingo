@@ -112,7 +112,6 @@ func (c *checker) checkDotExpr(expr *ir.DotExpr) ir.Expr {
 			c.nodeError(expr.X, "expression has incomplete type %s", tx)
 			expr.T = ir.TBuiltinInvalid
 		} else {
-
 			prevScope := c.setScope(tx.Scope)
 			if sym, ok := c.resolveIdent(expr.Name); ok {
 				expr.Name.Sym = sym
@@ -579,9 +578,7 @@ func (c *checker) checkUnaryExpr(expr *ir.UnaryExpr) ir.Expr {
 		}
 	case token.Addr:
 		ro := expr.Decl.Is(token.Val)
-		if !expr.X.Lvalue() {
-			c.error(expr.X.Pos(), "expression is not an lvalue")
-		} else if expr.X.ReadOnly() && !ro {
+		if expr.X.ReadOnly() && !ro {
 			c.error(expr.X.Pos(), "expression is read-only")
 		} else {
 			if tslice, ok := tx.(*ir.SliceType); ok {

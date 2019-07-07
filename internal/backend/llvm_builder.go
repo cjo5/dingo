@@ -1094,6 +1094,11 @@ func (cb *llvmCodeBuilder) buildUnaryExpr(expr *ir.UnaryExpr, load bool) llvm.Va
 		return val
 	case token.Addr:
 		val := cb.buildExprPtr(expr.X)
+		if expr.T.Kind() != ir.TSlice {
+			if val.Type().TypeKind() != llvm.PointerTypeKind {
+				val = cb.createTempStorage(val)
+			}
+		}
 		return val
 	default:
 		panic(fmt.Sprintf("Unhandled unary op %s", expr.Op))
@@ -1101,7 +1106,6 @@ func (cb *llvmCodeBuilder) buildUnaryExpr(expr *ir.UnaryExpr, load bool) llvm.Va
 }
 
 func (cb *llvmCodeBuilder) createTempStorage(val llvm.Value) llvm.Value {
-	// TODO: See if there's a better way to handle intermediary results
 	loc := cb.b.CreateAlloca(val.Type(), ".tmp")
 	cb.b.CreateStore(val, loc)
 	return loc

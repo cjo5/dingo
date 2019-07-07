@@ -306,7 +306,6 @@ func (l *lexer) lexNumber(float bool) token.Token {
 	} else {
 		if l.ch == '0' {
 			l.next()
-
 			if l.ch == 'x' || l.ch == 'X' {
 				// Hex
 				l.next()
@@ -315,7 +314,8 @@ func (l *lexer) lexNumber(float bool) token.Token {
 				} else if isFractionOrExponent(l.ch) {
 					l.error(l.newPos(), "hexadecimal float literal is not supported")
 				}
-			} else {
+				return id
+			} else if l.ch != '.' {
 				// Octal
 				l.lexDigits(8)
 				if isDigit(l.ch, 10) {
@@ -323,9 +323,8 @@ func (l *lexer) lexNumber(float bool) token.Token {
 				} else if isFractionOrExponent(l.ch) {
 					l.error(l.newPos(), "octal float literal is not supported")
 				}
+				return id
 			}
-
-			return id
 		}
 
 		l.lexDigits(10)

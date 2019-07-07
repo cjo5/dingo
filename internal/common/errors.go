@@ -141,7 +141,11 @@ func (e byFileAndLineNumber) Less(i, j int) bool {
 	if e[i].Pos.Filename < e[j].Pos.Filename {
 		return true
 	} else if e[i].Pos.Filename == e[j].Pos.Filename {
-		return e[i].Pos.Line < e[j].Pos.Line
+		if e[i].Pos.Line < e[j].Pos.Line {
+			return true
+		} else if e[i].Pos.Line == e[j].Pos.Line {
+			return e[i].Pos.Column < e[j].Pos.Column
+		}
 	}
 	return false
 }
