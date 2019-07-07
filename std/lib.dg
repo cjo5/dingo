@@ -5,9 +5,10 @@ fun println(str: &[i8]) {
     putchar('\n')
 }
 
-fun printiln(i: i64) {
-    printi(i)
-    putchar('\n')
+fun print(str: &[i8]) {
+    for i: usize = 0; i < len(str); i++ {
+        putchar(str[i])
+    }
 }
 
 fun printbln(b: bool) {
@@ -18,10 +19,9 @@ fun printbln(b: bool) {
     }
 }
 
-fun print(str: &[i8]) {
-    for i: usize = 0; i < len(str); i++ {
-        putchar(str[i])
-    }
+fun printiln(i: i64) {
+    printi(i)
+    putchar('\n')
 }
 
 fun printi(i: i64) {
@@ -38,6 +38,10 @@ fun printu(i: u64) {
         printu(i/10)
     }
     putchar(('0' + i%10) as i32)
+}
+
+fun print_float(f: f64) {
+    printf(c"%g", f)
 }
 
 fun readln(buf: &var [i8], null_terminate: bool) &var [i8] {

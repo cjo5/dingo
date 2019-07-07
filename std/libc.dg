@@ -8,7 +8,10 @@ extern fun exit(status: c_int)
 extern fun free(ptr: &c_void)
 extern fun malloc(size: c_usize) &var c_void
 extern fun rand() c_int
-extern fun srand(_ c_uint)
+extern fun srand(c_uint)
+
+// Workaround, currently the only way to print a double.
+extern fun printf(str: &c_char, arg: c_double) c_int
 
 // stdio
 struct C_FILE

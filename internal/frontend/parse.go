@@ -556,21 +556,33 @@ func (p *parser) parseField(flags int, defaultDecl token.Token) *ir.ValDecl {
 	decl.Flags = flags
 	decl.Decl = defaultDecl
 
-	if p.token.Is(token.Placeholder) {
-		tok, lit := p.token, p.literal
-		startPos, endPos := p.pos, p.endPos()
-		decl.Name = ir.NewIdent2(tok, lit)
-		decl.Name.SetRange(startPos, endPos)
+	if p.token.OneOf(token.Val, token.Var) {
+		decl.Decl = p.token
 		p.next()
-		decl.Type = p.parseType()
-	} else {
-		if p.token.OneOf(token.Val, token.Var) {
-			decl.Decl = p.token
-			p.next()
-		}
 		decl.Name = p.parseIdent()
 		p.expect(token.Colon)
 		decl.Type = p.parseType()
+	} else {
+		ty := p.tryParseType(false)
+		ok := false
+		pos := p.pos
+		if ty != nil {
+			pos = ty.Pos()
+			if !p.token.Is(token.Colon) {
+				decl.Type = ty
+				decl.Name = ir.NewIdent1(token.Placeholder)
+				ok = true
+			} else if name := ty.(*ir.Ident); name != nil {
+				decl.Name = name
+				p.expect(token.Colon)
+				decl.Type = p.parseType()
+				ok = true
+			}
+		}
+		if !ok {
+			p.error(pos, "expected parameter")
+			panic(parseError(0))
+		}
 	}
 
 	decl.SetEndPos(decl.Type.EndPos())

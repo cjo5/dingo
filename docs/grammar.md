@@ -1,6 +1,7 @@
 # Grammar
 
 ## Notation
+
 ```
 [..]  : 0 or 1
 {..}  : 0 or more
@@ -11,6 +12,7 @@ a | b : a or b
 ```
 
 ## Declarations
+
 ```
 ModuleBody      ::= (Module | Include | TopLevelDecl)*
 Module          ::= 'module' Name '{' ModuleBody '}'
@@ -20,7 +22,7 @@ Name            ::= IDENT ['.' Name]
 EOS             ::= ';' | EOF
 
 TopLevelDecl    ::= [Visibility? (ExternDecl | ImportDecl | StructDecl | FuncDecl | Decl)] EOS
-Visibility      ::= 'pub' | 'priv' 
+Visibility      ::= 'pub' | 'priv'
 Extern          ::= 'extern' ['(' IDENT ')']
 ExternDecl      ::= Extern (ValDecl | FuncDecl)
 StructDecl      ::= 'struct' IDENT StructBody?
@@ -34,12 +36,13 @@ ImportName      ::= [('_' | IDENT) '='] ScopeName
 ImportList      ::= ImportItem {',' ImportItem} ','?
 ImportItem      ::= [('_' | IDENT) '='] IDENT
 
-Field           ::= ('_' | (['val' | 'var'] IDENT ':')) Type
+Field           ::= (['val' | 'var'] IDENT ':')? Type
 StructBody      ::= '{' {Field ';'} '}'
 FuncSignature   ::= '(' [Field {',' Field} ','?] ')' Type?
 ```
 
 ## Types
+
 ```
 Type            ::= NestedType | PointerType | ArrayType | FuncType | ScopeName
 NestedType      ::= '(' Type ')'
@@ -49,12 +52,13 @@ FuncType        ::= Extern? 'fun' ['[' IDENT ']'] FuncSignature
 ```
 
 ## Statements
+
 ```
 Block           ::= '{' Stmt* '}'
 Stmt            ::= [Block | Decl | ExprStmt | IfStmt | WhileStmt |
                      ForStmt | ReturnStmt | DeferStmt | BranchStmt ] EOS
 ExprStmt        ::= Expr ['++' | '--' | (('=' | '+=' | '-=' | '*=' | '/=' | '%=' ) Expr)]
-IfStmt          ::= 'if' IfStmt1 
+IfStmt          ::= 'if' IfStmt1
 IfStmt1         ::=  Expr Block [('elif' IfStmt1) | ('else' Block)]
 WhileStmt       ::= 'while' Expr ':' Block
 ForStmt         ::= 'for' [IDENT [':' Type] '=' Expr] ';' Expr? ';' ExprStmt? ':' Block
@@ -64,11 +68,12 @@ DeferStmt       ::= 'defer' ExprOrAssignStmt
 ```
 
 ## Expressions
+
 ```
 Expr            ::= UnaryOp? Operand  Primary AsExpr [BinaryOp Expr]
 BinaryOp        ::= 'or | 'and' | '!=' | '==' | '>' | '>=' | '<' | '<='
                     | '-' | '+' | '/' | '%' | '*'
-UnaryOp         ::= ('not' | '-' | '*') | ('&' ['val' | 'var']) 
+UnaryOp         ::= ('not' | '-' | '*') | ('&' ['val' | 'var'])
 AsExpr          ::= ['as' Type]
 Operand         ::= NestedExpr | LenExpr | SizeExpr | ScopeName | Literal
 NestedExpr      ::= '(' Expr ')'
@@ -86,6 +91,7 @@ DotExpr         ::= '.' IDENT Primary
 ```
 
 ## Literals
+
 ```
 Literal         ::= BasicLit | ArrayLit | FuncLit
 BasicLit        ::= Number | CHAR | (Name? STRING) | 'true' | 'false' | 'null'
