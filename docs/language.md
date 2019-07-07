@@ -1,6 +1,7 @@
 # The Dingo Language
 
 ## Index
+
 - [Files and Modules](#files-and-modules)
 - [Comments](#comments)
 - [Semicolons](#semicolons)
@@ -28,6 +29,7 @@
 - [Keywords](#keywords)
 
 ## Files and Modules
+
 A module is a namespace for grouping related code. Modules can be nested, in which case they share a common prefix.
 An identifier's Fully Qualified Name (FQN) is the path from the root module to the identifier.
 Modules and top-level identifiers are either public ```pub``` or private ```priv``` (default).
@@ -39,7 +41,7 @@ module foo {            // FQN: foo
     pub module baz {    // FQN: foo.baz
         pub var qux i32 // FQN: foo.baz.qux
     }
-} 
+}
 ```
 
 A file can be included inside another file and module. This is equivalent to replacing the include statement with the included file's content.
@@ -47,14 +49,16 @@ The FQN of every identifier in the included file is prefixed with the FQN of the
 The include path is either absolute or relative to the file with the include statement.
 
 a.dg:
+
 ```rust
 var bar i32
 module baz {
-    var qux i32    
+    var qux i32
 }
-
 ```
+
 b.dg:
+
 ```rust
 module foo {
     include "a.dg"
@@ -98,9 +102,10 @@ module foo {
 A compilation context is a set of cunits. Modules defined in different cunits must be imported before they can be accessed.
 A module can only be imported if it's declared as public. Every public module must have a unique FQN in a compilation context.
 It's allowed to have modules in different cunits with the same FQN if at most one of them is public.
-There are two types of import keywords: 'import' and 'importlocal'. 'import' searches for public modules in the same compilation context and 'importlocal' searches for local modules defined in the same cunit (public or private). 
+There are two types of import keywords: 'import' and 'importlocal'. 'import' searches for public modules in the same compilation context and 'importlocal' searches for local modules defined in the same cunit (public or private).
 
 a.dg:
+
 ```rust
 module foo {
     importlocal bar: h1 = hello // ok
@@ -116,6 +121,7 @@ module bar {
 ```
 
 b.dg:
+
 ```rust
 pub module baz {
     pub fun hello{}
@@ -127,6 +133,7 @@ module qux {
 ```
 
 **Summary**
+
 - A compilation unit (cunit) is root file + includes.
 - Files can be included inside any module.
 - Modules in the same cunit can be accessed directly.
@@ -138,6 +145,7 @@ module qux {
 - importlocal looks up local modules in the same compilation unit.
 
 ## Comments
+
 ```rust
 // Single line comment.
 
@@ -151,9 +159,11 @@ module qux {
 ```
 
 ## Semicolons
+
 Semicolons work in a similar way as in Go. That is, the grammar and parser assume that statements are terminated with semicolons; however, the lexer automatically inserts a semicolon in the token stream at the end of a line if it sees a token that can terminate a statement. See [here](https://github.com/cjo5/dingo/blob/d9bde812c35417635c3d221e262d2ec4b61acfe2/internal/frontend/lex.go#L169) for the exact tokens that the lexer checks for.
 
 ## Variables
+
 ```rust
 var a: i32
 var b: i32 = 1
@@ -166,6 +176,7 @@ val f = 2
 ```var``` defines a mutable variable and ```val``` defines an immutable value. The type can be omitted when there is an initializer. The variable/value is assigned a default value if there is no initializer.
 
 ## Functions
+
 ```rust
 fun say_hello() {
     println("hello")
@@ -188,6 +199,7 @@ No return type means the function has no return value. Function calls support na
 Function parameters are immutable by default, but can be made mutable by preceeding the name with 'var'.
 
 Functions can be used as values and also defined inline (function literals). Though note that function literals are not closures and do not have access to variables in the enclosing scope.
+
 ```rust
 val add_val: fun (_ i32, _ i32) i32 = add
 val sub = fun(a: i32, b: i32) i32 {
@@ -196,6 +208,7 @@ val sub = fun(a: i32, b: i32) i32 {
 ```
 
 ## References / Pointers
+
 ```rust
 var a: i32 = 5
 val b: &i32 = &a         // immutable reference
@@ -210,22 +223,25 @@ val f = &var e      // error, cannot take a mutable reference to an immutable va
 ```
 
 ## Arrays
+
 ```rust
 var a: [i32:5] = [i32]{1, 2, 3, 4, 5} // allocated on the stack
 len(a) // length of array
 ```
 
 ## Slices
+
 ```rust
 var a: = [i32]{1, 2, 3, 4, 5}
-val b: &[i32] = &a[1:3]          // immmutable slice 
-val c: &var [i32] = &var a[:3]   // mutable slice 
+val b: &[i32] = &a[1:3]          // immmutable slice
+val c: &var [i32] = &var a[:3]   // mutable slice
 val d: &[i32] = null             // default value
 
 len(c) // length of slice
 ```
 
 ## Structs
+
 ```rust
 struct Foo {
     a: i32       // immutable
@@ -236,6 +252,7 @@ val f = Foo(a: 5, b: 9) // allocated on the stack
 ```
 
 ## Typealias
+
 ```rust
 typealias id = i32
 ```
@@ -243,12 +260,14 @@ typealias id = i32
 Create an alias for a type. The two types are equivalent, and either type can be substituted for the other.
 
 ## Type Casting
+
 ```rust
 val a: i64 = 5
 val b = a as i32
 ```
 
 ## If
+
 ```rust
 val a = 5
 if a > 5 {
@@ -263,6 +282,7 @@ if a > 5 {
 Braces required.
 
 ## For / While
+
 ```rust
 for i = 0; i < 5; i++ { // i immutable
     printiln(i)
@@ -285,9 +305,10 @@ while true {
 }
 ```
 
-Braces required. ```continue``` and ```break``` as expected. 
+Braces required. ```continue``` and ```break``` as expected.
 
 ## Defer
+
 ```rust
 {
     defer println("Bye")
@@ -307,6 +328,7 @@ Braces required. ```continue``` and ```break``` as expected.
 Defer execution of a statement until the end of the block. If a defer is executed, the deferred statement is guaranteed to be executed at the end of the enclosing scope, regardless of the control flow. The deferred statements are executed in reverse order of the defers.
 
 ## Sizeof
+
 ```rust
 sizeof(i8)      // 1
 sizeof(i64)     // 8
@@ -316,12 +338,15 @@ sizeof([i32:5]) // 4*5 = 20
 Get the size of a type in bytes.
 
 ## Memory Management
+
 Dynamic memory management is currently handled through the C API.
 
 ## C
+
 Features to interface with the C ABI and runtime.
 
 **Types**
+
 ```
 c_void
 c_char
@@ -337,9 +362,10 @@ c_float
 c_double
 ```
 
-References are currently used for C pointers, though no pointer arithmetic is allowed. 
+References are currently used for C pointers, though no pointer arithmetic is allowed.
 
-**Functions** 
+**Functions**
+
 ```rust
 // Functions defined in C can be called from Dingo
 extern fun free(ptr: &c_void)
@@ -351,10 +377,12 @@ extern fun do_stuff() {
 }
 ```
 
-Using ```extern``` on functions will enable C ABI and disable name mangling. 
+Using ```extern``` on functions will enable C ABI and disable name mangling.
 
 **main**
+
 ```rust
+
 extern fun main(argc: c_int, argv: &&c_char) c_int {
     return 0
 }
@@ -363,20 +391,25 @@ extern fun main(argc: c_int, argv: &&c_char) c_int {
 Main function in Dingo.
 
 ## Strings
+
 There are two types of string literals: normal and C-like. Normal string literals are immutable slices, and C-like strings are immutable references. Both string types are null-terminated.
+
 ```rust
 val a: &[i8] = "Hello"
 val b: &i8 = c"Bye
 ```
 
 ## Booleans
+
 ```rust
 val a: bool = true
 val b = false
 ```
 
 ## Numbers
+
 **Types**
+
 ```rust
 // signed integers
 i8
@@ -390,11 +423,12 @@ u32
 u64
 usize
 // floating point
-f32 
-f64 
+f32
+f64
 ```
 
 **Literal Samples**
+
 ```rust
 15      // plain integer literal
 100_000 // underscores to make large numbers more readable
@@ -405,8 +439,11 @@ f64
 1.234e2 // scientific notation: 1.234*10^2
 1.234E2
 ```
+
 ## Basic Operators
+
 **Binary Operators**
+
 ```rust
 a + b   // addition
 a - b   // subtraction
@@ -425,12 +462,14 @@ a or b  // logical or
 ```
 
 **Unary Operators**
+
 ```rust
 -a  // numerical negation
 not a  // logical negation
 ```
 
 ## Assignments
+
 ```rust
 a = 2   // normal assignment
 a += 2  // a = a + 2
@@ -445,17 +484,19 @@ a--     // a = a - 1
 All assignments are statements.
 
 ## Grammar
+
 See [grammar](grammar.md).
 
 ## Operator Precedence
+
 ```
 Precedence  Associativity   Operation
 1           None            (exp) len(a) sizeof(a) literal identifier
-2           Left-to-right   a() a[i] a[i:j] a.b 
-3           None            not -a &a *a 
-4           None            a as b           
+2           Left-to-right   a() a[i] a[i:j] a.b
+3           None            not -a &a *a
+4           None            a as b
 5           Left-to-right   a*b a/b a%b
-6                           a+b a-b 
+6                           a+b a-b
 7                           < <= > >=
 8                           == !=
 9                           and
@@ -463,6 +504,7 @@ Precedence  Associativity   Operation
 ```
 
 ## Keywords
+
 ```
 and
 as
