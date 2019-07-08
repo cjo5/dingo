@@ -1036,7 +1036,7 @@ func (cb *llvmCodeBuilder) buildBinaryExpr(expr *ir.BinaryExpr) llvm.Value {
 		return cb.createMathOp(expr.Op, expr.T, left, right)
 	case token.Eq, token.Neq, token.Gt, token.GtEq, token.Lt, token.LtEq:
 		right := cb.buildExprVal(expr.Right)
-		if ir.IsFloatType(expr.T) {
+		if ir.IsFloatType(expr.Left.Type()) {
 			return cb.b.CreateFCmp(floatPredicate(expr.Op), left, right, "")
 		}
 		return cb.b.CreateICmp(intPredicate(expr.Op, expr.Left.Type()), left, right, "")

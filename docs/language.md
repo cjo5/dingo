@@ -201,7 +201,7 @@ Function parameters are immutable by default, but can be made mutable by preceed
 Functions can be used as values and also defined inline (function literals). Though note that function literals are not closures and do not have access to variables in the enclosing scope.
 
 ```rust
-val add_val: fun (_ i32, _ i32) i32 = add
+val add_val: fun (i32, i32) i32 = add
 val sub = fun(a: i32, b: i32) i32 {
     return a - b
 }
@@ -232,7 +232,7 @@ len(a) // length of array
 ## Slices
 
 ```rust
-var a: = [i32]{1, 2, 3, 4, 5}
+var a = [i32]{1, 2, 3, 4, 5}
 val b: &[i32] = &a[1:3]          // immmutable slice
 val c: &var [i32] = &var a[:3]   // mutable slice
 val d: &[i32] = null             // default value

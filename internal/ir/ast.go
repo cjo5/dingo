@@ -337,6 +337,9 @@ func (x *BasicLit) Zero() bool {
 }
 
 func (x *BasicLit) AsF64() float64 {
+	if t, ok := x.Raw.(*big.Int); ok {
+		return float64(t.Uint64())
+	}
 	bigFloat := x.Raw.(*big.Float)
 	val, _ := bigFloat.Float64()
 	return val
