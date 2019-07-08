@@ -178,7 +178,7 @@ func (c *checker) checkValDecl(decl *ir.ValDecl) {
 		if tdecl.Equals(tinit) {
 			tres = tdecl
 		} else {
-			c.error(decl.Initializer.Pos(), "type mismatch %s and %s", tdecl, tinit)
+			c.nodeError(decl, "type mismatch %s and %s", tdecl, tinit)
 		}
 	} else {
 		tres = decl.Type.Type()

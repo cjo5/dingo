@@ -219,7 +219,7 @@ val d: &i32 = null       // default value
 *c = 9 // ok
 
 val e = 6
-val f = &var e      // error, cannot take a mutable reference to an immutable value
+val f = &var e // error, cannot take a mutable reference to an immutable value
 ```
 
 ## Arrays
@@ -284,7 +284,7 @@ Braces required.
 ## For / While
 
 ```rust
-for i = 0; i < 5; i++ { // i immutable
+for i = 0; i < 5; i++ {     // i immutable
     printiln(i)
 }
 
@@ -464,8 +464,8 @@ a or b  // logical or
 **Unary Operators**
 
 ```rust
--a  // numerical negation
-not a  // logical negation
+-a      // numerical negation
+not a   // logical negation
 ```
 
 ## Assignments

@@ -83,7 +83,7 @@ SizeExpr        ::= 'sizeof' '(' Type ')'
 ArgExpr         ::= [IDENT ':'] Expr
 ArgList         ::= [ArgExpr {',' ArgExpr} ','?]
 
-Primary         ::= [SliceExpr | IndexExpr | FuncCall | DotExpr]
+Primary         ::= [SliceExpr | IndexExpr | AppExpr | DotExpr]
 SliceExpr       ::= '[' Expr? ':' Expr? ']'
 IndexExpr       ::= '[' Expr ']' Primary
 AppExpr         ::= '(' ArgList )' Primary

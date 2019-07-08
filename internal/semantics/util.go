@@ -240,11 +240,23 @@ func tryImplicitCast(expr ir.Expr, target ir.Type) (ir.Expr, bool) {
 		}
 	}
 	if cast {
-		cast := &ir.CastExpr{}
+		cast := &ir.CastExpr{X: expr}
 		cast.SetRange(expr.Pos(), expr.EndPos())
-		cast.X = expr
 		cast.T = target
 		return cast, true
+	}
+	switch to := to.(type) {
+	case *ir.PointerType:
+		if to.ReadOnly && to.Elem.Equals(from) {
+			addr := &ir.UnaryExpr{
+				Op:   token.Addr,
+				Decl: token.Val,
+				X:    expr,
+			}
+			addr.SetRange(expr.Pos(), expr.EndPos())
+			addr.T = target
+			return addr, true
+		}
 	}
 	return expr, false
 }
