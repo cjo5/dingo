@@ -45,7 +45,7 @@ extern fun main() c_int {
         println("not foo.b") // expect: not foo.b
     }
 
-    val bar = [bool]{true, false}
+    val bar = [bool](true, false)
 
     if bar[0] {
         println("bar[0]") // expect: bar[0]

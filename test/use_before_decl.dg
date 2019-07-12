@@ -3,7 +3,7 @@ fun foo() {
 
     val b = Baz(undef) // expect-error: undeclared identifier 'undef'
 
-    val c = [i32]{undef} // expect-error: undeclared identifier 'undef'
+    val c = [i32](undef) // expect-error: undeclared identifier 'undef'
 
     val d = undef + 2 // expect-error: undeclared identifier 'undef'
 

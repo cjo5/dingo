@@ -96,6 +96,6 @@ DotExpr         ::= '.' IDENT Primary
 Literal         ::= BasicLit | ArrayLit | FuncLit
 BasicLit        ::= Number | CHAR | (Name? STRING) | 'true' | 'false' | 'null'
 Number          ::= (INTEGER | FLOAT) Name?
-ArrayLit        ::= ArrayType '{' [Expr {',' Expr} ','?] '}'
+ArrayLit        ::= ArrayType '(' [Expr {',' Expr} ','?] ')'
 FuncLit         ::= Extern? 'fun' FuncSignature Block
 ```

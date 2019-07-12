@@ -1,5 +1,5 @@
 fun foo() {
-    val a = [i32]{1, 2, 3}
+    val a = [i32](1, 2, 3)
     val b = &var a[:] // expect-error: expression is read-only
 
     var c: &i32

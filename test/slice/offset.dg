@@ -1,7 +1,7 @@
 include "../common.dg"
 
 extern fun main() c_int {
-    var arr = [i32]{0, 1, 2, 3, 4}
+    var arr = [i32](0, 1, 2, 3, 4)
 
     println("arr[:]") // expect: arr[:]
     print_slice(&arr[:]) // expect: 0, 1, 2, 3, 4

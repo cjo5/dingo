@@ -192,7 +192,8 @@ fun inc(var a: i32) i32 {
 }
 
 say_hello()
-add(a: 5, b: 10)
+add(a: 5, b: 10)    // named arguments
+add(6, 11)          // positional arguments
 ```
 
 No return type means the function has no return value. Function calls support named arguments in arbitrary order. There can be no positional arguments after a named argument.
@@ -225,14 +226,14 @@ val f = &var e // error, cannot take a mutable reference to an immutable value
 ## Arrays
 
 ```rust
-var a: [i32:5] = [i32]{1, 2, 3, 4, 5} // allocated on the stack
+var a: [i32:5] = [i32](1, 2, 3, 4, 5) // allocated on the stack
 len(a) // length of array
 ```
 
 ## Slices
 
 ```rust
-var a = [i32]{1, 2, 3, 4, 5}
+var a = [i32](1, 2, 3, 4, 5)
 val b: &[i32] = &a[1:3]          // immmutable slice
 val c: &var [i32] = &var a[:3]   // mutable slice
 val d: &[i32] = null             // default value
@@ -248,7 +249,9 @@ struct Foo {
     var b: i32   // mutable
 }
 
-val f = Foo(a: 5, b: 9) // allocated on the stack
+// allocated on the stack
+val f1 = Foo(a: 5, b: 9)    // named arguments
+val f2 = Foo(6, 10)         // positional arguments
 ```
 
 ## Typealias

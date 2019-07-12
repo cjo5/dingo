@@ -1132,20 +1132,20 @@ func (p *parser) parseArrayLit() ir.Expr {
 		lit.Size = p.parseExpr()
 	}
 	p.expect(token.Rbrack)
-	p.expect(token.Lbrace)
+	p.expect(token.Lparen)
 	var inits []ir.Expr
-	if !p.token.Is(token.Rbrace) {
+	if !p.token.Is(token.Rparen) {
 		inits = append(inits, p.parseExpr())
-		for p.token != token.EOF && p.token != token.Rbrace {
-			p.expect(token.Comma, token.Rbrace)
-			if p.token.Is(token.Rbrack) {
+		for p.token != token.EOF && p.token != token.Rparen {
+			p.expect(token.Comma, token.Rparen)
+			if p.token.Is(token.Rparen) {
 				break
 			}
 			inits = append(inits, p.parseExpr())
 		}
 	}
 	lit.SetEndPos(p.endPos())
-	p.expect(token.Rbrace)
+	p.expect(token.Rparen)
 	lit.Initializers = inits
 	return lit
 }
