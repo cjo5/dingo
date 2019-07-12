@@ -133,6 +133,27 @@ func (e *ErrorList) Sort() {
 	sort.Stable(byFileAndLineNumber(e.Errors))
 }
 
+// KeepUniqueLines remove multiple errors in the same file and line.
+// Assumes that the errors are already sorted.
+func (e *ErrorList) KeepUniqueLines() {
+	e.Errors = filterUniqueLines(e.Errors)
+	e.Warnings = filterUniqueLines(e.Warnings)
+}
+
+func filterUniqueLines(errors []*Error) []*Error {
+	var res []*Error
+	for _, err := range errors {
+		n := len(res)
+		if n == 0 {
+			res = append(res, err)
+		} else if res[n-1].Pos.Filename != err.Pos.Filename ||
+			res[n-1].Pos.Line != err.Pos.Line {
+			res = append(res, err)
+		}
+	}
+	return res
+}
+
 type byFileAndLineNumber []*Error
 
 func (e byFileAndLineNumber) Len() int      { return len(e) }

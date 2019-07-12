@@ -57,6 +57,7 @@ func (ctx *BuildContext) IsError() bool {
 
 func (ctx *BuildContext) FormatErrors() {
 	ctx.Errors.Sort()
+	ctx.Errors.KeepUniqueLines()
 	ctx.SetErrorLocations()
 }
 
