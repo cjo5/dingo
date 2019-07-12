@@ -578,7 +578,9 @@ func (c *checker) checkUnaryExpr(expr *ir.UnaryExpr) ir.Expr {
 		}
 	case token.Addr:
 		ro := expr.Decl.Is(token.Val)
-		if expr.X.ReadOnly() && !ro {
+		if !expr.X.Lvalue() {
+			c.error(expr.X.Pos(), "expression is not an lvalue")
+		} else if expr.X.ReadOnly() && !ro {
 			c.error(expr.X.Pos(), "expression is read-only")
 		} else {
 			if tslice, ok := tx.(*ir.SliceType); ok {
