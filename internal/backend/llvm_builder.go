@@ -198,6 +198,7 @@ func (cb *llvmCodeBuilder) buildLLVModule(list *ir.DeclList) bool {
 	cb.typeMap = make(llvmTypeMap)
 	cb.inFunction = false
 	cb.signature = true
+	cb.buildIntrinsics()
 	for _, decl := range list.Decls {
 		cb.buildDecl(decl)
 	}
@@ -250,6 +251,15 @@ func (cb *llvmCodeBuilder) finalizeLLVModule(list *ir.DeclList) bool {
 
 func (cb *llvmCodeBuilder) llvmType(t ir.Type) llvm.Type {
 	return llvmType(t, &cb.typeMap)
+}
+func (cb *llvmCodeBuilder) buildIntrinsics() {
+	tptr := ir.NewPointerType(ir.TBuiltinInt8, false)
+	tsaveFun := llvm.FunctionType(cb.llvmType(tptr), nil, false)
+	llvm.AddFunction(cb.mod, "llvm.stacksave", tsaveFun)
+	var trestoreParams []llvm.Type
+	trestoreParams = append(trestoreParams, cb.llvmType(tptr))
+	trestoreFun := llvm.FunctionType(llvm.VoidType(), trestoreParams, false)
+	llvm.AddFunction(cb.mod, "llvm.stackrestore", trestoreFun)
 }
 
 func (cb *llvmCodeBuilder) buildDecl(decl ir.Decl) {
@@ -340,7 +350,7 @@ func (cb *llvmCodeBuilder) buildFuncDecl(decl *ir.FuncDecl) {
 	retBlock := cb.retBlock
 
 	cb.inFunction = true
-	terminated := cb.buildBlockStmt(decl.Body)
+	terminated := cb.buildBlockStmt(decl.Body, false)
 	cb.inFunction = false
 
 	if !terminated {
@@ -387,7 +397,7 @@ func (cb *llvmCodeBuilder) buildStmt(stmt ir.Stmt) bool {
 	terminate := false
 	switch stmt2 := stmt.(type) {
 	case *ir.BlockStmt:
-		terminate = cb.buildBlockStmt(stmt2)
+		terminate = cb.buildBlockStmt(stmt2, true)
 	case *ir.DeclStmt:
 		cb.buildDecl(stmt2.D)
 	case *ir.IfStmt:
@@ -463,7 +473,25 @@ func (cb *llvmCodeBuilder) deferOrBranchTarget(branchTok token.Token) llvm.Basic
 	return cb.branchTarget(branchTok)
 }
 
-func (cb *llvmCodeBuilder) buildBlockStmt(blockStmt *ir.BlockStmt) bool {
+func (cb *llvmCodeBuilder) saveStackAddr() llvm.Value {
+	fun := cb.mod.NamedFunction("llvm.stacksave")
+	return cb.b.CreateCall(fun, nil, "")
+}
+
+func (cb *llvmCodeBuilder) restoreStackAddr(addr llvm.Value) {
+	fun := cb.mod.NamedFunction("llvm.stackrestore")
+	var args []llvm.Value
+	args = append(args, addr)
+	cb.b.CreateCall(fun, args, "")
+}
+
+func (cb *llvmCodeBuilder) buildBlockStmt(blockStmt *ir.BlockStmt, restoreStack bool) bool {
+	var stackAddr llvm.Value
+
+	if restoreStack {
+		stackAddr = cb.saveStackAddr()
+	}
+
 	initialBlock := cb.b.GetInsertBlock()
 
 	if blockStmt.Scope.Defer {
@@ -564,13 +592,21 @@ func (cb *llvmCodeBuilder) buildBlockStmt(blockStmt *ir.BlockStmt) bool {
 			deferCtx.exitBlock.EraseFromParent()
 
 			cb.b.SetInsertPointAtEnd(deferCtx.footerBlock)
+
+			if restoreStack {
+				cb.restoreStackAddr(stackAddr)
+			}
 		} else {
 			cb.b.CreateBr(deferCtx.headerBlock)
 			deferCtx.mainBlock.MoveAfter(deferCtx.headerBlock)
 
 			cb.b.SetInsertPointAtEnd(deferCtx.footerBlock)
-
 			target := cb.b.CreateLoad(deferCtx.brTarget, "")
+
+			if restoreStack {
+				cb.restoreStackAddr(stackAddr)
+			}
+
 			if terminate {
 				indirect := cb.b.CreateIndirectBr(target, len(deferCtx.potentialBrTargets))
 				for _, t := range deferCtx.potentialBrTargets {
@@ -594,8 +630,13 @@ func (cb *llvmCodeBuilder) buildBlockStmt(blockStmt *ir.BlockStmt) bool {
 				cb.b.SetInsertPointAtEnd(deferCtx.exitBlock)
 			}
 		}
-	} else if branchTok != token.Invalid {
-		cb.b.CreateBr(cb.deferOrBranchTarget(branchTok))
+	} else {
+		if restoreStack {
+			cb.restoreStackAddr(stackAddr)
+		}
+		if branchTok != token.Invalid {
+			cb.b.CreateBr(cb.deferOrBranchTarget(branchTok))
+		}
 	}
 
 	return terminate
@@ -635,7 +676,7 @@ func (cb *llvmCodeBuilder) buildIfStmt(stmt *ir.IfStmt) bool {
 
 	ifBlock.MoveAfter(cb.b.GetInsertBlock())
 	cb.b.SetInsertPointAtEnd(ifBlock)
-	ifBranch = cb.buildBlockStmt(stmt.Body)
+	ifBranch = cb.buildBlockStmt(stmt.Body, true)
 	if !ifBranch {
 		cb.b.CreateBr(mergeBlock)
 	}
@@ -678,6 +719,9 @@ func (cb *llvmCodeBuilder) buildIfStmt(stmt *ir.IfStmt) bool {
 }
 
 func (cb *llvmCodeBuilder) buildForStmt(stmt *ir.ForStmt) {
+	stackAddr := cb.saveStackAddr()
+	defer cb.restoreStackAddr(stackAddr)
+
 	if stmt.Init != nil {
 		cb.buildStmt(stmt.Init)
 	}
@@ -721,7 +765,7 @@ func (cb *llvmCodeBuilder) buildForStmt(stmt *ir.ForStmt) {
 	last := cb.b.GetInsertBlock()
 	loopBlock.MoveAfter(last)
 	cb.b.SetInsertPointAtEnd(loopBlock)
-	cb.buildBlockStmt(stmt.Body)
+	cb.buildBlockStmt(stmt.Body, false)
 
 	if stmt.Inc != nil {
 		cb.b.CreateBr(incBlock)

@@ -64,7 +64,7 @@ WhileStmt       ::= 'while' Expr ':' Block
 ForStmt         ::= 'for' [IDENT [':' Type] '=' Expr] ';' Expr? ';' ExprStmt? ':' Block
 ReturnStmt      ::= 'return' Expr?
 BranchStmt      ::= 'break' | 'continue'
-DeferStmt       ::= 'defer' ExprOrAssignStmt
+DeferStmt       ::= 'defer' ExprStmt
 ```
 
 ## Expressions
