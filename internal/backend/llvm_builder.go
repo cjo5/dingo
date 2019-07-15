@@ -829,7 +829,11 @@ func (cb *llvmCodeBuilder) buildExpr(expr ir.Expr, load bool) llvm.Value {
 	case *ir.BinaryExpr:
 		return cb.buildBinaryExpr(expr)
 	case *ir.UnaryExpr:
-		return cb.buildUnaryExpr(expr, load)
+		return cb.buildUnaryExpr(expr)
+	case *ir.AddrExpr:
+		return cb.buildAddrExpr(expr)
+	case *ir.DerefExpr:
+		return cb.buildDerefExpr(expr, load)
 	case *ir.DotExpr:
 		return cb.buildDotExpr(expr, load)
 	case *ir.IndexExpr:
@@ -1119,7 +1123,7 @@ func (cb *llvmCodeBuilder) buildBinaryExpr(expr *ir.BinaryExpr) llvm.Value {
 	panic(fmt.Sprintf("Unhandled binary op %s", expr.Op))
 }
 
-func (cb *llvmCodeBuilder) buildUnaryExpr(expr *ir.UnaryExpr, load bool) llvm.Value {
+func (cb *llvmCodeBuilder) buildUnaryExpr(expr *ir.UnaryExpr) llvm.Value {
 	switch expr.Op {
 	case token.Sub:
 		val := cb.buildExprVal(expr.X)
@@ -1130,23 +1134,27 @@ func (cb *llvmCodeBuilder) buildUnaryExpr(expr *ir.UnaryExpr, load bool) llvm.Va
 	case token.Lnot:
 		val := cb.buildExprVal(expr.X)
 		return cb.b.CreateNot(val, "")
-	case token.Deref:
-		val := cb.buildExprVal(expr.X)
-		if load {
-			return cb.b.CreateLoad(val, val.Name())
-		}
-		return val
-	case token.Addr:
-		val := cb.buildExprPtr(expr.X)
-		if expr.T.Kind() != ir.TSlice {
-			if val.Type().TypeKind() != llvm.PointerTypeKind {
-				val = cb.createTempStorage(val)
-			}
-		}
-		return val
 	default:
 		panic(fmt.Sprintf("Unhandled unary op %s", expr.Op))
 	}
+}
+
+func (cb *llvmCodeBuilder) buildAddrExpr(expr *ir.AddrExpr) llvm.Value {
+	val := cb.buildExprPtr(expr.X)
+	if expr.T.Kind() != ir.TSlice {
+		if val.Type().TypeKind() != llvm.PointerTypeKind {
+			val = cb.createTempStorage(val)
+		}
+	}
+	return val
+}
+
+func (cb *llvmCodeBuilder) buildDerefExpr(expr *ir.DerefExpr, load bool) llvm.Value {
+	val := cb.buildExprVal(expr.X)
+	if load {
+		return cb.b.CreateLoad(val, val.Name())
+	}
+	return val
 }
 
 func (cb *llvmCodeBuilder) createTempStorage(val llvm.Value) llvm.Value {

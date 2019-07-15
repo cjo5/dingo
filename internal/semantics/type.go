@@ -455,6 +455,10 @@ func (c *checker) checkExpr(expr ir.Expr) ir.Expr {
 		return c.checkBinaryExpr(expr)
 	case *ir.UnaryExpr:
 		return c.checkUnaryExpr(expr)
+	case *ir.AddrExpr:
+		return c.checkAddrExpr(expr)
+	case *ir.DerefExpr:
+		return c.checkDerefExpr(expr)
 	case *ir.DotExpr:
 		return c.checkDotExpr(expr)
 	case *ir.IndexExpr:
@@ -467,8 +471,8 @@ func (c *checker) checkExpr(expr ir.Expr) ir.Expr {
 		return c.checkCastExpr(expr)
 	case *ir.LenExpr:
 		return c.checkLenExpr(expr)
-	case *ir.SizeExpr:
-		return c.checkSizeExpr(expr)
+	case *ir.SizeofExpr:
+		return c.checkSizeofExpr(expr)
 	case *ir.ConstExpr:
 		return expr
 	default:

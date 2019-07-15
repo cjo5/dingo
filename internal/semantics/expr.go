@@ -90,6 +90,156 @@ func (c *checker) checkArrayLit(expr *ir.ArrayLit) ir.Expr {
 	return expr
 }
 
+func (c *checker) checkBinaryExpr(expr *ir.BinaryExpr) ir.Expr {
+	expr.Left = c.checkExpr(expr.Left)
+	expr.Right = c.checkExpr(expr.Right)
+
+	if tpunt := puntExprs(expr.Left, expr.Right); tpunt != nil {
+		expr.T = tpunt
+		return expr
+	}
+
+	expr.Left = ensureCompatibleType(expr.Left, expr.Right.Type())
+	expr.Right = ensureCompatibleType(expr.Right, expr.Left.Type())
+
+	tleft := expr.Left.Type()
+	tright := expr.Right.Type()
+
+	if !tleft.Equals(tright) {
+		c.nodeError(expr, "type mismatch %s and %s", tleft, tright)
+		expr.T = ir.TBuiltinInvalid
+		return expr
+	}
+
+	badop := false
+	logicop := expr.Op.OneOf(token.Land, token.Lor)
+	eqop := expr.Op.OneOf(token.Eq, token.Neq)
+	orderop := expr.Op.OneOf(token.Gt, token.GtEq, token.Lt, token.LtEq)
+	mathop := expr.Op.OneOf(token.Add, token.Sub, token.Mul, token.Div, token.Mod)
+
+	toperand := expr.Left.Type()
+	texpr := toperand
+	if logicop || eqop || orderop {
+		texpr = ir.TBuiltinBool
+	}
+
+	if ir.IsNumericType(toperand) {
+		if logicop {
+			badop = true
+		}
+	} else if toperand.Kind() == ir.TBool {
+		if orderop || mathop {
+			badop = true
+		}
+	} else if toperand.Kind() == ir.TPointer {
+		if orderop || mathop {
+			badop = true
+		}
+	} else {
+		badop = true
+	}
+
+	if badop {
+		c.nodeError(expr, "operator '%s' cannot be performed on types %s and %s", expr.Op, expr.Left.Type(), expr.Right.Type())
+		texpr = ir.TBuiltinInvalid
+	}
+
+	expr.T = texpr
+
+	return expr
+}
+
+func (c *checker) checkUnaryExpr(expr *ir.UnaryExpr) ir.Expr {
+	expr.X = c.checkExpr(expr.X)
+	tx := expr.X.Type()
+
+	if tpunt := puntExprs(expr.X); tpunt != nil {
+		expr.T = tpunt
+		return expr
+	}
+
+	switch expr.Op {
+	case token.Sub:
+		if ir.IsNumericType(tx) {
+			expr.T = tx
+		} else {
+			c.error(expr.Pos(), "additive inverse cannot be performed on type %s", tx)
+		}
+	case token.Lnot:
+		if tx.Kind() == ir.TBool {
+			expr.T = tx
+		} else {
+			c.error(expr.Pos(), "logical not cannot be performed on type %s)", tx)
+
+		}
+	default:
+		panic(fmt.Sprintf("Unhandled unary op %s", expr.Op))
+	}
+
+	if expr.T == nil {
+		expr.T = ir.TBuiltinInvalid
+	}
+
+	return expr
+}
+
+func (c *checker) checkAddrExpr(expr *ir.AddrExpr) ir.Expr {
+	expr.X = c.checkExpr(expr.X)
+	tx := expr.X.Type()
+
+	if tpunt := puntExprs(expr.X); tpunt != nil {
+		expr.T = tpunt
+		return expr
+	}
+
+	if !expr.X.Lvalue() {
+		c.error(expr.X.Pos(), "expression is not an lvalue")
+	} else if expr.X.ReadOnly() && !expr.Immutable {
+		c.error(expr.X.Pos(), "expression is read-only")
+	} else {
+		if tslice, ok := tx.(*ir.SliceType); ok {
+			if !tslice.Ptr {
+				tslice.Ptr = true
+				tslice.ReadOnly = expr.Immutable
+				expr.T = tslice
+			} else {
+				expr.T = ir.NewPointerType(tslice, expr.Immutable)
+			}
+		} else {
+			expr.T = ir.NewPointerType(tx, expr.Immutable)
+		}
+	}
+
+	if expr.T == nil {
+		expr.T = ir.TBuiltinInvalid
+	}
+
+	return expr
+}
+
+func (c *checker) checkDerefExpr(expr *ir.DerefExpr) ir.Expr {
+	expr.X = c.checkExpr(expr.X)
+	tx := expr.X.Type()
+
+	if tpunt := puntExprs(expr.X); tpunt != nil {
+		expr.T = tpunt
+		return expr
+	}
+
+	switch t := ir.ToBaseType(tx).(type) {
+	case *ir.PointerType:
+		expr.T = t.Elem
+	default:
+		c.error(expr.X.Pos(), "expression cannot be dereferenced (has type %s)", tx)
+	}
+
+	if expr.T == nil {
+		expr.T = ir.TBuiltinInvalid
+	}
+
+	return expr
+}
+
 func (c *checker) checkDotExpr(expr *ir.DotExpr) ir.Expr {
 	if isUnresolvedExpr(expr.X) {
 		expr.X = c.checkExpr2(expr.X, modeExprOrType)
@@ -461,7 +611,7 @@ func (c *checker) checkLenExpr(expr *ir.LenExpr) ir.Expr {
 	return expr
 }
 
-func (c *checker) checkSizeExpr(expr *ir.SizeExpr) ir.Expr {
+func (c *checker) checkSizeofExpr(expr *ir.SizeofExpr) ir.Expr {
 	expr.X = c.checkRootTypeExpr(expr.X, true)
 	if tpunt := puntExprs(expr.X); tpunt != nil {
 		expr.T = tpunt
@@ -485,125 +635,6 @@ func createIntLit(val int, t ir.Type) ir.Expr {
 		lit.Raw = big.NewInt(int64(val))
 	}
 	return lit
-}
-
-func (c *checker) checkBinaryExpr(expr *ir.BinaryExpr) ir.Expr {
-	expr.Left = c.checkExpr(expr.Left)
-	expr.Right = c.checkExpr(expr.Right)
-
-	if tpunt := puntExprs(expr.Left, expr.Right); tpunt != nil {
-		expr.T = tpunt
-		return expr
-	}
-
-	expr.Left = ensureCompatibleType(expr.Left, expr.Right.Type())
-	expr.Right = ensureCompatibleType(expr.Right, expr.Left.Type())
-
-	tleft := expr.Left.Type()
-	tright := expr.Right.Type()
-
-	if !tleft.Equals(tright) {
-		c.nodeError(expr, "type mismatch %s and %s", tleft, tright)
-		expr.T = ir.TBuiltinInvalid
-		return expr
-	}
-
-	badop := false
-	logicop := expr.Op.OneOf(token.Land, token.Lor)
-	eqop := expr.Op.OneOf(token.Eq, token.Neq)
-	orderop := expr.Op.OneOf(token.Gt, token.GtEq, token.Lt, token.LtEq)
-	mathop := expr.Op.OneOf(token.Add, token.Sub, token.Mul, token.Div, token.Mod)
-
-	toperand := expr.Left.Type()
-	texpr := toperand
-	if logicop || eqop || orderop {
-		texpr = ir.TBuiltinBool
-	}
-
-	if ir.IsNumericType(toperand) {
-		if logicop {
-			badop = true
-		}
-	} else if toperand.Kind() == ir.TBool {
-		if orderop || mathop {
-			badop = true
-		}
-	} else if toperand.Kind() == ir.TPointer {
-		if orderop || mathop {
-			badop = true
-		}
-	} else {
-		badop = true
-	}
-
-	if badop {
-		c.nodeError(expr, "operator '%s' cannot be performed on types %s and %s", expr.Op, expr.Left.Type(), expr.Right.Type())
-		texpr = ir.TBuiltinInvalid
-	}
-
-	expr.T = texpr
-
-	return expr
-}
-
-func (c *checker) checkUnaryExpr(expr *ir.UnaryExpr) ir.Expr {
-	expr.X = c.checkExpr(expr.X)
-	tx := expr.X.Type()
-
-	if tpunt := puntExprs(expr.X); tpunt != nil {
-		expr.T = tpunt
-		return expr
-	}
-
-	switch expr.Op {
-	case token.Sub:
-		if ir.IsNumericType(tx) {
-			expr.T = tx
-		} else {
-			c.error(expr.Pos(), "additive inverse cannot be performed on type %s", tx)
-		}
-	case token.Lnot:
-		if tx.Kind() == ir.TBool {
-			expr.T = tx
-		} else {
-			c.error(expr.Pos(), "logical not cannot be performed on type %s)", tx)
-
-		}
-	case token.Deref:
-		switch t := ir.ToBaseType(tx).(type) {
-		case *ir.PointerType:
-			expr.T = t.Elem
-		default:
-			c.error(expr.X.Pos(), "expression cannot be dereferenced (has type %s)", tx)
-		}
-	case token.Addr:
-		ro := expr.Decl.Is(token.Val)
-		if !expr.X.Lvalue() {
-			c.error(expr.X.Pos(), "expression is not an lvalue")
-		} else if expr.X.ReadOnly() && !ro {
-			c.error(expr.X.Pos(), "expression is read-only")
-		} else {
-			if tslice, ok := tx.(*ir.SliceType); ok {
-				if !tslice.Ptr {
-					tslice.Ptr = true
-					tslice.ReadOnly = ro
-					expr.T = tslice
-				} else {
-					expr.T = ir.NewPointerType(tslice, ro)
-				}
-			} else {
-				expr.T = ir.NewPointerType(tx, ro)
-			}
-		}
-	default:
-		panic(fmt.Sprintf("Unhandled unary op %s", expr.Op))
-	}
-
-	if expr.T == nil {
-		expr.T = ir.TBuiltinInvalid
-	}
-
-	return expr
 }
 
 // TODO: Move to lexer and add better support for escape sequences.

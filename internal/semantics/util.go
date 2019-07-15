@@ -2,7 +2,6 @@ package semantics
 
 import (
 	"github.com/cjo5/dingo/internal/ir"
-	"github.com/cjo5/dingo/internal/token"
 )
 
 func isTypeMismatch(t1 ir.Type, t2 ir.Type) bool {
@@ -136,7 +135,9 @@ func tryDeref(expr ir.Expr) ir.Expr {
 		}
 	}
 	if tres != nil {
-		deref := &ir.UnaryExpr{Op: token.Deref, X: expr}
+		deref := &ir.DerefExpr{
+			X: expr,
+		}
 		deref.SetRange(expr.Pos(), expr.EndPos())
 		deref.T = tres
 		return deref
@@ -248,10 +249,9 @@ func tryImplicitCast(expr ir.Expr, target ir.Type) (ir.Expr, bool) {
 	switch to := to.(type) {
 	case *ir.PointerType:
 		if to.ReadOnly && to.Elem.Equals(from) {
-			addr := &ir.UnaryExpr{
-				Op:   token.Addr,
-				Decl: token.Val,
-				X:    expr,
+			addr := &ir.AddrExpr{
+				X:         expr,
+				Immutable: true,
 			}
 			addr.SetRange(expr.Pos(), expr.EndPos())
 			addr.T = target

@@ -894,20 +894,29 @@ func (p *parser) parseBinaryExpr(prec int) ir.Expr {
 	var expr ir.Expr
 	pos := p.pos
 
-	if p.token.OneOf(token.Sub, token.Lnot, token.Deref, token.Addr) {
+	if p.token.OneOf(token.Sub, token.Lnot) {
 		op := p.token
 		p.next()
-		decl := token.Invalid
-		if op.Is(token.Addr) {
-			decl = token.Val
-			if p.token.OneOf(token.Var, token.Val) {
-				decl = p.token
-				p.next()
-			}
+		expr = p.parseOperand()
+		endPos := expr.EndPos()
+		expr = &ir.UnaryExpr{Op: op, X: expr}
+		expr.SetRange(pos, endPos)
+	} else if p.token.Is(token.Addr) {
+		p.next()
+		immutable := true
+		if p.token.OneOf(token.Var, token.Val) {
+			immutable = !p.token.Is(token.Var)
+			p.next()
 		}
 		expr = p.parseOperand()
 		endPos := expr.EndPos()
-		expr = &ir.UnaryExpr{Op: op, Decl: decl, X: expr}
+		expr = &ir.AddrExpr{X: expr, Immutable: immutable}
+		expr.SetRange(pos, endPos)
+	} else if p.token.Is(token.Deref) {
+		p.next()
+		expr = p.parseOperand()
+		endPos := expr.EndPos()
+		expr = &ir.DerefExpr{X: expr}
 		expr.SetRange(pos, endPos)
 	} else {
 		expr = p.parseOperand()
@@ -954,7 +963,7 @@ func (p *parser) parseOperand() ir.Expr {
 	} else if p.token.Is(token.Lenof) {
 		expr = p.parseLenExpr()
 	} else if p.token.Is(token.Sizeof) {
-		expr = p.parseSizeExpr()
+		expr = p.parseSizeofExpr()
 	} else if p.token.Is(token.Ident) {
 		expr = p.parseName()
 		if p.token.Is(token.String) {
@@ -983,8 +992,8 @@ func (p *parser) parseLenExpr() *ir.LenExpr {
 	return lenof
 }
 
-func (p *parser) parseSizeExpr() *ir.SizeExpr {
-	sizeof := &ir.SizeExpr{}
+func (p *parser) parseSizeofExpr() *ir.SizeofExpr {
+	sizeof := &ir.SizeofExpr{}
 	sizeof.SetPos(p.pos)
 	p.next()
 	p.expect(token.Lparen)

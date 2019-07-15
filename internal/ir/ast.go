@@ -361,27 +361,29 @@ type BinaryExpr struct {
 
 type UnaryExpr struct {
 	baseExpr
-	Op   token.Token
-	Decl token.Token // Used if op == token.Addr
-	X    Expr
+	Op token.Token
+	X  Expr
 }
 
-func (x *UnaryExpr) Lvalue() bool {
-	switch x.Op {
-	case token.Deref:
-		return x.X.Lvalue()
-	}
-	return false
+type AddrExpr struct {
+	baseExpr
+	X         Expr
+	Immutable bool
 }
 
-func (x *UnaryExpr) ReadOnly() bool {
-	switch x.Op {
-	case token.Deref:
-		t := x.X.Type()
-		if t != nil {
-			if tptr, ok := t.(*PointerType); ok {
-				return tptr.ReadOnly
-			}
+type DerefExpr struct {
+	baseExpr
+	X Expr
+}
+
+func (x *DerefExpr) Lvalue() bool {
+	return x.X.Lvalue()
+}
+
+func (x *DerefExpr) ReadOnly() bool {
+	if t := x.X.Type(); t != nil {
+		if tptr, ok := t.(*PointerType); ok {
+			return tptr.ReadOnly
 		}
 	}
 	return false
@@ -463,7 +465,7 @@ type LenExpr struct {
 	X Expr
 }
 
-type SizeExpr struct {
+type SizeofExpr struct {
 	baseExpr
 	X Expr
 }
@@ -564,6 +566,10 @@ func ExprPrec(expr Expr) int {
 		return BinaryPrec(t.Op)
 	case *UnaryExpr:
 		return UnaryPrec(t.Op)
+	case *AddrExpr:
+		return 3
+	case *DerefExpr:
+		return 3
 	case *IndexExpr, *SliceExpr, *DotExpr, *CastExpr, *AppExpr:
 		return 1
 	case *BasicLit, *Ident:
