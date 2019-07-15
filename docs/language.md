@@ -258,7 +258,7 @@ val f2 = Foo(6, 10)         // positional arguments
 ## Typealias
 
 ```rust
-typealias id = i32
+typealias Id = i32
 ```
 
 Create an alias for a type. The two types are equivalent, and either type can be substituted for the other.
