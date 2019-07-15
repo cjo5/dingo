@@ -1,5 +1,9 @@
 // math
 extern fun sqrt(x: c_double) c_double
+extern fun pow(x: c_double, y: c_double) c_double
+extern fun tan(x: c_double) c_double
+extern fun cos(x: c_double) c_double
+extern fun sin(x: c_double) c_double
 
 // stdlib
 extern fun abs(x: c_int) c_int
