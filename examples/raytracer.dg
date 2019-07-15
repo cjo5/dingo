@@ -1,0 +1,612 @@
+// From raytracing in one weekend:
+// https://github.com/petershirley/raytracinginoneweekend
+
+include "../std/lib.dg"
+
+struct Vec3 {
+    x: f32
+    y: f32
+    z: f32
+}
+
+fun add(v1: &Vec3, v2: &Vec3) Vec3 {
+    return Vec3(
+        x: v1.x + v2.x,
+        y: v1.y + v2.y,
+        z: v1.z + v2.z,
+    )
+}
+
+fun sub(v1: &Vec3, v2: &Vec3) Vec3 {
+    return Vec3(
+        x: v1.x - v2.x,
+        y: v1.y - v2.y,
+        z: v1.z - v2.z,
+    )
+}
+
+fun mul(v1: &Vec3, v2: &Vec3) Vec3 {
+    return Vec3(
+        x: v1.x*v2.x,
+        y: v1.y*v2.y,
+        z: v1.z*v2.z,
+    )
+}
+
+fun div(v1: &Vec3, v2: &Vec3) Vec3 {
+    return Vec3(
+        x: v1.x/v2.x,
+        y: v1.y/v2.y,
+        z: v1.z/v2.z,
+    )
+}
+
+fun smul(s: f32, v: &Vec3) Vec3 {
+    return Vec3(
+        x: s*v.x,
+        y: s*v.y,
+        z: s*v.z,
+    )
+}
+
+fun sdiv(v: &Vec3, s: f32) Vec3 {
+    return Vec3(
+        x: v.x/s,
+        y: v.y/s,
+        z: v.z/s,
+    )
+}
+
+fun dot(v1: &Vec3, v2: &Vec3) f32 {
+    return v1.x*v2.x + v1.y*v2.y + v1.z*v2.z
+}
+
+fun cross(v1: &Vec3, v2: &Vec3) Vec3 {
+    return Vec3(
+        x: v1.y*v2.z - v2.y*v1.z,
+        y: -(v1.x*v2.z - v2.x*v1.z),
+        z: v1.x*v2.y - v2.x*v1.y,
+    )
+}
+
+fun norm(v: &Vec3) f32 {
+    return sqrt(norm2(v)) as f32
+}
+
+fun norm2(v: &Vec3) f32 {
+    return v.x*v.x + v.y*v.y + v.z*v.z
+}
+
+fun normalize(v: &var Vec3) {
+    val n = norm(v)
+    v.x = v.x/n
+    v.y = v.y/n
+    v.z = v.z/n
+}
+
+fun unit_vector(v1: &Vec3) Vec3 {
+    var v2 = *v1
+    normalize(&var v2)
+    return v2
+}
+
+fun reflect(v: &Vec3, n: &Vec3) Vec3 {
+    return sub(
+        v,
+        smul(
+            2*dot(v, n),
+            n,
+        ),
+    )
+}
+
+fun refract(v: &Vec3, n: &Vec3, ni_over_nt: f32, refracted: &var Vec3) bool {
+    val uv = unit_vector(v)
+    val dt = dot(uv, n)
+    val discriminant = 1 - ni_over_nt*ni_over_nt*(1-dt*dt)
+    if discriminant > 0 {
+        *refracted = sub(
+            smul(
+                ni_over_nt,
+                sub(
+                    uv,
+                    smul(dt, n),
+                ),
+            ),
+            smul(
+                sqrt(discriminant) as f32,
+                n,
+            ),
+        )
+        return true
+    }
+    return false
+}
+
+fun schlick(cosine: f32, ref_idx: f32) f32 {
+    var r0 = (1-ref_idx)/(1+ref_idx)
+    r0 = r0*r0
+    return r0 + (1-r0)*(pow(1-cosine, 5) as f32) 
+}
+
+struct Ray {
+    origin: Vec3
+    dir: Vec3
+}
+
+fun point_at_parameter(r: &Ray, t: f32) Vec3 {
+    return add(r.origin, smul(t, r.dir))
+}
+
+val KIND_LAMBERTIAN = 1
+val KIND_METAL = 2
+val KIND_DIELECTRIC = 3
+
+struct Material {
+    kind: i32
+    albedo: Vec3
+    fuzz: f32
+    ref_idx: f32
+}
+
+fun lambertian_scatter(
+    mat: &Material,
+    ray_in: &Ray,
+    rec: &HitRecord,
+    attenuation: &var Vec3,
+    scattered: &var Ray,
+) bool {
+    val target = add(
+            add(rec.p, rec.normal),
+            random_in_unit_sphere(),
+    )
+    *scattered = Ray(rec.p, sub(target, rec.p))
+    *attenuation = mat.albedo
+    return true
+}
+
+fun metal_scatter(
+    mat: &Material,
+    ray_in: &Ray,
+    rec: &HitRecord,
+    attenuation: &var Vec3,
+    scattered: &var Ray,
+) bool {
+    val reflected = reflect(unit_vector(ray_in.dir), rec.normal)
+    *scattered = Ray(rec.p, add(reflected, smul(mat.fuzz, random_in_unit_sphere())))
+    *attenuation = mat.albedo
+    return dot(scattered.dir, rec.normal) > 0
+}
+
+fun dielectric_scatter(
+    mat: &Material,
+    ray_in: &Ray,
+    rec: &HitRecord,
+    attenuation: &var Vec3,
+    scattered: &var Ray,
+) bool {
+    var outward_normal: Vec3
+    val reflected = reflect(ray_in.dir, rec.normal)
+    var ni_over_nt: f32
+    *attenuation = Vec3(1, 1, 1)
+    var refracted: Vec3
+    var reflect_prob: f32
+    var cosine: f32
+    if dot(ray_in.dir, rec.normal) > 0 {
+        outward_normal = smul(-1, rec.normal)
+        ni_over_nt = mat.ref_idx
+        //cosine = mat.ref_idx*dot(ray_in.dir, rec.normal)/norm(ray_in.dir)
+        cosine = dot(ray_in.dir, rec.normal)/norm(ray_in.dir)
+        cosine = sqrt(1 - mat.ref_idx*mat.ref_idx*(1-cosine*cosine)) as f32
+    } else {
+        outward_normal = rec.normal
+        ni_over_nt = 1/mat.ref_idx
+        cosine = -dot(ray_in.dir, rec.normal)/norm(ray_in.dir)
+    }
+    if refract(ray_in.dir, outward_normal, ni_over_nt, &var refracted) {
+        reflect_prob = schlick(cosine, mat.ref_idx)
+    } else {
+        reflect_prob = 2
+    }
+    if randf32(0, 1) < reflect_prob {
+        *scattered = Ray(rec.p, reflected)
+    } else {
+        *scattered = Ray(rec.p, refracted)
+    }
+    return true
+}
+
+fun scatter(
+    mat: &Material,
+    ray_in: &Ray,
+    rec: &HitRecord,
+    attenuation: &var Vec3,
+    scattered: &var Ray,
+) bool {
+    if mat.kind == KIND_LAMBERTIAN {
+        return lambertian_scatter(mat, ray_in, rec, attenuation, scattered)
+    } elif mat.kind == KIND_METAL {
+        return metal_scatter(mat, ray_in, rec, attenuation, scattered)
+    }
+    return dielectric_scatter(mat, ray_in, rec, attenuation, scattered)
+}
+
+struct HitRecord {
+    t: f32
+    p: Vec3
+    normal: Vec3
+    mat: &Material
+}
+
+struct Sphere {
+    center: Vec3
+    radius: f32
+    mat: Material
+}
+
+fun hit_sphere(s: &Sphere, ray: &Ray, tmin: f32, tmax: f32, rec: &var HitRecord) bool {
+    val oc = sub(ray.origin, s.center)
+    val a = dot(ray.dir, ray.dir)
+    val b = dot(oc, ray.dir)
+    val c = dot(oc, oc) - s.radius*s.radius
+    val discriminant = b*b - a*c
+    if discriminant > 0 {
+        var tmp = (-b - sqrt(discriminant) as f32)/a
+        if tmp < tmax and tmp > tmin {
+            rec.t = tmp
+            rec.p = point_at_parameter(ray, rec.t)
+            rec.normal = sdiv(sub(rec.p, s.center), s.radius)
+            rec.mat = &s.mat
+            return true
+        }
+        tmp = (-b + sqrt(discriminant) as f32)/a
+        if tmp < tmax and tmp > tmin {
+            rec.t = tmp
+            rec.p = point_at_parameter(ray, rec.t)
+            rec.normal = sdiv(sub(rec.p, s.center), s.radius)
+            rec.mat = &s.mat
+            return true
+        }
+    }
+    return false
+}
+
+struct World {
+    spheres: &[Sphere]
+}
+
+fun hit_world(w: &World, r: &Ray, tmin: f32, tmax: f32, rec: &var HitRecord) bool {
+    var tmp_rec: HitRecord
+    var hit_anything = false
+    var closest_so_far = tmax
+    for i: usize = 0; i < len(w.spheres); i++ {
+        if hit_sphere(w.spheres[i], r, tmin, closest_so_far, &var tmp_rec) {
+            hit_anything = true
+            closest_so_far = tmp_rec.t
+            *rec = tmp_rec
+        }
+    }
+    return hit_anything
+}
+
+struct Camera {
+    origin: Vec3
+    lower_left_corner: Vec3
+    horizontal: Vec3
+    vertical: Vec3
+    u: Vec3
+    v: Vec3
+    w: Vec3
+    lens_radius: f32
+}
+
+fun create_camera(
+    lookfrom: Vec3,
+    lookat: Vec3,
+    vup: Vec3,
+    vfov: f32,
+    aspect: f32,
+    aperture: f32,
+    focus_dist: f32,
+) Camera {
+    var cam = Camera()
+    cam.lens_radius = aperture/2
+    val theta = vfov*pi/180
+    val half_height = tan(theta/2) as f32
+    val half_width = aspect*half_height
+    cam.origin = lookfrom
+    cam.w = unit_vector(sub(lookfrom, lookat))
+    cam.u = unit_vector(cross(vup, cam.w))
+    cam.v = cross(cam.w, cam.u)
+    cam.lower_left_corner = sub(
+        sub(
+            sub(
+                cam.origin,
+                smul(half_width*focus_dist, cam.u),
+            ),
+            smul(half_height*focus_dist, cam.v),
+        ),
+       smul(focus_dist, cam.w),
+    )
+    cam.horizontal = smul(2*half_width*focus_dist, cam.u)
+    cam.vertical = smul(2*half_height*focus_dist, cam.v)
+    return cam
+}
+
+fun get_ray(cam: &Camera, s: f32, t: f32) Ray {
+    val rd = smul(cam.lens_radius, random_in_unit_disk())
+    val offset = add(
+        smul(rd.x, cam.u),
+        smul(rd.y, cam.v),
+    )
+    return Ray(
+        origin: add(
+            cam.origin,
+            offset,
+        ),
+        dir: sub(
+            sub(
+                add(
+                    cam.lower_left_corner,
+                    add(
+                        smul(s, cam.horizontal),
+                        smul(t, cam.vertical),
+                    ),
+                ),
+                cam.origin,
+            ),
+            offset,
+        ),
+    )
+}
+
+fun random_in_unit_sphere() Vec3 {
+    var p = Vec3(1, 1, 1)
+    while norm2(p) > 1 {
+        p = sub(
+            smul(
+                2,
+                Vec3(
+                    x: randf32(0, 1),
+                    y: randf32(0, 1),
+                    z: randf32(0, 1),
+                ),
+            ),
+            Vec3(1, 1, 1),
+        )
+    }
+    return p
+}
+
+fun random_in_unit_disk() Vec3 {
+    var p = Vec3(1, 1, 0)
+    while dot(p, p) >= 1 {
+        p = sub(
+            smul(
+                2, 
+                Vec3(
+                    x: randf32(0, 1),
+                    y: randf32(0, 1),
+                    z: 0,
+                ),
+            ),
+            Vec3(1, 1, 0),
+        )
+    }
+    return p
+}
+
+fun color(ray: &Ray, world: &World, depth: i32) Vec3 {
+    var rec: HitRecord
+    if hit_world(world, ray, 0.001, 1e37, &var rec) {
+        var scattered: Ray
+        var attenuation: Vec3
+        if depth < 50 and scatter(rec.mat, ray, rec, &var attenuation, &var scattered) {
+            return mul(
+                attenuation,
+                color(scattered, world, depth+1),
+            )
+        } 
+        return Vec3(0, 0, 0)
+    }
+    val unit_dir = unit_vector(ray.dir)
+    val t = 0.5*(unit_dir.y + 1)
+    return add(Vec3(1-t, 1-t, 1-t), Vec3(t*0.5, t*0.7, t*1.0))
+}
+
+fun randf32(min: f32, max: f32) f32 {
+    var div = 100
+    return ((rand()%div) as f32)/(div as f32)*(max - min) + min
+}
+
+fun random_scene(list: &var [Sphere]) {
+    list[0] = Sphere(
+        center: Vec3(0, -1000, 0),
+        radius: 1000,
+        mat: Material(
+            kind: KIND_LAMBERTIAN,
+            albedo: Vec3(0.5, 0.5, 0.5),
+        ),
+    )
+    var i = 1
+    for a = -11; a < 11; a++ {
+        for b = -11; b < 11; b++ {
+            val choose_mat = randf32(0, 1)
+            val center = Vec3((a as f32)+0.9*randf32(0, 1), 0.2, (b as f32)+0.9*randf32(0, 1))
+            if norm(sub(center, Vec3(4,0.2,0))) > 0.9 {
+                if choose_mat < 0.8 { // diffuse
+                    list[i] = Sphere(
+                        center: center,
+                        radius: 0.2,
+                        mat: Material(
+                            kind: KIND_LAMBERTIAN,
+                            albedo: Vec3(
+                                randf32(0,1)*randf32(0,1),
+                                randf32(0,1)*randf32(0,1),
+                                randf32(0,1)*randf32(0,1),
+                            ),
+                        ),
+                    )
+                } elif choose_mat < 0.95 { // metal
+                    list[i] = Sphere(
+                        center: center,
+                        radius: 0.2,
+                        mat: Material(
+                            kind: KIND_METAL,
+                            albedo: Vec3(
+                                0.5*(1+randf32(0,1)),
+                                0.5*(1+randf32(0,1)),
+                                0.5*(1+randf32(0,1)),
+                            ),
+                            fuzz: 0.5*randf32(0,1),
+                        ),
+                    )
+
+                } else { // glass
+                    list[i] = Sphere(
+                        center: center,
+                        radius: 0.2,
+                        mat: Material(
+                            kind: KIND_DIELECTRIC,
+                            ref_idx: 1.5,
+                        ),
+                    )
+                }
+                i++
+            }
+        }
+    }
+    list[i] = Sphere(
+        center: Vec3(0, 1, 0),
+        radius: 1,
+        mat: Material(
+            kind: KIND_DIELECTRIC,
+            ref_idx: 1.5,
+        ),
+    )
+    i++
+    list[i] = Sphere(
+        center: Vec3(-4, 1, 0),
+        radius: 1,
+        mat: Material(
+            kind: KIND_LAMBERTIAN,
+            albedo: Vec3(0.4, 0.2, 0.1),
+        ),
+    )
+    i++
+    list[i] = Sphere(
+        center: Vec3(4, 1, 0),
+        radius: 1,
+        mat: Material(
+            kind: KIND_METAL,
+            albedo: Vec3(0.7, 0.6, 0.5),
+            fuzz: 0,
+        ),
+    )
+}
+
+fun trace() {
+    val nx = 1200
+    val ny = 800
+    val ns = 10
+    println("P3")
+    printi(nx)
+    print(" ")
+    printiln(ny)
+    printiln(255)
+    /*
+    val spheres = [Sphere](
+        Sphere(
+            center: Vec3(0, 0, -1),
+            radius: 0.5,
+            mat: Material(
+                kind: KIND_LAMBERTIAN,
+                albedo: Vec3(0.1, 0.2, 0.5),
+            ),
+        ),
+        Sphere(
+            center: Vec3(0, -100.5, -1),
+            radius: 100,
+            mat: Material(
+                kind: KIND_LAMBERTIAN,
+                albedo: Vec3(0.8, 0.8, 0),
+            ),
+        ),
+        Sphere(
+            center: Vec3(1, 0, -1),
+            radius: 0.5,
+            mat: Material(
+                kind: KIND_METAL,
+                albedo: Vec3(0.8, 0.6, 0.2),
+                fuzz: 0,
+            ),
+        ),
+        Sphere(
+            center: Vec3(-1, 0, -1),
+            radius: 0.5,
+            mat: Material(
+                kind: KIND_DIELECTRIC,
+                ref_idx: 1.5,
+            ),  
+        ),
+        Sphere(
+            center: Vec3(-1, 0, -1),
+            radius: -0.45,
+            mat: Material(
+                kind: KIND_DIELECTRIC,
+                ref_idx: 1.5,
+            ),  
+        ),
+    )
+    */
+    var spheres: [Sphere:501]
+    random_scene(&var spheres[:])
+    val world = World(
+        spheres: &spheres[:],
+    )
+    val lookfrom = Vec3(13, 2, 3)
+    val lookat = Vec3(0, 0, 0)
+    val dist_to_focus = 10f32
+    val aperture = 0.1f32
+
+    var cam = create_camera(
+        lookfrom: lookfrom,
+        lookat: lookat,
+        vup: Vec3(0, 1, 0),
+        vfov: 20,
+        aspect: nx as f32 / ny as f32,
+        aperture: aperture,
+        focus_dist: dist_to_focus,
+    )
+
+    for j = ny-1; j >= 0; j-- {
+        for i = 0; i < nx; i++ {
+            var col: Vec3
+            for s = 0; s < ns; s++ {
+                val u = (i as f32 + randf32(0, 1)) / nx as f32
+                val v = (j as f32 + randf32(0, 1)) / ny as f32
+                val ray = get_ray(cam, u, v)
+                col = add(col, color(ray, world, 0))
+            }
+            col = sdiv(col, ns as f32)
+            col = Vec3(
+                x: sqrt(col.x) as f32,
+                y: sqrt(col.y) as f32,
+                z: sqrt(col.z) as f32,
+            )
+            val ir = (255.99*col.x) as i32
+            val ig = (255.99*col.y) as i32
+            val ib = (255.99*col.z) as i32
+            printi(ir)
+            print(" ")
+            printi(ig)
+            print(" ")
+            printiln(ib)
+        }
+    }
+}
+
+extern fun main() c_int {
+    trace()
+    return 0
+}
