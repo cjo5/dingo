@@ -391,13 +391,6 @@ func (c *checker) checkStmt(stmt ir.Stmt) {
 			}
 			left := stmt.Left
 			err := false
-			if !left.Lvalue() {
-				err = true
-				c.error(left.Pos(), "expression is not an lvalue")
-			} else if left.ReadOnly() {
-				err = true
-				c.error(left.Pos(), "expression is read-only")
-			}
 			if stmt.Assign != token.Assign {
 				if !ir.IsNumericType(left.Type()) {
 					err = true
@@ -408,7 +401,17 @@ func (c *checker) checkStmt(stmt ir.Stmt) {
 				stmt.Right = c.finalizeExpr(stmt.Right, left.Type())
 				right := stmt.Right
 				if isTypeMismatch(left.Type(), right.Type()) {
+					err = true
 					c.nodeError(stmt, "type mismatch %s and %s", left.Type(), right.Type())
+				}
+			}
+			if !err {
+				if !left.Lvalue() {
+					err = true
+					c.error(left.Pos(), "expression is not an lvalue")
+				} else if left.ReadOnly() {
+					err = true
+					c.error(left.Pos(), "expression is read-only")
 				}
 			}
 		}
