@@ -1,4 +1,4 @@
-// From raytracing in one weekend:
+// Based on raytracing in one weekend:
 // https://github.com/petershirley/raytracinginoneweekend
 
 include "../std/lib.dg"
@@ -509,61 +509,19 @@ fun trace() {
     val nx = 1200
     val ny = 800
     val ns = 10
+
     println("P3")
     printi(nx)
     print(" ")
     printiln(ny)
     printiln(255)
-    /*
-    val spheres = [Sphere](
-        Sphere(
-            center: Vec3(0, 0, -1),
-            radius: 0.5,
-            mat: Material(
-                kind: KIND_LAMBERTIAN,
-                albedo: Vec3(0.1, 0.2, 0.5),
-            ),
-        ),
-        Sphere(
-            center: Vec3(0, -100.5, -1),
-            radius: 100,
-            mat: Material(
-                kind: KIND_LAMBERTIAN,
-                albedo: Vec3(0.8, 0.8, 0),
-            ),
-        ),
-        Sphere(
-            center: Vec3(1, 0, -1),
-            radius: 0.5,
-            mat: Material(
-                kind: KIND_METAL,
-                albedo: Vec3(0.8, 0.6, 0.2),
-                fuzz: 0,
-            ),
-        ),
-        Sphere(
-            center: Vec3(-1, 0, -1),
-            radius: 0.5,
-            mat: Material(
-                kind: KIND_DIELECTRIC,
-                ref_idx: 1.5,
-            ),  
-        ),
-        Sphere(
-            center: Vec3(-1, 0, -1),
-            radius: -0.45,
-            mat: Material(
-                kind: KIND_DIELECTRIC,
-                ref_idx: 1.5,
-            ),  
-        ),
-    )
-    */
+
     var spheres: [Sphere:501]
     random_scene(&var spheres[:])
     val world = World(
         spheres: &spheres[:],
     )
+
     val lookfrom = Vec3(13, 2, 3)
     val lookat = Vec3(0, 0, 0)
     val dist_to_focus = 10f32
