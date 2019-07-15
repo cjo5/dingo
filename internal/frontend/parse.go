@@ -912,12 +912,6 @@ func (p *parser) parseBinaryExpr(prec int) ir.Expr {
 		endPos := expr.EndPos()
 		expr = &ir.AddrExpr{X: expr, Immutable: immutable}
 		expr.SetRange(pos, endPos)
-	} else if p.token.Is(token.Deref) {
-		p.next()
-		expr = p.parseOperand()
-		endPos := expr.EndPos()
-		expr = &ir.DerefExpr{X: expr}
-		expr.SetRange(pos, endPos)
 	} else {
 		expr = p.parseOperand()
 	}
@@ -1040,7 +1034,7 @@ func (p *parser) parseArgList(stop token.Token) []*ir.ArgExpr {
 
 func (p *parser) parsePrimary(expr ir.Expr) ir.Expr {
 	if p.token.Is(token.Lbrack) {
-		return p.parseSliceOrIndexExpr(expr)
+		return p.parseBracketsExpr(expr)
 	} else if p.token.Is(token.Lparen) {
 		return p.parsePrimary(p.parseAppExpr(expr))
 	} else if p.token.Is(token.Dot) {
@@ -1049,13 +1043,21 @@ func (p *parser) parsePrimary(expr ir.Expr) ir.Expr {
 	return expr
 }
 
-func (p *parser) parseSliceOrIndexExpr(expr ir.Expr) ir.Expr {
+func (p *parser) parseBracketsExpr(expr ir.Expr) ir.Expr {
 	var index1 ir.Expr
 	var index2 ir.Expr
 	colon := token.Invalid
 	pos := p.pos
 
 	p.expect(token.Lbrack)
+
+	if p.token.Is(token.Rbrack) {
+		p.next()
+		endPos := expr.EndPos()
+		deref := &ir.DerefExpr{X: expr}
+		deref.SetRange(pos, endPos)
+		return p.parsePrimary(deref)
+	}
 
 	if !p.token.Is(token.Colon) {
 		index1 = p.parseExpr()
@@ -1078,9 +1080,9 @@ func (p *parser) parseSliceOrIndexExpr(expr ir.Expr) ir.Expr {
 		return slice
 	}
 
-	res := &ir.IndexExpr{X: expr, Index: index1}
-	res.SetRange(pos, endPos)
-	return p.parsePrimary(res)
+	index := &ir.IndexExpr{X: expr, Index: index1}
+	index.SetRange(pos, endPos)
+	return p.parsePrimary(index)
 }
 
 func (p *parser) parseDotExpr(expr ir.Expr) *ir.DotExpr {

@@ -488,13 +488,13 @@ func (c *checker) finalizeExpr(expr ir.Expr, target ir.Type) ir.Expr {
 	checkIncomplete := false
 	texpr := expr.Type()
 
-	switch expr := expr.(type) {
+	switch expr.(type) {
+	case *ir.AddrExpr:
+		checkIncomplete = true
+	case *ir.DerefExpr:
+		checkIncomplete = true
 	case *ir.SliceExpr:
 		checkIncomplete = true
-	case *ir.UnaryExpr:
-		if expr.Op.OneOf(token.Addr, token.Deref) {
-			checkIncomplete = true
-		}
 	}
 
 	if checkIncomplete && isIncompleteType(texpr, nil) {

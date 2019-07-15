@@ -6,7 +6,7 @@ extern fun main() c_int {
     var b: &void = a
     var c: &i32 = b as &i32
 
-    printiln(*c) // expect: 5
+    printiln(c[]) // expect: 5
 
     return 0
 }

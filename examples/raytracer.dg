@@ -85,7 +85,7 @@ fun normalize(v: &var Vec3) {
 }
 
 fun unit_vector(v1: &Vec3) Vec3 {
-    var v2 = *v1
+    var v2 = v1[]
     normalize(&var v2)
     return v2
 }
@@ -105,7 +105,7 @@ fun refract(v: &Vec3, n: &Vec3, ni_over_nt: f32, refracted: &var Vec3) bool {
     val dt = dot(uv, n)
     val discriminant = 1 - ni_over_nt*ni_over_nt*(1-dt*dt)
     if discriminant > 0 {
-        *refracted = sub(
+        refracted[] = sub(
             smul(
                 ni_over_nt,
                 sub(
@@ -160,8 +160,8 @@ fun lambertian_scatter(
             add(rec.p, rec.normal),
             random_in_unit_sphere(),
     )
-    *scattered = Ray(rec.p, sub(target, rec.p))
-    *attenuation = mat.albedo
+    scattered[] = Ray(rec.p, sub(target, rec.p))
+    attenuation[] = mat.albedo
     return true
 }
 
@@ -173,8 +173,8 @@ fun metal_scatter(
     scattered: &var Ray,
 ) bool {
     val reflected = reflect(unit_vector(ray_in.dir), rec.normal)
-    *scattered = Ray(rec.p, add(reflected, smul(mat.fuzz, random_in_unit_sphere())))
-    *attenuation = mat.albedo
+    scattered[] = Ray(rec.p, add(reflected, smul(mat.fuzz, random_in_unit_sphere())))
+    attenuation[] = mat.albedo
     return dot(scattered.dir, rec.normal) > 0
 }
 
@@ -188,7 +188,7 @@ fun dielectric_scatter(
     var outward_normal: Vec3
     val reflected = reflect(ray_in.dir, rec.normal)
     var ni_over_nt: f32
-    *attenuation = Vec3(1, 1, 1)
+    attenuation[] = Vec3(1, 1, 1)
     var refracted: Vec3
     var reflect_prob: f32
     var cosine: f32
@@ -209,9 +209,9 @@ fun dielectric_scatter(
         reflect_prob = 2
     }
     if randf32(0, 1) < reflect_prob {
-        *scattered = Ray(rec.p, reflected)
+        scattered[] = Ray(rec.p, reflected)
     } else {
-        *scattered = Ray(rec.p, refracted)
+        scattered[] = Ray(rec.p, refracted)
     }
     return true
 }
@@ -283,7 +283,7 @@ fun hit_world(w: &World, r: &Ray, tmin: f32, tmax: f32, rec: &var HitRecord) boo
         if hit_sphere(w.spheres[i], r, tmin, closest_so_far, &var tmp_rec) {
             hit_anything = true
             closest_so_far = tmp_rec.t
-            *rec = tmp_rec
+            rec[] = tmp_rec
         }
     }
     return hit_anything

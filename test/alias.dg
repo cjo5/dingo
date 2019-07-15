@@ -34,7 +34,7 @@ extern fun main() c_int {
 
     var e1: T5 = &a1
     var e2: T5
-    printiln(*e1) // expect: 1
+    printiln(e1[]) // expect: 1
 
     typealias T6 = &[T1]
 

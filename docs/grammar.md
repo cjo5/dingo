@@ -73,7 +73,7 @@ DeferStmt       ::= 'defer' ExprStmt
 Expr            ::= UnaryOp? Operand  Primary AsExpr [BinaryOp Expr]
 BinaryOp        ::= 'or | 'and' | '!=' | '==' | '>' | '>=' | '<' | '<='
                     | '-' | '+' | '/' | '%' | '*'
-UnaryOp         ::= ('not' | '-' | '*') | ('&' ['val' | 'var'])
+UnaryOp         ::= ('not' | '-') | ('&' ['val' | 'var'])
 AsExpr          ::= ['as' Type]
 Operand         ::= NestedExpr | LenExpr | SizeExpr | ScopeName | Literal
 NestedExpr      ::= '(' Expr ')'
@@ -83,11 +83,12 @@ SizeExpr        ::= 'sizeof' '(' Type ')'
 ArgExpr         ::= [IDENT ':'] Expr
 ArgList         ::= [ArgExpr {',' ArgExpr} ','?]
 
-Primary         ::= [SliceExpr | IndexExpr | AppExpr | DotExpr]
-SliceExpr       ::= '[' Expr? ':' Expr? ']'
+Primary         ::= [DerefExpr | IndexExpr | SliceExpr | DotExpr | AppExpr]
+DerefExpr       ::= '[' ']' Primary
 IndexExpr       ::= '[' Expr ']' Primary
-AppExpr         ::= '(' ArgList )' Primary
+SliceExpr       ::= '[' Expr? ':' Expr? ']'
 DotExpr         ::= '.' IDENT Primary
+AppExpr         ::= '(' ArgList )' Primary
 ```
 
 ## Literals

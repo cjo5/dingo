@@ -552,7 +552,7 @@ func BinaryPrec(op token.Token) int {
 // UnaryPrec returns the precedence for a unary operation.
 func UnaryPrec(op token.Token) int {
 	switch op {
-	case token.Lnot, token.Sub, token.Deref, token.Addr:
+	case token.Lnot, token.Sub, token.Addr:
 		return 3
 	default:
 		panic(fmt.Sprintf("Unhandled unary op %s", op))
@@ -567,10 +567,8 @@ func ExprPrec(expr Expr) int {
 	case *UnaryExpr:
 		return UnaryPrec(t.Op)
 	case *AddrExpr:
-		return 3
-	case *DerefExpr:
-		return 3
-	case *IndexExpr, *SliceExpr, *DotExpr, *CastExpr, *AppExpr:
+		return UnaryPrec(token.Addr)
+	case *DerefExpr, *IndexExpr, *SliceExpr, *DotExpr, *CastExpr, *AppExpr:
 		return 1
 	case *BasicLit, *Ident:
 		return 0

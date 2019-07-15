@@ -216,8 +216,9 @@ val b: &i32 = &a         // immutable reference
 val c: &var i32 = &var a // mutable reference
 val d: &i32 = null       // default value
 
-*b = 5 // error, b is an immutable reference
-*c = 9 // ok
+// dereference
+b[] = 5 // error, b is an immutable reference
+c[] = 9 // ok
 
 val e = 6
 val f = &var e // error, cannot take a mutable reference to an immutable value
@@ -495,8 +496,8 @@ See [grammar](grammar.md).
 ```
 Precedence  Associativity   Operation
 1           None            (exp) len(a) sizeof(a) literal identifier
-2           Left-to-right   a() a[i] a[i:j] a.b
-3           None            not -a &a *a
+2           Left-to-right   a() a[] a[i] a[i:j] a.b
+3           None            not -a &a
 4           None            a as b
 5           Left-to-right   a*b a/b a%b
 6                           a+b a-b

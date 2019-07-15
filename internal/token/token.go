@@ -103,7 +103,6 @@ const (
 // Alias
 const (
 	Addr        Token = And
-	Deref       Token = Mul
 	Placeholder Token = Underscore
 	Pointer     Token = And
 	RootMod     Token = Dot

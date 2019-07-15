@@ -16,9 +16,9 @@ extern fun main() c_int {
 }
 
 fun swap(x: &var i32, y: &var i32) {
-    val tmp = *x
-    *x = *y
-    *y = tmp
+    val tmp = x[]
+    x[] = y[]
+    y[] = tmp
 }
 
 fun sort(data: &var [i32]) {
