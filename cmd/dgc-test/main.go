@@ -56,10 +56,12 @@ func main() {
 
 	tester.total = countTests(groups)
 	tester.runTestGroups(groups)
-	fmt.Printf("\n%s: %d/%d %s: %d %s: %d %s: %d\n",
-		statusSuccess, tester.success, tester.total,
-		statusSkip, tester.skip, statusFail, tester.fail,
-		statusBad, tester.bad)
+	fmt.Printf("\n%d/%d test(s) %s (%d %s, %d %s, and %d %s)\n",
+		tester.success, tester.total, statusSuccess,
+		tester.fail, statusFail,
+		tester.invalid, statusInvalid,
+		tester.skip, statusSkip,
+	)
 }
 
 type testRunner struct {
@@ -72,7 +74,7 @@ type testRunner struct {
 	success int
 	skip    int
 	fail    int
-	bad     int
+	invalid int
 }
 
 type testGroup struct {
@@ -122,19 +124,19 @@ const (
 	statusSuccess status = iota
 	statusFail
 	statusSkip
-	statusBad
+	statusInvalid
 )
 
 func (t status) String() string {
 	switch t {
 	case statusSuccess:
-		return common.BoldGreen("ok")
+		return common.BoldGreen("passed")
 	case statusFail:
-		return common.BoldRed("fail")
+		return common.BoldRed("failed")
 	case statusSkip:
-		return common.BoldPurple("skip")
-	case statusBad:
-		return common.BoldRed("bad")
+		return common.BoldPurple("disabled")
+	case statusInvalid:
+		return common.BoldRed("invalid")
 	default:
 		return "-"
 	}
@@ -201,7 +203,7 @@ func (t *testRunner) runTestGroups(groups []*testGroup) {
 		if group.Disable {
 			status = statusSkip
 		} else if len(group.Tests) == 0 {
-			status = statusBad
+			status = statusInvalid
 		}
 
 		if status != statusSuccess {
@@ -245,8 +247,8 @@ func (t *testRunner) updateStats(res status) {
 		t.fail++
 	case statusSkip:
 		t.skip++
-	case statusBad:
-		t.bad++
+	case statusInvalid:
+		t.invalid++
 	}
 }
 
@@ -461,7 +463,7 @@ func parseTestDescription(comments []*ir.Comment, result *testResult) (compiler 
 					}
 
 					if unknownArg {
-						result.status = statusBad
+						result.status = statusInvalid
 						result.addReason("unknown test arg '%s' at '%s'", rematch, comment.Pos)
 						continue
 					}
@@ -472,7 +474,7 @@ func parseTestDescription(comments []*ir.Comment, result *testResult) (compiler 
 						pattern.addPart(fmt.Sprintf("(%d): ", lineNum), nil)
 					}
 					if err := addPatternParts(lit, comment.Pos, pattern); err != nil {
-						result.status = statusBad
+						result.status = statusInvalid
 						result.addReason(err.Error())
 						continue
 					}
@@ -486,7 +488,7 @@ func parseTestDescription(comments []*ir.Comment, result *testResult) (compiler 
 						exe = append(exe, pattern)
 					}
 				} else {
-					result.status = statusBad
+					result.status = statusInvalid
 					result.addReason("bad test description at '%s'", comment.Pos)
 				}
 			}
