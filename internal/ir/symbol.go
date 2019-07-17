@@ -28,6 +28,7 @@ const (
 	SymFlagDefined  = 1 << 3
 	SymFlagTopDecl  = 1 << 4
 	SymFlagBuiltin  = 1 << 5
+	SymFlagMethod   = 1 << 6
 )
 
 // Symbol represents any kind of symbol/identifier in the source code.
@@ -108,6 +109,10 @@ func (s *Symbol) IsTopDecl() bool {
 
 func (s *Symbol) IsBuiltin() bool {
 	return (s.Flags & SymFlagBuiltin) != 0
+}
+
+func (s *Symbol) IsMethod() bool {
+	return (s.Flags & SymFlagMethod) != 0
 }
 
 func (s *Symbol) FQN() string {

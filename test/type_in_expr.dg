@@ -1,3 +1,8 @@
+struct Foo {
+    a: i32
+}
+
 fun foo() {
-    var a = u32 + 9 // expect-error: type u32 cannot be used in an expression
+    var a = u32 + 9 // expect-error: type 'u32' cannot be used in expression
+    var b = Foo.a // expect-error: type 'Foo' cannot be used in expression
 }

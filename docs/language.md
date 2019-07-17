@@ -246,14 +246,68 @@ len(c) // length of slice
 
 ```rust
 struct Foo {
-    a: i32       // immutable
-    var b: i32   // mutable
+    // fields
+
+    a: i32              // immutable
+    b: i32              // ...
+    var count: i32      // mutable
+
+    // methods
+
+    // equivalent to self: &self
+    fun add(&self) i32 {
+        return self.a + self.b
+    }
+
+    // equivalent to self: &Foo
+    fun sub(self: &self) i32 {
+        return self.a - self.b
+    }
+
+    // the struct name can be specified explicitly
+    fun mul(self: &Foo) i32 {
+        return f.a*f.b
+    }
+
+    // the parameter can have any custom name
+    fun div(f: &self) i32 {
+        return f.a/f.b
+    }
+
+    fun set(&var self, a: i32, b: i32) {
+        self.a = a
+        self.b = b
+    }
+
+    // mutable parameter
+    fun inc(&var self) {
+        self.count++
+    }
+
+
+    fun say_hello() {
+        println("hello")
+    }
 }
 
 // allocated on the stack
-val f1 = Foo(a: 5, b: 9)    // named arguments
+var f1 = Foo(a: 5, b: 9)    // named arguments
 val f2 = Foo(6, 10)         // positional arguments
+
+f1.inc()
+f1.add()
+f1.sub()
+f1.set(7, 11)
+f1.mul()
+f1.div()
+f2.inc()        // invalid, f2 is immutable and inc takes a mutable reference
+f2.say_hello()  // invalid, say_hello does not take Foo as first argument
+
 ```
+
+```self``` has two meanings in the context of methods: the first parameter is called ```self``` if the name is omitted in the declaration, and any use of ```self``` in a type in the function signature refers to the name of the struct. Other than this convenience and the dot syntax, methods are exactly the same as normal functions.
+
+Values are automatically dereferenced for field access, and automatically referenced when calling methods.
 
 ## Typealias
 

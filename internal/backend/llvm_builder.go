@@ -1168,6 +1168,9 @@ func (cb *llvmCodeBuilder) buildDotExpr(expr *ir.DotExpr, load bool) llvm.Value 
 	case *ir.ModuleType:
 		return cb.buildIdent(expr.Name, load)
 	case *ir.StructType:
+		if expr.Name.Sym.IsMethod() {
+			return cb.mod.NamedFunction(mangle(expr.Name.Sym))
+		}
 		val := cb.buildExprPtr(expr.X)
 		if val.Type().TypeKind() != llvm.PointerTypeKind {
 			val = cb.createTempStorage(val)

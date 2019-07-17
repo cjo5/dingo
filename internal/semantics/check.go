@@ -59,7 +59,7 @@ func Check(ctx *common.BuildContext, target ir.Target, fileMatrix ir.FileMatrix)
 	ctx.SetCheckpoint()
 	c := newChecker(ctx, target)
 	modMatrix := c.createModuleMatrix(fileMatrix)
-	c.initDgObjectMatrix(modMatrix)
+	c.initObjectMatrix(modMatrix)
 	c.checkTypes()
 	if ctx.IsErrorSinceCheckpoint() {
 		return nil, false

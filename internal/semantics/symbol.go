@@ -49,12 +49,12 @@ func (c *checker) insertBuiltinModuleFieldSymbols(CUID int, modFQN string) {
 	c.constMap[sym.Key] = lit
 }
 
-func (c *checker) newTopDeclSymbol(kind ir.SymbolKind, CUID int, modFQN string, abi string, public bool, name *ir.Ident, definition bool) *ir.Symbol {
+func (c *checker) newTopDeclSymbol(kind ir.SymbolKind, CUID int, modFQN string, abi string, public bool, name string, pos token.Position, definition bool) *ir.Symbol {
 	flags := ir.SymFlagTopDecl
 	if definition {
 		flags |= ir.SymFlagDefined
 	}
-	sym := ir.NewSymbol(kind, c.scope, CUID, modFQN, name.Literal, name.Pos())
+	sym := ir.NewSymbol(kind, c.scope, CUID, modFQN, name, pos)
 	sym.Key = c.nextSymKey()
 	sym.Public = public
 	sym.ABI = abi
@@ -80,6 +80,65 @@ func (c *checker) setLocalValDeclSymbol(decl *ir.ValDecl, CUID int, modFQN strin
 func (c *checker) insertLocalValDeclSymbol(decl *ir.ValDecl, CUID int, modFQN string) {
 	c.setLocalValDeclSymbol(decl, CUID, modFQN)
 	decl.Sym = c.insertSymbol(c.scope, decl.Sym.Name, decl.Sym)
+}
+
+func (c *checker) insertFunDeclSignature(decl *ir.FuncDecl, parentScope *ir.Scope) {
+	sym := decl.Sym
+	decl.Name.Sym = sym
+	decl.Scope = ir.NewScope(ir.LocalScope, parentScope, sym.CUID)
+	prevScope := c.setScope(decl.Scope)
+	for _, param := range decl.Params {
+		c.insertLocalValDeclSymbol(param, sym.CUID, sym.ModFQN)
+	}
+	c.insertLocalValDeclSymbol(decl.Return, sym.CUID, sym.ModFQN)
+	if decl.Body != nil {
+		decl.Body.Scope = decl.Scope
+	}
+	c.setScope(prevScope)
+}
+
+func (c *checker) insertStructDeclBody(decl *ir.StructDecl, methodScope *ir.Scope) {
+	sym := decl.Sym
+	prevScope := c.setScope(decl.Scope)
+	var fields []ir.Field
+	for _, field := range decl.Fields {
+		c.insertLocalValDeclSymbol(field, sym.CUID, sym.ModFQN)
+		if field.Sym != nil {
+			fields = append(fields, ir.Field{Name: field.Sym.Name, T: ir.TBuiltinUnknown})
+		}
+	}
+	for _, method := range decl.Methods {
+		c.patchSelf(method, sym.Name)
+		pubField := (method.Flags & ir.AstFlagPublic) != 0
+		name := "dg." + sym.Name + "." + method.Name.Literal
+		sym := c.newTopDeclSymbol(ir.FuncSymbol, sym.CUID, sym.ModFQN, sym.ABI, pubField, name, method.Name.Pos(), !method.SignatureOnly())
+		method.Sym = c.insertSymbol(c.scope, method.Name.Literal, sym)
+		if method.Sym != nil {
+			c.insertFunDeclSignature(method, methodScope)
+			method.Sym.Flags |= ir.SymFlagMethod
+			if method.SignatureOnly() {
+				c.error(method.Pos(), "method must have a body")
+			}
+		}
+	}
+	c.setScope(prevScope)
+	tstruct := ir.NewStructType(decl.Sym, decl.Scope)
+	tstruct.SetBody(fields, false) // Set untyped fields
+	decl.Sym.T = tstruct
+	decl.Name.Sym = decl.Sym
+}
+
+func (c *checker) patchSelf(decl *ir.FuncDecl, structName string) {
+	if len(decl.Params) > 0 {
+		param := decl.Params[0]
+		if param.Name.Tok == token.Placeholder {
+			param.Name.Tok = token.Ident
+			param.Name.Literal = "self"
+			if !param.Name.Pos().IsValid() {
+				param.Name.SetRange(param.Type.Pos(), param.Type.EndPos())
+			}
+		}
+	}
 }
 
 func (c *checker) insertImportSymbols(decl *ir.ImportDecl, CUID int, modFQN string, topDecl bool, public bool) {

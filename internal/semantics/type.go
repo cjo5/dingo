@@ -12,32 +12,33 @@ func (c *checker) checkTypes() {
 	for _, objList := range c.objectMatrix {
 		c.objectList = objList
 		for _, obj := range objList.objects {
-			c.checkDgObject(obj)
+			c.checkObject(obj)
 		}
 	}
 	c.step++
 	for decl := range c.incomplete {
-		c.checkIncompleteDgObject(decl)
+		c.checkIncompleteObject(decl)
 	}
 }
 
-func (c *checker) checkIncompleteDgObject(obj *dgObject) {
+func (c *checker) checkIncompleteObject(obj *dgObject) {
 	if obj.color != whiteColor {
 		return
 	}
 	obj.color = grayColor
 	for dep := range obj.deps {
 		if obj.incomplete {
-			c.checkIncompleteDgObject(dep)
+			c.checkIncompleteObject(dep)
 		}
 	}
 	c.objectList = c.objectMatrix[obj.CUID()]
-	c.checkDgObject(obj)
+	c.checkObject(obj)
 	obj.color = blackColor
 }
 
-func (c *checker) checkDgObject(obj *dgObject) {
+func (c *checker) checkObject(obj *dgObject) {
 	c.object = obj
+	defer c.setScope(c.setScope(obj.parentScope))
 	switch decl := obj.d.(type) {
 	case *ir.ImportDecl:
 		c.checkImportDecl(decl)
@@ -230,9 +231,10 @@ func checkCompileTimeConstant(expr ir.Expr) bool {
 }
 
 func (c *checker) checkFuncDecl(decl *ir.FuncDecl) {
-	defer c.setScope(c.setScope(decl.Scope))
+	defer c.setScope(c.scope)
 	if isUnresolvedType(decl.Sym.T) {
 		var tpunt ir.Type
+		c.scope = decl.Scope.Parent
 		for _, param := range decl.Params {
 			if param.Sym != nil {
 				c.checkValDecl(param)
@@ -241,6 +243,7 @@ func (c *checker) checkFuncDecl(decl *ir.FuncDecl) {
 				tpunt = ir.TBuiltinInvalid
 			}
 		}
+		c.scope = decl.Scope
 		decl.Return.Type = c.checkRootTypeExpr(decl.Return.Type, false)
 		tret := decl.Return.Type.Type()
 		tpunt = untyped(tret, tpunt)
@@ -261,6 +264,8 @@ func (c *checker) checkFuncDecl(decl *ir.FuncDecl) {
 			}
 		}
 		c.object.checked = true
+	} else {
+		c.scope = decl.Scope
 	}
 	if !decl.SignatureOnly() {
 		c.checkStmt(decl.Body)
@@ -629,10 +634,10 @@ func (c *checker) resolveIdent(expr *ir.Ident) (*ir.Symbol, bool) {
 		} else {
 			if sym.Kind == ir.ModuleSymbol {
 				ok = false
-				c.error(expr.Pos(), "module '%s' cannot be used in an expression", sym.Name)
+				c.error(expr.Pos(), "module '%s' cannot be used in expression", sym.Name)
 			} else if sym.Kind == ir.TypeSymbol {
 				ok = false
-				c.error(expr.Pos(), "type %s cannot be used in an expression", sym.T)
+				c.error(expr.Pos(), "type '%s' cannot be used in expression", sym.T)
 			}
 		}
 	}

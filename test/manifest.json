@@ -60,6 +60,7 @@
         ]
     },
     {
+        "disable": true,
         "dir": "module",
         "tests": [
             "bad_scope.dg",
@@ -79,6 +80,7 @@
         ]
     },
     {
+        "disable": true,
         "dir": "module",
         "modules": [
             "extra/modules1.dg",
@@ -108,6 +110,8 @@
         "tests": [
             "arguments.dg",
             "bad_arguments.dg",
+            "bad_methods.dg",
+            "methods.dg",
             "opaque.dg"
         ]
     }

@@ -126,9 +126,7 @@ func (d *ValDecl) DefaultInit() bool {
 type FuncDecl struct {
 	baseDecl
 	Name   *Ident
-	Lparen token.Token
 	Params []*ValDecl
-	Rparen token.Token
 	Return *ValDecl
 	Body   *BlockStmt
 	Scope  *Scope
@@ -140,10 +138,11 @@ func (d *FuncDecl) SignatureOnly() bool { return d.Body == nil }
 // StructDecl represents a struct declaration.
 type StructDecl struct {
 	baseDecl
-	Name   *Ident
-	Opaque bool
-	Fields []*ValDecl
-	Scope  *Scope
+	Name    *Ident
+	Opaque  bool
+	Fields  []*ValDecl
+	Methods []*FuncDecl
+	Scope   *Scope
 }
 
 // Statement nodes.

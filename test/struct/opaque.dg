@@ -20,7 +20,7 @@ struct Bar {
 
 struct Bar
 
-struct Baz { // expect-error: struct must have at least 1 field
+struct Baz { 
     
 }
 

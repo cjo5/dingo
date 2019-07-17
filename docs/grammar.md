@@ -36,9 +36,10 @@ ImportName      ::= [('_' | IDENT) '='] ScopeName
 ImportList      ::= ImportItem {',' ImportItem} ','?
 ImportItem      ::= [('_' | IDENT) '='] IDENT
 
-Field           ::= (['val' | 'var'] IDENT ':')? Type
-StructBody      ::= '{' {Field ';'} '}'
+StructBody      ::= '{' {StructField ';'} '}'
+StructField     ::= Visibility? (Field | FuncDecl)
 FuncSignature   ::= '(' [Field {',' Field} ','?] ')' Type?
+Field           ::= (['val' | 'var'] IDENT ':')? Type
 ```
 
 ## Types
@@ -80,8 +81,8 @@ NestedExpr      ::= '(' Expr ')'
 LenExpr         ::= 'len' '(' Expr ')'
 SizeExpr        ::= 'sizeof' '(' Type ')'
 
-ArgExpr         ::= [IDENT ':'] Expr
 ArgList         ::= [ArgExpr {',' ArgExpr} ','?]
+ArgExpr         ::= [IDENT ':'] Expr
 
 Primary         ::= [DerefExpr | IndexExpr | SliceExpr | DotExpr | AppExpr]
 DerefExpr       ::= '[' ']' Primary

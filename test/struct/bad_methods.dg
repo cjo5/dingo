@@ -1,0 +1,31 @@
+struct Foo {
+    a: i32
+
+    fun f1() // expect-error: method must have a body
+
+    fun f2() {
+
+    }
+
+    fun f3(&var self) {
+        self.a++
+    }
+
+    fun f4(&self) {
+        self.a++ // expect-error: expression is read-only
+    }
+
+    fun f5(&Foo, self: i32) { // expect(dgc): error(18): redefinition of 'self' <re>.*</re> 
+
+    }
+}
+
+fun baz() {
+    val bar: Foo
+
+    bar.f2() // expect-error: method 'f2' does not accept type 'Foo' as first argument
+
+    bar.f3() // expect-error: immutable value cannot be used with mutating method 'f3'
+
+    Foo.f2() // expect-error: type 'Foo' cannot be used in expression
+}

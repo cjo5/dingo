@@ -332,9 +332,23 @@ func (p *parser) parseStructDecl() *ir.StructDecl {
 		decl.Opaque = false
 		p.expect(token.Lbrace)
 		p.blockCount++
-		flags := ir.AstFlagNoInit | ir.AstFlagPublic
 		for !p.token.OneOf(token.EOF, token.Rbrace) {
-			decl.Fields = append(decl.Fields, p.parseField(flags, token.Var))
+			flags := 0
+			if p.token.OneOf(token.Public, token.Private) {
+				if p.token.Is(token.Public) {
+					flags |= ir.AstFlagPublic
+				}
+				p.next()
+			}
+			if p.token.Is(token.Func) {
+				fun := p.parseFuncDecl()
+				fun.Flags = flags
+				decl.Methods = append(decl.Methods, fun)
+			} else {
+				flags |= ir.AstFlagNoInit
+				field := p.parseField(flags, token.Var)
+				decl.Fields = append(decl.Fields, field)
+			}
 			p.expectSemi()
 		}
 		p.expect(token.Rbrace)

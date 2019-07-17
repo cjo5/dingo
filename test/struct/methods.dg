@@ -1,0 +1,57 @@
+include "../common.dg"
+
+struct Foo {
+    count: i32
+
+    fun bar(f: &Foo, a: i32) {
+        printiln(f.count)
+        printiln(a)
+    }
+
+    fun inc(&var self) {
+        self.count++
+    }
+
+    fun inc_twice(f: &var self) {
+        f.inc()
+        f.inc()
+    }
+
+    fun inc_thrice(&var Foo) {
+        self.inc()
+        self.inc()
+        self.inc()
+    }
+
+    fun get(&self) i32 {
+        return self.count
+    }
+}
+
+extern fun main() c_int {
+    val f = Foo(1)
+    f.bar(2)
+    // expect: 1
+    // expect: 2
+
+    var f2 = Foo(3)
+    val bar = f.bar
+    bar(f2, 4)
+    // expect: 3
+    // expect: 4
+
+    f2.inc()
+    f2.inc()
+    printiln(f2.count)
+    // expect: 5
+
+    f2.inc_twice()
+    f2.inc_thrice()
+    printiln(f2.count)
+    // expect: 10
+
+    printiln(f2.get())
+    // expect: 10
+
+    return 0
+}

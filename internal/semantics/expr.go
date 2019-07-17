@@ -242,7 +242,7 @@ func (c *checker) checkDerefExpr(expr *ir.DerefExpr) ir.Expr {
 
 func (c *checker) checkDotExpr(expr *ir.DotExpr) ir.Expr {
 	if isUnresolvedExpr(expr.X) {
-		expr.X = c.checkExpr2(expr.X, modeExprOrType)
+		expr.X = c.checkExpr2(expr.X, modeExpr)
 		expr.X = tryDeref(expr.X)
 	}
 
@@ -273,7 +273,7 @@ func (c *checker) checkDotExpr(expr *ir.DotExpr) ir.Expr {
 			c.setScope(prevScope)
 		}
 	default:
-		c.error(expr.X.Pos(), "expression cannot be used for field access (has type %s)", tx)
+		c.nodeError(expr.X, "expression cannot be used for field access (has type %s)", tx)
 	}
 
 	if expr.T == nil {
@@ -460,8 +460,59 @@ func (c *checker) checkAppExpr(expr *ir.AppExpr) ir.Expr {
 	tx := expr.X.Type()
 
 	if tx.Kind() == ir.TFunc {
+		doCheck := true
+		if sym := ir.ExprSymbol(expr.X); sym != nil {
+			if sym.Kind == ir.FuncSymbol && sym.IsMethod() {
+				dot := expr.X.(*ir.DotExpr)
+				obj := dot.X
+				tobj := obj.Type()
+				if obj.Type().Kind() != ir.TPointer {
+					if deref, ok := obj.(*ir.DerefExpr); ok {
+						obj = deref.X
+						obj.SetRange(deref.Pos(), deref.EndPos())
+					} else {
+						addr := &ir.AddrExpr{
+							X: obj,
+						}
+						addr.SetRange(obj.Pos(), obj.EndPos())
+						addr.T = ir.NewPointerType(obj.Type(), obj.ReadOnly())
+						obj = addr
+					}
+				}
+
+				tfun := tx.(*ir.FuncType)
+				firstParamOK := false
+				reportError := true
+				if len(tfun.Params) > 0 {
+					if tptrParam, ok := tfun.Params[0].T.(*ir.PointerType); ok {
+						obj, _ = tryImplicitCast(obj, tptrParam)
+						if tptrParam.Equals(obj.Type()) {
+							firstParamOK = true
+						} else if tptrArg, ok := obj.Type().(*ir.PointerType); ok {
+							if tptrArg.Elem.Equals(tptrParam.Elem) {
+								reportError = false
+								c.nodeError(expr, "immutable value cannot be used with mutating method '%s'", dot.Name.Literal)
+							}
+						}
+					}
+				}
+
+				if firstParamOK {
+					firstArg := &ir.ArgExpr{Value: obj}
+					expr.Args = append([]*ir.ArgExpr{firstArg}, expr.Args...)
+					expr.X = dot.Name
+				} else {
+					doCheck = false
+					if reportError {
+						c.nodeError(expr, "method '%s' does not accept type '%s' as first argument", dot.Name.Literal, tobj)
+					}
+				}
+			}
+		}
 		tfun := ir.ToBaseType(tx).(*ir.FuncType)
-		expr.Args = c.checkArgumentList(tx, expr.Args, tfun.Params, false)
+		if doCheck {
+			expr.Args = c.checkArgumentList(tx, expr.Args, tfun.Params, false)
+		}
 		expr.T = tfun.Return
 	} else { // struct
 		tstruct := ir.ToBaseType(tx).(*ir.StructType)
