@@ -271,7 +271,6 @@ struct Sphere {
     }
 }
 
-
 struct World {
     spheres: &[Sphere]
 
@@ -360,7 +359,6 @@ fun create_camera(
     cam.vertical = smul(2*half_height*focus_dist, cam.v)
     return cam
 }
-
 
 fun random_in_unit_sphere() Vec3 {
     var p = Vec3(1, 1, 1)
