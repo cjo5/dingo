@@ -33,30 +33,30 @@ const (
 
 // Symbol represents any kind of symbol/identifier in the source code.
 type Symbol struct {
-	Kind   SymbolKind
-	Parent *Scope
-	CUID   int
-	Key    int
-	Public bool
-	ABI    string
-	ModFQN string
-	Name   string
-	Pos    token.Position
-	T      Type
-	Flags  int
+	Kind    SymbolKind
+	DefCUID int
+	CUID    int
+	Key     int
+	Public  bool
+	ABI     string
+	ModFQN  string
+	Name    string
+	Pos     token.Position
+	T       Type
+	Flags   int
 }
 
 // NewSymbol creates a new symbol.
-func NewSymbol(kind SymbolKind, parent *Scope, CUID int, modFQN string, name string, pos token.Position) *Symbol {
+func NewSymbol(kind SymbolKind, defCUID int, CUID int, modFQN string, name string, pos token.Position) *Symbol {
 	return &Symbol{
-		Kind:   kind,
-		Parent: parent,
-		CUID:   CUID,
-		ABI:    DGABI,
-		ModFQN: modFQN,
-		Name:   name,
-		Pos:    pos,
-		T:      TBuiltinUnknown,
+		Kind:    kind,
+		DefCUID: defCUID,
+		CUID:    CUID,
+		ABI:     DGABI,
+		ModFQN:  modFQN,
+		Name:    name,
+		Pos:     pos,
+		T:       TBuiltinUnknown,
 	}
 }
 
@@ -123,8 +123,4 @@ func (s *Symbol) FQN() string {
 		return fmt.Sprintf("%s.%s", s.ModFQN, s.Name)
 	}
 	return s.Name
-}
-
-func (s *Symbol) ParentCUID() int {
-	return s.Parent.CUID
 }

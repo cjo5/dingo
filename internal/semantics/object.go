@@ -15,18 +15,18 @@ const (
 	blackColor color = iota
 )
 
-type dgObjectList struct {
+type objectList struct {
 	filename  string
 	CUID      int
 	importMap map[string]*ir.Symbol
-	objects   []*dgObject
+	objects   []*object
 }
 
-type dgObject struct {
+type object struct {
 	d           ir.Decl
 	parentScope *ir.Scope
 	definition  bool
-	deps        map[*dgObject][]*depEdge
+	deps        map[*object][]*depEdge
 	checked     bool
 	incomplete  bool
 	color       color
@@ -37,57 +37,53 @@ type depEdge struct {
 	isIndirectType bool
 }
 
-func newObjectList(filename string, CUID int, importMap map[string]*ir.Symbol) *dgObjectList {
-	return &dgObjectList{
+func newObjectList(filename string, CUID int, importMap map[string]*ir.Symbol) *objectList {
+	return &objectList{
 		filename:  filename,
 		CUID:      CUID,
 		importMap: importMap,
 	}
 }
 
-func resetColors(matrix []*dgObjectList) {
+func resetColors(matrix []*objectList) {
 	for _, list := range matrix {
 		list.resetColors()
 	}
 }
 
-func (l *dgObjectList) resetColors() {
+func (l *objectList) resetColors() {
 	for _, obj := range l.objects {
 		obj.color = whiteColor
 	}
 }
 
-func newObject(d ir.Decl, parentScope *ir.Scope, definition bool) *dgObject {
-	return &dgObject{
+func newObject(d ir.Decl, parentScope *ir.Scope, definition bool) *object {
+	return &object{
 		d:           d,
 		parentScope: parentScope,
 		definition:  definition,
-		deps:        make(map[*dgObject][]*depEdge),
+		deps:        make(map[*object][]*depEdge),
 		color:       whiteColor,
 	}
 }
 
-func (d *dgObject) sym() *ir.Symbol {
+func (d *object) sym() *ir.Symbol {
 	return d.d.Symbol()
 }
 
-func (d *dgObject) modFQN() string {
+func (d *object) modFQN() string {
 	return d.sym().ModFQN
 }
 
-func (d *dgObject) CUID() int {
+func (d *object) CUID() int {
 	return d.sym().CUID
 }
 
-func (d *dgObject) parentCUID() int {
-	return d.sym().ParentCUID()
-}
-
-func (d *dgObject) key() int {
+func (d *object) key() int {
 	return d.sym().Key
 }
 
-func (d *dgObject) addEdge(to *dgObject, edge *depEdge) {
+func (d *object) addEdge(to *object, edge *depEdge) {
 	var edges []*depEdge
 	if existing, ok := d.deps[to]; ok {
 		edges = existing
@@ -121,7 +117,7 @@ func (c *checker) initObjectMatrix(modMatrix moduleMatrix) {
 	}
 }
 
-func (c *checker) createObjects(decl *ir.TopDecl, CUID int, modFQN string) []*dgObject {
+func (c *checker) createObjects(decl *ir.TopDecl, CUID int, modFQN string) []*object {
 	abi := ir.DGABI
 	if decl.ABI != nil {
 		abiLit := decl.ABI.Literal
@@ -132,7 +128,7 @@ func (c *checker) createObjects(decl *ir.TopDecl, CUID int, modFQN string) []*dg
 		}
 	}
 	public := decl.Visibility.Is(token.Public)
-	var objects []*dgObject
+	var objects []*object
 	switch decl := decl.D.(type) {
 	case *ir.ImportDecl:
 		c.insertImportSymbols(decl, CUID, modFQN, true, public)
@@ -140,20 +136,20 @@ func (c *checker) createObjects(decl *ir.TopDecl, CUID int, modFQN string) []*dg
 			objects = append(objects, newObject(decl, c.scope, false))
 		}
 	case *ir.TypeDecl:
-		sym := c.newTopDeclSymbol(ir.TypeSymbol, CUID, modFQN, abi, public, decl.Name.Literal, decl.Name.Pos(), true)
+		sym := c.newTopDeclSymbol(ir.TypeSymbol, CUID, CUID, modFQN, abi, public, decl.Name.Literal, decl.Name.Pos(), true)
 		decl.Sym = c.insertSymbol(c.scope, sym.Name, sym)
 		if decl.Sym != nil {
 			objects = append(objects, newObject(decl, c.scope, true))
 		}
 	case *ir.ValDecl:
-		sym := c.newTopDeclSymbol(ir.ValSymbol, CUID, modFQN, abi, public, decl.Name.Literal, decl.Name.Pos(), true)
+		sym := c.newTopDeclSymbol(ir.ValSymbol, CUID, CUID, modFQN, abi, public, decl.Name.Literal, decl.Name.Pos(), true)
 		decl.Sym = c.insertSymbol(c.scope, sym.Name, sym)
 		if decl.Sym != nil {
 			objects = append(objects, newObject(decl, c.scope, true))
 		}
 	case *ir.FuncDecl:
 		def := !decl.SignatureOnly()
-		sym := c.newTopDeclSymbol(ir.FuncSymbol, CUID, modFQN, abi, public, decl.Name.Literal, decl.Name.Pos(), def)
+		sym := c.newTopDeclSymbol(ir.FuncSymbol, CUID, CUID, modFQN, abi, public, decl.Name.Literal, decl.Name.Pos(), def)
 		decl.Sym = c.insertSymbol(c.scope, sym.Name, sym)
 		if decl.Sym != nil {
 			c.insertFunDeclSignature(decl, c.scope)
@@ -161,7 +157,7 @@ func (c *checker) createObjects(decl *ir.TopDecl, CUID int, modFQN string) []*dg
 		}
 	case *ir.StructDecl:
 		def := !decl.Opaque
-		sym := c.newTopDeclSymbol(ir.TypeSymbol, CUID, modFQN, abi, public, decl.Name.Literal, decl.Name.Pos(), def)
+		sym := c.newTopDeclSymbol(ir.TypeSymbol, CUID, CUID, modFQN, abi, public, decl.Name.Literal, decl.Name.Pos(), def)
 		decl.Sym = c.insertSymbol(c.scope, sym.Name, sym)
 		if decl.Sym != nil {
 			decl.Scope = ir.NewScope(ir.FieldScope, nil, sym.CUID)
@@ -179,14 +175,14 @@ func (c *checker) createObjects(decl *ir.TopDecl, CUID int, modFQN string) []*dg
 				}
 
 				selfScope := ir.NewScope(ir.LocalScope, c.scope, CUID)
-				selfType.Sym = c.newTopDeclSymbol(ir.TypeSymbol, CUID, modFQN, abi, false, selfType.Name.Literal, token.NoPosition, true)
+				selfType.Sym = c.newTopDeclSymbol(ir.TypeSymbol, CUID, CUID, modFQN, abi, false, selfType.Name.Literal, token.NoPosition, true)
 				c.insertSymbol(selfScope, selfType.Name.Literal, selfType.Sym)
 				c.insertStructDeclBody(decl, selfScope)
 				objects = append(objects, newObject(decl, c.scope, def))
 				objects = append(objects, newObject(selfType, selfScope, true))
-				for _, field := range decl.Methods {
-					if field.Sym != nil {
-						objects = append(objects, newObject(field, c.scope, !field.SignatureOnly()))
+				for _, method := range decl.Methods {
+					if method.Sym != nil {
+						objects = append(objects, newObject(method, c.scope, !method.SignatureOnly()))
 					}
 				}
 				decl.Methods = nil
@@ -205,7 +201,7 @@ out:
 		resetColors(c.objectMatrix)
 		var sortedDecls []ir.Decl
 		for _, obj := range objList.objects {
-			var cycleTrace []*dgObject
+			var cycleTrace []*object
 			if !sortDeps(obj, &cycleTrace, &sortedDecls) {
 				cycleTrace = append(cycleTrace, obj)
 
@@ -246,7 +242,7 @@ out:
 	return declMatrix
 }
 
-func sortDeps(obj *dgObject, trace *[]*dgObject, sorted *[]ir.Decl) bool {
+func sortDeps(obj *object, trace *[]*object, sorted *[]ir.Decl) bool {
 	if obj.color == blackColor {
 		return true
 	} else if obj.color == grayColor {
@@ -256,7 +252,7 @@ func sortDeps(obj *dgObject, trace *[]*dgObject, sorted *[]ir.Decl) bool {
 	sortOK := true
 	obj.color = grayColor
 
-	var weak []*dgObject
+	var weak []*object
 
 	for dep, edges := range obj.deps {
 		if isWeakDep(obj, edges, dep) {
@@ -290,7 +286,7 @@ func sortDeps(obj *dgObject, trace *[]*dgObject, sorted *[]ir.Decl) bool {
 	return sortOK
 }
 
-func isWeakDep(from *dgObject, edges []*depEdge, to *dgObject) bool {
+func isWeakDep(from *object, edges []*depEdge, to *object) bool {
 	switch from.d.(type) {
 	case *ir.FuncDecl:
 		return to.d.Symbol().Kind == ir.FuncSymbol

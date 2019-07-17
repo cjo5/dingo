@@ -38,7 +38,7 @@ func (c *checker) insertSymbol(scope *ir.Scope, alias string, sym *ir.Symbol) *i
 }
 
 func (c *checker) insertBuiltinModuleFieldSymbols(CUID int, modFQN string) {
-	sym := ir.NewSymbol(ir.ValSymbol, c.scope, CUID, modFQN, "modfqn_", token.NoPosition)
+	sym := ir.NewSymbol(ir.ValSymbol, CUID, CUID, modFQN, "modfqn_", token.NoPosition)
 	sym.Key = c.nextSymKey()
 	sym.Public = true
 	sym.Flags = builtinSymFlags | ir.SymFlagConst
@@ -49,12 +49,12 @@ func (c *checker) insertBuiltinModuleFieldSymbols(CUID int, modFQN string) {
 	c.constMap[sym.Key] = lit
 }
 
-func (c *checker) newTopDeclSymbol(kind ir.SymbolKind, CUID int, modFQN string, abi string, public bool, name string, pos token.Position, definition bool) *ir.Symbol {
+func (c *checker) newTopDeclSymbol(kind ir.SymbolKind, defCUID int, CUID int, modFQN string, abi string, public bool, name string, pos token.Position, definition bool) *ir.Symbol {
 	flags := ir.SymFlagTopDecl
 	if definition {
 		flags |= ir.SymFlagDefined
 	}
-	sym := ir.NewSymbol(kind, c.scope, CUID, modFQN, name, pos)
+	sym := ir.NewSymbol(kind, defCUID, CUID, modFQN, name, pos)
 	sym.Key = c.nextSymKey()
 	sym.Public = public
 	sym.ABI = abi
@@ -63,14 +63,14 @@ func (c *checker) newTopDeclSymbol(kind ir.SymbolKind, CUID int, modFQN string, 
 }
 
 func (c *checker) setLocalTypeDeclSymbol(decl *ir.TypeDecl, CUID int, modFQN string) {
-	sym := ir.NewSymbol(ir.TypeSymbol, c.scope, CUID, modFQN, decl.Name.Literal, decl.Name.Pos())
+	sym := ir.NewSymbol(ir.TypeSymbol, CUID, CUID, modFQN, decl.Name.Literal, decl.Name.Pos())
 	sym.Key = c.nextSymKey()
 	sym.Flags = ir.SymFlagDefined
 	decl.Sym = sym
 }
 
 func (c *checker) setLocalValDeclSymbol(decl *ir.ValDecl, CUID int, modFQN string) {
-	sym := ir.NewSymbol(ir.ValSymbol, c.scope, CUID, modFQN, decl.Name.Literal, decl.Name.Pos())
+	sym := ir.NewSymbol(ir.ValSymbol, CUID, CUID, modFQN, decl.Name.Literal, decl.Name.Pos())
 	sym.Key = c.nextSymKey()
 	sym.Flags = ir.SymFlagDefined
 	sym.Public = (decl.Flags & ir.AstFlagPublic) != 0
@@ -111,7 +111,7 @@ func (c *checker) insertStructDeclBody(decl *ir.StructDecl, methodScope *ir.Scop
 		c.patchSelf(method, sym.Name)
 		pubField := (method.Flags & ir.AstFlagPublic) != 0
 		name := "dg." + sym.Name + "." + method.Name.Literal
-		sym := c.newTopDeclSymbol(ir.FuncSymbol, sym.CUID, sym.ModFQN, sym.ABI, pubField, name, method.Name.Pos(), !method.SignatureOnly())
+		sym := c.newTopDeclSymbol(ir.FuncSymbol, sym.CUID, sym.CUID, sym.ModFQN, sym.ABI, pubField, name, method.Name.Pos(), !method.SignatureOnly())
 		method.Sym = c.insertSymbol(c.scope, method.Name.Literal, sym)
 		if method.Sym != nil {
 			c.insertFunDeclSignature(method, methodScope)
@@ -214,7 +214,7 @@ func (c *checker) insertImportSymbols(decl *ir.ImportDecl, CUID int, modFQN stri
 		defaultFlags |= ir.SymFlagDefined
 	}
 	symKey := c.nextSymKey()
-	sym := ir.NewSymbol(ir.ModuleSymbol, c.scope, importedCUID, fqn, decl.Alias.Literal, decl.Alias.Pos())
+	sym := ir.NewSymbol(ir.ModuleSymbol, c.scope.CUID, importedCUID, fqn, decl.Alias.Literal, decl.Alias.Pos())
 	sym.Key = symKey
 	sym.T = importedTMod
 	sym.Public = public
@@ -225,7 +225,7 @@ func (c *checker) insertImportSymbols(decl *ir.ImportDecl, CUID int, modFQN stri
 			item.Alias = ir.NewIdent2(token.Ident, item.Name.Literal)
 			item.Alias.SetRange(item.Name.Pos(), item.Name.EndPos())
 		}
-		itemSym := ir.NewSymbol(ir.ImportSymbol, c.scope, importedCUID, fqn, item.Name.Literal, item.Alias.Pos())
+		itemSym := ir.NewSymbol(ir.ImportSymbol, c.scope.CUID, importedCUID, fqn, item.Name.Literal, item.Alias.Pos())
 		itemSym.Key = symKey
 		itemSym.Public = item.Visibilty.Is(token.Public)
 		itemSym.Flags = defaultFlags

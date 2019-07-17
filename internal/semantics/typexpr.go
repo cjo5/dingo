@@ -267,6 +267,7 @@ func (c *checker) checkDotExpr(expr *ir.DotExpr) ir.Expr {
 				expr.Name.Sym = sym
 				expr.Name.T = sym.T
 				expr.T = sym.T
+				c.tryAddDep(sym, sym.Pos)
 			} else {
 				expr.T = ir.TBuiltinInvalid
 			}

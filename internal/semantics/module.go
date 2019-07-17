@@ -135,7 +135,7 @@ func (c *checker) createModuleList(fileList ir.FileList, CUID int) moduleList {
 					if child.sym != nil {
 						continue
 					}
-					sym := ir.NewSymbol(ir.ModuleSymbol, parent.scope, CUID, child.fqn, child.name.Literal, child.name.Pos())
+					sym := ir.NewSymbol(ir.ModuleSymbol, parent.scope.CUID, CUID, child.fqn, child.name.Literal, child.name.Pos())
 					sym.Key = c.nextSymKey()
 					sym.Public = child.public
 					sym.Flags = ir.SymFlagDefined | ir.SymFlagReadOnly
@@ -170,7 +170,7 @@ func (c *checker) createModuleList(fileList ir.FileList, CUID int) moduleList {
 }
 
 func (c *checker) insertBuiltinModuleScopeSymbol(mod *module, scopeMod *module, CUID int, name string, pos token.Position) *ir.Symbol {
-	sym := ir.NewSymbol(ir.ModuleSymbol, mod.scope, CUID, scopeMod.fqn, name, pos)
+	sym := ir.NewSymbol(ir.ModuleSymbol, mod.scope.CUID, CUID, scopeMod.fqn, name, pos)
 	sym.Key = c.nextSymKey()
 	sym.Flags = builtinSymFlags | ir.SymFlagReadOnly
 	sym.T = ir.NewModuleType(sym, scopeMod.scope)

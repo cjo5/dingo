@@ -15,7 +15,7 @@ func addBuiltinType(t ir.Type) {
 }
 
 func addBuiltinAliasType(name string, t ir.Type) {
-	sym := ir.NewSymbol(ir.TypeSymbol, builtinScope, -1, "", name, token.NoPosition)
+	sym := ir.NewSymbol(ir.TypeSymbol, builtinScope.CUID, -1, "", name, token.NoPosition)
 	sym.Public = true
 	sym.Flags |= builtinSymFlags
 	sym.T = t
@@ -79,17 +79,17 @@ type checker struct {
 	ctx    *common.BuildContext
 	target ir.Target
 
-	objectMatrix  []*dgObjectList
+	objectMatrix  []*objectList
 	currentSymKey int
 
-	objectMap  map[int]*dgObject
+	objectMap  map[int]*object
 	constMap   map[int]ir.Expr
 	importMap  map[string]*ir.Symbol
-	incomplete map[*dgObject]bool
+	incomplete map[*object]bool
 
 	// Ast traversal state
-	objectList *dgObjectList
-	object     *dgObject
+	objectList *objectList
+	object     *object
 	scope      *ir.Scope
 	mode       int
 	step       int
@@ -107,10 +107,10 @@ func newChecker(ctx *common.BuildContext, target ir.Target) *checker {
 		ctx:           ctx,
 		target:        target,
 		currentSymKey: 1,
-		objectMap:     make(map[int]*dgObject),
+		objectMap:     make(map[int]*object),
 		constMap:      make(map[int]ir.Expr),
 		importMap:     make(map[string]*ir.Symbol),
-		incomplete:    make(map[*dgObject]bool),
+		incomplete:    make(map[*object]bool),
 	}
 }
 

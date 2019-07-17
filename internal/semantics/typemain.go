@@ -21,7 +21,7 @@ func (c *checker) checkTypes() {
 	}
 }
 
-func (c *checker) checkIncompleteObject(obj *dgObject) {
+func (c *checker) checkIncompleteObject(obj *object) {
 	if obj.color != whiteColor {
 		return
 	}
@@ -36,7 +36,7 @@ func (c *checker) checkIncompleteObject(obj *dgObject) {
 	obj.color = blackColor
 }
 
-func (c *checker) checkObject(obj *dgObject) {
+func (c *checker) checkObject(obj *object) {
 	c.object = obj
 	defer c.setScope(c.setScope(obj.parentScope))
 	switch decl := obj.d.(type) {
@@ -642,7 +642,7 @@ func (c *checker) resolveIdent(expr *ir.Ident) (*ir.Symbol, bool) {
 		}
 	}
 	if ok {
-		if !sym.Public && sym.ParentCUID() != c.object.parentCUID() {
+		if !sym.Public && sym.DefCUID != c.object.CUID() {
 			ok = false
 			c.error(expr.Pos(), "'%s' is private", expr.Literal)
 		}
