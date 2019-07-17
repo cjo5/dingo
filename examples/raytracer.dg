@@ -7,6 +7,27 @@ struct Vec3 {
     x: f32
     y: f32
     z: f32
+
+    fun normalize(&var self) {
+        val n = self.length()
+        self.x = self.x/n
+        self.y = self.y/n
+        self.z = self.z/n
+    }
+
+    fun length(&self) f32 {
+        return sqrt(self.length2()) as f32
+    }
+
+    fun length2(&self) f32 {
+        return self.x*self.x + self.y*self.y + self.z*self.z
+    }
+}
+
+fun unit_vector(v1: &Vec3) Vec3 {
+    var v2 = v1[]
+    v2.normalize()
+    return v2
 }
 
 fun add(v1: &Vec3, v2: &Vec3) Vec3 {
@@ -69,27 +90,6 @@ fun cross(v1: &Vec3, v2: &Vec3) Vec3 {
     )
 }
 
-fun norm(v: &Vec3) f32 {
-    return sqrt(norm2(v)) as f32
-}
-
-fun norm2(v: &Vec3) f32 {
-    return v.x*v.x + v.y*v.y + v.z*v.z
-}
-
-fun normalize(v: &var Vec3) {
-    val n = norm(v)
-    v.x = v.x/n
-    v.y = v.y/n
-    v.z = v.z/n
-}
-
-fun unit_vector(v1: &Vec3) Vec3 {
-    var v2 = v1[]
-    normalize(&var v2)
-    return v2
-}
-
 fun reflect(v: &Vec3, n: &Vec3) Vec3 {
     return sub(
         v,
@@ -132,10 +132,10 @@ fun schlick(cosine: f32, ref_idx: f32) f32 {
 struct Ray {
     origin: Vec3
     dir: Vec3
-}
 
-fun point_at_parameter(r: &Ray, t: f32) Vec3 {
-    return add(r.origin, smul(t, r.dir))
+    fun point_at_parameter(&self, t: f32) Vec3 {
+        return add(self.origin, smul(t, self.dir))
+    }
 }
 
 val KIND_LAMBERTIAN = 1
@@ -147,88 +147,88 @@ struct Material {
     albedo: Vec3
     fuzz: f32
     ref_idx: f32
-}
 
-fun lambertian_scatter(
-    mat: &Material,
-    ray_in: &Ray,
-    rec: &HitRecord,
-    attenuation: &var Vec3,
-    scattered: &var Ray,
-) bool {
-    val target = add(
-            add(rec.p, rec.normal),
-            random_in_unit_sphere(),
-    )
-    scattered[] = Ray(rec.p, sub(target, rec.p))
-    attenuation[] = mat.albedo
-    return true
-}
+    fun lambertian_scatter(
+        &self,
+        ray_in: &Ray,
+        rec: &HitRecord,
+        attenuation: &var Vec3,
+        scattered: &var Ray,
+    ) bool {
+        val target = add(
+                add(rec.p, rec.normal),
+                random_in_unit_sphere(),
+        )
+        scattered[] = Ray(rec.p, sub(target, rec.p))
+        attenuation[] = self.albedo
+        return true
+    }
 
-fun metal_scatter(
-    mat: &Material,
-    ray_in: &Ray,
-    rec: &HitRecord,
-    attenuation: &var Vec3,
-    scattered: &var Ray,
-) bool {
-    val reflected = reflect(unit_vector(ray_in.dir), rec.normal)
-    scattered[] = Ray(rec.p, add(reflected, smul(mat.fuzz, random_in_unit_sphere())))
-    attenuation[] = mat.albedo
-    return dot(scattered.dir, rec.normal) > 0
-}
+    fun metal_scatter(
+        &self,
+        ray_in: &Ray,
+        rec: &HitRecord,
+        attenuation: &var Vec3,
+        scattered: &var Ray,
+    ) bool {
+        val reflected = reflect(unit_vector(ray_in.dir), rec.normal)
+        scattered[] = Ray(rec.p, add(reflected, smul(self.fuzz, random_in_unit_sphere())))
+        attenuation[] = self.albedo
+        return dot(scattered.dir, rec.normal) > 0
+    }
 
-fun dielectric_scatter(
-    mat: &Material,
-    ray_in: &Ray,
-    rec: &HitRecord,
-    attenuation: &var Vec3,
-    scattered: &var Ray,
-) bool {
-    var outward_normal: Vec3
-    val reflected = reflect(ray_in.dir, rec.normal)
-    var ni_over_nt: f32
-    attenuation[] = Vec3(1, 1, 1)
-    var refracted: Vec3
-    var reflect_prob: f32
-    var cosine: f32
-    if dot(ray_in.dir, rec.normal) > 0 {
-        outward_normal = smul(-1, rec.normal)
-        ni_over_nt = mat.ref_idx
-        //cosine = mat.ref_idx*dot(ray_in.dir, rec.normal)/norm(ray_in.dir)
-        cosine = dot(ray_in.dir, rec.normal)/norm(ray_in.dir)
-        cosine = sqrt(1 - mat.ref_idx*mat.ref_idx*(1-cosine*cosine)) as f32
-    } else {
-        outward_normal = rec.normal
-        ni_over_nt = 1/mat.ref_idx
-        cosine = -dot(ray_in.dir, rec.normal)/norm(ray_in.dir)
+    fun dielectric_scatter(
+        &self,
+        ray_in: &Ray,
+        rec: &HitRecord,
+        attenuation: &var Vec3,
+        scattered: &var Ray,
+    ) bool {
+        var outward_normal: Vec3
+        val reflected = reflect(ray_in.dir, rec.normal)
+        var ni_over_nt: f32
+        attenuation[] = Vec3(1, 1, 1)
+        var refracted: Vec3
+        var reflect_prob: f32
+        var cosine: f32
+        if dot(ray_in.dir, rec.normal) > 0 {
+            outward_normal = smul(-1, rec.normal)
+            ni_over_nt = self.ref_idx
+            //cosine = self.ref_idx*dot(ray_in.dir, rec.normal)/norm(ray_in.dir)
+            cosine = dot(ray_in.dir, rec.normal)/ray_in.dir.length()
+            cosine = sqrt(1 - self.ref_idx*self.ref_idx*(1-cosine*cosine)) as f32
+        } else {
+            outward_normal = rec.normal
+            ni_over_nt = 1/self.ref_idx
+            cosine = -dot(ray_in.dir, rec.normal)/ray_in.dir.length()
+        }
+        if refract(ray_in.dir, outward_normal, ni_over_nt, &var refracted) {
+            reflect_prob = schlick(cosine, self.ref_idx)
+        } else {
+            reflect_prob = 2
+        }
+        if randf32(0, 1) < reflect_prob {
+            scattered[] = Ray(rec.p, reflected)
+        } else {
+            scattered[] = Ray(rec.p, refracted)
+        }
+        return true
     }
-    if refract(ray_in.dir, outward_normal, ni_over_nt, &var refracted) {
-        reflect_prob = schlick(cosine, mat.ref_idx)
-    } else {
-        reflect_prob = 2
-    }
-    if randf32(0, 1) < reflect_prob {
-        scattered[] = Ray(rec.p, reflected)
-    } else {
-        scattered[] = Ray(rec.p, refracted)
-    }
-    return true
-}
 
-fun scatter(
-    mat: &Material,
-    ray_in: &Ray,
-    rec: &HitRecord,
-    attenuation: &var Vec3,
-    scattered: &var Ray,
-) bool {
-    if mat.kind == KIND_LAMBERTIAN {
-        return lambertian_scatter(mat, ray_in, rec, attenuation, scattered)
-    } elif mat.kind == KIND_METAL {
-        return metal_scatter(mat, ray_in, rec, attenuation, scattered)
+    fun scatter(
+        &self,
+        ray_in: &Ray,
+        rec: &HitRecord,
+        attenuation: &var Vec3,
+        scattered: &var Ray,
+    ) bool {
+        if self.kind == KIND_LAMBERTIAN {
+            return self.lambertian_scatter(ray_in, rec, attenuation, scattered)
+        } elif self.kind == KIND_METAL {
+            return self.metal_scatter(ray_in, rec, attenuation, scattered)
+        }
+        return self.dielectric_scatter(ray_in, rec, attenuation, scattered)
     }
-    return dielectric_scatter(mat, ray_in, rec, attenuation, scattered)
 }
 
 struct HitRecord {
@@ -242,51 +242,52 @@ struct Sphere {
     center: Vec3
     radius: f32
     mat: Material
+
+    fun hit(&self, ray: &Ray, tmin: f32, tmax: f32, rec: &var HitRecord) bool {
+        val oc = sub(ray.origin, self.center)
+        val a = dot(ray.dir, ray.dir)
+        val b = dot(oc, ray.dir)
+        val c = dot(oc, oc) - self.radius*self.radius
+        val discriminant = b*b - a*c
+        if discriminant > 0 {
+            var tmp = (-b - sqrt(discriminant) as f32)/a
+            if tmp < tmax and tmp > tmin {
+                rec.t = tmp
+                rec.p = ray.point_at_parameter(rec.t)
+                rec.normal = sdiv(sub(rec.p, self.center), self.radius)
+                rec.mat = &self.mat
+                return true
+            }
+            tmp = (-b + sqrt(discriminant) as f32)/a
+            if tmp < tmax and tmp > tmin {
+                rec.t = tmp
+                rec.p = ray.point_at_parameter(rec.t)
+                rec.normal = sdiv(sub(rec.p, self.center), self.radius)
+                rec.mat = &self.mat
+                return true
+            }
+        }
+        return false
+    }
 }
 
-fun hit_sphere(s: &Sphere, ray: &Ray, tmin: f32, tmax: f32, rec: &var HitRecord) bool {
-    val oc = sub(ray.origin, s.center)
-    val a = dot(ray.dir, ray.dir)
-    val b = dot(oc, ray.dir)
-    val c = dot(oc, oc) - s.radius*s.radius
-    val discriminant = b*b - a*c
-    if discriminant > 0 {
-        var tmp = (-b - sqrt(discriminant) as f32)/a
-        if tmp < tmax and tmp > tmin {
-            rec.t = tmp
-            rec.p = point_at_parameter(ray, rec.t)
-            rec.normal = sdiv(sub(rec.p, s.center), s.radius)
-            rec.mat = &s.mat
-            return true
-        }
-        tmp = (-b + sqrt(discriminant) as f32)/a
-        if tmp < tmax and tmp > tmin {
-            rec.t = tmp
-            rec.p = point_at_parameter(ray, rec.t)
-            rec.normal = sdiv(sub(rec.p, s.center), s.radius)
-            rec.mat = &s.mat
-            return true
-        }
-    }
-    return false
-}
 
 struct World {
     spheres: &[Sphere]
-}
 
-fun hit_world(w: &World, r: &Ray, tmin: f32, tmax: f32, rec: &var HitRecord) bool {
-    var tmp_rec: HitRecord
-    var hit_anything = false
-    var closest_so_far = tmax
-    for i: usize = 0; i < len(w.spheres); i++ {
-        if hit_sphere(w.spheres[i], r, tmin, closest_so_far, &var tmp_rec) {
-            hit_anything = true
-            closest_so_far = tmp_rec.t
-            rec[] = tmp_rec
+    fun hit(&self, r: &Ray, tmin: f32, tmax: f32, rec: &var HitRecord) bool {
+        var tmp_rec: HitRecord
+        var hit_anything = false
+        var closest_so_far = tmax
+        for i: usize = 0; i < len(self.spheres); i++ {
+            if self.spheres[i].hit(r, tmin, closest_so_far, &var tmp_rec) {
+                hit_anything = true
+                closest_so_far = tmp_rec.t
+                rec[] = tmp_rec
+            }
         }
+        return hit_anything
     }
-    return hit_anything
 }
 
 struct Camera {
@@ -298,6 +299,33 @@ struct Camera {
     v: Vec3
     w: Vec3
     lens_radius: f32
+
+    fun get_ray(&self, s: f32, t: f32) Ray {
+        val rd = smul(self.lens_radius, random_in_unit_disk())
+        val offset = add(
+            smul(rd.x, self.u),
+            smul(rd.y, self.v),
+        )
+        return Ray(
+            origin: add(
+                self.origin,
+                offset,
+            ),
+            dir: sub(
+                sub(
+                    add(
+                        self.lower_left_corner,
+                        add(
+                            smul(s, self.horizontal),
+                            smul(t, self.vertical),
+                        ),
+                    ),
+                    self.origin,
+                ),
+                offset,
+            ),
+        )
+    }
 }
 
 fun create_camera(
@@ -333,36 +361,10 @@ fun create_camera(
     return cam
 }
 
-fun get_ray(cam: &Camera, s: f32, t: f32) Ray {
-    val rd = smul(cam.lens_radius, random_in_unit_disk())
-    val offset = add(
-        smul(rd.x, cam.u),
-        smul(rd.y, cam.v),
-    )
-    return Ray(
-        origin: add(
-            cam.origin,
-            offset,
-        ),
-        dir: sub(
-            sub(
-                add(
-                    cam.lower_left_corner,
-                    add(
-                        smul(s, cam.horizontal),
-                        smul(t, cam.vertical),
-                    ),
-                ),
-                cam.origin,
-            ),
-            offset,
-        ),
-    )
-}
 
 fun random_in_unit_sphere() Vec3 {
     var p = Vec3(1, 1, 1)
-    while norm2(p) > 1 {
+    while p.length2() > 1 {
         p = sub(
             smul(
                 2,
@@ -398,10 +400,10 @@ fun random_in_unit_disk() Vec3 {
 
 fun color(ray: &Ray, world: &World, depth: i32) Vec3 {
     var rec: HitRecord
-    if hit_world(world, ray, 0.001, 1e37, &var rec) {
+    if world.hit(ray, 0.001, 1e37, &var rec) {
         var scattered: Ray
         var attenuation: Vec3
-        if depth < 50 and scatter(rec.mat, ray, rec, &var attenuation, &var scattered) {
+        if depth < 50 and rec.mat.scatter(ray, rec, &var attenuation, &var scattered) {
             return mul(
                 attenuation,
                 color(scattered, world, depth+1),
@@ -433,7 +435,7 @@ fun random_scene(list: &var [Sphere]) {
         for b = -11; b < 11; b++ {
             val choose_mat = randf32(0, 1)
             val center = Vec3((a as f32)+0.9*randf32(0, 1), 0.2, (b as f32)+0.9*randf32(0, 1))
-            if norm(sub(center, Vec3(4,0.2,0))) > 0.9 {
+            if sub(center, Vec3(4,0.2,0)).length() > 0.9 {
                 if choose_mat < 0.8 { // diffuse
                     list[i] = Sphere(
                         center: center,
@@ -543,7 +545,7 @@ fun trace() {
             for s = 0; s < ns; s++ {
                 val u = (i as f32 + randf32(0, 1)) / nx as f32
                 val v = (j as f32 + randf32(0, 1)) / ny as f32
-                val ray = get_ray(cam, u, v)
+                val ray = cam.get_ray(u, v)
                 col = add(col, color(ray, world, 0))
             }
             col = sdiv(col, ns as f32)
