@@ -4,7 +4,7 @@ struct Foo {
     count: i32
 
     fun bar(f: &Foo, a: i32) {
-        printiln(f.count)
+        printiln(f.get())
         printiln(a)
     }
 
