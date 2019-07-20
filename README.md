@@ -1,6 +1,6 @@
 # Dingo
 
-[Dingo](docs/language.md) is a statically typed and compiled programming language focused on consistenty, fast build times, full memory control, and easy interop from and to C.
+[Dingo](docs/language.md) is a statically typed and compiled programming language focused on consistency, fast build times, full memory control, and easy interop from and to C.
 
 This is a hobby project intended for learning and experimentation.
 
@@ -8,7 +8,7 @@ This is a hobby project intended for learning and experimentation.
 See [examples](examples).
 
 ## Installation
-Ensure Go 1.6 or above and subversion are installed, and that GOPATH is properly set. 
+Ensure Go 1.6 or above and subversion are installed, and that GOPATH is properly set.
 
 Clone and install LLVM 6.0 and Go bindings.
 ```
