@@ -14,11 +14,11 @@ type SymbolKind int
 
 // Symbol kinds.
 const (
-	ValSymbol SymbolKind = iota
+	ModuleSymbol SymbolKind = iota
+	ValSymbol
 	FuncSymbol
-	ModuleSymbol
 	TypeSymbol
-	ImportSymbol
+	UnknownSymbol
 )
 
 // Symbol flags.
@@ -29,28 +29,34 @@ const (
 	SymFlagTopDecl  = 1 << 4
 	SymFlagBuiltin  = 1 << 5
 	SymFlagMethod   = 1 << 6
+	SymFlagField    = 1 << 7
 )
 
 // Symbol represents any kind of symbol/identifier in the source code.
 type Symbol struct {
-	Kind    SymbolKind
-	DefCUID int
-	CUID    int
-	Key     int
-	Public  bool
-	ABI     string
-	ModFQN  string
-	Name    string
-	Pos     token.Position
-	T       Type
-	Flags   int
+	Kind SymbolKind
+	// Every symbol has a unique key.
+	UniqKey int
+	// Every symbol _definition_ has a unique key.
+	// That is, if there are multiple declarations for one definition
+	// then the definition + all declaration symbols will share the same key.
+	Key    int
+	CUID   int
+	Public bool
+	ABI    string
+	ModFQN string
+	Name   string
+	Pos    token.Position
+	T      Type
+	Flags  int
 }
 
 // NewSymbol creates a new symbol.
-func NewSymbol(kind SymbolKind, defCUID int, CUID int, modFQN string, name string, pos token.Position) *Symbol {
+func NewSymbol(kind SymbolKind, key int, CUID int, modFQN string, name string, pos token.Position) *Symbol {
 	return &Symbol{
 		Kind:    kind,
-		DefCUID: defCUID,
+		UniqKey: key,
+		Key:     key,
 		CUID:    CUID,
 		ABI:     DGABI,
 		ModFQN:  modFQN,
@@ -72,23 +78,23 @@ func IsValidABI(abi string) bool {
 
 func (s SymbolKind) String() string {
 	switch s {
-	case ValSymbol:
-		return "val"
-	case FuncSymbol:
-		return "fun"
 	case ModuleSymbol:
-		return "module"
+		return token.Module.String()
+	case ValSymbol:
+		return token.Val.String()
+	case FuncSymbol:
+		return token.Func.String()
 	case TypeSymbol:
 		return "type"
-	case ImportSymbol:
-		return "import"
+	case UnknownSymbol:
+		return "unknown"
 	default:
 		return "symbol " + string(s)
 	}
 }
 
 func (s *Symbol) String() string {
-	return fmt.Sprintf("%s:%s:%s", s.Kind, s.Pos, s.Name)
+	return fmt.Sprintf("sym(kind: %s, uniqKey: %d, key: %d, cuid: %d, pos: '%s', name: %s)", s.Kind, s.UniqKey, s.Key, s.CUID, s.Pos, s.Name)
 }
 
 func (s *Symbol) IsReadOnly() bool {
@@ -115,12 +121,16 @@ func (s *Symbol) IsMethod() bool {
 	return (s.Flags & SymFlagMethod) != 0
 }
 
+func (s *Symbol) IsField() bool {
+	return (s.Flags & SymFlagField) != 0
+}
+
 func (s *Symbol) FQN() string {
 	if s.Kind == ModuleSymbol {
 		return s.ModFQN
 	}
 	if len(s.ModFQN) > 0 {
-		return fmt.Sprintf("%s.%s", s.ModFQN, s.Name)
+		return fmt.Sprintf("%s%s%s", s.ModFQN, token.ScopeSep, s.Name)
 	}
 	return s.Name
 }

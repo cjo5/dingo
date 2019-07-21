@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/cjo5/dingo/internal/ir"
+	"github.com/cjo5/dingo/internal/token"
 	"llvm.org/llvm/bindings/go/llvm"
 )
 
@@ -178,7 +179,7 @@ func mangle(sym *ir.Symbol) string {
 }
 
 func mangleFQN(fqn string) string {
-	split := strings.Split(fqn, ".")
+	split := strings.Split(fqn, token.ScopeSep.String())
 	var b bytes.Buffer
 	for _, part := range split {
 		b.WriteString(fmt.Sprintf("%d", len(part)))

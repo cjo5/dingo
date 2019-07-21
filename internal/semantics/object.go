@@ -18,7 +18,7 @@ const (
 type objectList struct {
 	filename  string
 	CUID      int
-	importMap map[string]*ir.Symbol
+	rootScope *ir.Scope
 	objects   []*object
 }
 
@@ -37,11 +37,11 @@ type depEdge struct {
 	isIndirectType bool
 }
 
-func newObjectList(filename string, CUID int, importMap map[string]*ir.Symbol) *objectList {
+func newObjectList(filename string, CUID int, rootScope *ir.Scope) *objectList {
 	return &objectList{
 		filename:  filename,
 		CUID:      CUID,
-		importMap: importMap,
+		rootScope: rootScope,
 	}
 }
 
@@ -79,8 +79,8 @@ func (d *object) CUID() int {
 	return d.sym().CUID
 }
 
-func (d *object) key() int {
-	return d.sym().Key
+func (d *object) uniqKey() int {
+	return d.sym().UniqKey
 }
 
 func (d *object) addEdge(to *object, edge *depEdge) {
@@ -94,10 +94,12 @@ func (d *object) addEdge(to *object, edge *depEdge) {
 
 func (c *checker) initObjectMatrix(modMatrix moduleMatrix) {
 	for CUID, modList := range modMatrix {
-		c.objectList = newObjectList(modList.filename, CUID, modList.importMap)
+		root := modList.importMap[""]
+		rootScope := root.T.(*ir.ModuleType).Scope
+		c.objectList = newObjectList(modList.filename, CUID, rootScope)
 		for _, mod := range modList.mods {
 			c.scope = mod.builtinScope
-			c.insertBuiltinModuleFieldSymbols(CUID, mod.fqn)
+			c.insertBuiltinModuleSymbols(CUID, mod.fqn)
 			c.scope = mod.scope
 			for _, decl := range mod.decls {
 				objects := c.createObjects(decl, CUID, mod.fqn)
@@ -107,9 +109,9 @@ func (c *checker) initObjectMatrix(modMatrix moduleMatrix) {
 			}
 			for _, obj := range c.objectList.objects {
 				if obj.definition {
-					c.objectMap[obj.key()] = obj
-				} else if _, ok := c.objectMap[obj.key()]; !ok {
-					c.objectMap[obj.key()] = obj
+					c.objectMap[obj.uniqKey()] = obj
+				} else if _, ok := c.objectMap[obj.uniqKey()]; !ok {
+					c.objectMap[obj.uniqKey()] = obj
 				}
 			}
 		}
@@ -131,25 +133,30 @@ func (c *checker) createObjects(decl *ir.TopDecl, CUID int, modFQN string) []*ob
 	var objects []*object
 	switch decl := decl.D.(type) {
 	case *ir.ImportDecl:
-		c.insertImportSymbols(decl, CUID, modFQN, true, public)
+		c.insertImportSymbol(decl, modFQN, public)
+		if decl.Sym != nil {
+			objects = append(objects, newObject(decl, c.scope, false))
+		}
+	case *ir.UseDecl:
+		c.insertUseSymbol(decl, CUID, modFQN, public, public)
 		if decl.Sym != nil {
 			objects = append(objects, newObject(decl, c.scope, false))
 		}
 	case *ir.TypeDecl:
-		sym := c.newTopDeclSymbol(ir.TypeSymbol, CUID, CUID, modFQN, abi, public, decl.Name.Literal, decl.Name.Pos(), true)
+		sym := c.newTopDeclSymbol(ir.TypeSymbol, CUID, modFQN, abi, public, decl.Name.Literal, decl.Name.Pos(), true)
 		decl.Sym = c.insertSymbol(c.scope, sym.Name, sym)
 		if decl.Sym != nil {
 			objects = append(objects, newObject(decl, c.scope, true))
 		}
 	case *ir.ValDecl:
-		sym := c.newTopDeclSymbol(ir.ValSymbol, CUID, CUID, modFQN, abi, public, decl.Name.Literal, decl.Name.Pos(), true)
+		sym := c.newTopDeclSymbol(ir.ValSymbol, CUID, modFQN, abi, public, decl.Name.Literal, decl.Name.Pos(), true)
 		decl.Sym = c.insertSymbol(c.scope, sym.Name, sym)
 		if decl.Sym != nil {
 			objects = append(objects, newObject(decl, c.scope, true))
 		}
 	case *ir.FuncDecl:
 		def := !decl.SignatureOnly()
-		sym := c.newTopDeclSymbol(ir.FuncSymbol, CUID, CUID, modFQN, abi, public, decl.Name.Literal, decl.Name.Pos(), def)
+		sym := c.newTopDeclSymbol(ir.FuncSymbol, CUID, modFQN, abi, public, decl.Name.Literal, decl.Name.Pos(), def)
 		decl.Sym = c.insertSymbol(c.scope, sym.Name, sym)
 		if decl.Sym != nil {
 			c.insertFunDeclSignature(decl, c.scope)
@@ -157,10 +164,10 @@ func (c *checker) createObjects(decl *ir.TopDecl, CUID int, modFQN string) []*ob
 		}
 	case *ir.StructDecl:
 		def := !decl.Opaque
-		sym := c.newTopDeclSymbol(ir.TypeSymbol, CUID, CUID, modFQN, abi, public, decl.Name.Literal, decl.Name.Pos(), def)
+		sym := c.newTopDeclSymbol(ir.TypeSymbol, CUID, modFQN, abi, public, decl.Name.Literal, decl.Name.Pos(), def)
 		decl.Sym = c.insertSymbol(c.scope, sym.Name, sym)
 		if decl.Sym != nil {
-			decl.Scope = ir.NewScope(ir.FieldScope, nil, sym.CUID)
+			decl.Scope = ir.NewScope("struct_fields", nil, sym.CUID)
 			if decl.Opaque {
 				if decl.Sym.T.Kind() == ir.TUnknown {
 					tstruct := ir.NewStructType(decl.Sym, decl.Scope)
@@ -174,8 +181,8 @@ func (c *checker) createObjects(decl *ir.TopDecl, CUID int, modFQN string) []*ob
 					Type: ir.NewIdent2(token.Ident, decl.Name.Literal),
 				}
 
-				selfScope := ir.NewScope(ir.LocalScope, c.scope, CUID)
-				selfType.Sym = c.newTopDeclSymbol(ir.TypeSymbol, CUID, CUID, modFQN, abi, false, selfType.Name.Literal, token.NoPosition, true)
+				selfScope := ir.NewScope("struct_self", c.scope, CUID)
+				selfType.Sym = c.newTopDeclSymbol(ir.TypeSymbol, CUID, modFQN, abi, false, selfType.Name.Literal, token.NoPosition, true)
 				c.insertSymbol(selfScope, selfType.Name.Literal, selfType.Sym)
 				c.insertStructDeclBody(decl, selfScope)
 				objects = append(objects, newObject(decl, c.scope, def))

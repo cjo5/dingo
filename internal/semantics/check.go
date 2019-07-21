@@ -6,58 +6,11 @@ import (
 	"github.com/cjo5/dingo/internal/token"
 )
 
-var builtinScope *ir.Scope
-
-const builtinSymFlags = ir.SymFlagBuiltin | ir.SymFlagDefined
-
-func addBuiltinType(t ir.Type) {
-	addBuiltinAliasType(t.Kind().String(), t)
-}
-
-func addBuiltinAliasType(name string, t ir.Type) {
-	sym := ir.NewSymbol(ir.TypeSymbol, builtinScope.CUID, -1, "", name, token.NoPosition)
-	sym.Public = true
-	sym.Flags |= builtinSymFlags
-	sym.T = t
-	builtinScope.Insert(name, sym)
-}
-
-func init() {
-	builtinScope = ir.NewScope(ir.BuiltinScope, nil, -1)
-
-	addBuiltinType(ir.TBuiltinVoid)
-	addBuiltinType(ir.TBuiltinBool)
-	addBuiltinType(ir.TBuiltinInt8)
-	addBuiltinType(ir.TBuiltinUInt8)
-	addBuiltinType(ir.TBuiltinInt16)
-	addBuiltinType(ir.TBuiltinUInt16)
-	addBuiltinType(ir.TBuiltinInt32)
-	addBuiltinType(ir.TBuiltinUInt32)
-	addBuiltinType(ir.TBuiltinInt64)
-	addBuiltinType(ir.TBuiltinUInt64)
-	addBuiltinType(ir.TBuiltinUSize)
-	addBuiltinType(ir.TBuiltinFloat32)
-	addBuiltinType(ir.TBuiltinFloat64)
-
-	// TODO: Change to distinct types
-	addBuiltinAliasType("c_void", ir.TBuiltinVoid)
-	addBuiltinAliasType("c_char", ir.TBuiltinInt8)
-	addBuiltinAliasType("c_uchar", ir.TBuiltinUInt8)
-	addBuiltinAliasType("c_short", ir.TBuiltinInt16)
-	addBuiltinAliasType("c_ushort", ir.TBuiltinUInt16)
-	addBuiltinAliasType("c_int", ir.TBuiltinInt32)
-	addBuiltinAliasType("c_uint", ir.TBuiltinUInt32)
-	addBuiltinAliasType("c_longlong", ir.TBuiltinInt64)
-	addBuiltinAliasType("c_ulonglong", ir.TBuiltinUInt64)
-	addBuiltinAliasType("c_usize", ir.TBuiltinUSize)
-	addBuiltinAliasType("c_float", ir.TBuiltinFloat32)
-	addBuiltinAliasType("c_double", ir.TBuiltinFloat64)
-}
-
 // Check semantics.
 func Check(ctx *common.BuildContext, target ir.Target, fileMatrix ir.FileMatrix) (ir.DeclMatrix, bool) {
 	ctx.SetCheckpoint()
 	c := newChecker(ctx, target)
+	c.initBuiltinScope()
 	modMatrix := c.createModuleMatrix(fileMatrix)
 	c.initObjectMatrix(modMatrix)
 	c.checkTypes()
@@ -79,6 +32,7 @@ type checker struct {
 	ctx    *common.BuildContext
 	target ir.Target
 
+	builtinScope  *ir.Scope
 	objectMatrix  []*objectList
 	currentSymKey int
 
@@ -140,8 +94,8 @@ func (c *checker) setScope(scope *ir.Scope) *ir.Scope {
 	return prev
 }
 
-func (c *checker) openScope(kind ir.ScopeKind) {
-	c.scope = ir.NewScope(kind, c.scope, c.scope.CUID)
+func (c *checker) openScope(name string) {
+	c.scope = ir.NewScope(name, c.scope, c.scope.CUID)
 }
 
 func (c *checker) closeScope() {
@@ -170,8 +124,8 @@ func (c *checker) lookup(name string) *ir.Symbol {
 }
 
 func (c *checker) tryAddDep(sym *ir.Symbol, pos token.Position) {
-	if sym.Kind != ir.ModuleSymbol && sym.Key > 0 {
-		if obj, ok := c.objectMap[sym.Key]; ok {
+	if sym.Kind != ir.ModuleSymbol && sym.UniqKey > 0 {
+		if obj, ok := c.objectMap[sym.UniqKey]; ok {
 			edge := &depEdge{
 				pos:            pos,
 				isIndirectType: c.mode == modeIndirectType,

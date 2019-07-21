@@ -11,30 +11,31 @@ a+    : 1 or more a
 a | b : a or b
 ```
 
+## Entry
+Entry           ::= ModuleBody
+
 ## Declarations
 
 ```
-ModuleBody      ::= (Module | Include | TopLevelDecl)*
-Module          ::= 'module' Name '{' ModuleBody '}'
-Include         ::= 'Include' STRING EOS
-ScopeName       ::= ('mself' | 'msuper' {'.' 'msuper'}) ['.' Name] | '.'? Name
-Name            ::= IDENT ['.' Name]
-EOS             ::= ';' | EOF
+ModuleBody      ::= {Include | TopDecl}
+ScopeLookup     ::= '::'? ScopedName
+ScopedName      ::= Ident {'::' Ident}
+Include         ::= 'Include' STRING End
+End             ::= ';' | EOF
 
-TopLevelDecl    ::= [Visibility? (ExternDecl | ImportDecl | StructDecl | FuncDecl | Decl)] EOS
+TopDecl         ::= [Visibility? (Module | ImportDecl | ExternDecl | StructDecl | FuncDecl | Decl)] End
 Visibility      ::= 'pub' | 'priv'
+Module          ::= 'module' ScopedName '{' ModuleBody '}'
+ImportDecl      ::= 'import' Alias? ScopedName
 Extern          ::= 'extern' ['(' IDENT ')']
 ExternDecl      ::= Extern (ValDecl | FuncDecl)
 StructDecl      ::= 'struct' IDENT StructBody?
 FuncDecl        ::= 'fun' IDENT FuncSignature Block?
-Decl            ::= TypeDecl | ValDecl | ImportDecl
+Decl            ::= TypeDecl | ValDecl | UseDecl
 TypeDecl        ::= 'typealias' IDENT '=' Type
 ValDecl         ::= ('val' | 'var') IDENT [':' Type] ['=' Expr]
-
-ImportDecl      ::= ('import' | 'importlocal') ImportName [':' ('('ImportList')' | ImportList) ]
-ImportName      ::= [('_' | IDENT) '='] ScopeName
-ImportList      ::= ImportItem {',' ImportItem} ','?
-ImportItem      ::= [('_' | IDENT) '='] IDENT
+UseDecl         ::= 'use' Alias? ScopeLookup
+Alias           ::= IDENT '='
 
 StructBody      ::= '{' {StructField ';'} '}'
 StructField     ::= Visibility? (Field | FuncDecl)
@@ -45,7 +46,7 @@ Field           ::= (['val' | 'var'] IDENT ':')? Type
 ## Types
 
 ```
-Type            ::= NestedType | PointerType | ArrayType | FuncType | ScopeName
+Type            ::= NestedType | PointerType | ArrayType | FuncType | ScopeLookup
 NestedType      ::= '(' Type ')'
 PointerType     ::= '&' ['val' | 'var'] Type
 ArrayType       ::= '[' Type [':' INTEGER] ']'
@@ -57,7 +58,7 @@ FuncType        ::= Extern? 'fun' ['[' IDENT ']'] FuncSignature
 ```
 Block           ::= '{' Stmt* '}'
 Stmt            ::= [Block | Decl | ExprStmt | IfStmt | WhileStmt |
-                     ForStmt | ReturnStmt | DeferStmt | BranchStmt ] EOS
+                     ForStmt | ReturnStmt | DeferStmt | BranchStmt ] End
 ExprStmt        ::= Expr ['++' | '--' | (('=' | '+=' | '-=' | '*=' | '/=' | '%=' ) Expr)]
 IfStmt          ::= 'if' IfStmt1
 IfStmt1         ::=  Expr Block [('elif' IfStmt1) | ('else' Block)]
@@ -76,7 +77,7 @@ BinaryOp        ::= 'or | 'and' | '!=' | '==' | '>' | '>=' | '<' | '<='
                     | '-' | '+' | '/' | '%' | '*'
 UnaryOp         ::= ('not' | '-') | ('&' ['val' | 'var'])
 AsExpr          ::= ['as' Type]
-Operand         ::= NestedExpr | LenExpr | SizeExpr | ScopeName | Literal
+Operand         ::= NestedExpr | LenExpr | SizeExpr | ScopeLookup | Literal
 NestedExpr      ::= '(' Expr ')'
 LenExpr         ::= 'len' '(' Expr ')'
 SizeExpr        ::= 'sizeof' '(' Type ')'
@@ -96,8 +97,8 @@ AppExpr         ::= '(' ArgList )' Primary
 
 ```
 Literal         ::= BasicLit | ArrayLit | FuncLit
-BasicLit        ::= Number | CHAR | (Name? STRING) | 'true' | 'false' | 'null'
-Number          ::= (INTEGER | FLOAT) Name?
+BasicLit        ::= Number | CHAR | (IDENT? STRING) | 'true' | 'false' | 'null'
+Number          ::= (INTEGER | FLOAT) IDENT?
 ArrayLit        ::= ArrayType '(' [Expr {',' Expr} ','?] ')'
 FuncLit         ::= Extern? 'fun' FuncSignature Block
 ```

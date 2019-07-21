@@ -3,19 +3,8 @@ package ir
 import "bytes"
 import "fmt"
 
-// ScopeKind identifies the kind of scope.
-type ScopeKind int
-
-// Scope kinds.
-const (
-	BuiltinScope ScopeKind = iota
-	ModuleScope
-	LocalScope
-	FieldScope
-)
-
 type Scope struct {
-	Kind    ScopeKind
+	Name    string
 	Parent  *Scope
 	CUID    int
 	Defer   bool
@@ -23,33 +12,19 @@ type Scope struct {
 }
 
 // NewScope creates a new scope nested in the parent scope.
-func NewScope(kind ScopeKind, parent *Scope, CUID int) *Scope {
+func NewScope(name string, parent *Scope, CUID int) *Scope {
 	return &Scope{
+		Name:    name,
 		Parent:  parent,
 		CUID:    CUID,
 		Symbols: make(map[string]*Symbol),
 	}
 }
 
-func (s ScopeKind) String() string {
-	switch s {
-	case BuiltinScope:
-		return "BuiltinScope"
-	case ModuleScope:
-		return "ModuleScope"
-	case LocalScope:
-		return "LocalScope"
-	case FieldScope:
-		return "FieldScope"
-	default:
-		return "Scope " + string(s)
-	}
-}
-
 func (s *Scope) String() string {
 	var buf bytes.Buffer
 	idx := 0
-	buf.WriteString(fmt.Sprintf("%s (%d)\n", s.Kind, len(s.Symbols)))
+	buf.WriteString(fmt.Sprintf("scope(name: %s, cuid: %d, len: %d)\n", s.Name, s.CUID, len(s.Symbols)))
 	for k, v := range s.Symbols {
 		buf.WriteString(fmt.Sprintf("%s = %s", k, v))
 		idx++

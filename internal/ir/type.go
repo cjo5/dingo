@@ -181,7 +181,7 @@ type ModuleType struct {
 }
 
 func (t *ModuleType) String() string {
-	return t.Sym.ModFQN
+	return fmt.Sprintf("%s(%s)", t.Sym.Kind, t.Sym.ModFQN)
 }
 
 func (t *ModuleType) Equals(other Type) bool {
@@ -264,7 +264,7 @@ type SliceType struct {
 func (t *SliceType) String() string {
 	extra := ""
 	if t.Ptr {
-		extra = token.Pointer.String()
+		extra = token.Reference.String()
 		if !t.ReadOnly {
 			extra += token.Var.String() + " "
 		}
@@ -300,7 +300,7 @@ func (t *PointerType) String() string {
 	if !t.ReadOnly {
 		extra = token.Var.String() + " "
 	}
-	return fmt.Sprintf("%s%s%s", token.Pointer.String(), extra, t.Elem)
+	return fmt.Sprintf("%s%s%s", token.Reference.String(), extra, t.Elem)
 }
 
 func (t *PointerType) Equals(other Type) bool {

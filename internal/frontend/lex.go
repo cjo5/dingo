@@ -57,7 +57,7 @@ func (l *lexer) lex() (token.Token, token.Position, string) {
 	startOffset = l.chOffset
 
 	switch ch1 := l.ch; {
-	case isLetter(ch1):
+	case isLetter(ch1) || ch1 == '_':
 		tok, literal = l.lexIdent()
 	case isDigit(ch1, 10):
 		tok = l.lexNumber(false)
@@ -80,8 +80,6 @@ func (l *lexer) lex() (token.Token, token.Position, string) {
 		switch ch1 {
 		case -1:
 			tok = token.EOF
-		case '_':
-			tok = token.Underscore
 		case '(':
 			tok = token.Lparen
 		case ')':
@@ -99,9 +97,7 @@ func (l *lexer) lex() (token.Token, token.Position, string) {
 		case ';':
 			tok = token.Semicolon
 		case ':':
-			tok = token.Colon
-		case '@':
-			tok = token.Directive
+			tok = l.lexAlt2(':', token.ScopeSep, token.Colon)
 		case '+':
 			tok = l.lexAlt3('=', token.AddAssign, '+', token.Inc, token.Add)
 		case '-':
@@ -143,7 +139,7 @@ func (l *lexer) lex() (token.Token, token.Position, string) {
 		case '=':
 			tok = l.lexAltEqual(token.Eq, token.Assign)
 		case '&':
-			tok = token.And
+			tok = token.Reference
 		case '!':
 			tok = l.lexAltEqual(token.Neq, token.Invalid)
 		case '>':
@@ -168,7 +164,7 @@ func (l *lexer) lex() (token.Token, token.Position, string) {
 
 func isLineTerminator(id token.Token) bool {
 	switch id {
-	case token.Module, token.Ident, token.ParentMod, token.SelfMod,
+	case token.Module, token.Ident,
 		token.Integer, token.Float, token.Char, token.String, token.True, token.False, token.Null,
 		token.Rparen, token.Rbrace, token.Rbrack,
 		token.Continue, token.Break, token.Return,
@@ -262,21 +258,32 @@ func (l *lexer) lexAltEqual(tok0 token.Token, tok1 token.Token) token.Token {
 	return l.lexAlt2('=', tok0, tok1)
 }
 
-func (l *lexer) lexIdent() (token.Token, string) {
+func (l *lexer) lexIdent() (tok token.Token, lit string) {
 	startOffset := l.chOffset
 
-	for isLetter(l.ch) || isDigit(l.ch, 10) || l.ch == '_' {
+	for l.ch == '_' {
 		l.next()
 	}
 
-	tok := token.Ident
-	lit := string(l.src[startOffset:l.chOffset])
-
-	if len(lit) > 1 {
-		tok = token.Lookup(lit)
+	if isLetter(l.ch) {
+		for isLetter(l.ch) || isDigit(l.ch, 10) || l.ch == '_' {
+			l.next()
+		}
+		lit = string(l.src[startOffset:l.chOffset])
+		tok = token.Ident
+		if len(lit) > 1 {
+			tok = token.Lookup(lit)
+		}
+	} else {
+		lit = string(l.src[startOffset:l.chOffset])
+		tok = token.Placeholder
+		if (l.chOffset - startOffset) > 1 {
+			tok = token.Invalid
+			l.error(l.newPos(), "invalid identifier")
+		}
 	}
 
-	return tok, lit
+	return
 }
 
 func (l *lexer) lexDigits(base int) int {

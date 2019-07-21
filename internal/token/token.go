@@ -8,7 +8,6 @@ import (
 type Token int
 
 // List of tokens.
-//
 const (
 	Invalid Token = iota
 	EOF
@@ -33,9 +32,9 @@ const (
 	Comma
 	Semicolon
 	Colon
-	Underscore
-	Directive
-	And
+	ScopeSep    // ::
+	Placeholder // _
+	Reference   // &
 
 	// Arithmetic
 	Add
@@ -77,18 +76,15 @@ const (
 	Module
 	Include
 	Import
-	Importlocal
+	Use
 	Var
 	Val
-	AliasType
+	Typealias
 	Func
 	Struct
 	Public
 	Private
 	Extern
-
-	ParentMod
-	SelfMod
 
 	Land
 	Lor
@@ -98,14 +94,6 @@ const (
 	False
 	Null
 	keywordEnd
-)
-
-// Alias
-const (
-	Addr        Token = And
-	Placeholder Token = Underscore
-	Pointer     Token = And
-	RootMod     Token = Dot
 )
 
 var tokens = [...]string{
@@ -119,19 +107,19 @@ var tokens = [...]string{
 	Char:    "char",
 	String:  "string",
 
-	Lparen:     "(",
-	Rparen:     ")",
-	Lbrace:     "{",
-	Rbrace:     "}",
-	Lbrack:     "[",
-	Rbrack:     "]",
-	Dot:        ".",
-	Comma:      ",",
-	Semicolon:  ";",
-	Colon:      ":",
-	Underscore: "_",
-	Directive:  "@",
-	And:        "&",
+	Lparen:      "(",
+	Rparen:      ")",
+	Lbrace:      "{",
+	Rbrace:      "}",
+	Lbrack:      "[",
+	Rbrack:      "]",
+	Dot:         ".",
+	Comma:       ",",
+	Semicolon:   ";",
+	Colon:       ":",
+	ScopeSep:    "::",
+	Placeholder: "_",
+	Reference:   "&",
 
 	Add: "+",
 	Sub: "-",
@@ -155,33 +143,30 @@ var tokens = [...]string{
 	DivAssign: "/=",
 	ModAssign: "%=",
 
-	If:          "if",
-	Else:        "else",
-	Elif:        "elif",
-	For:         "for",
-	While:       "while",
-	Return:      "return",
-	Defer:       "defer",
-	Continue:    "continue",
-	Break:       "break",
-	As:          "as",
-	Lenof:       "len",
-	Sizeof:      "sizeof",
-	Module:      "module",
-	Include:     "include",
-	Import:      "import",
-	Importlocal: "importlocal",
-	Var:         "var",
-	Val:         "val",
-	AliasType:   "typealias",
-	Func:        "fun",
-	Struct:      "struct",
-	Public:      "pub",
-	Private:     "priv",
-	Extern:      "extern",
-
-	ParentMod: "msuper",
-	SelfMod:   "mself",
+	If:        "if",
+	Else:      "else",
+	Elif:      "elif",
+	For:       "for",
+	While:     "while",
+	Return:    "return",
+	Defer:     "defer",
+	Continue:  "continue",
+	Break:     "break",
+	As:        "as",
+	Lenof:     "len",
+	Sizeof:    "sizeof",
+	Module:    "module",
+	Include:   "include",
+	Import:    "import",
+	Use:       "use",
+	Var:       "var",
+	Val:       "val",
+	Typealias: "typealias",
+	Func:      "fun",
+	Struct:    "struct",
+	Public:    "pub",
+	Private:   "priv",
+	Extern:    "extern",
 
 	Land: "and",
 	Lor:  "or",
@@ -202,7 +187,6 @@ func init() {
 }
 
 // Lookup returns the identifier token.
-//
 func Lookup(ident string) Token {
 	if tok, ok := keywords[ident]; ok {
 		return tok
@@ -226,6 +210,10 @@ func (tok Token) String() string {
 		s = "token(" + strconv.Itoa(int(tok)) + ")"
 	}
 	return s
+}
+
+func (tok Token) IsKeyword() bool {
+	return tok > keywordBeg && tok < keywordEnd
 }
 
 // IsAssignOp returns true if the token represents an assignment operator.

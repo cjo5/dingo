@@ -57,8 +57,8 @@ func (c *checker) createModuleList(fileList ir.FileList, CUID int) moduleList {
 				fileParentIndex1: file.ParentIndex1,
 				fileParentIndex2: file.ParentIndex2,
 			}
-			mod.builtinScope = ir.NewScope(ir.BuiltinScope, builtinScope, CUID)
-			mod.scope = ir.NewScope(ir.ModuleScope, mod.builtinScope, CUID)
+			mod.builtinScope = ir.NewScope("module_builtin", c.builtinScope, CUID)
+			mod.scope = ir.NewScope("module_root", mod.builtinScope, CUID)
 			mod.decls = incompleteMod.Decls
 			mods2[modID] = mod
 		}
@@ -76,9 +76,7 @@ func (c *checker) createModuleList(fileList ir.FileList, CUID int) moduleList {
 
 		if index1 == 0 {
 			// Parent of root module in root file is itself
-			c.insertBuiltinModuleScopeSymbol(root, root, CUID, ir.SelfModuleName, token.NoPosition)
-			c.insertBuiltinModuleScopeSymbol(root, root, CUID, ir.ParentModuleName, token.NoPosition)
-			root.sym = c.insertBuiltinModuleScopeSymbol(root, root, CUID, ir.RootModuleName, token.NoPosition)
+			root.sym = c.insertParentModuleSymbol(root, root, token.NoPosition)
 			modList.mods = append(modList.mods, root)
 			modList.importMap[""] = root.sym
 		} else {
@@ -135,8 +133,8 @@ func (c *checker) createModuleList(fileList ir.FileList, CUID int) moduleList {
 					if child.sym != nil {
 						continue
 					}
-					sym := ir.NewSymbol(ir.ModuleSymbol, parent.scope.CUID, CUID, child.fqn, child.name.Literal, child.name.Pos())
-					sym.Key = c.nextSymKey()
+					key := c.nextSymKey()
+					sym := ir.NewSymbol(ir.ModuleSymbol, key, CUID, child.fqn, child.name.Literal, child.name.Pos())
 					sym.Public = child.public
 					sym.Flags = ir.SymFlagDefined | ir.SymFlagReadOnly
 					sym.T = ir.NewModuleType(sym, child.scope)
@@ -149,9 +147,7 @@ func (c *checker) createModuleList(fileList ir.FileList, CUID int) moduleList {
 				mod = modPath[len(modPath)-1]
 				parent := modPath[len(modPath)-2]
 
-				c.insertBuiltinModuleScopeSymbol(mod, mod, CUID, ir.SelfModuleName, mod.name.Pos())
-				c.insertBuiltinModuleScopeSymbol(mod, parent, CUID, ir.ParentModuleName, parent.name.Pos())
-				c.insertBuiltinModuleScopeSymbol(mod, root, CUID, ir.RootModuleName, token.NoPosition)
+				c.insertParentModuleSymbol(mod, parent, parent.name.Pos())
 
 				modList.importMap[mod.fqn] = mod.sym
 				modList.mods = append(modList.mods, mod)
@@ -169,12 +165,13 @@ func (c *checker) createModuleList(fileList ir.FileList, CUID int) moduleList {
 	return modList
 }
 
-func (c *checker) insertBuiltinModuleScopeSymbol(mod *module, scopeMod *module, CUID int, name string, pos token.Position) *ir.Symbol {
-	sym := ir.NewSymbol(ir.ModuleSymbol, mod.scope.CUID, CUID, scopeMod.fqn, name, pos)
-	sym.Key = c.nextSymKey()
+func (c *checker) insertParentModuleSymbol(mod *module, scopeMod *module, pos token.Position) *ir.Symbol {
+	name := ir.ParentModName
+	key := c.nextSymKey()
+	sym := ir.NewSymbol(ir.ModuleSymbol, key, mod.scope.CUID, scopeMod.fqn, name, pos)
 	sym.Flags = builtinSymFlags | ir.SymFlagReadOnly
 	sym.T = ir.NewModuleType(sym, scopeMod.scope)
-	if existing := mod.scope.Insert(name, sym); existing != nil {
+	if existing := mod.builtinScope.Insert(name, sym); existing != nil {
 		panic(fmt.Sprintf("fqn '%s' has duplicate symbols for builtin module '%s'", scopeMod.fqn, name))
 	}
 	return sym
@@ -185,7 +182,7 @@ func toFQN(parts []string) string {
 	for i, part := range parts {
 		buf.WriteString(part)
 		if (i + 1) < len(parts) {
-			buf.WriteString(".")
+			buf.WriteString(token.ScopeSep.String())
 		}
 	}
 	return buf.String()

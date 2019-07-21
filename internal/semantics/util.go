@@ -44,18 +44,18 @@ func isUntypedExpr(expr ir.Expr) bool {
 	return isUntyped(texpr)
 }
 
-func isUnresolvedType(t ir.Type) bool {
+func isUnknownType(t ir.Type) bool {
 	return t.Kind() == ir.TUnknown
 }
 
-func isUnresolvedExpr(expr ir.Expr) bool {
+func isUnknownExprType(expr ir.Expr) bool {
 	texpr := expr.Type()
-	return isUnresolvedType(texpr)
+	return isUnknownType(texpr)
 }
 
-func isUnresolvedExprs(exprs ...ir.Expr) bool {
+func isUnknownExprsType(exprs ...ir.Expr) bool {
 	for _, expr := range exprs {
-		if isUnresolvedExpr(expr) {
+		if isUnknownExprType(expr) {
 			return true
 		}
 	}

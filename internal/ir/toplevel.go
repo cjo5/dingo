@@ -4,9 +4,7 @@ import (
 	"github.com/cjo5/dingo/internal/token"
 )
 
-const RootModuleName = "$rootmod"
-const ParentModuleName = "$parentmod"
-const SelfModuleName = "$selfmod"
+const ParentModName = "super"
 
 type FileMatrix []FileList
 type FileList []*File
@@ -27,8 +25,8 @@ type Comment struct {
 
 type IncompleteModule struct {
 	ParentIndex int
-	Visibility  token.Token
 	Name        *Ident
+	Visibility  token.Token
 	Includes    []*BasicLit
 	Decls       []*TopDecl
 }

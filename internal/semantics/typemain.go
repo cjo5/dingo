@@ -41,7 +41,9 @@ func (c *checker) checkObject(obj *object) {
 	defer c.setScope(c.setScope(obj.parentScope))
 	switch decl := obj.d.(type) {
 	case *ir.ImportDecl:
-		c.checkImportDecl(decl)
+		c.object.checked = true
+	case *ir.UseDecl:
+		c.checkUseDecl(decl)
 		c.object.checked = true
 	case *ir.TypeDecl:
 		c.checkTypeDecl(decl)
@@ -68,12 +70,15 @@ func (c *checker) checkObject(obj *object) {
 
 func (c *checker) checkLocalDecl(decl ir.Decl) {
 	switch decl := decl.(type) {
-	case *ir.ImportDecl:
+	case *ir.UseDecl:
 		if c.step == 0 {
-			c.insertImportSymbols(decl, c.object.CUID(), c.object.modFQN(), false, false)
+			c.setUseSymbol(decl, c.object.CUID(), c.object.modFQN(), false, false)
 		}
 		if decl.Sym != nil {
-			c.checkImportDecl(decl)
+			c.checkUseDecl(decl)
+			if c.step == 0 {
+				decl.Sym = c.insertSymbol(c.scope, decl.Sym.Name, decl.Sym)
+			}
 		}
 	case *ir.TypeDecl:
 		if c.step == 0 {
@@ -81,9 +86,9 @@ func (c *checker) checkLocalDecl(decl ir.Decl) {
 		}
 		if decl.Sym != nil {
 			c.checkTypeDecl(decl)
-		}
-		if c.step == 0 {
-			decl.Sym = c.insertSymbol(c.scope, decl.Sym.Name, decl.Sym)
+			if c.step == 0 {
+				decl.Sym = c.insertSymbol(c.scope, decl.Sym.Name, decl.Sym)
+			}
 		}
 	case *ir.ValDecl:
 		if c.step == 0 {
@@ -91,60 +96,42 @@ func (c *checker) checkLocalDecl(decl ir.Decl) {
 		}
 		if decl.Sym != nil {
 			c.checkValDecl(decl)
-		}
-		if c.step == 0 {
-			decl.Sym = c.insertSymbol(c.scope, decl.Sym.Name, decl.Sym)
+			if c.step == 0 {
+				decl.Sym = c.insertSymbol(c.scope, decl.Sym.Name, decl.Sym)
+			}
 		}
 	default:
 		panic(fmt.Sprintf("Unhandled decl %T", decl))
 	}
 }
 
-func (c *checker) checkImportDecl(decl *ir.ImportDecl) {
-	if isUntyped(decl.Sym.T) {
+func (c *checker) checkUseDecl(decl *ir.UseDecl) {
+	if !isUnknownType(decl.Sym.T) {
 		return
 	}
-	for _, item := range decl.Items {
-		itemSym := item.Name.Sym
-		if itemSym == nil || !isUnresolvedType(itemSym.T) {
-			continue
+	c.resolveScopeLookup(decl.Name)
+	tuse := decl.Name.T
+	if !isUntyped(decl.Name.T) {
+		last := decl.Name.Last()
+		decl.Sym.Kind = last.Sym.Kind
+		//decl.Sym.CUID = last.Sym.CUID
+		decl.Sym.Key = last.Sym.Key
+		decl.Sym.ABI = last.Sym.ABI
+		decl.Sym.Flags |= (last.Sym.Flags & (ir.SymFlagReadOnly | ir.SymFlagConst))
+		if decl.Sym.Public && !last.Sym.Public {
+			c.nodeError(decl, "private '%s' cannot be re-exported as public", last.Sym.Name)
+			tuse = ir.TBuiltinInvalid
+		} else if last.Sym.IsBuiltin() {
+			c.nodeError(decl, "builtin '%s' cannot be brought into scope", last.Sym.Name)
+			tuse = ir.TBuiltinInvalid
 		}
-		tmod := decl.Sym.T.(*ir.ModuleType)
-		importedSym := tmod.Scope.Lookup(itemSym.Name)
-		titem := ir.TBuiltinInvalid
-		if importedSym == nil {
-			c.error(item.Name.Pos(), "undeclared identifier '%s' in module '%s'", item.Name.Literal, decl.Sym.ModFQN)
-		} else if importedSym.IsBuiltin() {
-			c.error(item.Name.Pos(), "builtin '%s' cannot be imported", importedSym.Name)
-		} else {
-			visibilityOK := true
-			if decl.Decl == token.Import {
-				if !importedSym.Public {
-					c.error(item.Name.Pos(), "private '%s' cannot be imported", importedSym.Name)
-					visibilityOK = false
-				}
-			} else {
-				if !importedSym.Public && itemSym.Public {
-					c.error(item.Name.Pos(), "private '%s' cannot be re-exported as public", importedSym.Name)
-					visibilityOK = false
-				}
-			}
-			if visibilityOK {
-				c.tryAddDep(importedSym, itemSym.Pos)
-				titem = importedSym.T
-				if !isUnresolvedType(titem) {
-					itemSym.Kind = importedSym.Kind
-					itemSym.Key = importedSym.Key
-					itemSym.Flags |= (importedSym.Flags & (ir.SymFlagReadOnly | ir.SymFlagConst))
-				}
-			}
-		}
-		itemSym.T = titem
 	}
+	decl.Alias.T = tuse
+	decl.Sym.T = tuse
 }
 
 func (c *checker) checkTypeDecl(decl *ir.TypeDecl) {
-	if !isUnresolvedType(decl.Sym.T) {
+	if !isUnknownType(decl.Sym.T) {
 		return
 	}
 	decl.Type = c.checkRootTypeExpr(decl.Type, false)
@@ -152,7 +139,7 @@ func (c *checker) checkTypeDecl(decl *ir.TypeDecl) {
 }
 
 func (c *checker) checkValDecl(decl *ir.ValDecl) {
-	if !isUnresolvedType(decl.Sym.T) {
+	if !isUnknownType(decl.Sym.T) {
 		return
 	}
 	if decl.Type != nil {
@@ -165,7 +152,7 @@ func (c *checker) checkValDecl(decl *ir.ValDecl) {
 		decl.Sym.T = tpunt
 		return
 	}
-	tres := ir.TBuiltinInvalid
+	tval := ir.TBuiltinInvalid
 	if decl.Initializer != nil {
 		var tdecl ir.Type
 		if decl.Type != nil {
@@ -177,16 +164,16 @@ func (c *checker) checkValDecl(decl *ir.ValDecl) {
 		}
 		tinit := decl.Initializer.Type()
 		if tdecl.Equals(tinit) {
-			tres = tdecl
+			tval = tdecl
 		} else {
 			c.nodeError(decl, "type mismatch %s and %s", tdecl, tinit)
 		}
 	} else {
-		tres = decl.Type.Type()
+		tval = decl.Type.Type()
 	}
-	if !isUntyped(tres) {
+	if !isUntyped(tval) {
 		if decl.Initializer == nil {
-			decl.Initializer = ir.NewDefaultInit(tres)
+			decl.Initializer = ir.NewDefaultInit(tval)
 		}
 		if decl.Decl.Is(token.Val) {
 			decl.Sym.Flags |= ir.SymFlagReadOnly
@@ -195,7 +182,7 @@ func (c *checker) checkValDecl(decl *ir.ValDecl) {
 			decl.Sym.Flags |= ir.SymFlagConst
 		}
 	}
-	decl.Sym.T = tres
+	decl.Sym.T = tval
 }
 
 func checkCompileTimeConstant(expr ir.Expr) bool {
@@ -232,9 +219,9 @@ func checkCompileTimeConstant(expr ir.Expr) bool {
 
 func (c *checker) checkFuncDecl(decl *ir.FuncDecl) {
 	defer c.setScope(c.scope)
-	if isUnresolvedType(decl.Sym.T) {
+	if isUnknownType(decl.Sym.T) {
 		var tpunt ir.Type
-		c.scope = decl.Scope.Parent
+		c.setScope(decl.Scope.Parent)
 		for _, param := range decl.Params {
 			if param.Sym != nil {
 				c.checkValDecl(param)
@@ -243,7 +230,6 @@ func (c *checker) checkFuncDecl(decl *ir.FuncDecl) {
 				tpunt = ir.TBuiltinInvalid
 			}
 		}
-		c.scope = decl.Scope
 		decl.Return.Type = c.checkRootTypeExpr(decl.Return.Type, false)
 		tret := decl.Return.Type.Type()
 		tpunt = untyped(tret, tpunt)
@@ -264,11 +250,10 @@ func (c *checker) checkFuncDecl(decl *ir.FuncDecl) {
 			}
 		}
 		c.object.checked = true
-	} else {
-		c.scope = decl.Scope
 	}
 	if !decl.SignatureOnly() {
-		c.checkStmt(decl.Body)
+		c.setScope(decl.Scope)
+		stmtList(decl.Body.Stmts, c.checkStmt)
 	}
 }
 
@@ -310,7 +295,7 @@ func (c *checker) checkStmt(stmt ir.Stmt) {
 	switch stmt := stmt.(type) {
 	case *ir.BlockStmt:
 		if c.step == 0 {
-			c.openScope(ir.LocalScope)
+			c.openScope("block")
 			stmt.Scope = c.scope
 			c.closeScope()
 		}
@@ -320,7 +305,7 @@ func (c *checker) checkStmt(stmt ir.Stmt) {
 	case *ir.DeclStmt:
 		c.checkLocalDecl(stmt.D)
 	case *ir.IfStmt:
-		if isUnresolvedExpr(stmt.Cond) {
+		if isUnknownExprType(stmt.Cond) {
 			stmt.Cond = c.checkExpr(stmt.Cond)
 			if isTypeMismatch(stmt.Cond.Type(), ir.TBuiltinBool) {
 				c.error(stmt.Cond.Pos(), "condition expects type %s (got %s)", ir.TBool, stmt.Cond.Type())
@@ -333,7 +318,7 @@ func (c *checker) checkStmt(stmt ir.Stmt) {
 		}
 	case *ir.ForStmt:
 		if c.step == 0 {
-			c.openScope(ir.LocalScope)
+			c.openScope("for")
 			stmt.Body.Scope = c.scope
 			c.closeScope()
 		}
@@ -342,7 +327,7 @@ func (c *checker) checkStmt(stmt ir.Stmt) {
 			c.checkStmt(stmt.Init)
 		}
 		if stmt.Cond != nil {
-			if isUnresolvedExpr(stmt.Cond) {
+			if isUnknownExprType(stmt.Cond) {
 				stmt.Cond = c.checkExpr(stmt.Cond)
 				if isTypeMismatch(stmt.Cond.Type(), ir.TBuiltinBool) {
 					c.error(stmt.Cond.Pos(), "condition expects type %s (got %s)", ir.TBool, stmt.Cond.Type())
@@ -358,7 +343,7 @@ func (c *checker) checkStmt(stmt ir.Stmt) {
 		c.loop--
 		c.setScope(prevScope)
 	case *ir.ReturnStmt:
-		if stmt.X != nil && isUnresolvedExpr(stmt.X) {
+		if stmt.X != nil && isUnknownExprType(stmt.X) {
 			stmt.X = c.checkExpr(stmt.X)
 			if isUntypedExpr(stmt.X) {
 				return
@@ -388,7 +373,7 @@ func (c *checker) checkStmt(stmt ir.Stmt) {
 			c.error(stmt.Pos(), "'%s' can only be used in a loop", stmt.Tok)
 		}
 	case *ir.AssignStmt:
-		if isUnresolvedExprs(stmt.Left, stmt.Right) {
+		if isUnknownExprsType(stmt.Left, stmt.Right) {
 			stmt.Left = c.checkExpr(stmt.Left)
 			stmt.Right = c.checkExpr(stmt.Right)
 			if puntExprs(stmt.Left, stmt.Right) != nil {
@@ -421,9 +406,13 @@ func (c *checker) checkStmt(stmt ir.Stmt) {
 			}
 		}
 	case *ir.ExprStmt:
-		if isUnresolvedExpr(stmt.X) {
+		if isUnknownExprType(stmt.X) {
 			stmt.X = c.checkExpr(stmt.X)
 			stmt.X = c.finalizeExpr(stmt.X, nil)
+			tx := stmt.X.Type()
+			if tx.Kind() == ir.TModule {
+				c.nodeError(stmt.X, "invalid expression (type '%s')", tx)
+			}
 		}
 	default:
 		panic(fmt.Sprintf("Unhandled stmt %T", stmt))
@@ -438,7 +427,7 @@ func (c *checker) checkExpr2(expr ir.Expr, mode int) ir.Expr {
 }
 
 func (c *checker) checkExpr(expr ir.Expr) ir.Expr {
-	if !isUnresolvedExpr(expr) {
+	if !isUnknownExprType(expr) {
 		return expr
 	}
 	switch expr := expr.(type) {
@@ -452,6 +441,10 @@ func (c *checker) checkExpr(expr ir.Expr) ir.Expr {
 		return c.checkFuncTypeExpr(expr)
 	case *ir.Ident:
 		return c.checkIdent(expr)
+	case *ir.ScopeLookup:
+		return c.checkScopeLookup(expr)
+	case *ir.DotExpr:
+		return c.checkDotExpr(expr)
 	case *ir.BasicLit:
 		return c.checkBasicLit(expr)
 	case *ir.ArrayLit:
@@ -464,8 +457,6 @@ func (c *checker) checkExpr(expr ir.Expr) ir.Expr {
 		return c.checkAddrExpr(expr)
 	case *ir.DerefExpr:
 		return c.checkDerefExpr(expr)
-	case *ir.DotExpr:
-		return c.checkDotExpr(expr)
 	case *ir.IndexExpr:
 		return c.checkIndexExpr(expr)
 	case *ir.SliceExpr:
@@ -503,7 +494,7 @@ func (c *checker) finalizeExpr(expr ir.Expr, target ir.Type) ir.Expr {
 	}
 
 	if checkIncomplete && isIncompleteType(texpr, nil) {
-		c.nodeError(expr, "expression has incomplete type %s", texpr)
+		c.nodeError(expr, "expression has incomplete type '%s'", texpr)
 		expr.SetType(ir.TBuiltinInvalid)
 		return expr
 	}
@@ -517,7 +508,7 @@ func (c *checker) checkRootTypeExpr(expr ir.Expr, checkVoid bool) ir.Expr {
 	if !isUntyped(texpr) {
 		if texpr.Kind() != ir.TVoid || checkVoid {
 			if isIncompleteType(texpr, nil) {
-				c.nodeError(expr, "incomplete type %s", texpr)
+				c.nodeError(expr, "incomplete type '%s'", texpr)
 				expr.SetType(ir.TBuiltinInvalid)
 				texpr = expr.Type()
 			}
@@ -560,7 +551,7 @@ func (c *checker) checkSliceTypeExpr(expr *ir.SliceTypeExpr) ir.Expr {
 }
 
 func (c *checker) checkArrayTypeExpr(expr *ir.ArrayTypeExpr) ir.Expr {
-	if isUnresolvedExpr(expr.Size) {
+	if isUnknownExprType(expr.Size) {
 		expr.Size = c.checkExpr2(expr.Size, modeExpr)
 		expr.Size = c.finalizeExpr(expr.Size, nil)
 	}
@@ -619,57 +610,129 @@ func (c *checker) checkFuncTypeExpr(expr *ir.FuncTypeExpr) ir.Expr {
 	return expr
 }
 
-func (c *checker) resolveIdent(expr *ir.Ident) (*ir.Symbol, bool) {
-	ok := true
-	sym := c.lookup(expr.Literal)
-	if sym == nil {
-		ok = false
-		c.error(expr.Pos(), "undeclared identifier '%s'", expr.Literal)
-	} else if c.mode != modeExprOrType {
+func (c *checker) resolveIdent(expr *ir.Ident) {
+	if !isUnknownExprType(expr) {
+		return
+	}
+	if expr.Sym == nil {
+		expr.Sym = c.lookup(expr.Literal)
+		if expr.Sym == nil {
+			expr.T = ir.TBuiltinInvalid
+			c.nodeError(expr, "unknown identifier '%s'", expr.Literal)
+			return
+		}
+		c.tryAddDep(expr.Sym, expr.Pos())
+	}
+	if isUntyped(expr.Sym.T) {
+		expr.T = expr.Sym.T
+		return
+	}
+	sym := expr.Sym
+	valid := true
+	if c.mode != modeExprOrType {
 		if c.isTypeMode() {
 			if sym.Kind != ir.TypeSymbol {
-				ok = false
-				c.error(expr.Pos(), "'%s' is not a type", sym.Name)
+				valid = false
+				c.nodeError(expr, "'%s' is not a type", sym.Name)
 			}
 		} else {
-			if sym.Kind == ir.ModuleSymbol {
-				ok = false
-				c.error(expr.Pos(), "module '%s' cannot be used in expression", sym.Name)
-			} else if sym.Kind == ir.TypeSymbol {
-				ok = false
-				c.error(expr.Pos(), "type '%s' cannot be used in expression", sym.T)
+			if sym.Kind == ir.TypeSymbol {
+				valid = false
+				c.nodeError(expr, "type '%s' cannot be used in expression", sym.T)
 			}
 		}
 	}
-	if ok {
-		if !sym.Public && sym.DefCUID != c.object.CUID() {
-			ok = false
-			c.error(expr.Pos(), "'%s' is private", expr.Literal)
+	if valid {
+		if !sym.Public && sym.CUID != c.object.CUID() {
+			valid = false
+			c.nodeError(expr, "'%s' is private", expr.Literal)
 		}
 	}
-	return sym, ok
+	expr.T = ir.TBuiltinInvalid
+	if valid {
+		expr.T = expr.Sym.T
+	}
+}
+
+func (c *checker) resolveScopeLookup(expr *ir.ScopeLookup) {
+	defer c.setScope(c.scope)
+	if expr.Mode == ir.AbsLookup {
+		c.scope = c.objectList.rootScope
+	}
+	defer c.setMode(c.mode)
+	prevMode := c.mode
+	for i, part := range expr.Parts {
+		c.mode = modeExprOrType
+		if (i + 1) >= len(expr.Parts) {
+			c.mode = prevMode
+		}
+		c.resolveIdent(part)
+		if isUntyped(part.T) {
+			expr.T = part.T
+			break
+		}
+		valid := true
+		sym := part.Sym
+		if (i + 1) < len(expr.Parts) {
+			switch tsym := sym.T.(type) {
+			case *ir.ModuleType:
+				c.scope = tsym.Scope
+			case *ir.StructType:
+				if sym.Kind != ir.TypeSymbol {
+					valid = false
+					c.error(part.Pos(), "scope operator cannot be used on struct value", tsym)
+				} else {
+					c.scope = tsym.Scope
+				}
+			default:
+				valid = false
+				c.error(part.Pos(), "scope operator cannot be used on type '%s'", sym.T)
+			}
+		} else {
+			if sym.IsField() {
+				valid = false
+				c.error(part.Pos(), "scope operator cannot be used to access struct field")
+			} else {
+				expr.T = sym.T
+			}
+		}
+		if !valid {
+			expr.T = ir.TBuiltinInvalid
+			break
+		}
+	}
+	if isUntyped(expr.T) {
+		for _, part := range expr.Parts {
+			if part.T == nil {
+				part.T = expr.T
+			}
+		}
+	}
 }
 
 func (c *checker) checkIdent(expr *ir.Ident) ir.Expr {
-	if c.step == 0 {
-		if sym, ok := c.resolveIdent(expr); ok {
-			expr.Sym = sym
-		} else {
-			expr.T = ir.TBuiltinInvalid
-			return expr
+	c.resolveIdent(expr)
+	if !isUntyped(expr.T) {
+		sym := expr.Sym
+		if sym.IsBuiltin() && sym.IsConst() {
+			// TODO: make copy to set correct pos
+			return c.constMap[sym.Key]
 		}
-	} else if expr.T.Kind() == ir.TInvalid {
-		return expr
 	}
+	return expr
+}
 
-	sym := expr.Sym
-	expr.T = sym.T
-
-	if sym.IsBuiltin() && sym.IsConst() {
-		return c.constMap[sym.Key]
+func (c *checker) checkScopeLookup(expr *ir.ScopeLookup) ir.Expr {
+	c.resolveScopeLookup(expr)
+	if !isUntyped(expr.T) {
+		last := expr.Last()
+		sym := last.Sym
+		if sym.IsBuiltin() && sym.IsConst() {
+			// TODO: make copy to set correct pos
+			return c.constMap[sym.Key]
+		}
+		last.SetRange(expr.Pos(), expr.EndPos())
+		return last
 	}
-
-	c.tryAddDep(sym, expr.Pos())
-
 	return expr
 }

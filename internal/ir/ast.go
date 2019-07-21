@@ -12,6 +12,7 @@ const (
 	AstFlagNoInit = 1 << 0
 	AstFlagAnon   = 1 << 1
 	AstFlagPublic = 1 << 2
+	AstFlagField  = 1 << 3
 )
 
 // Node interface.
@@ -90,16 +91,14 @@ func (d *baseDecl) Symbol() *Symbol {
 
 type ImportDecl struct {
 	baseDecl
-	Decl  token.Token
 	Alias *Ident
-	Name  Expr
-	Items []*ImportItem
+	Name  *ScopeLookup
 }
 
-type ImportItem struct {
-	Visibilty token.Token
-	Alias     *Ident
-	Name      *Ident
+type UseDecl struct {
+	baseDecl
+	Alias *Ident
+	Name  *ScopeLookup
 }
 
 type TypeDecl struct {
@@ -290,10 +289,61 @@ func (x *Ident) ReadOnly() bool {
 	return false
 }
 
+type LookupMode int
+
+const (
+	RelLookup LookupMode = iota
+	AbsLookup
+)
+
+type ScopeLookup struct {
+	baseExpr
+	Mode  LookupMode
+	Parts []*Ident
+}
+
+func (x *ScopeLookup) FQN(rel string) string {
+	fqn := ""
+	if x.Mode == RelLookup && len(rel) > 0 {
+		fqn = rel + token.ScopeSep.String()
+	}
+	if len(x.Parts) > 0 {
+		fqn += x.Parts[0].Literal
+		for _, id := range x.Parts[1:] {
+			fqn += token.ScopeSep.String() + id.Literal
+		}
+	}
+	return fqn
+}
+
+func (x *ScopeLookup) First() *Ident {
+	return x.Parts[0]
+}
+
+func (x *ScopeLookup) Last() *Ident {
+	return x.Parts[len(x.Parts)-1]
+}
+
+func (x *ScopeLookup) Toggle() {
+	if x.Mode == RelLookup {
+		x.Mode = AbsLookup
+	} else {
+		x.Mode = RelLookup
+	}
+}
+
+func (x *ScopeLookup) Lvalue() bool {
+	return x.Last().Lvalue()
+}
+
+func (x *ScopeLookup) ReadOnly() bool {
+	return x.Last().ReadOnly() || x.Last().ReadOnly()
+}
+
 type BasicLit struct {
 	baseExpr
-	Prefix Expr // Ident or DotExpr
-	Suffix Expr // Ident or DotExpr
+	Prefix *Ident
+	Suffix *Ident
 	Tok    token.Token
 	Value  string
 	Raw    interface{}
@@ -484,21 +534,6 @@ func NewDefaultInit(t Type) Expr {
 	return init
 }
 
-func ExprToFQN(expr Expr) string {
-	switch t := expr.(type) {
-	case *Ident:
-		return t.Literal
-	case *DotExpr:
-		x := ExprToFQN(t.X)
-		if len(x) == 0 {
-			return ""
-		}
-		return x + "." + t.Name.Literal
-	default:
-		return ""
-	}
-}
-
 func TypeExprToIdent(expr Expr) *Ident {
 	switch t := expr.(type) {
 	case *Ident:
@@ -551,7 +586,7 @@ func BinaryPrec(op token.Token) int {
 // UnaryPrec returns the precedence for a unary operation.
 func UnaryPrec(op token.Token) int {
 	switch op {
-	case token.Lnot, token.Sub, token.Addr:
+	case token.Lnot, token.Sub, token.Reference:
 		return 3
 	default:
 		panic(fmt.Sprintf("Unhandled unary op %s", op))
@@ -566,7 +601,7 @@ func ExprPrec(expr Expr) int {
 	case *UnaryExpr:
 		return UnaryPrec(t.Op)
 	case *AddrExpr:
-		return UnaryPrec(token.Addr)
+		return UnaryPrec(token.Reference)
 	case *DerefExpr, *IndexExpr, *SliceExpr, *DotExpr, *CastExpr, *AppExpr:
 		return 1
 	case *BasicLit, *Ident:

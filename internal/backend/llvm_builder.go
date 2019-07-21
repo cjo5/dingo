@@ -265,6 +265,7 @@ func (cb *llvmCodeBuilder) buildIntrinsics() {
 func (cb *llvmCodeBuilder) buildDecl(decl ir.Decl) {
 	switch decl := decl.(type) {
 	case *ir.ImportDecl:
+	case *ir.UseDecl:
 	case *ir.TypeDecl:
 	case *ir.ValDecl:
 		if decl.Sym.IsTopDecl() {
@@ -822,6 +823,8 @@ func (cb *llvmCodeBuilder) buildExpr(expr ir.Expr, load bool) llvm.Value {
 	switch expr := expr.(type) {
 	case *ir.Ident:
 		return cb.buildIdent(expr, load)
+	case *ir.ScopeLookup:
+		return cb.buildScopeLookup(expr, load)
 	case *ir.BasicLit:
 		return cb.buildBasicLit(expr)
 	case *ir.ArrayLit:
@@ -857,7 +860,8 @@ func (cb *llvmCodeBuilder) buildExpr(expr ir.Expr, load bool) llvm.Value {
 
 func (cb *llvmCodeBuilder) buildIdent(expr *ir.Ident, load bool) llvm.Value {
 	if expr.Sym.Kind == ir.FuncSymbol {
-		return cb.mod.NamedFunction(mangle(expr.Sym))
+		fun := cb.mod.NamedFunction(mangle(expr.Sym))
+		return fun
 	}
 
 	if val, ok := cb.valueMap[expr.Sym.Key]; ok {
@@ -867,7 +871,7 @@ func (cb *llvmCodeBuilder) buildIdent(expr *ir.Ident, load bool) llvm.Value {
 		return val
 	}
 
-	panic(fmt.Sprintf("%s not found", expr.Sym))
+	panic(fmt.Sprintf("%s not found at %s", expr.Sym, expr.Pos()))
 }
 
 func (cb *llvmCodeBuilder) buildDefaultInit(t ir.Type) llvm.Value {
@@ -1161,6 +1165,10 @@ func (cb *llvmCodeBuilder) createTempStorage(val llvm.Value) llvm.Value {
 	loc := cb.b.CreateAlloca(val.Type(), ".tmp")
 	cb.b.CreateStore(val, loc)
 	return loc
+}
+
+func (cb *llvmCodeBuilder) buildScopeLookup(expr *ir.ScopeLookup, load bool) llvm.Value {
+	return cb.buildIdent(expr.Last(), load)
 }
 
 func (cb *llvmCodeBuilder) buildDotExpr(expr *ir.DotExpr, load bool) llvm.Value {

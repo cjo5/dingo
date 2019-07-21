@@ -241,7 +241,7 @@ func (c *checker) checkDerefExpr(expr *ir.DerefExpr) ir.Expr {
 }
 
 func (c *checker) checkDotExpr(expr *ir.DotExpr) ir.Expr {
-	if isUnresolvedExpr(expr.X) {
+	if isUnknownExprType(expr.X) {
 		expr.X = c.checkExpr2(expr.X, modeExpr)
 		expr.X = tryDeref(expr.X)
 	}
@@ -254,27 +254,18 @@ func (c *checker) checkDotExpr(expr *ir.DotExpr) ir.Expr {
 	tx := expr.X.Type()
 
 	switch tx := ir.ToBaseType(tx).(type) {
-	case *ir.ModuleType:
-		defer c.setScope(c.setScope(tx.Scope))
-		return c.checkIdent(expr.Name)
 	case *ir.StructType:
 		if tx.Opaque() {
-			c.nodeError(expr.X, "expression has incomplete type %s", tx)
+			c.nodeError(expr.X, "expression has incomplete type '%s'", tx)
 			expr.T = ir.TBuiltinInvalid
 		} else {
 			prevScope := c.setScope(tx.Scope)
-			if sym, ok := c.resolveIdent(expr.Name); ok {
-				expr.Name.Sym = sym
-				expr.Name.T = sym.T
-				expr.T = sym.T
-				c.tryAddDep(sym, sym.Pos)
-			} else {
-				expr.T = ir.TBuiltinInvalid
-			}
+			c.resolveIdent(expr.Name)
+			expr.T = expr.Name.T
 			c.setScope(prevScope)
 		}
 	default:
-		c.nodeError(expr.X, "expression cannot be used for field access (has type %s)", tx)
+		c.nodeError(expr.X, "dot operator cannot be used on type '%s'", tx)
 	}
 
 	if expr.T == nil {
@@ -309,12 +300,12 @@ func (c *checker) checkIndexExpr(expr *ir.IndexExpr) ir.Expr {
 	if telem != nil {
 		tindex := expr.Index.Type()
 		if !ir.IsIntegerType(tindex) {
-			c.error(expr.Index.Pos(), "index expects an integer type (got %s)", tindex)
+			c.error(expr.Index.Pos(), "index expects an integer type (got '%s')", tindex)
 		} else {
 			expr.T = telem
 		}
 	} else {
-		c.error(expr.X.Pos(), "expression cannot be indexed (has type %s)", expr.X.Type())
+		c.error(expr.X.Pos(), "index operator cannot be used on type '%s'", expr.X.Type())
 	}
 
 	if expr.T == nil {
@@ -412,7 +403,7 @@ func (c *checker) checkSliceExpr(expr *ir.SliceExpr) ir.Expr {
 			expr.T = ir.NewSliceType(telem, ro, false)
 		}
 	} else {
-		c.nodeError(expr.X, "expression cannot be sliced (has type %s)", tx)
+		c.nodeError(expr.X, "slice operator cannot be used on type '%s'", tx)
 	}
 
 	if expr.T == nil {
@@ -424,7 +415,7 @@ func (c *checker) checkSliceExpr(expr *ir.SliceExpr) ir.Expr {
 
 func (c *checker) checkAppExpr(expr *ir.AppExpr) ir.Expr {
 	var tpunt ir.Type
-	if isUnresolvedExpr(expr.X) {
+	if isUnknownExprType(expr.X) {
 		expr.X = c.checkExpr2(expr.X, modeExprOrType)
 		tx := expr.X.Type()
 		if isUntyped(tx) {
@@ -441,7 +432,7 @@ func (c *checker) checkAppExpr(expr *ir.AppExpr) ir.Expr {
 				}
 			}
 			if !ok {
-				c.nodeError(expr.X, "non-applicable expression (has type %s)", tx)
+				c.nodeError(expr.X, "application operator cannot be used on type '%s'", tx)
 				expr.T = ir.TBuiltinInvalid
 				return expr
 			}
@@ -760,7 +751,7 @@ func (c *checker) checkBasicLit(expr *ir.BasicLit) ir.Expr {
 					expr.T = ir.NewSliceType(ir.TBuiltinInt8, true, true)
 					expr.Raw = raw
 				} else {
-					prefix := ir.ExprToFQN(expr.Prefix)
+					prefix := expr.Prefix.Literal
 					if prefix == "c" {
 						expr.T = ir.NewPointerType(ir.TBuiltinInt8, true)
 						expr.Raw = raw
@@ -778,7 +769,7 @@ func (c *checker) checkBasicLit(expr *ir.BasicLit) ir.Expr {
 			target := ir.TBuiltinConstInt
 
 			if expr.Suffix != nil {
-				suffix := ir.ExprToFQN(expr.Suffix)
+				suffix := expr.Suffix.Literal
 				switch suffix {
 				case ir.TFloat64.String():
 					target = ir.TBuiltinFloat64
@@ -839,7 +830,7 @@ func (c *checker) checkBasicLit(expr *ir.BasicLit) ir.Expr {
 			target := ir.TBuiltinConstFloat
 
 			if expr.Suffix != nil {
-				suffix := ir.ExprToFQN(expr.Suffix)
+				suffix := expr.Suffix.Literal
 				switch suffix {
 				case ir.TFloat64.String():
 					target = ir.TBuiltinFloat64
