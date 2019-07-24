@@ -1,37 +1,37 @@
 fun foo() {
-    val a = undef // expect-error: undeclared identifier 'undef'
+    val a = undef // expect-error: unknown identifier 'undef'
 
-    val b = Baz(undef) // expect-error: undeclared identifier 'undef'
+    val b = Baz(undef) // expect-error: unknown identifier 'undef'
 
-    val c = [i32](undef) // expect-error: undeclared identifier 'undef'
+    val c = [i32](undef) // expect-error: unknown identifier 'undef'
 
-    val d = undef + 2 // expect-error: undeclared identifier 'undef'
+    val d = undef + 2 // expect-error: unknown identifier 'undef'
 
-    val e = -undef // expect-error: undeclared identifier 'undef'
+    val e = -undef // expect-error: unknown identifier 'undef'
 
-    val f = undef as u32 // expect-error: undeclared identifier 'undef'
+    val f = undef as u32 // expect-error: unknown identifier 'undef'
 
     var arr: [i32:5]
-    val g = arr[undef] // expect-error: undeclared identifier 'undef'
-    val h = &arr[:undef] // expect-error: undeclared identifier 'undef'
+    val g = arr[undef] // expect-error: unknown identifier 'undef'
+    val h = &arr[:undef] // expect-error: unknown identifier 'undef'
 
-    undef += 1 // expect-error: undeclared identifier 'undef'
+    undef += 1 // expect-error: unknown identifier 'undef'
 
-    if undef > 1 {} // expect-error: undeclared identifier 'undef'
+    if undef > 1 {} // expect-error: unknown identifier 'undef'
 
-    while undef > 1 {} // expect-error: undeclared identifier 'undef'
+    while undef > 1 {} // expect-error: unknown identifier 'undef'
 
-    for ; undef > 1; {} // expect-error: undeclared identifier 'undef'
+    for ; undef > 1; {} // expect-error: unknown identifier 'undef'
 
-    bar(undef) // expect-error: undeclared identifier 'undef'
+    bar(undef) // expect-error: unknown identifier 'undef'
 
-    var undef: i32 = undef // expect-error: undeclared identifier 'undef'
+    var undef: i32 = undef // expect-error: unknown identifier 'undef'
 
     {
-        importlocal q = quux
+        use q = quux
     }
-    val i = q.bam() // expect-error: undeclared identifier 'q'
-    importlocal q = quux
+    val i = q::bam() // expect-error: unknown identifier 'q'
+    use q = quux
 }
 
 fun bar(a: i32){}

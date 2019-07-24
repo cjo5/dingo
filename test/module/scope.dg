@@ -7,40 +7,40 @@ fun print_fqn() {
 }
 
 fun print_scope_fqn() {
-    .print_fqn()
-    msuper.print_fqn()
-    mself.print_fqn()
+    ::print_fqn()
+    super::print_fqn()
+    print_fqn()
 }
 
 module foo {
     include "extra/scope_include1.dg"
 
     fun print_fqn() {
-        .println(modfqn_)
+        ::println(__fqn__)
     }
 
     fun print_scope_fqn() {
-        .print_fqn()
-        msuper.print_fqn()
-        mself.print_fqn()
+        ::print_fqn()
+        super::print_fqn()
+        print_fqn()
     }
 
     module bar {
         include "extra/scope_include1.dg"
 
         fun print_fqn() {
-            .println(modfqn_)
+            ::println(__fqn__)
         }
 
         fun print_scope_fqn() {
-            .print_fqn()
-            msuper.print_fqn()
-            mself.print_fqn()
+            ::print_fqn()
+            super::print_fqn()
+            print_fqn()
         }
 
         module car {
-            fun print_msuper_msuper_fqn() {
-                msuper.msuper.print_fqn()
+            fun print_super_super_fqn() {
+                super::super::print_fqn()
             }
         } 
     }
@@ -52,62 +52,62 @@ extern fun main() c_int {
     // expect: root
     // expect: root
 
-    baazle.print_scope_fqn()
+    baazle::print_scope_fqn()
     // expect: root
     // expect: root
     // expect: baazle
 
-    foozle.print_scope_fqn()
+    foozle::print_scope_fqn()
     // expect: root
     // expect: root
     // expect: foozle
 
-    foozle.baazle.print_scope_fqn()
+    foozle::baazle::print_scope_fqn()
     // expect: root
     // expect: foozle
-    // expect: foozle.baazle
+    // expect: foozle::baazle
 
-    foo.print_scope_fqn()
+    foo::print_scope_fqn()
     // expect: root
     // expect: root
     // expect: foo
 
-    foo.baazle.print_scope_fqn()
+    foo::baazle::print_scope_fqn()
     // expect: root
     // expect: foo
-    // expect: foo.baazle
+    // expect: foo::baazle
 
-    foo.foozle.print_scope_fqn()
+    foo::foozle::print_scope_fqn()
     // expect: root
     // expect: foo
-    // expect: foo.foozle
+    // expect: foo::foozle
 
-    foo.foozle.baazle.print_scope_fqn()
+    foo::foozle::baazle::print_scope_fqn()
     // expect: root
-    // expect: foo.foozle
-    // expect: foo.foozle.baazle
+    // expect: foo::foozle
+    // expect: foo::foozle::baazle
     
-    foo.bar.print_scope_fqn()
+    foo::bar::print_scope_fqn()
     // expect: root
     // expect: foo
-    // expect: foo.bar
+    // expect: foo::bar
 
-    foo.bar.baazle.print_scope_fqn()
+    foo::bar::baazle::print_scope_fqn()
     // expect: root
-    // expect: foo.bar
-    // expect: foo.bar.baazle
+    // expect: foo::bar
+    // expect: foo::bar::baazle
 
-    foo.bar.foozle.print_scope_fqn()
+    foo::bar::foozle::print_scope_fqn()
     // expect: root
-    // expect: foo.bar
-    // expect: foo.bar.foozle
+    // expect: foo::bar
+    // expect: foo::bar::foozle
 
-    foo.bar.foozle.baazle.print_scope_fqn()
+    foo::bar::foozle::baazle::print_scope_fqn()
     // expect: root
-    // expect: foo.bar.foozle
-    // expect: foo.bar.foozle.baazle
+    // expect: foo::bar::foozle
+    // expect: foo::bar::foozle::baazle
 
-    foo.bar.car.print_msuper_msuper_fqn()
+    foo::bar::car::print_super_super_fqn()
     // expect: foo
 
     return 0

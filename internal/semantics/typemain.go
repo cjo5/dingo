@@ -645,7 +645,7 @@ func (c *checker) resolveIdent(expr *ir.Ident) {
 	if valid {
 		if !sym.Public && sym.CUID != c.object.CUID() {
 			valid = false
-			c.nodeError(expr, "'%s' is private", expr.Literal)
+			c.nodeError(expr, "'%s' is private and cannot be accessed from a different compilation unit", expr.Literal)
 		}
 	}
 	expr.T = ir.TBuiltinInvalid

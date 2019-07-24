@@ -1,6 +1,6 @@
 pub module mod2 {
     pub struct Foo {
-        a: i32
+        pub a: i32
     }
 
     pub val bar: i32 = 20

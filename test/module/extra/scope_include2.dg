@@ -1,11 +1,11 @@
 module baazle {
     fun print_fqn() {
-        .println(modfqn_)
+        ::println(__fqn__)
     }
 
     fun print_scope_fqn() {
-        .print_fqn()
-        msuper.print_fqn()
-        mself.print_fqn()
+        ::print_fqn()
+        super::print_fqn()
+        print_fqn()
     }
 }

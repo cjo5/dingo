@@ -3,15 +3,15 @@ include "../common.dg"
 import mod1
 
 extern fun main() c_int {
-    val f1 = mod1.Foo(a: 1)
+    val f1 = mod1::Foo(a: 1)
     printiln(f1.a) // expect: 1
-    printiln(mod1.bar) // expect: 10
-    printiln(mod1.baz()) // expect: 100
+    printiln(mod1::bar) // expect: 10
+    printiln(mod1::baz()) // expect: 100
 
-    val f2 = mod1.mod2.Foo(a: 2)
+    val f2 = mod1::mod2::Foo(a: 2)
     printiln(f2.a) // expect: 2
-    printiln(mod1.mod2.bar) // expect: 20
-    printiln(mod1.mod2.baz()) // expect: 200
+    printiln(mod1::mod2::bar) // expect: 20
+    printiln(mod1::mod2::baz()) // expect: 200
 
     return 0
 }

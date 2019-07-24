@@ -1,5 +1,0 @@
-include "common.dg"
-
-pub fun hello() {
-    .println(__fqn__)
-}

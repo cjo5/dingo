@@ -4,12 +4,12 @@ fun f1() {
 
 module foo {
     fun f2() {
-        f1() // expect-error: undeclared identifier 'f1'
+        f1() // expect-error: unknown identifier 'f1'
     }
 
     module bar {
         fun f3() {
-            f2() // expect-error: undeclared identifier 'f2' 
+            f2() // expect-error: unknown identifier 'f2' 
         }
     }
 }

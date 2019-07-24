@@ -1,0 +1,7 @@
+pub use foo::bar // expect-error: private 'bar' cannot be re-exported as public
+
+module foo {
+    fun bar() {
+
+    }
+}

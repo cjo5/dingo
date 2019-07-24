@@ -133,7 +133,7 @@ func (c *checker) createObjects(decl *ir.TopDecl, CUID int, modFQN string) []*ob
 	var objects []*object
 	switch decl := decl.D.(type) {
 	case *ir.ImportDecl:
-		c.insertImportSymbol(decl, modFQN, public)
+		c.insertImportSymbol(decl, CUID, modFQN, public)
 		if decl.Sym != nil {
 			objects = append(objects, newObject(decl, c.scope, false))
 		}

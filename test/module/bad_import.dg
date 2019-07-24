@@ -1,11 +1,10 @@
-import bam // expect-error: undefined public module 'bam'
-import foo.bar: modfqn_ // expect-error: builtin 'modfqn_' cannot be imported
-import foo.bar: baz // expect-error: private 'baz' cannot be imported
+import bam // expect-error: unknown public module 'bam'
 
-fun foo(){}
-import foo // expect-error: redefinition of 'foo' (different definition is at <re>.*:5:5</re>)
+import foo
+
+use foo::bar::__fqn__ // expect-error: builtin '__fqn__' cannot be brought into scope
+use foo::bar::baz // expect-error: 'baz' is private and cannot be accessed from a different compilation unit
 
 extern fun main() c_int {
-    bar.baz() // expect-error: 'baz' is private
     return 0
 }

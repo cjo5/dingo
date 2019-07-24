@@ -1,11 +1,11 @@
-// math
+// math.h
 extern fun sqrt(x: c_double) c_double
 extern fun pow(x: c_double, y: c_double) c_double
 extern fun tan(x: c_double) c_double
 extern fun cos(x: c_double) c_double
 extern fun sin(x: c_double) c_double
 
-// stdlib
+// stdlib.h
 extern fun abs(x: c_int) c_int
 extern fun atoi(str: &c_char) c_int
 extern fun exit(status: c_int)
@@ -17,7 +17,7 @@ extern fun srand(c_uint)
 // Workaround, currently the only way to print a double.
 extern fun printf(str: &c_char, arg: c_double) c_int
 
-// stdio
+// stdio.h
 struct C_FILE
 extern fun fclose(stream: &var C_FILE) c_int
 extern fun ferror(stream: &var C_FILE) c_int

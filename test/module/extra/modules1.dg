@@ -1,8 +1,8 @@
 pub module mod1 {
-    pub import .mod2
+    pub import mod2
 
     pub struct Foo {
-        a: i32
+        pub a: i32
     }
 
     pub val bar: i32 = 10

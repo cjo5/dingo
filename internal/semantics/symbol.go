@@ -106,20 +106,18 @@ func (c *checker) newTopDeclSymbol(kind ir.SymbolKind, CUID int, modFQN string, 
 	return sym
 }
 
-func (c *checker) insertImportSymbol(decl *ir.ImportDecl, modFQN string, public bool) {
-	importedCUID := -1
+func (c *checker) insertImportSymbol(decl *ir.ImportDecl, CUID int, modFQN string, public bool) {
 	timportedMod := ir.TBuiltinInvalid
 	fqn := decl.Name.FQN(modFQN)
 	if mod, ok := c.importMap[fqn]; ok {
-		importedCUID = mod.CUID
 		timportedMod = mod.T
 	} else {
-		c.error(decl.Name.Pos(), "undefined module '%s'", fqn)
+		c.error(decl.Name.Pos(), "unknown public module '%s'", fqn)
 	}
 	if isUntyped(timportedMod) {
 		return
 	}
-	sym := c.newTopDeclSymbol(ir.ModuleSymbol, importedCUID, fqn, ir.DGABI, public, decl.Alias.Literal, decl.Alias.Pos(), false)
+	sym := c.newTopDeclSymbol(ir.ModuleSymbol, CUID, fqn, ir.DGABI, public, decl.Alias.Literal, decl.Alias.Pos(), false)
 	sym.T = timportedMod
 	sym.Flags |= ir.SymFlagReadOnly
 	decl.Sym = c.insertSymbol(c.scope, sym.Name, sym)
