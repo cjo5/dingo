@@ -128,7 +128,6 @@ func (c *checker) setUseSymbol(decl *ir.UseDecl, CUID int, modFQN string, public
 	sym := ir.NewSymbol(ir.UnknownSymbol, key, CUID, modFQN, decl.Alias.Literal, decl.Alias.Pos())
 	sym.Public = public
 	sym.ABI = ir.DGABI
-	sym.Flags |= ir.SymFlagDefined
 	if topDecl {
 		sym.Flags |= ir.SymFlagTopDecl
 	}
