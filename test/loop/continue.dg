@@ -9,7 +9,7 @@ extern fun main() c_int {
             if (j % 2) == 0 {
                 continue
             }
-            printiln(i+j)
+            io::printiln(i+j)
         }
     }
 
@@ -30,7 +30,7 @@ extern fun main() c_int {
                j--
                continue
            } 
-            printiln(i+j)
+            io::printiln(i+j)
            j--
         }
        i--

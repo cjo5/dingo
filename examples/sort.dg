@@ -33,7 +33,7 @@ fun sort(data: &var [i32]) {
 
 fun print_data(data: &[i32]) {
     for i: usize = 0; i < len(data); i++ {
-        printiln(data[i])
+        io::printiln(data[i])
     }
 }
 

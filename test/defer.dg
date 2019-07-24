@@ -2,54 +2,54 @@ include "common.dg"
 
 fun test_nested_scopes() {
     {
-        println("nested_scopes_start1")
-        defer println("nested_scopes_end1")
+        io::println("nested_scopes_start1")
+        defer io::println("nested_scopes_end1")
         {
-            println("nested_scopes_start2")
-            defer println("nested_scopes_end2")
+            io::println("nested_scopes_start2")
+            defer io::println("nested_scopes_end2")
         }
     }
-    println("nested_scopes_done")
+    io::println("nested_scopes_done")
 }
 
 fun test_if1(a: i32) {
-    defer println("if1_done")
+    defer io::println("if1_done")
     if a == 1 {
-        defer println("if1_1")
+        defer io::println("if1_1")
         return
     }
-    defer println("if1_2")
+    defer io::println("if1_2")
 }
 
 fun test_if2(a: i32) i32 {
-    defer println("if2_done")
+    defer io::println("if2_done")
     if a == 1 {
-        defer println("if2_1")
+        defer io::println("if2_1")
         return 1
     } else {
-        defer println("if2_2")
+        defer io::println("if2_2")
         return 3
     }
 }
 
 fun test_if3(a: i32) {
     if a == 1 {
-        defer println("if3_1_end")
-        println("if3_1_start")
+        defer io::println("if3_1_end")
+        io::println("if3_1_start")
     } elif a == 2 {
-        defer println("if3_2_end")
-        println("if3_2_start")
+        defer io::println("if3_2_end")
+        io::println("if3_2_start")
     } else {
-        defer println("if3_3_end")
-        println("if3_3_start")
+        defer io::println("if3_3_end")
+        io::println("if3_3_start")
     }
-    println("if3_done")
+    io::println("if3_done")
 }
 
 fun test_for(a: i32) {
-    defer println("for_done2")
+    defer io::println("for_done2")
     for i = 0; i < 3; i++ {
-        defer println("for")
+        defer io::println("for")
         if i == 1 {
             if a == 1 {
                 continue
@@ -59,16 +59,16 @@ fun test_for(a: i32) {
                 return
             }
         }
-        printiln(i)
+        io::printiln(i)
     }
-    println("for_done1")
+    io::println("for_done1")
 }
 
 fun test_nested_for() {
-    defer println("nested_for_done")
+    defer io::println("nested_for_done")
     for i = 0; i < 2; i++ {
         for j = 0; j < 2; j++ {
-            defer printiln(i)
+            defer io::printiln(i)
             if j == 0 {
                 break
             }
@@ -77,18 +77,18 @@ fun test_nested_for() {
 }
 
 fun test_for_chain(a: i32) {
-    defer println("for_chain_done")
+    defer io::println("for_chain_done")
     for i = 0; i < 2; i++ {
-        defer println("for_chain_it1")
+        defer io::println("for_chain_it1")
         {
-            defer println("for_chain_it2")
+            defer io::println("for_chain_it2")
             if a == 1 {
                 continue
             } elif a == 2 {
-                defer println("for_chain_break")
+                defer io::println("for_chain_break")
                 break
             } else {
-                defer println("for_chain_fallthrough")
+                defer io::println("for_chain_fallthrough")
             }
         } 
     }
@@ -96,23 +96,23 @@ fun test_for_chain(a: i32) {
 
 fun test_for_skip(a: i32) {
     for i = 0; i < 1; i++ {
-        defer println("for_skip_done")
+        defer io::println("for_skip_done")
         if a == 1 {
             continue
         } elif a == 2 {
             break
         }
-        defer println("skip")
+        defer io::println("skip")
     }
 }
 
 fun test_return_skip(a: i32) {
-    defer println("return_skip_done")
+    defer io::println("return_skip_done")
     {
         if a == 1 {
             return
         }
-        defer println("skip")
+        defer io::println("skip")
     }
 }
 
@@ -215,7 +215,7 @@ extern fun main() c_int {
 
     test_return_skip(1) // expect: return_skip_done
 
-    printiln(test_modify_retval()) // expect: 4
+    io::printiln(test_modify_retval()) // expect: 4
 
     return 0
 }

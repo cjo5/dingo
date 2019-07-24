@@ -3,8 +3,8 @@ include "../common.dg"
 val foo: i32 = 8
 
 extern fun main() c_int {
-    printiln(bar) // expect: 9
-    printiln(foo) // expect: 8
+    io::printiln(bar) // expect: 9
+    io::printiln(foo) // expect: 8
     return 0
 }
 

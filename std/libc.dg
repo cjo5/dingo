@@ -1,33 +1,33 @@
 // math.h
-extern fun sqrt(x: c_double) c_double
-extern fun pow(x: c_double, y: c_double) c_double
-extern fun tan(x: c_double) c_double
-extern fun cos(x: c_double) c_double
-extern fun sin(x: c_double) c_double
+pub extern fun sqrt(x: c_double) c_double
+pub extern fun pow(x: c_double, y: c_double) c_double
+pub extern fun tan(x: c_double) c_double
+pub extern fun cos(x: c_double) c_double
+pub extern fun sin(x: c_double) c_double
 
 // stdlib.h
-extern fun abs(x: c_int) c_int
-extern fun atoi(str: &c_char) c_int
-extern fun exit(status: c_int)
-extern fun free(ptr: &c_void)
-extern fun malloc(size: c_usize) &var c_void
-extern fun rand() c_int
-extern fun srand(c_uint)
+pub extern fun abs(x: c_int) c_int
+pub extern fun atoi(str: &c_char) c_int
+pub extern fun exit(status: c_int)
+pub extern fun free(ptr: &c_void)
+pub extern fun malloc(size: c_usize) &var c_void
+pub extern fun rand() c_int
+pub extern fun srand(c_uint)
 
 // Workaround, currently the only way to print a double.
-extern fun printf(str: &c_char, arg: c_double) c_int
+pub extern fun printf(str: &c_char, arg: c_double) c_int
 
 // stdio.h
-struct C_FILE
-extern fun fclose(stream: &var C_FILE) c_int
-extern fun ferror(stream: &var C_FILE) c_int
-extern fun fopen(filename: &c_char, mode: &c_char) &var C_FILE
-extern fun fread(ptr: &var c_void, size: c_usize, nmemb: c_usize, stream: &var C_FILE) c_usize
-extern fun getchar() c_int
-extern fun gets(str: &var c_char) &var c_char
-extern fun perror(str: &c_char)
-extern fun putchar(ch: c_int) c_int
-extern fun puts(str: &c_char) c_int
+pub struct C_FILE
+pub extern fun fclose(stream: &var C_FILE) c_int
+pub extern fun ferror(stream: &var C_FILE) c_int
+pub extern fun fopen(filename: &c_char, mode: &c_char) &var C_FILE
+pub extern fun fread(ptr: &var c_void, size: c_usize, nmemb: c_usize, stream: &var C_FILE) c_usize
+pub extern fun getchar() c_int
+pub extern fun gets(str: &var c_char) &var c_char
+pub extern fun putchar(ch: c_int) c_int
+pub extern fun puts(str: &c_char) c_int
+pub extern fun perror(str: &c_char)
 
 // time
-extern fun time(tm: &void) c_int
+pub extern fun time(tm: &void) c_int

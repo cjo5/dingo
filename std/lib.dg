@@ -1,79 +1,95 @@
-include "libc.dg"
-
-val e: f64 = 2.71828182845904523536028747135266249775724709369995
-val pi: f64 = 3.14159265358979323846264338327950288419716939937510
-
-fun println(str: &[i8]) {
-    print(str)
-    putchar('\n')
+pub module libc {
+    include "libc.dg"
 }
 
-fun print(str: &[i8]) {
-    for i: usize = 0; i < len(str); i++ {
-        putchar(str[i])
+pub module math {
+    pub use c = ::libc
+    pub use c::sqrt
+    pub use c::pow
+    pub use c::tan
+    pub use c::cos
+    pub use c::sin
+
+    pub val e: f64 = 2.71828182845904523536028747135266249775724709369995
+    pub val pi: f64 = 3.14159265358979323846264338327950288419716939937510
+}
+
+pub module io {
+    pub use c = ::libc
+    pub use c::putchar
+
+    pub fun println(str: &[i8]) {
+        print(str)
+        putchar('\n')
     }
-}
 
-fun printbln(b: bool) {
-    if b {
-        println("true")
-    } else {
-        println("false")
-    }
-}
-
-fun printiln(i: i64) {
-    printi(i)
-    putchar('\n')
-}
-
-fun printi(i: i64) {
-    if i < 0 {
-        putchar('-')
-        printu(-i as u64)
-    } else {
-        printu(i as u64)
-    }
-}
-
-fun printu(i: u64) {
-    if i >= 10 {
-        printu(i/10)
-    }
-    putchar(('0' + i%10) as i32)
-}
-
-fun printft(f: f64) {
-    printf(c"%g", f)
-}
-
-fun printftln(f: f64) {
-    printf(c"%g\n", f)
-}
-
-fun readln(buf: &var [i8], null_terminate: bool) &var [i8] {
-    var max = len(buf)
-    if null_terminate and max > 0 {
-        max--
-    }
-    var end = false
-    var n: usize
-    while n < max and not end {
-        val ch = getchar()
-        if ch == '\r' {
-            // Wait for '\n'
-        } elif ch == '\n' {
-            end = true
-        } else {
-            buf[n] = ch as i8
-            n++
+    pub fun print(str: &[i8]) {
+        for i: usize = 0; i < len(str); i++ {
+            putchar(str[i])
         }
     }
-    if n == max and not end {
-        return null
+
+    pub fun printbln(b: bool) {
+        if b {
+            println("true")
+        } else {
+            println("false")
+        }
     }
-    if null_terminate {
-        buf[n] = 0
+
+    pub fun printiln(i: i64) {
+        printi(i)
+        putchar('\n')
     }
-    return &var buf[:n]
+
+    pub fun printi(i: i64) {
+        if i < 0 {
+            putchar('-')
+            printu(-i as u64)
+        } else {
+            printu(i as u64)
+        }
+    }
+
+    pub fun printu(i: u64) {
+        if i >= 10 {
+            printu(i/10)
+        }
+        putchar(('0' + i%10) as i32)
+    }
+
+    pub fun printft(f: f64) {
+        c::printf(c"%g", f)
+    }
+
+    pub fun printftln(f: f64) {
+        c::printf(c"%g\n", f)
+    }
+
+    pub fun readln(buf: &var [i8], null_terminate: bool) &var [i8] {
+        var max = len(buf)
+        if null_terminate and max > 0 {
+            max--
+        }
+        var end = false
+        var n: usize
+        while n < max and not end {
+            val ch = c::getchar()
+            if ch == '\r' {
+                // Wait for '\n'
+            } elif ch == '\n' {
+                end = true
+            } else {
+                buf[n] = ch as i8
+                n++
+            }
+        }
+        if n == max and not end {
+            return null
+        }
+        if null_terminate {
+            buf[n] = 0
+        }
+        return &var buf[:n]
+    }
 }

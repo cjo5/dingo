@@ -1,15 +1,15 @@
 include "common.dg"
 
 extern fun main() c_int {
-    println("text") // expect: text
-    putchar('k') // expect: k
-    putchar('\n')
+    io::println("text") // expect: text
+    io::putchar('k') // expect: k
+    io::putchar('\n')
 
-    printiln(123) // expect: 123
-    printiln(-123) // expect: -123
-    printiln(100_000) // expect: 100000
-    printiln(0x23) // expect: 35
-    printiln(023) // expect: 19
+    io::printiln(123) // expect: 123
+    io::printiln(-123) // expect: -123
+    io::printiln(100_000) // expect: 100000
+    io::printiln(0x23) // expect: 35
+    io::printiln(023) // expect: 19
 
     val a1 = true
     val a2 = false

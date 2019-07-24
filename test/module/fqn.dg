@@ -10,21 +10,21 @@ module foo {
 }
 
 extern fun main() c_int {
-    println(__fqn__) // expect:
+    io::println(__fqn__) // expect:
 
-    println(baazle::__fqn__) // expect: baazle
-    println(foozle::__fqn__) // expect: foozle
-    println(foozle::baazle::__fqn__) // expect: foozle::baazle
+    io::println(baazle::__fqn__) // expect: baazle
+    io::println(foozle::__fqn__) // expect: foozle
+    io::println(foozle::baazle::__fqn__) // expect: foozle::baazle
 
-    println(foo::__fqn__) // expect: foo
-    println(foo::baazle::__fqn__) // expect: foo::baazle
-    println(foo::foozle::__fqn__) // expect: foo::foozle
-    println(foo::foozle::baazle::__fqn__) // expect: foo::foozle::baazle
+    io::println(foo::__fqn__) // expect: foo
+    io::println(foo::baazle::__fqn__) // expect: foo::baazle
+    io::println(foo::foozle::__fqn__) // expect: foo::foozle
+    io::println(foo::foozle::baazle::__fqn__) // expect: foo::foozle::baazle
     
-    println(foo::bar::__fqn__) // expect: foo::bar
-    println(foo::bar::baazle::__fqn__) // expect: foo::bar::baazle
-    println(foo::bar::foozle::__fqn__) // expect: foo::bar::foozle
-    println(foo::bar::foozle::baazle::__fqn__) // expect: foo::bar::foozle::baazle
+    io::println(foo::bar::__fqn__) // expect: foo::bar
+    io::println(foo::bar::baazle::__fqn__) // expect: foo::bar::baazle
+    io::println(foo::bar::foozle::__fqn__) // expect: foo::bar::foozle
+    io::println(foo::bar::foozle::baazle::__fqn__) // expect: foo::bar::foozle::baazle
 
     return 0
 }

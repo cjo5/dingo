@@ -1,30 +1,30 @@
 include "common.dg"
 
 extern fun main() c_int {
-    printbln(true and true) // expect: true
-    printbln(true and false) // expect: false
-    printbln(false and false) // expect: false
-    printbln(true or true) // expect: true
-    printbln(true or false) // expect: true
-    printbln(false or false) // expect: false
-    printbln(not true) // expect: false
-    printbln(not false) // expect: true
-    printbln((true and false) or (true and true)) // expect: true
-    printbln((true and false) or not (true and true)) // expect: false
+    io::printbln(true and true) // expect: true
+    io::printbln(true and false) // expect: false
+    io::printbln(false and false) // expect: false
+    io::printbln(true or true) // expect: true
+    io::printbln(true or false) // expect: true
+    io::printbln(false or false) // expect: false
+    io::printbln(not true) // expect: false
+    io::printbln(not false) // expect: true
+    io::printbln((true and false) or (true and true)) // expect: true
+    io::printbln((true and false) or not (true and true)) // expect: false
 
     val t = true
     val f = false
 
-    printbln(t and t) // expect: true
-    printbln(t and f) // expect: false
-    printbln(f and f) // expect: false
-    printbln(t or t) // expect: true
-    printbln(t or f) // expect: true
-    printbln(f or f) // expect: false
-    printbln(not t) // expect: false
-    printbln(not f) // expect: true
-    printbln((t and f) or (t and t)) // expect: true
-    printbln((t and f) or not (t and t)) // expect: false
+    io::printbln(t and t) // expect: true
+    io::printbln(t and f) // expect: false
+    io::printbln(f and f) // expect: false
+    io::printbln(t or t) // expect: true
+    io::printbln(t or f) // expect: true
+    io::printbln(f or f) // expect: false
+    io::printbln(not t) // expect: false
+    io::printbln(not f) // expect: true
+    io::printbln((t and f) or (t and t)) // expect: true
+    io::printbln((t and f) or not (t and t)) // expect: false
 
     return 0
 }

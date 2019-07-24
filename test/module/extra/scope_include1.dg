@@ -4,7 +4,7 @@ module foozle {
     include "scope_include2.dg"
     
     fun print_fqn() {
-        ::println(__fqn__)
+        ::io::println(__fqn__)
     }
 
     fun print_scope_fqn() {

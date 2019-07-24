@@ -9,14 +9,14 @@ extern fun main() c_int {
     // expect: 11
 
     f2.b.f.a = 13
-    printiln(f1.a) // expect: 13
+    io::printiln(f1.a) // expect: 13
 
     return 0
 }
 
 fun print_foo(f: &Foo) {
-    printiln(f.a)
-    printiln(f.b.c)
+    io::printiln(f.a)
+    io::printiln(f.b.c)
 }
 
 struct Foo {

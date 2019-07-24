@@ -1,30 +1,30 @@
 include "../std/lib.dg"
 
 extern fun main() c_int {
-    val tm = time(null)
-    srand(tm as u32)
+    val tm = libc::time(null)
+    libc::srand(tm as u32)
 
-    val answer = rand()%100 + 1
+    val answer = libc::rand()%100 + 1
     var correct_guess = false
     var buffer: [c_char:100]
 
-    println("Guess a number between 1-100")
+    io::println("Guess a number between 1-100")
 
     while not correct_guess {
-        print(": ")
-        val line = readln(&var buffer[:], true)
+        io::print(": ")
+        val line = io::readln(&var buffer[:], true)
         if len(line) == 0 {
-            println("Too long line")
+            io::println("Too long line")
         } else {
-            val guess = atoi(&line[0])
+            val guess = libc::atoi(&line[0])
             if guess == 0 {
-                println("Bad input")
+                io::println("Bad input")
             } elif guess < answer {
-                println("Higher")
+                io::println("Higher")
             } elif guess > answer {
-                println("Lower")
+                io::println("Lower")
             } else {
-                println("Correct!")
+                io::println("Correct!")
                 correct_guess = true
             }
         }

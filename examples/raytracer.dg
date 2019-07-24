@@ -3,6 +3,11 @@
 
 include "../std/lib.dg"
 
+use math::sqrt
+use math::pow
+use math::pi
+use math::tan
+
 struct Vec3 {
     x: f32
     y: f32
@@ -416,7 +421,7 @@ fun color(ray: &Ray, world: &World, depth: i32) Vec3 {
 
 fun randf32(min: f32, max: f32) f32 {
     var div = 100
-    return ((rand()%div) as f32)/(div as f32)*(max - min) + min
+    return ((libc::rand()%div) as f32)/(div as f32)*(max - min) + min
 }
 
 fun random_scene(list: &var [Sphere]) {
@@ -510,11 +515,11 @@ fun trace() {
     val ny = 800
     val ns = 10
 
-    println("P3")
-    printi(nx)
-    print(" ")
-    printiln(ny)
-    printiln(255)
+    io::println("P3")
+    io::printi(nx)
+    io::print(" ")
+    io::printiln(ny)
+    io::printiln(255)
 
     var spheres: [Sphere:501]
     random_scene(&var spheres[:])
@@ -555,11 +560,11 @@ fun trace() {
             val ir = (255.99*col.x) as i32
             val ig = (255.99*col.y) as i32
             val ib = (255.99*col.z) as i32
-            printi(ir)
-            print(" ")
-            printi(ig)
-            print(" ")
-            printiln(ib)
+            io::printi(ir)
+            io::print(" ")
+            io::printi(ig)
+            io::print(" ")
+            io::printiln(ib)
         }
     }
 }

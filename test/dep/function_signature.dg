@@ -10,17 +10,17 @@ extern fun main() c_int {
 }
 
 fun f1(f: Foo) Foo {
-    printiln(f.a)
+    io::printiln(f.a)
     return f
 }
 
 fun f2(f: &Foo) &Foo {
-    printiln(f.a)
+    io::printiln(f.a)
     return f
 }
 
 fun f3(f: Bar) Bar {
-    printiln(f)
+    io::printiln(f)
     return f
 }
 

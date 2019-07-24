@@ -1,6 +1,6 @@
 module baazle {
     fun print_fqn() {
-        ::println(__fqn__)
+        ::io::println(__fqn__)
     }
 
     fun print_scope_fqn() {

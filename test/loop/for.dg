@@ -2,7 +2,7 @@ include "../common.dg"
 
 extern fun main() c_int {
     for i = 0; i < 5; i++ {
-        printiln(i)
+        io::printiln(i)
     }
     
     // expect: 0

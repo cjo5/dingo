@@ -5,11 +5,11 @@ extern fun main() c_int {
     var ptr = &var data
     val slice = &var ptr[:1]
 
-    printiln(len(slice) as i32) // expect: 1
-    printiln(slice[0]) // expect: 9
+    io::printiln(len(slice) as i32) // expect: 1
+    io::printiln(slice[0]) // expect: 9
 
     slice[0]++
-    printiln(data) // expect: 10
+    io::printiln(data) // expect: 10
 
     return 0
 }

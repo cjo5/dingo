@@ -1,12 +1,12 @@
 include "../common.dg"
 
 fun foo(a: i32, b: i32, c: i32) {
-    printi(a)
-    putchar(' ')
-    printi(b)
-    putchar(' ')
-    printi(c)
-    putchar('\n')
+    io::printi(a)
+    io::putchar(' ')
+    io::printi(b)
+    io::putchar(' ')
+    io::printi(c)
+    io::putchar('\n')
 }
 
 extern fun main() c_int {

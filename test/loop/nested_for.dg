@@ -3,7 +3,7 @@ include "../common.dg"
 extern fun main() c_int {
     for i = 1; i <= 2; i++ {
         for j = 1; j <= 2; j++ {
-            printiln(i+j)
+            io::printiln(i+j)
         }
     }
     

@@ -3,7 +3,7 @@ include "../common.dg"
 include "extra/scope_include1.dg"
 
 fun print_fqn() {
-    println("root")
+    io::println("root")
 }
 
 fun print_scope_fqn() {
@@ -16,7 +16,7 @@ module foo {
     include "extra/scope_include1.dg"
 
     fun print_fqn() {
-        ::println(__fqn__)
+        ::io::println(__fqn__)
     }
 
     fun print_scope_fqn() {
@@ -29,7 +29,7 @@ module foo {
         include "extra/scope_include1.dg"
 
         fun print_fqn() {
-            ::println(__fqn__)
+            ::io::println(__fqn__)
         }
 
         fun print_scope_fqn() {

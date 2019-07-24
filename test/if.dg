@@ -2,21 +2,21 @@ include "common.dg"
 
 extern fun main() c_int {
     if true {
-        println("true") // expect: true
+        io::println("true") // expect: true
     }
 
     if not false {
-        println("not false") // expect: not false
+        io::println("not false") // expect: not false
     }
 
     val a = true
     if a {
-        println("a") // expect: a
+        io::println("a") // expect: a
     }
 
     val b = false
     if not b {
-        println("not b") // expect: not b
+        io::println("not b") // expect: not b
     }
 
     val c = fun() bool {
@@ -24,7 +24,7 @@ extern fun main() c_int {
     }
 
     if c() {
-        println("c") // expect: c
+        io::println("c") // expect: c
     }
 
     val d = fun() bool {
@@ -32,27 +32,27 @@ extern fun main() c_int {
     }
 
     if not d() {
-        println("not d") // expect: not d
+        io::println("not d") // expect: not d
     }
 
     val foo = Foo(a: true, b: false)
 
     if foo.a {
-        println("foo.a") // expect: foo.a
+        io::println("foo.a") // expect: foo.a
     }
 
     if not foo.b {
-        println("not foo.b") // expect: not foo.b
+        io::println("not foo.b") // expect: not foo.b
     }
 
     val bar = [bool](true, false)
 
     if bar[0] {
-        println("bar[0]") // expect: bar[0]
+        io::println("bar[0]") // expect: bar[0]
     }
 
     if not bar[1] {
-        println("not bar[1]") // expect: not bar[1]
+        io::println("not bar[1]") // expect: not bar[1]
     }
 
     return 0

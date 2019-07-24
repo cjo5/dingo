@@ -8,6 +8,6 @@ fun fac(i: i32) i32 {
 }
 
 extern fun main() c_int {
-    printiln(fac(5))
+    io::printiln(fac(5))
     return 0
 }

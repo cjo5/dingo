@@ -5,7 +5,7 @@ extern fun main() c_int {
     while i >= 1 {
         var j = 2
         while j >= 1 {
-            printiln(i+j)
+            io::printiln(i+j)
             j--
         }
         i--

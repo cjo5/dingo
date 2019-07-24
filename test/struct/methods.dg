@@ -4,8 +4,8 @@ struct Foo {
     count: i32
 
     fun bar(f: &Foo, a: i32) {
-        printiln(f.get())
-        printiln(a)
+        io::printiln(f.get())
+        io::printiln(a)
     }
 
     fun inc(&var self) {
@@ -42,15 +42,15 @@ extern fun main() c_int {
 
     f2.inc()
     f2.inc()
-    printiln(f2.count)
+    io::printiln(f2.count)
     // expect: 5
 
     f2.inc_twice()
     f2.inc_thrice()
-    printiln(f2.count)
+    io::printiln(f2.count)
     // expect: 10
 
-    printiln(f2.get())
+    io::printiln(f2.get())
     // expect: 10
 
     return 0

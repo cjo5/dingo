@@ -1,10 +1,10 @@
 include "common.dg"
 
 extern fun main() c_int {
-    printiln(sizeof(void)) // expect-error: incomplete type 'void'
+    io::printiln(sizeof(void)) // expect-error: incomplete type 'void'
 
     val a: i32
-    printiln(sizeof(a)) // expect-error: 'a' is not a type
+    io::printiln(sizeof(a)) // expect-error: 'a' is not a type
 
     return 0
 }

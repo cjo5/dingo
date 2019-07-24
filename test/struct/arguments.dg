@@ -1,12 +1,12 @@
 include "../common.dg"
 
 fun print_foo(f: Foo) {
-    printi(f.a)
-    putchar(' ')
-    printi(f.b)
-    putchar(' ')
-    printi(f.c)
-    putchar('\n')
+    io::printi(f.a)
+    io::putchar(' ')
+    io::printi(f.b)
+    io::putchar(' ')
+    io::printi(f.c)
+    io::putchar('\n')
 }
 
 struct Foo {

@@ -1,7 +1,6 @@
 [
     {
         "tests": [
-            "alias.dg",
             "bad_cast.dg",
             "bad_expr.dg",
             "bad_sizeof.dg",
@@ -14,6 +13,7 @@
             "math.dg",
             "sizeof.dg",
             "type_in_expr.dg",
+            "typealias.dg",
             "use_before_decl.dg",
             "void.dg"
         ]
