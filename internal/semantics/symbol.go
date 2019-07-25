@@ -123,7 +123,14 @@ func (c *checker) insertImportSymbol(decl *ir.ImportDecl, CUID int, modFQN strin
 	decl.Sym = c.insertSymbol(c.scope, sym.Name, sym)
 }
 
-func (c *checker) setUseSymbol(decl *ir.UseDecl, CUID int, modFQN string, public bool, topDecl bool) {
+func (c *checker) newUseSymbol(decl *ir.UseDecl, CUID int, modFQN string, public bool, topDecl bool) *ir.Symbol {
+	alias := ir.FQN(modFQN, decl.Alias.Literal)
+	name := decl.Name.FQN(modFQN)
+	if name == alias {
+		c.nodeError(decl, "use cannot refer to itself")
+		return nil
+	}
+
 	key := c.nextSymKey()
 	sym := ir.NewSymbol(ir.UnknownSymbol, key, CUID, modFQN, decl.Alias.Literal, decl.Alias.Pos())
 	sym.Public = public
@@ -131,22 +138,24 @@ func (c *checker) setUseSymbol(decl *ir.UseDecl, CUID int, modFQN string, public
 	if topDecl {
 		sym.Flags |= ir.SymFlagTopDecl
 	}
-	decl.Sym = sym
+	return sym
 }
 
 func (c *checker) insertUseSymbol(decl *ir.UseDecl, CUID int, modFQN string, public bool, topDecl bool) {
-	c.setUseSymbol(decl, CUID, modFQN, public, topDecl)
-	decl.Sym = c.insertSymbol(c.scope, decl.Sym.Name, decl.Sym)
+	decl.Sym = c.newUseSymbol(decl, CUID, modFQN, public, topDecl)
+	if decl.Sym != nil {
+		decl.Sym = c.insertSymbol(c.scope, decl.Sym.Name, decl.Sym)
+	}
 }
 
-func (c *checker) setLocalTypeDeclSymbol(decl *ir.TypeDecl, CUID int, modFQN string) {
+func (c *checker) newLocalTypeDeclSymbol(decl *ir.TypeDecl, CUID int, modFQN string) *ir.Symbol {
 	key := c.nextSymKey()
 	sym := ir.NewSymbol(ir.TypeSymbol, key, CUID, modFQN, decl.Name.Literal, decl.Name.Pos())
 	sym.Flags = ir.SymFlagDefined
-	decl.Sym = sym
+	return sym
 }
 
-func (c *checker) setLocalValDeclSymbol(decl *ir.ValDecl, CUID int, modFQN string) {
+func (c *checker) newLocalValDeclSymbol(decl *ir.ValDecl, CUID int, modFQN string) *ir.Symbol {
 	key := c.nextSymKey()
 	sym := ir.NewSymbol(ir.ValSymbol, key, CUID, modFQN, decl.Name.Literal, decl.Name.Pos())
 	sym.Flags = ir.SymFlagDefined
@@ -154,12 +163,14 @@ func (c *checker) setLocalValDeclSymbol(decl *ir.ValDecl, CUID int, modFQN strin
 		sym.Flags |= ir.SymFlagField
 	}
 	sym.Public = (decl.Flags & ir.AstFlagPublic) != 0
-	decl.Sym = sym
+	return sym
 }
 
 func (c *checker) insertLocalValDeclSymbol(decl *ir.ValDecl, CUID int, modFQN string) {
-	c.setLocalValDeclSymbol(decl, CUID, modFQN)
-	decl.Sym = c.insertSymbol(c.scope, decl.Sym.Name, decl.Sym)
+	decl.Sym = c.newLocalValDeclSymbol(decl, CUID, modFQN)
+	if decl.Sym != nil {
+		decl.Sym = c.insertSymbol(c.scope, decl.Sym.Name, decl.Sym)
+	}
 }
 
 func (c *checker) insertFunDeclSignature(decl *ir.FuncDecl, parentScope *ir.Scope) {
@@ -214,23 +225,20 @@ func (c *checker) patchSelf(decl *ir.FuncDecl, structSym *ir.Symbol) {
 	if param.Name.Tok != token.Placeholder {
 		return
 	}
-	ty := param.Type
+	typeExpr := param.Type
 	if ty2, ok := param.Type.(*ir.PointerTypeExpr); ok {
-		ty = ty2.X
+		typeExpr = ty2.X
 	}
-	modFQNSep := ""
-	if len(structSym.ModFQN) > 0 {
-		modFQNSep = structSym.ModFQN + token.ScopeSep.String()
-	}
+	modFQN := structSym.ModFQN
 	tyName := ""
-	switch ty := ty.(type) {
+	switch typeExpr := typeExpr.(type) {
 	case *ir.Ident:
-		tyName = modFQNSep + ty.Literal
+		tyName = ir.FQN(modFQN, typeExpr.Literal)
 	case *ir.ScopeLookup:
-		tyName = ty.FQN(structSym.ModFQN)
+		tyName = typeExpr.FQN(structSym.ModFQN)
 	}
 	if len(tyName) > 0 {
-		selfTyName := modFQNSep + ir.SelfType
+		selfTyName := ir.FQN(modFQN, ir.SelfType)
 		if tyName == selfTyName || tyName == structSym.FQN() {
 			param.Name.Tok = token.Ident
 			param.Name.Literal = ir.Self

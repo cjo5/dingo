@@ -14,9 +14,6 @@ func Check(ctx *common.BuildContext, target ir.Target, fileMatrix ir.FileMatrix)
 	modMatrix := c.createModuleMatrix(fileMatrix)
 	c.initObjectMatrix(modMatrix)
 	c.checkTypes()
-	if ctx.IsErrorSinceCheckpoint() {
-		return nil, false
-	}
 	declMatrix := c.createDeclMatrix()
 	return declMatrix, !ctx.IsErrorSinceCheckpoint()
 }

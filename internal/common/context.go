@@ -127,7 +127,7 @@ func (ctx *BuildContext) setErrorLocations2(cache fileLinesCache, errors []*Erro
 		}
 		mark := notWSRegex.ReplaceAllString(line[:columnPos], " ")
 		markCount := (e.EndPos.Column - 1) - columnPos
-		if e.EndPos.Line == e.Pos.Line && markCount > 1 && markCount < lineLen {
+		if e.EndPos.Line == e.Pos.Line && markCount > 1 && markCount <= lineLen {
 			mark += BoldGreen(strings.Repeat("~", markCount))
 		} else {
 			mark += BoldGreen("^")

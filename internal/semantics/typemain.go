@@ -72,7 +72,7 @@ func (c *checker) checkLocalDecl(decl ir.Decl) {
 	switch decl := decl.(type) {
 	case *ir.UseDecl:
 		if c.step == 0 {
-			c.setUseSymbol(decl, c.object.CUID(), c.object.modFQN(), false, false)
+			decl.Sym = c.newUseSymbol(decl, c.object.CUID(), c.object.modFQN(), false, false)
 		}
 		if decl.Sym != nil {
 			c.checkUseDecl(decl)
@@ -82,7 +82,7 @@ func (c *checker) checkLocalDecl(decl ir.Decl) {
 		}
 	case *ir.TypeDecl:
 		if c.step == 0 {
-			c.setLocalTypeDeclSymbol(decl, c.object.CUID(), c.object.modFQN())
+			decl.Sym = c.newLocalTypeDeclSymbol(decl, c.object.CUID(), c.object.modFQN())
 		}
 		if decl.Sym != nil {
 			c.checkTypeDecl(decl)
@@ -92,7 +92,7 @@ func (c *checker) checkLocalDecl(decl ir.Decl) {
 		}
 	case *ir.ValDecl:
 		if c.step == 0 {
-			c.setLocalValDeclSymbol(decl, c.object.CUID(), c.object.modFQN())
+			decl.Sym = c.newLocalValDeclSymbol(decl, c.object.CUID(), c.object.modFQN())
 		}
 		if decl.Sym != nil {
 			c.checkValDecl(decl)
@@ -119,10 +119,10 @@ func (c *checker) checkUseDecl(decl *ir.UseDecl) {
 		decl.Sym.ABI = last.Sym.ABI
 		decl.Sym.Flags |= (last.Sym.Flags & (ir.SymFlagReadOnly | ir.SymFlagConst))
 		if decl.Sym.Public && !last.Sym.Public {
-			c.nodeError(decl, "private '%s' cannot be re-exported as public", last.Sym.Name)
+			c.nodeError(decl.Name, "private '%s' cannot be re-exported as public", last.Sym.Name)
 			tuse = ir.TBuiltinInvalid
 		} else if last.Sym.IsBuiltin() {
-			c.nodeError(decl, "builtin '%s' cannot be brought into scope", last.Sym.Name)
+			c.nodeError(decl.Name, "builtin '%s' cannot be brought into scope", last.Sym.Name)
 			tuse = ir.TBuiltinInvalid
 		}
 	}

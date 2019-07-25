@@ -135,8 +135,12 @@ func (s *Symbol) FQN() string {
 	if s.Kind == ModuleSymbol {
 		return s.ModFQN
 	}
-	if len(s.ModFQN) > 0 {
-		return fmt.Sprintf("%s%s%s", s.ModFQN, token.ScopeSep, s.Name)
+	return FQN(s.ModFQN, s.Name)
+}
+
+func FQN(modFQN string, name string) string {
+	if len(modFQN) > 0 {
+		return fmt.Sprintf("%s%s%s", modFQN, token.ScopeSep, name)
 	}
-	return s.Name
+	return name
 }
