@@ -12,7 +12,10 @@ a | b : a or b
 ```
 
 ## Entry
+
+```
 Entry           ::= ModuleBody
+```
 
 ## Declarations
 
