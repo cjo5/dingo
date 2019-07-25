@@ -243,6 +243,12 @@ out:
 			Filename: objList.filename,
 			CUID:     objList.CUID,
 			Decls:    sortedDecls,
+			Syms:     make(map[int]*ir.Symbol),
+		}
+		// TODO: fill Syms map when creating the decl list
+		for _, decl := range declList.Decls {
+			sym := decl.Symbol()
+			declList.Syms[sym.UniqKey] = sym
 		}
 		declMatrix = append(declMatrix, declList)
 	}

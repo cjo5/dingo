@@ -24,6 +24,7 @@ type llvmCodeBuilder struct {
 	externalNameMap map[string]*ir.Symbol
 
 	mod        llvm.Module
+	declList   *ir.DeclList
 	valueMap   map[int]llvm.Value
 	typeMap    llvmTypeMap
 	signature  bool
@@ -132,7 +133,7 @@ func (cb *llvmCodeBuilder) addExternalNameEntries(matrix ir.DeclMatrix) {
 			sym := decl.Symbol()
 			if isExternalLLVMLinkage(sym) && sym.IsDefined() &&
 				(sym.Kind == ir.FuncSymbol || sym.Kind == ir.ValSymbol) {
-				name := mangle(sym)
+				name := cb.mangle(sym)
 				if existing, ok := cb.externalNameMap[name]; ok {
 					if existing != sym {
 						cb.ctx.Errors.Add(sym.Pos, "link name collision for '%s' (duplicate is at %s)", name, existing.Pos)
@@ -194,6 +195,7 @@ func (cb *llvmCodeBuilder) deleteObjects() {
 
 func (cb *llvmCodeBuilder) buildLLVModule(list *ir.DeclList) bool {
 	cb.mod = llvm.NewModule(list.Filename)
+	cb.declList = list
 	cb.valueMap = make(map[int]llvm.Value)
 	cb.typeMap = make(llvmTypeMap)
 	cb.inFunction = false
@@ -252,6 +254,14 @@ func (cb *llvmCodeBuilder) finalizeLLVModule(list *ir.DeclList) bool {
 func (cb *llvmCodeBuilder) llvmType(t ir.Type) llvm.Type {
 	return llvmType(t, &cb.typeMap)
 }
+
+func (cb *llvmCodeBuilder) mangle(sym *ir.Symbol) string {
+	if sym.UniqKey != sym.Key {
+		sym = cb.declList.Syms[sym.Key]
+	}
+	return mangle(sym)
+}
+
 func (cb *llvmCodeBuilder) buildIntrinsics() {
 	tptr := ir.NewPointerType(ir.TBuiltinInt8, false)
 	tsaveFun := llvm.FunctionType(cb.llvmType(tptr), nil, false)
@@ -860,7 +870,7 @@ func (cb *llvmCodeBuilder) buildExpr(expr ir.Expr, load bool) llvm.Value {
 
 func (cb *llvmCodeBuilder) buildIdent(expr *ir.Ident, load bool) llvm.Value {
 	if expr.Sym.Kind == ir.FuncSymbol {
-		fun := cb.mod.NamedFunction(mangle(expr.Sym))
+		fun := cb.mod.NamedFunction(cb.mangle(expr.Sym))
 		return fun
 	}
 
@@ -1177,7 +1187,7 @@ func (cb *llvmCodeBuilder) buildDotExpr(expr *ir.DotExpr, load bool) llvm.Value 
 		return cb.buildIdent(expr.Name, load)
 	case *ir.StructType:
 		if expr.Name.Sym.IsMethod() {
-			return cb.mod.NamedFunction(mangle(expr.Name.Sym))
+			return cb.mod.NamedFunction(cb.mangle(expr.Name.Sym))
 		}
 		val := cb.buildExprPtr(expr.X)
 		if val.Type().TypeKind() != llvm.PointerTypeKind {
