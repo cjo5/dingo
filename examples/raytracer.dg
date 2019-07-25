@@ -13,18 +13,18 @@ struct Vec3 {
     y: f32
     z: f32
 
-    fun normalize(&var self) {
+    fun normalize(&var Self) {
         val n = self.length()
         self.x = self.x/n
         self.y = self.y/n
         self.z = self.z/n
     }
 
-    fun length(&self) f32 {
+    fun length(&Self) f32 {
         return sqrt(self.length2()) as f32
     }
 
-    fun length2(&self) f32 {
+    fun length2(&Self) f32 {
         return self.x*self.x + self.y*self.y + self.z*self.z
     }
 }
@@ -138,7 +138,7 @@ struct Ray {
     origin: Vec3
     dir: Vec3
 
-    fun point_at_parameter(&self, t: f32) Vec3 {
+    fun point_at_parameter(&Self, t: f32) Vec3 {
         return add(self.origin, smul(t, self.dir))
     }
 }
@@ -154,7 +154,7 @@ struct Material {
     ref_idx: f32
 
     fun lambertian_scatter(
-        &self,
+        &Self,
         ray_in: &Ray,
         rec: &HitRecord,
         attenuation: &var Vec3,
@@ -170,7 +170,7 @@ struct Material {
     }
 
     fun metal_scatter(
-        &self,
+        &Self,
         ray_in: &Ray,
         rec: &HitRecord,
         attenuation: &var Vec3,
@@ -183,7 +183,7 @@ struct Material {
     }
 
     fun dielectric_scatter(
-        &self,
+        &Self,
         ray_in: &Ray,
         rec: &HitRecord,
         attenuation: &var Vec3,
@@ -221,7 +221,7 @@ struct Material {
     }
 
     fun scatter(
-        &self,
+        &Self,
         ray_in: &Ray,
         rec: &HitRecord,
         attenuation: &var Vec3,
@@ -248,7 +248,7 @@ struct Sphere {
     radius: f32
     mat: Material
 
-    fun hit(&self, ray: &Ray, tmin: f32, tmax: f32, rec: &var HitRecord) bool {
+    fun hit(&Self, ray: &Ray, tmin: f32, tmax: f32, rec: &var HitRecord) bool {
         val oc = sub(ray.origin, self.center)
         val a = dot(ray.dir, ray.dir)
         val b = dot(oc, ray.dir)
@@ -279,7 +279,7 @@ struct Sphere {
 struct World {
     spheres: &[Sphere]
 
-    fun hit(&self, r: &Ray, tmin: f32, tmax: f32, rec: &var HitRecord) bool {
+    fun hit(&Self, r: &Ray, tmin: f32, tmax: f32, rec: &var HitRecord) bool {
         var tmp_rec: HitRecord
         var hit_anything = false
         var closest_so_far = tmax
@@ -304,7 +304,7 @@ struct Camera {
     w: Vec3
     lens_radius: f32
 
-    fun get_ray(&self, s: f32, t: f32) Ray {
+    fun get_ray(&Self, s: f32, t: f32) Ray {
         val rd = smul(self.lens_radius, random_in_unit_disk())
         val offset = add(
             smul(rd.x, self.u),

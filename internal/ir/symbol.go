@@ -3,6 +3,12 @@ package ir
 import "github.com/cjo5/dingo/internal/token"
 import "fmt"
 
+// SelfType of struct.
+const SelfType = "Self"
+
+// Self name of struct in method.
+const Self = "self"
+
 // CABI name.
 const CABI = "c"
 

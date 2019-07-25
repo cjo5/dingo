@@ -187,7 +187,7 @@ func (c *checker) insertStructDeclBody(decl *ir.StructDecl, methodScope *ir.Scop
 		}
 	}
 	for _, method := range decl.Methods {
-		c.patchSelf(method, sym.Name)
+		c.patchSelf(method, sym)
 		pubField := (method.Flags & ir.AstFlagPublic) != 0
 		name := "dg." + sym.Name + "." + method.Name.Literal
 		sym := c.newTopDeclSymbol(ir.FuncSymbol, sym.CUID, sym.ModFQN, sym.ABI, pubField, name, method.Name.Pos(), !method.SignatureOnly())
@@ -206,12 +206,34 @@ func (c *checker) insertStructDeclBody(decl *ir.StructDecl, methodScope *ir.Scop
 	decl.Name.Sym = decl.Sym
 }
 
-func (c *checker) patchSelf(decl *ir.FuncDecl, structName string) {
-	if len(decl.Params) > 0 {
-		param := decl.Params[0]
-		if param.Name.Tok == token.Placeholder {
+func (c *checker) patchSelf(decl *ir.FuncDecl, structSym *ir.Symbol) {
+	if len(decl.Params) == 0 {
+		return
+	}
+	param := decl.Params[0]
+	if param.Name.Tok != token.Placeholder {
+		return
+	}
+	ty := param.Type
+	if ty2, ok := param.Type.(*ir.PointerTypeExpr); ok {
+		ty = ty2.X
+	}
+	modFQNSep := ""
+	if len(structSym.ModFQN) > 0 {
+		modFQNSep = structSym.ModFQN + token.ScopeSep.String()
+	}
+	tyName := ""
+	switch ty := ty.(type) {
+	case *ir.Ident:
+		tyName = modFQNSep + ty.Literal
+	case *ir.ScopeLookup:
+		tyName = ty.FQN(structSym.ModFQN)
+	}
+	if len(tyName) > 0 {
+		selfTyName := modFQNSep + ir.SelfType
+		if tyName == selfTyName || tyName == structSym.FQN() {
 			param.Name.Tok = token.Ident
-			param.Name.Literal = "self"
+			param.Name.Literal = ir.Self
 			if !param.Name.Pos().IsValid() {
 				param.Name.SetRange(param.Type.Pos(), param.Type.EndPos())
 			}

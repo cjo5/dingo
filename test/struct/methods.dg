@@ -8,11 +8,11 @@ struct Foo {
         io::printiln(a)
     }
 
-    fun inc(&var self) {
+    fun inc(&var Self) {
         self.count++
     }
 
-    fun inc_twice(f: &var self) {
+    fun inc_twice(f: &var Self) {
         f.inc()
         f.inc()
     }
@@ -23,7 +23,7 @@ struct Foo {
         self.inc()
     }
 
-    fun get(&self) i32 {
+    fun get(&Self) i32 {
         return self.count
     }
 }

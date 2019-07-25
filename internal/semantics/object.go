@@ -177,7 +177,7 @@ func (c *checker) createObjects(decl *ir.TopDecl, CUID int, modFQN string) []*ob
 				}
 			} else {
 				selfType := &ir.TypeDecl{
-					Name: ir.NewIdent2(token.Ident, "self"),
+					Name: ir.NewIdent2(token.Ident, ir.SelfType),
 					Type: ir.NewIdent2(token.Ident, decl.Name.Literal),
 				}
 

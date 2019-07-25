@@ -7,11 +7,11 @@ struct Foo {
 
     }
 
-    fun f3(&var self) {
+    fun f3(&var Self) {
         self.a++
     }
 
-    fun f4(&self) {
+    fun f4(&Self) {
         self.a++ // expect-error: expression is read-only
     }
 

@@ -6,12 +6,12 @@
 - [Comments](#comments)
 - [Semicolons](#semicolons)
 - [Variables](#variables)
+- [Typealias](#typealias)
 - [Functions](#functions)
 - [References / Pointers](#references--pointers)
 - [Arrays](#arrays)
 - [Slices](#slices)
 - [Structs](#structs)
-- [Typealias](#typealias)
 - [Type Casting](#type-casting)
 - [If](#if)
 - [For / While](#for--while)
@@ -175,6 +175,12 @@ val f = 2
 
 ```var``` defines a mutable variable and ```val``` defines an immutable value. The type can be omitted when there is an initializer. The variable/value is assigned a default value if there is no initializer.
 
+## Typealias
+
+```rust
+typealias Id = i32
+```
+
 ## Functions
 
 ```rust
@@ -207,6 +213,8 @@ val sub = fun(a: i32, b: i32) i32 {
     return a - b
 }
 ```
+
+Create an alias for a type. The two types are equivalent, and either type can be substituted for the other.
 
 ## References / Pointers
 
@@ -254,13 +262,13 @@ struct Foo {
 
     // methods
 
-    // equivalent to self: &self
-    fun add(&self) i32 {
+    // equivalent to self: &Self
+    fun add(&Self) i32 {
         return self.a + self.b
     }
 
     // equivalent to self: &Foo
-    fun sub(self: &self) i32 {
+    fun sub(self: &Self) i32 {
         return self.a - self.b
     }
 
@@ -270,16 +278,16 @@ struct Foo {
     }
 
     // the parameter can have any custom name
-    fun div(f: &self) i32 {
+    fun div(f: &Self) i32 {
         return f.a/f.b
     }
 
     // mutable parameter
-    fun inc(&var self) {
+    fun inc(&var Self) {
         self.count++
     }
 
-    fun set(&var self, a: i32, b: i32) {
+    fun set(&var Self, a: i32, b: i32) {
         self.a = a
         self.b = b
     }
@@ -304,17 +312,10 @@ f2.say_hello()  // invalid, say_hello does not take Foo as first argument
 
 ```
 
-```self``` has two meanings in the context of methods: the first parameter is called ```self``` if the name is omitted in the declaration, and any use of ```self``` in a type in the function signature refers to the name of the struct. Other than this convenience and the dot syntax, methods are exactly the same as normal functions.
-
 Values are automatically dereferenced for field access and referenced when calling methods.
 
-## Typealias
+```Self``` is a ```typealias``` of the struct in methods. If the first parameter name is omitted in the function signature, then ```self``` is automatically inserted if the type is the struct (or ```Self```) or a reference to it; that is, the types that can be used with the dot operator. Other than these two conveniences methods are exactly the same as normal functions.
 
-```rust
-typealias Id = i32
-```
-
-Create an alias for a type. The two types are equivalent, and either type can be substituted for the other.
 
 ## Type Casting
 
