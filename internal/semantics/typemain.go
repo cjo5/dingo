@@ -261,7 +261,16 @@ func (c *checker) checkStructDecl(decl *ir.StructDecl) {
 	if decl.Opaque && decl.Sym.IsDefined() {
 		return
 	}
-	tstruct := ir.ToBaseType(decl.Sym.T).(*ir.StructType)
+	var tstruct *ir.StructType
+	switch tbase := ir.ToBaseType(decl.Sym.T).(type) {
+	case *ir.StructType:
+		tstruct = tbase
+	default:
+		if tbase.Kind() != ir.TInvalid {
+			panic(fmt.Sprintf("unknown type %T", tbase))
+		}
+		return
+	}
 	if tstruct.TypedBody {
 		return
 	}
