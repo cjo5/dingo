@@ -680,7 +680,7 @@ func (c *checker) resolveScopeLookup(expr *ir.ScopeLookup) {
 			case *ir.StructType:
 				if sym.Kind != ir.TypeSymbol {
 					valid = false
-					c.error(part.Pos(), "scope operator cannot be used on struct value", tsym)
+					c.error(part.Pos(), "scope operator cannot be used on struct value")
 				} else {
 					c.scope = tsym.Scope
 				}
