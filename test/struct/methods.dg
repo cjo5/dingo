@@ -1,9 +1,9 @@
 include "../common.dg"
 
 struct Foo {
-    var count: I32
+    var count: Int
 
-    fun bar(f: &Foo, a: I32) {
+    fun bar(f: &Foo, a: Int) {
         io::printiln(f.get())
         io::printiln(a)
     }
@@ -23,7 +23,7 @@ struct Foo {
         self.inc()
     }
 
-    fun get(&Self) I32 {
+    fun get(&Self) Int {
         return self.count
     }
 }

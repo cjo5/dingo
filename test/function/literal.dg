@@ -7,7 +7,7 @@ extern fun main() C_int {
 
     hello() // expect: Hello!
 
-    do_operation(5, 2, fun(arg1: I32, arg2: I32) I32 {
+    do_operation(5, 2, fun(arg1: Int, arg2: Int) Int {
         return arg1 * arg2
     }) 
     // expect: 10
@@ -21,7 +21,7 @@ val bye = fun() {
     io::println("Good bye!")
 }
 
-fun do_operation(arg1: I32, arg2: I32, op: fun(I32, I32) I32) {
+fun do_operation(arg1: Int, arg2: Int, op: fun(Int, Int) Int) {
     val res = op(arg1, arg2)
     io::printiln(res)
 }

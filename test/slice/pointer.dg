@@ -5,7 +5,7 @@ extern fun main() C_int {
     var ptr = &var data
     val slice = &var ptr[:1]
 
-    io::printiln(len(slice) as I32) // expect: 1
+    io::printiln(len(slice) as Int) // expect: 1
     io::printiln(slice[0]) // expect: 9
 
     slice[0]++

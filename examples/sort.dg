@@ -7,7 +7,7 @@ include "../std/lib.dg"
     */
 */
 extern fun main() C_int {
-    var arr = [I32](31, 4, -10, 9, 2)
+    var arr = [Int](31, 4, -10, 9, 2)
 
     sort(&var arr[:])
     print_data(&arr[:])
@@ -15,13 +15,13 @@ extern fun main() C_int {
     return 0
 }
 
-fun swap(x: &var I32, y: &var I32) {
+fun swap(x: &var Int, y: &var Int) {
     val tmp = x[]
     x[] = y[]
     y[] = tmp
 }
 
-fun sort(data: &var [I32]) {
+fun sort(data: &var [Int]) {
     for i: USize = 0; i < len(data)-1; i++ {
         for j: USize = 0; j < len(data)-1; j++ {
             if data[j] > data[j+1] {
@@ -31,7 +31,7 @@ fun sort(data: &var [I32]) {
     }
 }
 
-fun print_data(data: &[I32]) {
+fun print_data(data: &[Int]) {
     for i: USize = 0; i < len(data); i++ {
         io::printiln(data[i])
     }

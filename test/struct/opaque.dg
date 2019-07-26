@@ -15,7 +15,7 @@ struct Foo
 struct Bar
 
 struct Bar {
-    var a: I32
+    var a: Int
 }
 
 struct Bar

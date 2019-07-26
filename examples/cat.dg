@@ -19,7 +19,7 @@ fun cat(filename: &C_char) C_int {
     }
     defer libc::fclose(file)
 
-    var buffer: [I8:1024]
+    var buffer: [Byte:1024]
     var n: C_usize = 1
     var total: C_usize
 

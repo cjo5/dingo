@@ -1,9 +1,9 @@
 include "../common.dg"
 
 struct Foo {
-    var a: I32
-    var b: I32
-    var c: I32
+    var a: Int
+    var b: Int
+    var c: Int
 }
 
 extern fun main() C_int {

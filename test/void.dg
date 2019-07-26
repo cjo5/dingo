@@ -2,9 +2,9 @@ include "common.dg"
 
 extern fun main() C_int {
     var data = 5
-    var a: &I32 = &data
+    var a: &Int = &data
     var b: &Void = a
-    var c: &I32 = b as &I32
+    var c: &Int = b as &Int
 
     io::printiln(c[]) // expect: 5
 

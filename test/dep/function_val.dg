@@ -8,4 +8,4 @@ extern fun main() C_int {
     return 0
 }
 
-val bar: I32 = 9
+val bar: Int = 9

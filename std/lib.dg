@@ -10,20 +10,20 @@ pub module math {
     pub use c::cos
     pub use c::sin
 
-    pub val e: F64 = 2.71828182845904523536028747135266249775724709369995
-    pub val pi: F64 = 3.14159265358979323846264338327950288419716939937510
+    pub val e: F32 = 2.71828182845904523536028747135266249775724709369995
+    pub val pi: F32 = 3.14159265358979323846264338327950288419716939937510
 }
 
 pub module io {
     pub use c = ::libc
     pub use c::putchar
 
-    pub fun println(str: &[I8]) {
+    pub fun println(str: &[Byte]) {
         print(str)
         putchar('\n')
     }
 
-    pub fun print(str: &[I8]) {
+    pub fun print(str: &[Byte]) {
         for i: USize = 0; i < len(str); i++ {
             putchar(str[i])
         }
@@ -66,7 +66,7 @@ pub module io {
         c::printf(c"%g\n", f)
     }
 
-    pub fun readln(buf: &var [I8], null_terminate: Bool) &var [I8] {
+    pub fun readln(buf: &var [Byte], null_terminate: Bool) &var [Byte] {
         var max = len(buf)
         if null_terminate and max > 0 {
             max--
@@ -80,7 +80,7 @@ pub module io {
             } elif ch == '\n' {
                 end = true
             } else {
-                buf[n] = ch as I8
+                buf[n] = ch as Byte
                 n++
             }
         }

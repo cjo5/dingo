@@ -10,7 +10,7 @@ extern fun main() C_int {
     return 0
 }
 
-fun foo(i: I32) {
+fun foo(i: Int) {
     if i < 0 {
         return
     }
@@ -18,7 +18,7 @@ fun foo(i: I32) {
     bar(i-1)
 }
 
-fun bar(i: I32) {
+fun bar(i: Int) {
     io::println("bar")
     foo(i-1)
 }

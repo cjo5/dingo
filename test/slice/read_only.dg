@@ -1,10 +1,10 @@
 fun foo() {
-    val a = [I32](1, 2, 3)
+    val a = [Int](1, 2, 3)
     val b = &var a[:] // expect-error: expression is read-only
 
-    var c: &I32
+    var c: &Int
     val d = &var c[:1] // expect-error: expression is read-only
 
-    var e: &[I32]
+    var e: &[Int]
     val f = &var e[:] // expect-error: expression is read-only
 }

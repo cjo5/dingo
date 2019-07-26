@@ -37,6 +37,12 @@ func (c *checker) initBuiltinScope() {
 	c.insertBuiltinType(ir.TBuiltinFloat32)
 	c.insertBuiltinType(ir.TBuiltinFloat64)
 
+	c.insertBuiltinAliasType("Byte", ir.TBuiltinInt8)
+	c.insertBuiltinAliasType("UByte", ir.TBuiltinUInt8)
+	c.insertBuiltinAliasType("Int", ir.TBuiltinInt32)
+	c.insertBuiltinAliasType("UInt", ir.TBuiltinUInt32)
+	c.insertBuiltinAliasType("Float", ir.TBuiltinFloat32)
+
 	// TODO: Change to distinct types
 	c.insertBuiltinAliasType("C_void", ir.TBuiltinVoid)
 	c.insertBuiltinAliasType("C_char", ir.TBuiltinInt8)

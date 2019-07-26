@@ -1,5 +1,5 @@
 struct Foo {
-    var a: I32
+    var a: Int
 }
 
 fun foo() {

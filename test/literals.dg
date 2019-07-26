@@ -13,8 +13,8 @@ extern fun main() C_int {
 
     val a1 = true
     val a2 = false
-    val a3: &I32 = null
-    val a4: &[I32] = null
+    val a3: &Int = null
+    val a4: &[Int] = null
     val a5 = .23
     val a6 = 2e2
 

@@ -1,12 +1,12 @@
 fun bar() {
     var a: &Void
-    var b: &[I32]
+    var b: &[Int]
     var c: Void // expect-error: incomplete type 'Void'
     var d: [Void:5] // expect-error: incomplete type '[Void:5]'
     var e: &[Void] // expect-error: incomplete type '&[Void]'
-    var f: [I32] // expect-error: incomplete type '[I32]'
+    var f: [Int] // expect-error: incomplete type '[I32]'
 
-    var g = [I32](1, 2)
+    var g = [Int](1, 2)
     var h = g[:] // expect-error: expression has incomplete type '[I32]'
 
 }

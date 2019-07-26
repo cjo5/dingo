@@ -37,9 +37,9 @@ The visibility of parent modules do not affect the visibility of child modules.
 
 ```rust
 module foo {            // FQN: foo
-    var bar I32         // FQN: foo.bar
+    var bar Int         // FQN: foo.bar
     pub module baz {    // FQN: foo.baz
-        pub var qux I32 // FQN: foo.baz.qux
+        pub var qux Int // FQN: foo.baz.qux
     }
 }
 ```
@@ -51,9 +51,9 @@ The include path is either absolute or relative to the file with the include sta
 a.dg:
 
 ```rust
-var bar I32
+var bar Int
 module baz {
-    var qux I32
+    var qux Int
 }
 ```
 
@@ -165,11 +165,11 @@ Semicolons work in a similar way as in Go. That is, the grammar and parser assum
 ## Variables
 
 ```rust
-var a: I32
-var b: I32 = 1
+var a: Int
+var b: Int = 1
 var c = 2
-val d: I32
-val e: I32 = 1
+val d: Int
+val e: Int = 1
 val f = 2
 ```
 
@@ -178,7 +178,7 @@ val f = 2
 ## Typealias
 
 ```rust
-typealias Id = I32
+typealias Id = Int
 ```
 
 Create an alias for a type. The two types are equivalent, and either type can be substituted for the other.
@@ -190,11 +190,11 @@ fun say_hello() {
     println("hello")
 }
 
-fun add(a: I32, b: I32) I32 {
+fun add(a: Int, b: Int) Int {
     return a + b
 }
 
-fun inc(var a: I32) I32 {
+fun inc(var a: Int) Int {
     a += 1
     return a
 }
@@ -210,8 +210,8 @@ Function parameters are immutable by default, but can be made mutable by preceed
 Functions can be used as values and also defined inline (function literals). Though note that function literals are not closures and do not have access to variables in the enclosing scope.
 
 ```rust
-val add_val: fun (I32, I32) I32 = add
-val sub = fun(a: I32, b: I32) I32 {
+val add_val: fun (Int, Int) Int = add
+val sub = fun(a: Int, b: Int) Int {
     return a - b
 }
 ```
@@ -219,10 +219,10 @@ val sub = fun(a: I32, b: I32) I32 {
 ## References / Pointers
 
 ```rust
-var a: I32 = 5
-val b: &I32 = &a         // immutable reference
-val c: &var I32 = &var a // mutable reference
-val d: &I32 = null       // default value
+var a: Int = 5
+val b: &Int = &a         // immutable reference
+val c: &var Int = &var a // mutable reference
+val d: &Int = null       // default value
 
 // dereference
 b[] = 5 // error, b is an immutable reference
@@ -235,17 +235,17 @@ val f = &var e // error, cannot take a mutable reference to an immutable value
 ## Arrays
 
 ```rust
-var a: [I32:5] = [I32](1, 2, 3, 4, 5) // allocated on the stack
+var a: [Int:5] = [Int](1, 2, 3, 4, 5) // allocated on the stack
 len(a) // length of array
 ```
 
 ## Slices
 
 ```rust
-var a = [I32](1, 2, 3, 4, 5)
-val b: &[I32] = &a[1:3]          // immmutable slice
-val c: &var [I32] = &var a[:3]   // mutable slice
-val d: &[I32] = null             // default value
+var a = [Int](1, 2, 3, 4, 5)
+val b: &[Int] = &a[1:3]          // immmutable slice
+val c: &var [Int] = &var a[:3]   // mutable slice
+val d: &[Int] = null             // default value
 
 len(c) // length of slice
 ```
@@ -256,29 +256,29 @@ len(c) // length of slice
 struct Foo {
     // fields
 
-    val a: I32      // immutable
-    val b: I32      // immutable
-    var count: I32  // mutable
+    val a: Int      // immutable
+    val b: Int      // immutable
+    var count: Int  // mutable
 
     // methods
 
     // equivalent to self: &Self
-    fun add(&Self) I32 {
+    fun add(&Self) Int {
         return self.a + self.b
     }
 
     // equivalent to self: &Foo
-    fun sub(self: &Self) I32 {
+    fun sub(self: &Self) Int {
         return self.a - self.b
     }
 
     // the struct name can be specified explicitly
-    fun mul(self: &Foo) I32 {
+    fun mul(self: &Foo) Int {
         return f.a*f.b
     }
 
     // the parameter can have any custom name
-    fun div(f: &Self) I32 {
+    fun div(f: &Self) Int {
         return f.a/f.b
     }
 
@@ -287,7 +287,7 @@ struct Foo {
         self.count++
     }
 
-    fun set(&var Self, a: I32, b: I32) {
+    fun set(&var Self, a: Int, b: Int) {
         self.a = a
         self.b = b
     }
@@ -320,7 +320,7 @@ Values are automatically dereferenced for field access and referenced when calli
 
 ```rust
 val a: I64 = 5
-val b = a as I32
+val b = a as Int
 ```
 
 ## If
@@ -482,7 +482,16 @@ USize
 // floating point
 F32
 F64
+
+// aliases
+typealias Byte = I8
+typealias UByte = U8
+typealias Int = I32
+typealias UInt = U32
+typealias Float = F32
 ```
+
+Note that the typealiases are defined this way independently of the platform, unlike the ```C_int```and ```C_float``` types that follow the C ABI.
 
 **Literal Samples**
 
@@ -576,12 +585,9 @@ for
 fun
 if
 import
-importlocal
 include
 len
 module
-mself
-msuper
 not
 null
 or
@@ -592,6 +598,7 @@ sizeof
 struct
 true
 typealias
+use
 val
 var
 while

@@ -3,15 +3,15 @@ fun foo() {
 
     val b = Baz(undef) // expect-error: unknown identifier 'undef'
 
-    val c = [I32](undef) // expect-error: unknown identifier 'undef'
+    val c = [Int](undef) // expect-error: unknown identifier 'undef'
 
     val d = undef + 2 // expect-error: unknown identifier 'undef'
 
     val e = -undef // expect-error: unknown identifier 'undef'
 
-    val f = undef as U32 // expect-error: unknown identifier 'undef'
+    val f = undef as UInt // expect-error: unknown identifier 'undef'
 
-    var arr: [I32:5]
+    var arr: [Int:5]
     val g = arr[undef] // expect-error: unknown identifier 'undef'
     val h = &arr[:undef] // expect-error: unknown identifier 'undef'
 
@@ -25,7 +25,7 @@ fun foo() {
 
     bar(undef) // expect-error: unknown identifier 'undef'
 
-    var undef: I32 = undef // expect-error: unknown identifier 'undef'
+    var undef: Int = undef // expect-error: unknown identifier 'undef'
 
     {
         use q = quux
@@ -34,11 +34,11 @@ fun foo() {
     use q = quux
 }
 
-fun bar(a: I32){}
+fun bar(a: Int){}
 struct Baz {
-    var a: I32
+    var a: Int
 }
 
 module quux {
-   fun bam() I32{} 
+   fun bam() Int{} 
 }

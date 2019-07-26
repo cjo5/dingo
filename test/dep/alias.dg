@@ -1,6 +1,6 @@
 include "../common.dg"
 
-typealias Foo1 = I32
+typealias Foo1 = Int
 typealias Foo2 = Bar
 
 extern fun main() C_int {
@@ -16,4 +16,4 @@ extern fun main() C_int {
     return 0
 }
 
-typealias Bar = I32
+typealias Bar = Int

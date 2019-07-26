@@ -1,6 +1,6 @@
 include "../common.dg"
 
-fun foo(a: I32, b: I32, c: I32) {
+fun foo(a: Int, b: Int, c: Int) {
     io::printi(a)
     io::putchar(' ')
     io::printi(b)

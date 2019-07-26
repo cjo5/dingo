@@ -9,9 +9,9 @@ use math::pi
 use math::tan
 
 struct Vec3 {
-    var x: F32
-    var y: F32
-    var z: F32
+    var x: Float
+    var y: Float
+    var z: Float
 
     fun normalize(&var Self) {
         val n = self.length()
@@ -20,11 +20,11 @@ struct Vec3 {
         self.z = self.z/n
     }
 
-    fun length(&Self) F32 {
-        return sqrt(self.length2()) as F32
+    fun length(&Self) Float {
+        return sqrt(self.length2()) as Float
     }
 
-    fun length2(&Self) F32 {
+    fun length2(&Self) Float {
         return self.x*self.x + self.y*self.y + self.z*self.z
     }
 }
@@ -67,7 +67,7 @@ fun div(v1: &Vec3, v2: &Vec3) Vec3 {
     )
 }
 
-fun smul(s: F32, v: &Vec3) Vec3 {
+fun smul(s: Float, v: &Vec3) Vec3 {
     return Vec3(
         x: s*v.x,
         y: s*v.y,
@@ -75,7 +75,7 @@ fun smul(s: F32, v: &Vec3) Vec3 {
     )
 }
 
-fun sdiv(v: &Vec3, s: F32) Vec3 {
+fun sdiv(v: &Vec3, s: Float) Vec3 {
     return Vec3(
         x: v.x/s,
         y: v.y/s,
@@ -83,7 +83,7 @@ fun sdiv(v: &Vec3, s: F32) Vec3 {
     )
 }
 
-fun dot(v1: &Vec3, v2: &Vec3) F32 {
+fun dot(v1: &Vec3, v2: &Vec3) Float {
     return v1.x*v2.x + v1.y*v2.y + v1.z*v2.z
 }
 
@@ -105,7 +105,7 @@ fun reflect(v: &Vec3, n: &Vec3) Vec3 {
     )
 }
 
-fun refract(v: &Vec3, n: &Vec3, ni_over_nt: F32, refracted: &var Vec3) Bool {
+fun refract(v: &Vec3, n: &Vec3, ni_over_nt: Float, refracted: &var Vec3) Bool {
     val uv = unit_vector(v)
     val dt = dot(uv, n)
     val discriminant = 1 - ni_over_nt*ni_over_nt*(1-dt*dt)
@@ -119,7 +119,7 @@ fun refract(v: &Vec3, n: &Vec3, ni_over_nt: F32, refracted: &var Vec3) Bool {
                 ),
             ),
             smul(
-                sqrt(discriminant) as F32,
+                sqrt(discriminant) as Float,
                 n,
             ),
         )
@@ -128,17 +128,17 @@ fun refract(v: &Vec3, n: &Vec3, ni_over_nt: F32, refracted: &var Vec3) Bool {
     return false
 }
 
-fun schlick(cosine: F32, ref_idx: F32) F32 {
+fun schlick(cosine: Float, ref_idx: Float) Float {
     var r0 = (1-ref_idx)/(1+ref_idx)
     r0 = r0*r0
-    return r0 + (1-r0)*(pow(1-cosine, 5) as F32) 
+    return r0 + (1-r0)*(pow(1-cosine, 5) as Float) 
 }
 
 struct Ray {
     var origin: Vec3
     var dir: Vec3
 
-    fun point_at_parameter(&Self, t: F32) Vec3 {
+    fun point_at_parameter(&Self, t: Float) Vec3 {
         return add(self.origin, smul(t, self.dir))
     }
 }
@@ -148,10 +148,10 @@ val KIND_METAL = 2
 val KIND_DIELECTRIC = 3
 
 struct Material {
-    var kind: I32
+    var kind: Int
     var albedo: Vec3
-    var fuzz: F32
-    var ref_idx: F32
+    var fuzz: Float
+    var ref_idx: Float
 
     fun lambertian_scatter(
         &Self,
@@ -191,17 +191,17 @@ struct Material {
     ) Bool {
         var outward_normal: Vec3
         val reflected = reflect(ray_in.dir, rec.normal)
-        var ni_over_nt: F32
+        var ni_over_nt: Float
         attenuation[] = Vec3(1, 1, 1)
         var refracted: Vec3
-        var reflect_prob: F32
-        var cosine: F32
+        var reflect_prob: Float
+        var cosine: Float
         if dot(ray_in.dir, rec.normal) > 0 {
             outward_normal = smul(-1, rec.normal)
             ni_over_nt = self.ref_idx
             //cosine = self.ref_idx*dot(ray_in.dir, rec.normal)/norm(ray_in.dir)
             cosine = dot(ray_in.dir, rec.normal)/ray_in.dir.length()
-            cosine = sqrt(1 - self.ref_idx*self.ref_idx*(1-cosine*cosine)) as F32
+            cosine = sqrt(1 - self.ref_idx*self.ref_idx*(1-cosine*cosine)) as Float
         } else {
             outward_normal = rec.normal
             ni_over_nt = 1/self.ref_idx
@@ -237,7 +237,7 @@ struct Material {
 }
 
 struct HitRecord {
-    var t: F32
+    var t: Float
     var p: Vec3
     var normal: Vec3
     var mat: &Material
@@ -245,17 +245,17 @@ struct HitRecord {
 
 struct Sphere {
     var center: Vec3
-    var radius: F32
+    var radius: Float
     var mat: Material
 
-    fun hit(&Self, ray: &Ray, tmin: F32, tmax: F32, rec: &var HitRecord) Bool {
+    fun hit(&Self, ray: &Ray, tmin: Float, tmax: Float, rec: &var HitRecord) Bool {
         val oc = sub(ray.origin, self.center)
         val a = dot(ray.dir, ray.dir)
         val b = dot(oc, ray.dir)
         val c = dot(oc, oc) - self.radius*self.radius
         val discriminant = b*b - a*c
         if discriminant > 0 {
-            var tmp = (-b - sqrt(discriminant) as F32)/a
+            var tmp = (-b - sqrt(discriminant) as Float)/a
             if tmp < tmax and tmp > tmin {
                 rec.t = tmp
                 rec.p = ray.point_at_parameter(rec.t)
@@ -263,7 +263,7 @@ struct Sphere {
                 rec.mat = &self.mat
                 return true
             }
-            tmp = (-b + sqrt(discriminant) as F32)/a
+            tmp = (-b + sqrt(discriminant) as Float)/a
             if tmp < tmax and tmp > tmin {
                 rec.t = tmp
                 rec.p = ray.point_at_parameter(rec.t)
@@ -279,7 +279,7 @@ struct Sphere {
 struct World {
     var spheres: &[Sphere]
 
-    fun hit(&Self, r: &Ray, tmin: F32, tmax: F32, rec: &var HitRecord) Bool {
+    fun hit(&Self, r: &Ray, tmin: Float, tmax: Float, rec: &var HitRecord) Bool {
         var tmp_rec: HitRecord
         var hit_anything = false
         var closest_so_far = tmax
@@ -302,9 +302,9 @@ struct Camera {
     var u: Vec3
     var v: Vec3
     var w: Vec3
-    var lens_radius: F32
+    var lens_radius: Float
 
-    fun get_ray(&Self, s: F32, t: F32) Ray {
+    fun get_ray(&Self, s: Float, t: Float) Ray {
         val rd = smul(self.lens_radius, random_in_unit_disk())
         val offset = add(
             smul(rd.x, self.u),
@@ -336,15 +336,15 @@ fun create_camera(
     lookfrom: Vec3,
     lookat: Vec3,
     vup: Vec3,
-    vfov: F32,
-    aspect: F32,
-    aperture: F32,
-    focus_dist: F32,
+    vfov: Float,
+    aspect: Float,
+    aperture: Float,
+    focus_dist: Float,
 ) Camera {
     var cam = Camera()
     cam.lens_radius = aperture/2
     val theta = vfov*pi/180
-    val half_height = tan(theta/2) as F32
+    val half_height = tan(theta/2) as Float
     val half_width = aspect*half_height
     cam.origin = lookfrom
     cam.w = unit_vector(sub(lookfrom, lookat))
@@ -401,7 +401,7 @@ fun random_in_unit_disk() Vec3 {
     return p
 }
 
-fun color(ray: &Ray, world: &World, depth: I32) Vec3 {
+fun color(ray: &Ray, world: &World, depth: Int) Vec3 {
     var rec: HitRecord
     if world.hit(ray, 0.001, 1e37, &var rec) {
         var scattered: Ray
@@ -419,9 +419,9 @@ fun color(ray: &Ray, world: &World, depth: I32) Vec3 {
     return add(Vec3(1-t, 1-t, 1-t), Vec3(t*0.5, t*0.7, t*1.0))
 }
 
-fun randf32(min: F32, max: F32) F32 {
+fun randf32(min: Float, max: Float) Float {
     var div = 100
-    return ((libc::rand()%div) as F32)/(div as F32)*(max - min) + min
+    return ((libc::rand()%div) as Float)/(div as Float)*(max - min) + min
 }
 
 fun random_scene(list: &var [Sphere]) {
@@ -437,7 +437,7 @@ fun random_scene(list: &var [Sphere]) {
     for a = -11; a < 11; a++ {
         for b = -11; b < 11; b++ {
             val choose_mat = randf32(0, 1)
-            val center = Vec3((a as F32)+0.9*randf32(0, 1), 0.2, (b as F32)+0.9*randf32(0, 1))
+            val center = Vec3((a as Float)+0.9*randf32(0, 1), 0.2, (b as Float)+0.9*randf32(0, 1))
             if sub(center, Vec3(4,0.2,0)).length() > 0.9 {
                 if choose_mat < 0.8 { // diffuse
                     list[i] = Sphere(
@@ -529,15 +529,15 @@ fun trace() {
 
     val lookfrom = Vec3(13, 2, 3)
     val lookat = Vec3(0, 0, 0)
-    val dist_to_focus = 10F32
-    val aperture = 0.1F32
+    val dist_to_focus = 10.0
+    val aperture = 0.1
 
     var cam = create_camera(
         lookfrom: lookfrom,
         lookat: lookat,
         vup: Vec3(0, 1, 0),
         vfov: 20,
-        aspect: nx as F32 / ny as F32,
+        aspect: nx as Float / ny as Float,
         aperture: aperture,
         focus_dist: dist_to_focus,
     )
@@ -546,20 +546,20 @@ fun trace() {
         for i = 0; i < nx; i++ {
             var col: Vec3
             for s = 0; s < ns; s++ {
-                val u = (i as F32 + randf32(0, 1)) / nx as F32
-                val v = (j as F32 + randf32(0, 1)) / ny as F32
+                val u = (i as Float + randf32(0, 1)) / nx as Float
+                val v = (j as Float + randf32(0, 1)) / ny as Float
                 val ray = cam.get_ray(u, v)
                 col = add(col, color(ray, world, 0))
             }
-            col = sdiv(col, ns as F32)
+            col = sdiv(col, ns as Float)
             col = Vec3(
-                x: sqrt(col.x) as F32,
-                y: sqrt(col.y) as F32,
-                z: sqrt(col.z) as F32,
+                x: sqrt(col.x) as Float,
+                y: sqrt(col.y) as Float,
+                z: sqrt(col.z) as Float,
             )
-            val ir = (255.99*col.x) as I32
-            val ig = (255.99*col.y) as I32
-            val ib = (255.99*col.z) as I32
+            val ir = (255.99*col.x) as Int
+            val ig = (255.99*col.y) as Int
+            val ib = (255.99*col.z) as Int
             io::printi(ir)
             io::print(" ")
             io::printi(ig)

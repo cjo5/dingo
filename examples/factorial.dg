@@ -1,6 +1,6 @@
 include "../std/lib.dg"
 
-fun fac(i: I32) I32 {
+fun fac(i: Int) Int {
     if i <= 1 {
         return 1
     }

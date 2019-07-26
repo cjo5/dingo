@@ -1,7 +1,7 @@
 include "../common.dg"
 
 extern fun main() C_int {
-    var arr = [I32](0, 1, 2, 3, 4)
+    var arr = [Int](0, 1, 2, 3, 4)
 
     io::println("arr[:]") // expect: arr[:]
     print_slice(&arr[:]) // expect: 0, 1, 2, 3, 4
@@ -25,7 +25,7 @@ extern fun main() C_int {
     return 0
 }
 
-fun print_slice(slice: &[I32]) {
+fun print_slice(slice: &[Int]) {
     for i: USize = 0; i < len(slice); i++ {
         io::printi(slice[i])
         if (i+1) < len(slice) {
@@ -34,7 +34,7 @@ fun print_slice(slice: &[I32]) {
     }
 }
 
-fun reverse(slice: &var [I32]) {
+fun reverse(slice: &var [Int]) {
     for i: USize = 0; i < len(slice)/2; i++ {
         val tmp = slice[i]
         val j = (len(slice)-1)-i

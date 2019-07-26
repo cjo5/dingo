@@ -1,5 +1,5 @@
 fun foo() {
-    var field: I32
+    var field: Int
     field.x // expect-error: dot operator cannot be used on type 'I32'
     field[0] // expect-error: index operator cannot be used on type 'I32'
     field[:] // expect-error: slice operator cannot be used on type 'I32'
