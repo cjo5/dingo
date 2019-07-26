@@ -1,9 +1,9 @@
 include "../common.dg"
 
 struct Foo {
-    count: i32
+    count: I32
 
-    fun bar(f: &Foo, a: i32) {
+    fun bar(f: &Foo, a: I32) {
         io::printiln(f.get())
         io::printiln(a)
     }
@@ -23,12 +23,12 @@ struct Foo {
         self.inc()
     }
 
-    fun get(&Self) i32 {
+    fun get(&Self) I32 {
         return self.count
     }
 }
 
-extern fun main() c_int {
+extern fun main() C_int {
     val f = Foo(1)
     f.bar(2)
     // expect: 1

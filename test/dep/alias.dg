@@ -1,9 +1,9 @@
 include "../common.dg"
 
-typealias Foo1 = i32
+typealias Foo1 = I32
 typealias Foo2 = Bar
 
-extern fun main() c_int {
+extern fun main() C_int {
     var a: Foo1 = 1
     io::printiln(a) // expect: 1
 
@@ -16,4 +16,4 @@ extern fun main() c_int {
     return 0
 }
 
-typealias Bar = i32
+typealias Bar = I32

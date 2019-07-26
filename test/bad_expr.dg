@@ -1,8 +1,8 @@
 fun foo() {
-    var field: i32
-    field.x // expect-error: dot operator cannot be used on type 'i32'
-    field[0] // expect-error: index operator cannot be used on type 'i32'
-    field[:] // expect-error: slice operator cannot be used on type 'i32'
-    field() // expect-error: application operator cannot be used on type 'i32'
+    var field: I32
+    field.x // expect-error: dot operator cannot be used on type 'I32'
+    field[0] // expect-error: index operator cannot be used on type 'I32'
+    field[:] // expect-error: slice operator cannot be used on type 'I32'
+    field() // expect-error: application operator cannot be used on type 'I32'
 
 }

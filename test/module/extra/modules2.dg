@@ -1,11 +1,11 @@
 pub module mod2 {
     pub struct Foo {
-        pub a: i32
+        pub a: I32
     }
 
-    pub val bar: i32 = 20
+    pub val bar: I32 = 20
 
-    pub fun baz() i32 {
+    pub fun baz() I32 {
         return 200
     }
 }

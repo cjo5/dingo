@@ -1,6 +1,6 @@
 include "common.dg"
 
-extern fun main() c_int {
+extern fun main() C_int {
     io::println("text") // expect: text
     io::putchar('k') // expect: k
     io::putchar('\n')
@@ -13,8 +13,8 @@ extern fun main() c_int {
 
     val a1 = true
     val a2 = false
-    val a3: &i32 = null
-    val a4: &[i32] = null
+    val a3: &I32 = null
+    val a4: &[I32] = null
     val a5 = .23
     val a6 = 2e2
 

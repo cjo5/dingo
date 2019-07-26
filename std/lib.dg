@@ -10,26 +10,26 @@ pub module math {
     pub use c::cos
     pub use c::sin
 
-    pub val e: f64 = 2.71828182845904523536028747135266249775724709369995
-    pub val pi: f64 = 3.14159265358979323846264338327950288419716939937510
+    pub val e: F64 = 2.71828182845904523536028747135266249775724709369995
+    pub val pi: F64 = 3.14159265358979323846264338327950288419716939937510
 }
 
 pub module io {
     pub use c = ::libc
     pub use c::putchar
 
-    pub fun println(str: &[i8]) {
+    pub fun println(str: &[I8]) {
         print(str)
         putchar('\n')
     }
 
-    pub fun print(str: &[i8]) {
-        for i: usize = 0; i < len(str); i++ {
+    pub fun print(str: &[I8]) {
+        for i: USize = 0; i < len(str); i++ {
             putchar(str[i])
         }
     }
 
-    pub fun printbln(b: bool) {
+    pub fun printbln(b: Bool) {
         if b {
             println("true")
         } else {
@@ -37,42 +37,42 @@ pub module io {
         }
     }
 
-    pub fun printiln(i: i64) {
+    pub fun printiln(i: I64) {
         printi(i)
         putchar('\n')
     }
 
-    pub fun printi(i: i64) {
+    pub fun printi(i: I64) {
         if i < 0 {
             putchar('-')
-            printu(-i as u64)
+            printu(-i as U64)
         } else {
-            printu(i as u64)
+            printu(i as U64)
         }
     }
 
-    pub fun printu(i: u64) {
+    pub fun printu(i: U64) {
         if i >= 10 {
             printu(i/10)
         }
-        putchar(('0' + i%10) as i32)
+        putchar(('0' + i%10) as I32)
     }
 
-    pub fun printft(f: f64) {
+    pub fun printft(f: F64) {
         c::printf(c"%g", f)
     }
 
-    pub fun printftln(f: f64) {
+    pub fun printftln(f: F64) {
         c::printf(c"%g\n", f)
     }
 
-    pub fun readln(buf: &var [i8], null_terminate: bool) &var [i8] {
+    pub fun readln(buf: &var [I8], null_terminate: Bool) &var [I8] {
         var max = len(buf)
         if null_terminate and max > 0 {
             max--
         }
         var end = false
-        var n: usize
+        var n: USize
         while n < max and not end {
             val ch = c::getchar()
             if ch == '\r' {
@@ -80,7 +80,7 @@ pub module io {
             } elif ch == '\n' {
                 end = true
             } else {
-                buf[n] = ch as i8
+                buf[n] = ch as I8
                 n++
             }
         }

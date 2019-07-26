@@ -1,6 +1,6 @@
 include "../common.dg"
 
-extern fun main() c_int {
+extern fun main() C_int {
     foo(2)
     // expect: foo
     // expect: bar
@@ -10,7 +10,7 @@ extern fun main() c_int {
     return 0
 }
 
-fun foo(i: i32) {
+fun foo(i: I32) {
     if i < 0 {
         return
     }
@@ -18,7 +18,7 @@ fun foo(i: i32) {
     bar(i-1)
 }
 
-fun bar(i: i32) {
+fun bar(i: I32) {
     io::println("bar")
     foo(i-1)
 }

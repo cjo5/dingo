@@ -1,12 +1,12 @@
 include "../common.dg"
 
 struct Foo {
-    a: i32
-    b: i32
-    c: i32
+    a: I32
+    b: I32
+    c: I32
 }
 
-extern fun main() c_int {
+extern fun main() C_int {
     var f: Foo
 
     f = Foo(1, 2) // expect-error: too few arguments (got 2 but expected 3)
@@ -17,7 +17,7 @@ extern fun main() c_int {
 
     f = Foo(a: 1, b: 2, 3) // expect-error: positional argument after named argument is not allowed
 
-    f = Foo(1, 2, true) // expect-error: field at position 3 expects type i32 (got bool)
+    f = Foo(1, 2, true) // expect-error: field at position 3 expects type I32 (got Bool)
 
     return 0
 }

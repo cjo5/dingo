@@ -9,7 +9,7 @@ module foo {
     }
 }
 
-extern fun main() c_int {
+extern fun main() C_int {
     io::println(__fqn__) // expect:
 
     io::println(baazle::__fqn__) // expect: baazle

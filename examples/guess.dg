@@ -1,12 +1,12 @@
 include "../std/lib.dg"
 
-extern fun main() c_int {
+extern fun main() C_int {
     val tm = libc::time(null)
-    libc::srand(tm as u32)
+    libc::srand(tm as U32)
 
     val answer = libc::rand()%100 + 1
     var correct_guess = false
-    var buffer: [c_char:100]
+    var buffer: [C_char:100]
 
     io::println("Guess a number between 1-100")
 

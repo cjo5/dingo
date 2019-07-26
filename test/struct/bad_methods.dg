@@ -1,5 +1,5 @@
 struct Foo {
-    a: i32
+    a: I32
 
     fun f1() // expect-error: method must have a body
 
@@ -15,7 +15,7 @@ struct Foo {
         self.a++ // expect-error: expression is read-only
     }
 
-    fun f5(&Foo, self: i32) { // expect(dgc): error(18): redefinition of 'self' <re>.*</re> 
+    fun f5(&Foo, self: I32) { // expect(dgc): error(18): redefinition of 'self' <re>.*</re> 
 
     }
 }

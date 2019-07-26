@@ -20,7 +20,7 @@
 - [Memory Management](#memory-management)
 - [C](#c)
 - [Strings](#strings)
-- [Booleans](#booleans)
+- [Booleans](#Booleans)
 - [Numbers](#numbers)
 - [Basic Operators](#other-operators)
 - [Assignments](#assignments)
@@ -37,9 +37,9 @@ The visibility of parent modules do not affect the visibility of child modules.
 
 ```rust
 module foo {            // FQN: foo
-    var bar i32         // FQN: foo.bar
+    var bar I32         // FQN: foo.bar
     pub module baz {    // FQN: foo.baz
-        pub var qux i32 // FQN: foo.baz.qux
+        pub var qux I32 // FQN: foo.baz.qux
     }
 }
 ```
@@ -51,9 +51,9 @@ The include path is either absolute or relative to the file with the include sta
 a.dg:
 
 ```rust
-var bar i32
+var bar I32
 module baz {
-    var qux i32
+    var qux I32
 }
 ```
 
@@ -165,11 +165,11 @@ Semicolons work in a similar way as in Go. That is, the grammar and parser assum
 ## Variables
 
 ```rust
-var a: i32
-var b: i32 = 1
+var a: I32
+var b: I32 = 1
 var c = 2
-val d: i32
-val e: i32 = 1
+val d: I32
+val e: I32 = 1
 val f = 2
 ```
 
@@ -178,8 +178,10 @@ val f = 2
 ## Typealias
 
 ```rust
-typealias Id = i32
+typealias Id = I32
 ```
+
+Create an alias for a type. The two types are equivalent, and either type can be substituted for the other.
 
 ## Functions
 
@@ -188,11 +190,11 @@ fun say_hello() {
     println("hello")
 }
 
-fun add(a: i32, b: i32) i32 {
+fun add(a: I32, b: I32) I32 {
     return a + b
 }
 
-fun inc(var a: i32) i32 {
+fun inc(var a: I32) I32 {
     a += 1
     return a
 }
@@ -208,21 +210,19 @@ Function parameters are immutable by default, but can be made mutable by preceed
 Functions can be used as values and also defined inline (function literals). Though note that function literals are not closures and do not have access to variables in the enclosing scope.
 
 ```rust
-val add_val: fun (i32, i32) i32 = add
-val sub = fun(a: i32, b: i32) i32 {
+val add_val: fun (I32, I32) I32 = add
+val sub = fun(a: I32, b: I32) I32 {
     return a - b
 }
 ```
 
-Create an alias for a type. The two types are equivalent, and either type can be substituted for the other.
-
 ## References / Pointers
 
 ```rust
-var a: i32 = 5
-val b: &i32 = &a         // immutable reference
-val c: &var i32 = &var a // mutable reference
-val d: &i32 = null       // default value
+var a: I32 = 5
+val b: &I32 = &a         // immutable reference
+val c: &var I32 = &var a // mutable reference
+val d: &I32 = null       // default value
 
 // dereference
 b[] = 5 // error, b is an immutable reference
@@ -235,17 +235,17 @@ val f = &var e // error, cannot take a mutable reference to an immutable value
 ## Arrays
 
 ```rust
-var a: [i32:5] = [i32](1, 2, 3, 4, 5) // allocated on the stack
+var a: [I32:5] = [I32](1, 2, 3, 4, 5) // allocated on the stack
 len(a) // length of array
 ```
 
 ## Slices
 
 ```rust
-var a = [i32](1, 2, 3, 4, 5)
-val b: &[i32] = &a[1:3]          // immmutable slice
-val c: &var [i32] = &var a[:3]   // mutable slice
-val d: &[i32] = null             // default value
+var a = [I32](1, 2, 3, 4, 5)
+val b: &[I32] = &a[1:3]          // immmutable slice
+val c: &var [I32] = &var a[:3]   // mutable slice
+val d: &[I32] = null             // default value
 
 len(c) // length of slice
 ```
@@ -256,29 +256,29 @@ len(c) // length of slice
 struct Foo {
     // fields
 
-    a: i32              // immutable
-    b: i32              // ...
-    var count: i32      // mutable
+    a: I32              // immutable
+    b: I32              // ...
+    var count: I32      // mutable
 
     // methods
 
     // equivalent to self: &Self
-    fun add(&Self) i32 {
+    fun add(&Self) I32 {
         return self.a + self.b
     }
 
     // equivalent to self: &Foo
-    fun sub(self: &Self) i32 {
+    fun sub(self: &Self) I32 {
         return self.a - self.b
     }
 
     // the struct name can be specified explicitly
-    fun mul(self: &Foo) i32 {
+    fun mul(self: &Foo) I32 {
         return f.a*f.b
     }
 
     // the parameter can have any custom name
-    fun div(f: &Self) i32 {
+    fun div(f: &Self) I32 {
         return f.a/f.b
     }
 
@@ -287,7 +287,7 @@ struct Foo {
         self.count++
     }
 
-    fun set(&var Self, a: i32, b: i32) {
+    fun set(&var Self, a: I32, b: I32) {
         self.a = a
         self.b = b
     }
@@ -320,8 +320,8 @@ Values are automatically dereferenced for field access and referenced when calli
 ## Type Casting
 
 ```rust
-val a: i64 = 5
-val b = a as i32
+val a: I64 = 5
+val b = a as I32
 ```
 
 ## If
@@ -388,9 +388,9 @@ Defer execution of a statement until the end of the block. If a defer is execute
 ## Sizeof
 
 ```rust
-sizeof(i8)      // 1
-sizeof(i64)     // 8
-sizeof([i32:5]) // 4*5 = 20
+sizeof(I8)      // 1
+sizeof(I64)     // 8
+sizeof([I32:5]) // 4*5 = 20
 ```
 
 Get the size of a type in bytes.
@@ -406,18 +406,18 @@ Features to interface with the C ABI and runtime.
 **Types**
 
 ```
-c_void
-c_char
-c_uchar
-c_short
-c_ushort
-c_int
-c_uint
-c_longlong
-c_ulonglong
-c_usize
-c_float
-c_double
+C_void
+C_char
+C_uchar
+C_short
+C_ushort
+C_int
+C_uint
+C_longlong
+C_ulonglong
+C_USize
+C_float
+C_double
 ```
 
 References are currently used for C pointers, though no pointer arithmetic is allowed.
@@ -426,8 +426,8 @@ References are currently used for C pointers, though no pointer arithmetic is al
 
 ```rust
 // Functions defined in C can be called from Dingo
-extern fun free(ptr: &c_void)
-extern fun malloc(size: c_usize) &var c_void
+extern fun free(ptr: &C_void)
+extern fun malloc(size: C_usize) &var C_void
 
 // Functions defined in Dingo can be called from C
 extern fun do_stuff() {
@@ -441,7 +441,7 @@ Using ```extern``` on functions will enable C ABI and disable name mangling.
 
 ```rust
 
-extern fun main(argc: c_int, argv: &&c_char) c_int {
+extern fun main(argc: C_int, argv: &&C_char) C_int {
     return 0
 }
 ```
@@ -453,14 +453,14 @@ Main function in Dingo.
 There are two types of string literals: normal and C-like. Normal string literals are immutable slices, and C-like strings are immutable references. Both string types are null-terminated.
 
 ```rust
-val a: &[i8] = "Hello"
-val b: &i8 = c"Bye
+val a: &[I8] = "Hello"
+val b: &I8 = c"Bye
 ```
 
 ## Booleans
 
 ```rust
-val a: bool = true
+val a: Bool = true
 val b = false
 ```
 
@@ -470,19 +470,19 @@ val b = false
 
 ```rust
 // signed integers
-i8
-i16
-i32
-i64
+I8
+I16
+I32
+I64
 // unsigned integers
-u8
-u16
-u32
-u64
-usize
+U8
+U16
+U32
+U64
+USize
 // floating point
-f32
-f64
+F32
+F64
 ```
 
 **Literal Samples**

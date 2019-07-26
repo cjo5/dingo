@@ -38,18 +38,18 @@ func (c *checker) initBuiltinScope() {
 	c.insertBuiltinType(ir.TBuiltinFloat64)
 
 	// TODO: Change to distinct types
-	c.insertBuiltinAliasType("c_void", ir.TBuiltinVoid)
-	c.insertBuiltinAliasType("c_char", ir.TBuiltinInt8)
-	c.insertBuiltinAliasType("c_uchar", ir.TBuiltinUInt8)
-	c.insertBuiltinAliasType("c_short", ir.TBuiltinInt16)
-	c.insertBuiltinAliasType("c_ushort", ir.TBuiltinUInt16)
-	c.insertBuiltinAliasType("c_int", ir.TBuiltinInt32)
-	c.insertBuiltinAliasType("c_uint", ir.TBuiltinUInt32)
-	c.insertBuiltinAliasType("c_longlong", ir.TBuiltinInt64)
-	c.insertBuiltinAliasType("c_ulonglong", ir.TBuiltinUInt64)
-	c.insertBuiltinAliasType("c_usize", ir.TBuiltinUSize)
-	c.insertBuiltinAliasType("c_float", ir.TBuiltinFloat32)
-	c.insertBuiltinAliasType("c_double", ir.TBuiltinFloat64)
+	c.insertBuiltinAliasType("C_void", ir.TBuiltinVoid)
+	c.insertBuiltinAliasType("C_char", ir.TBuiltinInt8)
+	c.insertBuiltinAliasType("C_uchar", ir.TBuiltinUInt8)
+	c.insertBuiltinAliasType("C_short", ir.TBuiltinInt16)
+	c.insertBuiltinAliasType("C_ushort", ir.TBuiltinUInt16)
+	c.insertBuiltinAliasType("C_int", ir.TBuiltinInt32)
+	c.insertBuiltinAliasType("C_uint", ir.TBuiltinUInt32)
+	c.insertBuiltinAliasType("C_longlong", ir.TBuiltinInt64)
+	c.insertBuiltinAliasType("C_ulonglong", ir.TBuiltinUInt64)
+	c.insertBuiltinAliasType("C_usize", ir.TBuiltinUSize)
+	c.insertBuiltinAliasType("C_float", ir.TBuiltinFloat32)
+	c.insertBuiltinAliasType("C_double", ir.TBuiltinFloat64)
 }
 
 func (c *checker) insertSymbol(scope *ir.Scope, alias string, sym *ir.Symbol) *ir.Symbol {

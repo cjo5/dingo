@@ -1,6 +1,6 @@
 include "../std/lib.dg"
 
-extern fun main() c_int {
+extern fun main() C_int {
     io::println("Hello, world!")
     return 0
 }

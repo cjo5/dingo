@@ -12,7 +12,7 @@ fun test_nested_scopes() {
     io::println("nested_scopes_done")
 }
 
-fun test_if1(a: i32) {
+fun test_if1(a: I32) {
     defer io::println("if1_done")
     if a == 1 {
         defer io::println("if1_1")
@@ -21,7 +21,7 @@ fun test_if1(a: i32) {
     defer io::println("if1_2")
 }
 
-fun test_if2(a: i32) i32 {
+fun test_if2(a: I32) I32 {
     defer io::println("if2_done")
     if a == 1 {
         defer io::println("if2_1")
@@ -32,7 +32,7 @@ fun test_if2(a: i32) i32 {
     }
 }
 
-fun test_if3(a: i32) {
+fun test_if3(a: I32) {
     if a == 1 {
         defer io::println("if3_1_end")
         io::println("if3_1_start")
@@ -46,7 +46,7 @@ fun test_if3(a: i32) {
     io::println("if3_done")
 }
 
-fun test_for(a: i32) {
+fun test_for(a: I32) {
     defer io::println("for_done2")
     for i = 0; i < 3; i++ {
         defer io::println("for")
@@ -76,7 +76,7 @@ fun test_nested_for() {
     }
 }
 
-fun test_for_chain(a: i32) {
+fun test_for_chain(a: I32) {
     defer io::println("for_chain_done")
     for i = 0; i < 2; i++ {
         defer io::println("for_chain_it1")
@@ -94,7 +94,7 @@ fun test_for_chain(a: i32) {
     }
 }
 
-fun test_for_skip(a: i32) {
+fun test_for_skip(a: I32) {
     for i = 0; i < 1; i++ {
         defer io::println("for_skip_done")
         if a == 1 {
@@ -106,7 +106,7 @@ fun test_for_skip(a: i32) {
     }
 }
 
-fun test_return_skip(a: i32) {
+fun test_return_skip(a: I32) {
     defer io::println("return_skip_done")
     {
         if a == 1 {
@@ -116,13 +116,13 @@ fun test_return_skip(a: i32) {
     }
 }
 
-fun test_modify_retval() i32 {
+fun test_modify_retval() I32 {
     var a = 4
     defer a = 5
     return a
 }
 
-extern fun main() c_int {
+extern fun main() C_int {
     test_nested_scopes()
     // expect: nested_scopes_start1
     // expect: nested_scopes_start2

@@ -1,8 +1,8 @@
 include "common.dg"
 
-typealias T1 = i32
+typealias T1 = I32
 
-extern fun main() c_int {
+extern fun main() C_int {
     val a1: T1 = 1
     val a2: T1
     io::printiln(a1) // expect: 1
@@ -18,7 +18,7 @@ extern fun main() c_int {
 
     typealias T3 = [T1:5]
 
-    var c1: T3 = [i32](1, 2, 3, 4, 5)
+    var c1: T3 = [I32](1, 2, 3, 4, 5)
     var c2: T3
     io::printiln(c1[2]) // expect: 3
     io::printiln(c2[2]) // expect: 0
@@ -42,9 +42,9 @@ extern fun main() c_int {
     var g2: T6
     io::printiln(g1[1]) // expect: 2
 
-    typealias T7 = fun(i32)i32
+    typealias T7 = fun(I32)I32
 
-    val h1: T7 = fun(a: i32) i32 {
+    val h1: T7 = fun(a: I32) I32 {
         return a*a
     }
     val h2: T7
@@ -54,5 +54,5 @@ extern fun main() c_int {
 }
 
 struct Foo {
-    a: i32
+    a: I32
 }

@@ -1,9 +1,9 @@
 include "common.dg"
 
-extern fun main() c_int {
-    io::printiln(sizeof(void)) // expect-error: incomplete type 'void'
+extern fun main() C_int {
+    io::printiln(sizeof(Void)) // expect-error: incomplete type 'Void'
 
-    val a: i32
+    val a: I32
     io::printiln(sizeof(a)) // expect-error: 'a' is not a type
 
     return 0
