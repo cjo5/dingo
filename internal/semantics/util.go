@@ -168,7 +168,7 @@ func tryPromoteConstType(expr ir.Expr, target ir.Type) (ir.Expr, bool) {
 		}
 	} else if texpr.Kind() == ir.TConstFloat {
 		if target == nil {
-			target = ir.TBuiltinFloat64
+			target = ir.TBuiltinFloat32
 		}
 		if ir.IsFloatType(target) {
 			promote = true
