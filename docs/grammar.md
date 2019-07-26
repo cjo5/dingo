@@ -41,9 +41,9 @@ UseDecl         ::= 'use' Alias? ScopeLookup
 Alias           ::= IDENT '='
 
 StructBody      ::= '{' {StructField ';'} '}'
-StructField     ::= Visibility? (Field | FuncDecl)
-FuncSignature   ::= '(' [Field {',' Field} ','?] ')' Type?
-Field           ::= (['val' | 'var'] IDENT ':')? Type
+StructField     ::= Visibility? (ValDecl | FuncDecl)
+FuncSignature   ::= '(' [FuncParam {',' FuncParam} ','?] ')' Type?
+FuncParam           ::= (['val' | 'var'] IDENT ':')? Type
 ```
 
 ## Types

@@ -1,7 +1,7 @@
 include "../common.dg"
 
 struct Foo {
-    count: I32
+    var count: I32
 
     fun bar(f: &Foo, a: I32) {
         io::printiln(f.get())

@@ -33,6 +33,6 @@ extern fun main() C_int {
 }
 
 struct Foo {
-    a: I32
-    b: F64
+    var a: I32
+    var b: F64
 }

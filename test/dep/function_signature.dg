@@ -25,7 +25,7 @@ fun f3(f: Bar) Bar {
 }
 
 struct Foo {
-    a: I32
+    var a: I32
 }
 
 typealias Bar = I32

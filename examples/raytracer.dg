@@ -9,9 +9,9 @@ use math::pi
 use math::tan
 
 struct Vec3 {
-    x: F32
-    y: F32
-    z: F32
+    var x: F32
+    var y: F32
+    var z: F32
 
     fun normalize(&var Self) {
         val n = self.length()
@@ -135,8 +135,8 @@ fun schlick(cosine: F32, ref_idx: F32) F32 {
 }
 
 struct Ray {
-    origin: Vec3
-    dir: Vec3
+    var origin: Vec3
+    var dir: Vec3
 
     fun point_at_parameter(&Self, t: F32) Vec3 {
         return add(self.origin, smul(t, self.dir))
@@ -148,10 +148,10 @@ val KIND_METAL = 2
 val KIND_DIELECTRIC = 3
 
 struct Material {
-    kind: I32
-    albedo: Vec3
-    fuzz: F32
-    ref_idx: F32
+    var kind: I32
+    var albedo: Vec3
+    var fuzz: F32
+    var ref_idx: F32
 
     fun lambertian_scatter(
         &Self,
@@ -237,16 +237,16 @@ struct Material {
 }
 
 struct HitRecord {
-    t: F32
-    p: Vec3
-    normal: Vec3
-    mat: &Material
+    var t: F32
+    var p: Vec3
+    var normal: Vec3
+    var mat: &Material
 }
 
 struct Sphere {
-    center: Vec3
-    radius: F32
-    mat: Material
+    var center: Vec3
+    var radius: F32
+    var mat: Material
 
     fun hit(&Self, ray: &Ray, tmin: F32, tmax: F32, rec: &var HitRecord) Bool {
         val oc = sub(ray.origin, self.center)
@@ -277,7 +277,7 @@ struct Sphere {
 }
 
 struct World {
-    spheres: &[Sphere]
+    var spheres: &[Sphere]
 
     fun hit(&Self, r: &Ray, tmin: F32, tmax: F32, rec: &var HitRecord) Bool {
         var tmp_rec: HitRecord
@@ -295,14 +295,14 @@ struct World {
 }
 
 struct Camera {
-    origin: Vec3
-    lower_left_corner: Vec3
-    horizontal: Vec3
-    vertical: Vec3
-    u: Vec3
-    v: Vec3
-    w: Vec3
-    lens_radius: F32
+    var origin: Vec3
+    var lower_left_corner: Vec3
+    var horizontal: Vec3
+    var vertical: Vec3
+    var u: Vec3
+    var v: Vec3
+    var w: Vec3
+    var lens_radius: F32
 
     fun get_ray(&Self, s: F32, t: F32) Ray {
         val rd = smul(self.lens_radius, random_in_unit_disk())

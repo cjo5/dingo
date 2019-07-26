@@ -59,6 +59,6 @@ extern fun main() C_int {
 }
 
 struct Foo {
-    a: Bool
-    b: Bool
+    var a: Bool
+    var b: Bool
 }

@@ -36,7 +36,7 @@ fun foo() {
 
 fun bar(a: I32){}
 struct Baz {
-    a: I32
+    var a: I32
 }
 
 module quux {

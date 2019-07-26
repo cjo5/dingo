@@ -256,9 +256,9 @@ len(c) // length of slice
 struct Foo {
     // fields
 
-    a: I32              // immutable
-    b: I32              // ...
-    var count: I32      // mutable
+    val a: I32      // immutable
+    val b: I32      // immutable
+    var count: I32  // mutable
 
     // methods
 
@@ -315,7 +315,6 @@ f2.say_hello()  // invalid, say_hello does not take Foo as first argument
 Values are automatically dereferenced for field access and referenced when calling methods.
 
 ```Self``` is a ```typealias``` of the struct in methods. If the first parameter name is omitted in the function signature, then ```self``` is automatically inserted if the type is the struct (or ```Self```) or a reference to it; that is, the types that can be used with the dot operator. Other than these two conveniences methods are exactly the same as normal functions.
-
 
 ## Type Casting
 

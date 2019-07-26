@@ -1,5 +1,5 @@
 struct Foo {
-    a: I32
+    var a: I32
 
     fun f1() // expect-error: method must have a body
 

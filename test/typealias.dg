@@ -54,5 +54,5 @@ extern fun main() C_int {
 }
 
 struct Foo {
-    a: I32
+    var a: I32
 }

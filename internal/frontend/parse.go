@@ -350,8 +350,8 @@ func (p *parser) parseStructDecl() *ir.StructDecl {
 				fun.Flags = flags
 				decl.Methods = append(decl.Methods, fun)
 			} else {
-				flags |= ir.AstFlagNoInit | ir.AstFlagField
-				field := p.parseField(flags, token.Var)
+				field := p.parseValDecl()
+				field.Flags |= flags | ir.AstFlagNoInit | ir.AstFlagField
 				decl.Fields = append(decl.Fields, field)
 			}
 			p.expectSemi()
@@ -512,11 +512,11 @@ func (p *parser) parseValDecl() *ir.ValDecl {
 	return decl
 }
 
-func (p *parser) parseField(flags int, defaultDecl token.Token) *ir.ValDecl {
+func (p *parser) parseFuncParam() *ir.ValDecl {
 	decl := &ir.ValDecl{}
 	decl.SetPos(p.pos)
-	decl.Flags = flags
-	decl.Decl = defaultDecl
+	decl.Flags = ir.AstFlagNoInit
+	decl.Decl = token.Val
 
 	if p.token.OneOf(token.Val, token.Var) {
 		decl.Decl = p.token
@@ -555,14 +555,13 @@ func (p *parser) parseField(flags int, defaultDecl token.Token) *ir.ValDecl {
 func (p *parser) parseFuncSignature() (params []*ir.ValDecl, ret *ir.ValDecl) {
 	p.expect(token.Lparen)
 	if !p.token.Is(token.Rparen) {
-		flags := ir.AstFlagNoInit
-		params = append(params, p.parseField(flags, token.Val))
+		params = append(params, p.parseFuncParam())
 		for !p.token.OneOf(token.EOF, token.Rparen) {
 			p.expect(token.Comma)
 			if p.token.Is(token.Rparen) {
 				break
 			}
-			params = append(params, p.parseField(flags, token.Val))
+			params = append(params, p.parseFuncParam())
 		}
 	}
 	endPos := p.pos

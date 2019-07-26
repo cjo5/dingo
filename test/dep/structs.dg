@@ -20,11 +20,11 @@ fun print_foo(f: &Foo) {
 }
 
 struct Foo {
-    a: I32
-    b: Bar
+    var a: I32
+    var b: Bar
 }
 
 struct Bar {
-    c: I32
-    f: &var Foo
+    var c: I32
+    var f: &var Foo
 }
