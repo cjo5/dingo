@@ -20,7 +20,7 @@
 - [Memory Management](#memory-management)
 - [C](#c)
 - [Strings](#strings)
-- [Booleans](#Booleans)
+- [Booleans](#booleans)
 - [Numbers](#numbers)
 - [Basic Operators](#other-operators)
 - [Assignments](#assignments)
