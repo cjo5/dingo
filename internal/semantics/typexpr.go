@@ -451,9 +451,8 @@ func (c *checker) checkAppExpr(expr *ir.AppExpr) ir.Expr {
 
 	if tx.Kind() == ir.TFunc {
 		doCheck := true
-		if sym := ir.ExprSymbol(expr.X); sym != nil {
-			if sym.Kind == ir.FuncSymbol && sym.IsMethod() {
-				dot := expr.X.(*ir.DotExpr)
+		if dot, ok := expr.X.(*ir.DotExpr); ok {
+			if sym := ir.ExprSymbol(expr.X); sym != nil && sym.Kind == ir.FuncSymbol && sym.IsMethod() {
 				obj := dot.X
 				tobj := obj.Type()
 				if obj.Type().Kind() != ir.TPointer {

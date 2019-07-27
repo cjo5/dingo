@@ -1,0 +1,38 @@
+include "../common.dg"
+
+import mod1
+
+module foo {
+    var bar: Int = 560
+
+    fun baz() Int {
+       return 501
+    }
+}
+
+struct S {
+    fun hello() {
+        io::println("hello")
+    }
+}
+
+extern fun main() C_int {
+    use S::hello
+    hello() // expect: hello
+    S::hello() // expect: hello
+    
+    io::printiln(mod2::bar) // expect: 20
+    io::printiln(baz()) // expect: 200
+    
+    use b1 = foo::baz
+    io::printiln(b1()) // expect: 501
+
+    use b2 = foo::bar
+    b2++
+    io::printiln(foo::bar) // expect: 561
+
+    return 0
+}
+
+use mod1::mod2
+use mod1::mod2::baz

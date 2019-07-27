@@ -89,7 +89,8 @@
         "tests": [
             "bad_import.dg",
             "bad_use.dg",
-            "import.dg"
+            "import.dg",
+            "use.dg"
         ]
     },
     {

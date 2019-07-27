@@ -1,7 +1,10 @@
 pub use foo::bar // expect-error: private 'bar' cannot be re-exported as public
+use baz // expect-error: use cannot refer to itself
+use h = daz // expect-error: unknown identifier 'daz'
 
 module foo {
     fun bar() {
-
+        ::h
+        ::daz // expect-error: unknown identifier 'daz'
     }
 }
