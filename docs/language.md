@@ -458,7 +458,7 @@ Using ```extern``` on functions will enable C ABI and disable name mangling.
 
 ```swift
 
-extern fun main(argc: C_int, argv: &&C_char) C_int {
+extern fun main(argc: C_int, argv: &&C_uchar) C_int {
     return 0
 }
 ```
@@ -502,8 +502,7 @@ F32
 F64
 
 // aliases
-typealias Byte = I8
-typealias UByte = U8
+typealias Byte = U8
 typealias Int = I32
 typealias UInt = U32
 typealias Float = F32

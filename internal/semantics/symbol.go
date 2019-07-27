@@ -43,7 +43,6 @@ func (c *checker) initBuiltinScope() {
 	c.insertBuiltinType(ir.TBuiltinFloat64)
 
 	c.insertBuiltinType2("Byte", ir.TBuiltinByte)
-	c.insertBuiltinType2("UByte", ir.TBuiltinUByte)
 	c.insertBuiltinType2("Int", ir.TBuiltinInt)
 	c.insertBuiltinType2("UInt", ir.TBuiltinUInt)
 	c.insertBuiltinType2("Float", ir.TBuiltinFloat)
@@ -97,7 +96,7 @@ func (c *checker) insertBuiltinModuleSymbols(CUID int, modFQN string) {
 	sym := ir.NewSymbol(ir.ValSymbol, key, CUID, modFQN, "__fqn__", token.NoPosition)
 	sym.Public = true
 	sym.Flags = builtinSymFlags | ir.SymFlagConst
-	sym.T = ir.NewSliceType(ir.TBuiltinInt8, true, true)
+	sym.T = ir.NewSliceType(ir.TBuiltinByte, true, true)
 	lit := ir.NewStringLit(modFQN)
 	lit.T = sym.T
 	c.scope.Insert(sym.Name, sym)

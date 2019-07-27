@@ -101,8 +101,7 @@ var (
 	TBuiltinFloat32    = Type(NewBasicType(TFloat32))
 	TBuiltinFloat64    = Type(NewBasicType(TFloat64))
 
-	TBuiltinByte  = Type(NewAliasType("Byte", TBuiltinInt8))
-	TBuiltinUByte = Type(NewAliasType("UByte", TBuiltinUInt8))
+	TBuiltinByte  = Type(NewAliasType("Byte", TBuiltinUInt8))
 	TBuiltinInt   = Type(NewAliasType("Int", TBuiltinInt32))
 	TBuiltinUInt  = Type(NewAliasType("UInt", TBuiltinUInt32))
 	TBuiltinFloat = Type(NewAliasType("Float", TBuiltinFloat32))

@@ -172,7 +172,7 @@ func (cb *llvmCodeBuilder) validateMainFunc(mainFunc *ir.Symbol) {
 
 	if len(tmain.Params) > 1 {
 		param1 := tmain.Params[1]
-		texpected := ir.NewPointerType(ir.NewPointerType(ir.NewBasicType(ir.TInt8), true), true)
+		texpected := ir.NewPointerType(ir.NewPointerType(ir.NewBasicType(ir.TUInt8), true), true)
 		if !param1.T.Equals(texpected) {
 			cb.ctx.Errors.Add(pos, "second parameter of 'main' must have type %s (has type %s)", texpected, param1.T)
 		}

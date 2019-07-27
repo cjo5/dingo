@@ -7,7 +7,7 @@ pub extern fun sin(x: C_double) C_double
 
 // stdlib.h
 pub extern fun abs(x: C_int) C_int
-pub extern fun atoi(str: &C_char) C_int
+pub extern fun atoi(str: &C_uchar) C_int
 pub extern fun exit(status: C_int)
 pub extern fun free(ptr: &C_void)
 pub extern fun malloc(size: C_usize) &var C_void
@@ -15,19 +15,19 @@ pub extern fun rand() C_int
 pub extern fun srand(C_uint)
 
 // Workaround, currently the only way to print a double.
-pub extern fun printf(str: &C_char, arg: C_double) C_int
+pub extern fun printf(str: &C_uchar, arg: C_double) C_int
 
 // stdio.h
 pub struct C_FILE
 pub extern fun fclose(stream: &var C_FILE) C_int
 pub extern fun ferror(stream: &var C_FILE) C_int
-pub extern fun fopen(filename: &C_char, mode: &C_char) &var C_FILE
+pub extern fun fopen(filename: &C_uchar, mode: &C_uchar) &var C_FILE
 pub extern fun fread(ptr: &var C_void, size: C_usize, nmemb: C_usize, stream: &var C_FILE) C_usize
 pub extern fun getchar() C_int
-pub extern fun gets(str: &var C_char) &var C_char
+pub extern fun gets(str: &var C_uchar) &var C_uchar
 pub extern fun putchar(ch: C_int) C_int
-pub extern fun puts(str: &C_char) C_int
-pub extern fun perror(str: &C_char)
+pub extern fun puts(str: &C_uchar) C_int
+pub extern fun perror(str: &C_uchar)
 
 // time
 pub extern fun time(tm: &C_void) C_int

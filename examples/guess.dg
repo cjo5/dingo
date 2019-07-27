@@ -6,7 +6,7 @@ extern fun main() C_int {
 
     val answer = libc::rand()%100 + 1
     var correct_guess = false
-    var buffer: [C_char:100]
+    var buffer: [C_uchar:100]
 
     io::println("Guess a number between 1-100")
 

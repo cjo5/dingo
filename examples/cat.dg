@@ -1,6 +1,6 @@
 include "../std/lib.dg"
 
-extern fun main(argc: C_int, argv: &&C_char) C_int {
+extern fun main(argc: C_int, argv: &&C_uchar) C_int {
     val args = &argv[:argc]
 
     if len(args) != 2 {
@@ -11,7 +11,7 @@ extern fun main(argc: C_int, argv: &&C_char) C_int {
     return cat(args[1])
 }
 
-fun cat(filename: &C_char) C_int {
+fun cat(filename: &C_uchar) C_int {
     val file = libc::fopen(filename, c"r")
     if file == null {
         libc::perror(filename)
