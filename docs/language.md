@@ -5,7 +5,7 @@
 - [Comments](#comments)
 - [Semicolons](#semicolons)
 - [Modules](#modules)
-- [Includes](#includes)
+- [Include](#include)
 - [Use](#use)
 - [Variables](#variables)
 - [Typealias](#typealias)
@@ -53,10 +53,10 @@ Semicolons work in a similar way as in Go. That is, the grammar and parser assum
 Modules provide a way to structure code in a hierarchical namespace. Declarations at the top of a file, outside any module, are implicitly defined in a module with name "" -- the root module. An identifier´s Fully Qualified Name (FQN) is the path from the root module to the identifier, with each module name separated by ```::```.
 
 ```swift
-module foo {            // FQN: foo
-    var bar Int         // FQN: foo.bar
-    pub module baz {    // FQN: foo.baz
-        pub var qux Int // FQN: foo.baz.qux
+module foo {             // FQN: foo
+    var bar: Int         // FQN: foo.bar
+    pub module baz {     // FQN: foo.baz
+        pub var qux: Int // FQN: foo.baz.qux
     }
 }
 ```
@@ -123,14 +123,14 @@ module qux {
 }
 ```
 
-## Includes
+## Include
 
 A file can be included inside another file and module. This is equivalent to replacing the include statement with the included file's content. The FQN of every identifier in the included file is prefixed with the FQN of the module where it's included. The include path is either absolute or relative to the file with the include statement. Files are included in a breadth-first search manner and are loaded automatically during the parsing phase.
 
 a.dg:
 
 ```swift
-var bar Int
+var bar: Int
 module baz {
     var qux Int
 }
