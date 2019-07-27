@@ -8,7 +8,7 @@ fun print_fqn() {
 
 fun print_scope_fqn() {
     ::print_fqn()
-    super::print_fqn()
+    up::print_fqn()
     print_fqn()
 }
 
@@ -21,7 +21,7 @@ module foo {
 
     fun print_scope_fqn() {
         ::print_fqn()
-        super::print_fqn()
+        up::print_fqn()
         print_fqn()
     }
 
@@ -34,13 +34,13 @@ module foo {
 
         fun print_scope_fqn() {
             ::print_fqn()
-            super::print_fqn()
+            up::print_fqn()
             print_fqn()
         }
 
         module car {
-            fun print_super_super_fqn() {
-                super::super::print_fqn()
+            fun print_up_up_fqn() {
+                up::up::print_fqn()
             }
         } 
     }
@@ -107,7 +107,7 @@ extern fun main() C_int {
     // expect: foo::bar::foozle
     // expect: foo::bar::foozle::baazle
 
-    foo::bar::car::print_super_super_fqn()
+    foo::bar::car::print_up_up_fqn()
     // expect: foo
 
     return 0

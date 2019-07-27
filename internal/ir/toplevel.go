@@ -4,7 +4,7 @@ import (
 	"github.com/cjo5/dingo/internal/token"
 )
 
-const ParentModName = "super"
+const ParentModName = "up"
 
 type FileMatrix []FileList
 type FileList []*File
