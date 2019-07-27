@@ -72,7 +72,7 @@ func isTypeOneOf(t ir.Type, kinds ...ir.TypeKind) bool {
 }
 
 func isUntypedBody(t ir.Type) bool {
-	switch t := t.(type) {
+	switch t := ir.ToBaseType(t).(type) {
 	case *ir.BasicType:
 	case *ir.StructType:
 		return !t.TypedBody
@@ -94,7 +94,7 @@ func isUntypedBody(t ir.Type) bool {
 
 func isIncompleteType(t ir.Type, outer ir.Type) bool {
 	incomplete := false
-	switch t := t.(type) {
+	switch t := ir.ToBaseType(t).(type) {
 	case *ir.BasicType:
 		if t.Kind() == ir.TVoid {
 			if outer == nil || outer.Kind() != ir.TPointer {
@@ -200,8 +200,8 @@ func tryImplicitCast(expr ir.Expr, target ir.Type) (ir.Expr, bool) {
 		return expr, false
 	}
 	cast := false
-	from := expr.Type()
-	to := target
+	from := ir.ToBaseType(expr.Type())
+	to := ir.ToBaseType(target)
 	switch from := from.(type) {
 	case *ir.BasicType:
 		if to, ok := to.(*ir.BasicType); ok {

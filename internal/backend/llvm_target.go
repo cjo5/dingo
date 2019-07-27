@@ -134,6 +134,8 @@ func llvmFuncType(t *ir.FuncType, ctx *llvmTypeMap) llvm.Type {
 
 func llvmType(t1 ir.Type, ctx *llvmTypeMap) llvm.Type {
 	switch t2 := t1.(type) {
+	case *ir.AliasType:
+		return llvmType(t2.T, ctx)
 	case *ir.BasicType:
 		return llvmBasicType(t2.Kind())
 	case *ir.StructType:

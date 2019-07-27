@@ -131,11 +131,16 @@ func (c *checker) checkUseDecl(decl *ir.UseDecl) {
 }
 
 func (c *checker) checkTypeDecl(decl *ir.TypeDecl) {
-	if !isUnknownType(decl.Sym.T) {
+	if !isUnknownType(decl.Type.Type()) {
 		return
 	}
 	decl.Type = c.checkRootTypeExpr(decl.Type, false)
-	decl.Sym.T = decl.Type.Type()
+	tbase := decl.Type.Type()
+	if isUntyped(tbase) {
+		decl.Sym.T = tbase
+	} else {
+		decl.Sym.T = ir.NewAliasType(decl.Name.Literal, decl.Type.Type())
+	}
 }
 
 func (c *checker) checkValDecl(decl *ir.ValDecl) {
@@ -166,7 +171,7 @@ func (c *checker) checkValDecl(decl *ir.ValDecl) {
 		if tdecl.Equals(tinit) {
 			tval = tdecl
 		} else {
-			c.nodeError(decl, "type mismatch %s and %s", tdecl, tinit)
+			c.nodeError(decl, "type mismatch '%s' and '%s'", tdecl, tinit)
 		}
 	} else {
 		tval = decl.Type.Type()

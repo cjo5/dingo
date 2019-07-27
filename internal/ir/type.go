@@ -141,6 +141,27 @@ type Target interface {
 	Sizeof(Type) int
 }
 
+type AliasType struct {
+	Name string
+	T    Type
+}
+
+func (t *AliasType) Kind() TypeKind {
+	return t.T.Kind()
+}
+
+func (t *AliasType) String() string {
+	return fmt.Sprintf("%s(%s)", t.Name, t.T.String())
+}
+
+func (t *AliasType) Equals(other Type) bool {
+	return t.T.Equals(other)
+}
+
+func (t *AliasType) CastableTo(other Type) bool {
+	return t.T.CastableTo(other)
+}
+
 type baseType struct {
 	kind TypeKind
 }
@@ -158,6 +179,7 @@ func (t *BasicType) String() string {
 }
 
 func (t *BasicType) Equals(other Type) bool {
+	other = ToBaseType(other)
 	if t2, ok := other.(*BasicType); ok {
 		return t.kind == t2.kind
 	}
@@ -165,6 +187,7 @@ func (t *BasicType) Equals(other Type) bool {
 }
 
 func (t *BasicType) CastableTo(other Type) bool {
+	other = ToBaseType(other)
 	switch {
 	case IsNumericType(t):
 		if IsNumericType(other) {
@@ -181,7 +204,7 @@ type ModuleType struct {
 }
 
 func (t *ModuleType) String() string {
-	return fmt.Sprintf("%s(%s)", t.Sym.Kind, t.Sym.ModFQN)
+	return fmt.Sprintf("%s", t.Sym.ModFQN)
 }
 
 func (t *ModuleType) Equals(other Type) bool {
@@ -210,6 +233,7 @@ func (t *StructType) String() string {
 }
 
 func (t *StructType) Equals(other Type) bool {
+	other = ToBaseType(other)
 	if t2, ok := other.(*StructType); ok {
 		return t.Sym.FQN() == t2.Sym.FQN()
 	}
@@ -217,6 +241,7 @@ func (t *StructType) Equals(other Type) bool {
 }
 
 func (t *StructType) CastableTo(other Type) bool {
+	other = ToBaseType(other)
 	return t.Equals(other)
 }
 
@@ -244,6 +269,7 @@ func (t *ArrayType) String() string {
 }
 
 func (t *ArrayType) Equals(other Type) bool {
+	other = ToBaseType(other)
 	if t2, ok := other.(*ArrayType); ok {
 		return t.Size == t2.Size && t.Elem.Equals(t2.Elem)
 	}
@@ -251,6 +277,7 @@ func (t *ArrayType) Equals(other Type) bool {
 }
 
 func (t *ArrayType) CastableTo(other Type) bool {
+	other = ToBaseType(other)
 	return t.Equals(other)
 }
 
@@ -273,6 +300,7 @@ func (t *SliceType) String() string {
 }
 
 func (t *SliceType) Equals(other Type) bool {
+	other = ToBaseType(other)
 	if t2, ok := other.(*SliceType); ok {
 		return t.ReadOnly == t2.ReadOnly && t.Elem.Equals(t2.Elem)
 	}
@@ -280,6 +308,7 @@ func (t *SliceType) Equals(other Type) bool {
 }
 
 func (t *SliceType) CastableTo(other Type) bool {
+	other = ToBaseType(other)
 	if t2, ok := other.(*SliceType); ok {
 		switch {
 		case t.Elem.Equals(t2.Elem):
@@ -304,6 +333,7 @@ func (t *PointerType) String() string {
 }
 
 func (t *PointerType) Equals(other Type) bool {
+	other = ToBaseType(other)
 	if t2, ok := other.(*PointerType); ok {
 		return t.ReadOnly == t2.ReadOnly && t.Elem.Equals(t2.Elem)
 	}
@@ -311,6 +341,7 @@ func (t *PointerType) Equals(other Type) bool {
 }
 
 func (t *PointerType) CastableTo(other Type) bool {
+	other = ToBaseType(other)
 	if t2, ok := other.(*PointerType); ok {
 		switch {
 		case t.Elem.Kind() == TVoid || t2.Elem.Kind() == TVoid:
@@ -351,6 +382,7 @@ func (t *FuncType) String() string {
 }
 
 func (t *FuncType) Equals(other Type) bool {
+	other = ToBaseType(other)
 	if t2, ok := other.(*FuncType); ok {
 		if t.C != t2.C {
 			return false
@@ -372,7 +404,15 @@ func (t *FuncType) Equals(other Type) bool {
 }
 
 func (t *FuncType) CastableTo(other Type) bool {
+	other = ToBaseType(other)
 	return t.Equals(other)
+}
+
+func NewAliasType(name string, base Type) *AliasType {
+	t := &AliasType{}
+	t.Name = name
+	t.T = base
+	return t
 }
 
 func NewBasicType(kind TypeKind) *BasicType {
@@ -423,7 +463,15 @@ func NewFuncType(params []Field, ret Type, c bool) *FuncType {
 }
 
 func ToBaseType(t Type) Type {
-	return t
+	base := t
+	for {
+		if alias, ok := base.(*AliasType); ok {
+			base = alias.T
+		} else {
+			break
+		}
+	}
+	return base
 }
 
 func IsSignedType(t Type) bool {

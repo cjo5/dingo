@@ -886,7 +886,7 @@ func (cb *llvmCodeBuilder) buildIdent(expr *ir.Ident, load bool) llvm.Value {
 
 func (cb *llvmCodeBuilder) buildDefaultInit(t ir.Type) llvm.Value {
 	tllvm := cb.llvmType(t)
-	switch t := t.(type) {
+	switch t := ir.ToBaseType(t).(type) {
 	case *ir.BasicType:
 		if t.Kind() == ir.TBool {
 			return llvm.ConstInt(tllvm, 0, false)
