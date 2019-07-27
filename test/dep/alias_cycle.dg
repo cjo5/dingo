@@ -1,6 +1,0 @@
-typealias a = b
-typealias b = a
-
-// expect-error(1): cycle detected
-// expect(dgc): <re>.*:1:11:a</re> uses [1]
-// expect(dgc): <re>.*:2:11:b</re> uses [0]

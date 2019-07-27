@@ -161,14 +161,14 @@ func tryPromoteConstType(expr ir.Expr, target ir.Type) (ir.Expr, bool) {
 	promote := false
 	if texpr.Kind() == ir.TConstInt {
 		if target == nil {
-			target = ir.TBuiltinInt32
+			target = ir.TBuiltinInt
 		}
 		if ir.IsNumericType(target) {
 			promote = true
 		}
 	} else if texpr.Kind() == ir.TConstFloat {
 		if target == nil {
-			target = ir.TBuiltinFloat32
+			target = ir.TBuiltinFloat
 		}
 		if ir.IsFloatType(target) {
 			promote = true

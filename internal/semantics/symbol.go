@@ -8,16 +8,21 @@ import (
 const builtinSymFlags = ir.SymFlagBuiltin | ir.SymFlagDefined
 
 func (c *checker) insertBuiltinType(t ir.Type) {
-	c.insertBuiltinAliasType(t.Kind().String(), t)
+	c.insertBuiltinType2(t.Kind().String(), t)
 }
 
-func (c *checker) insertBuiltinAliasType(name string, t ir.Type) {
+func (c *checker) insertBuiltinType2(name string, t ir.Type) {
 	key := c.nextSymKey()
 	sym := ir.NewSymbol(ir.TypeSymbol, key, c.builtinScope.CUID, "", name, token.NoPosition)
 	sym.Public = true
 	sym.Flags |= builtinSymFlags
 	sym.T = t
 	c.builtinScope.Insert(name, sym)
+}
+
+func (c *checker) insertBuiltinAliasType(name string, t ir.Type) {
+	alias := ir.NewAliasType(name, t)
+	c.insertBuiltinType2(name, alias)
 }
 
 func (c *checker) initBuiltinScope() {
@@ -37,11 +42,11 @@ func (c *checker) initBuiltinScope() {
 	c.insertBuiltinType(ir.TBuiltinFloat32)
 	c.insertBuiltinType(ir.TBuiltinFloat64)
 
-	c.insertBuiltinAliasType("Byte", ir.TBuiltinInt8)
-	c.insertBuiltinAliasType("UByte", ir.TBuiltinUInt8)
-	c.insertBuiltinAliasType("Int", ir.TBuiltinInt32)
-	c.insertBuiltinAliasType("UInt", ir.TBuiltinUInt32)
-	c.insertBuiltinAliasType("Float", ir.TBuiltinFloat32)
+	c.insertBuiltinType2("Byte", ir.TBuiltinByte)
+	c.insertBuiltinType2("UByte", ir.TBuiltinUByte)
+	c.insertBuiltinType2("Int", ir.TBuiltinInt)
+	c.insertBuiltinType2("UInt", ir.TBuiltinUInt)
+	c.insertBuiltinType2("Float", ir.TBuiltinFloat)
 
 	// TODO: Change to distinct types
 	c.insertBuiltinAliasType("C_void", ir.TBuiltinVoid)

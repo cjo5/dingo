@@ -35,7 +35,7 @@ func (c *checker) checkArrayLit(expr *ir.ArrayLit) ir.Expr {
 		// TODO: Merge with ArrayTypeExpr
 		expr.Size = c.finalizeExpr(expr.Size, nil)
 		if !ir.IsIntegerType(expr.Size.Type()) {
-			c.error(expr.Size.Pos(), "array size expects an integer type (got %s)", expr.Size.Type())
+			c.error(expr.Size.Pos(), "array size expects an integer type (got '%s')", expr.Size.Type())
 			expr.Size.SetType(ir.TBuiltinInvalid)
 		} else if lit, ok := expr.Size.(*ir.BasicLit); !ok {
 			c.error(expr.Size.Pos(), "array size is not a constant expression")
@@ -75,7 +75,7 @@ func (c *checker) checkArrayLit(expr *ir.ArrayLit) ir.Expr {
 		init = c.finalizeExpr(init, telem)
 		expr.Initializers[i] = init
 		if isTypeMismatch(telem, init.Type()) {
-			c.error(init.Pos(), "type mismatch of array element (expected type %s, got type %s)", telem, init.Type())
+			c.error(init.Pos(), "type mismatch of array element (expected '%s', got '%s')", telem, init.Type())
 			telem = ir.TBuiltinInvalid
 			break
 		}
@@ -106,7 +106,7 @@ func (c *checker) checkBinaryExpr(expr *ir.BinaryExpr) ir.Expr {
 	tright := expr.Right.Type()
 
 	if !tleft.Equals(tright) {
-		c.nodeError(expr, "type mismatch %s and %s", tleft, tright)
+		c.nodeError(expr, "type mismatch '%s' and '%s'", tleft, tright)
 		expr.T = ir.TBuiltinInvalid
 		return expr
 	}
@@ -163,13 +163,13 @@ func (c *checker) checkUnaryExpr(expr *ir.UnaryExpr) ir.Expr {
 		if ir.IsNumericType(tx) {
 			expr.T = tx
 		} else {
-			c.error(expr.Pos(), "additive inverse cannot be performed on type %s", tx)
+			c.error(expr.Pos(), "additive inverse cannot be performed on type '%s'", tx)
 		}
 	case token.Lnot:
 		if tx.Kind() == ir.TBool {
 			expr.T = tx
 		} else {
-			c.error(expr.Pos(), "logical not cannot be performed on type %s)", tx)
+			c.error(expr.Pos(), "logical not cannot be performed on type '%s')", tx)
 
 		}
 	default:
@@ -230,7 +230,7 @@ func (c *checker) checkDerefExpr(expr *ir.DerefExpr) ir.Expr {
 	case *ir.PointerType:
 		expr.T = t.Elem
 	default:
-		c.error(expr.X.Pos(), "expression cannot be dereferenced (has type %s)", tx)
+		c.error(expr.X.Pos(), "dereference operator cannot be used on type '%s'", tx)
 	}
 
 	if expr.T == nil {
@@ -251,12 +251,10 @@ func (c *checker) checkDotExpr(expr *ir.DotExpr) ir.Expr {
 		return expr
 	}
 
-	tx := expr.X.Type()
-
-	switch tx := ir.ToBaseType(tx).(type) {
+	switch tx := ir.ToBaseType(expr.X.Type()).(type) {
 	case *ir.StructType:
 		if tx.Opaque() {
-			c.nodeError(expr.X, "expression has incomplete type '%s'", tx)
+			c.nodeError(expr.X, "expression has incomplete type '%s'", expr.X.Type())
 			expr.T = ir.TBuiltinInvalid
 		} else {
 			prevScope := c.setScope(tx.Scope)
@@ -265,7 +263,7 @@ func (c *checker) checkDotExpr(expr *ir.DotExpr) ir.Expr {
 			c.setScope(prevScope)
 		}
 	default:
-		c.nodeError(expr.X, "dot operator cannot be used on type '%s'", tx)
+		c.nodeError(expr.X, "dot operator cannot be used on type '%s'", expr.X.Type())
 	}
 
 	if expr.T == nil {
@@ -357,7 +355,7 @@ func (c *checker) checkSliceExpr(expr *ir.SliceExpr) ir.Expr {
 		if expr.Start != nil {
 			tstart := expr.Start.Type()
 			if !ir.IsIntegerType(tstart) {
-				c.error(expr.Start.Pos(), "slice index expects an integer type (got %s)", tstart)
+				c.error(expr.Start.Pos(), "slice index expects an integer type (got '%s')", tstart)
 				err = true
 			}
 		}
@@ -365,7 +363,7 @@ func (c *checker) checkSliceExpr(expr *ir.SliceExpr) ir.Expr {
 		if expr.End != nil {
 			tend := expr.End.Type()
 			if !ir.IsIntegerType(tend) {
-				c.error(expr.End.Pos(), "slice index expects an integer type (got %s)", tend)
+				c.error(expr.End.Pos(), "slice index expects an integer type (got '%s')", tend)
 				err = true
 			}
 		}
@@ -382,7 +380,7 @@ func (c *checker) checkSliceExpr(expr *ir.SliceExpr) ir.Expr {
 
 			if expr.End == nil {
 				if tx.Kind() == ir.TPointer {
-					c.nodeError(expr, "end index is required when slicing pointer types (got %s)", tx)
+					c.nodeError(expr, "end index is required when slicing type '%s'", tx)
 					err = true
 				} else {
 					len := &ir.LenExpr{
@@ -472,7 +470,7 @@ func (c *checker) checkAppExpr(expr *ir.AppExpr) ir.Expr {
 					}
 				}
 
-				tfun := tx.(*ir.FuncType)
+				tfun := ir.ToBaseType(tx).(*ir.FuncType)
 				firstParamOK := false
 				reportError := true
 				if len(tfun.Params) > 0 {
@@ -565,9 +563,9 @@ func (c *checker) checkArgumentList(tobj ir.Type, args []*ir.ArgExpr, fields []i
 							kind = "field"
 						}
 						if arg.Name != nil {
-							c.nodeError(arg, "%s '%s' at position %d expects type %s (got %s)", kind, arg.Name.Literal, fieldIndex+1, field.T, arg.Value.Type())
+							c.nodeError(arg, "%s '%s' at position %d expects type '%s' (got '%s')", kind, arg.Name.Literal, fieldIndex+1, field.T, arg.Value.Type())
 						} else {
-							c.nodeError(arg, "%s at position %d expects type %s (got %s)", kind, fieldIndex+1, field.T, arg.Value.Type())
+							c.nodeError(arg, "%s at position %d expects type '%s' (got '%s')", kind, fieldIndex+1, field.T, arg.Value.Type())
 						}
 					}
 				}
@@ -595,9 +593,9 @@ func (c *checker) checkArgumentList(tobj ir.Type, args []*ir.ArgExpr, fields []i
 			}
 		}
 	} else if len(args) > len(fields) {
-		c.error(endPos, "too many arguments (got %d but expected %d)", len(args), len(fields))
+		c.error(endPos, "too many arguments (expected %d, got %d)", len(fields), len(args))
 	} else if len(args) < len(fields) {
-		c.error(endPos, "too few arguments (got %d but expected %d)", len(args), len(fields))
+		c.error(endPos, "too few arguments (expected %d, got %d)", len(fields), len(args))
 	}
 
 	return argsRes
@@ -622,7 +620,7 @@ func (c *checker) checkCastExpr(expr *ir.CastExpr) ir.Expr {
 		if t2.CastableTo(t1) {
 			expr.T = t1
 		} else {
-			c.error(expr.X.Pos(), "type %s cannot be cast to %s", t2, t1)
+			c.error(expr.X.Pos(), "type '%s' cannot be cast to '%s'", t2, t1)
 		}
 	}
 
@@ -648,7 +646,7 @@ func (c *checker) checkLenExpr(expr *ir.LenExpr) ir.Expr {
 	case *ir.SliceType:
 		expr.T = ir.TBuiltinUSize
 	default:
-		c.error(expr.X.Pos(), "type %s does not have a length", tx)
+		c.error(expr.X.Pos(), "type '%s' does not have a length", tx)
 		expr.T = ir.TBuiltinInvalid
 	}
 	return expr
@@ -748,12 +746,12 @@ func (c *checker) checkBasicLit(expr *ir.BasicLit) ir.Expr {
 		if expr.Raw == nil {
 			if raw, ok := c.unescapeStringLiteral(expr); ok {
 				if expr.Prefix == nil {
-					expr.T = ir.NewSliceType(ir.TBuiltinInt8, true, true)
+					expr.T = ir.NewSliceType(ir.TBuiltinByte, true, true)
 					expr.Raw = raw
 				} else {
 					prefix := expr.Prefix.Literal
 					if prefix == "c" {
-						expr.T = ir.NewPointerType(ir.TBuiltinInt8, true)
+						expr.T = ir.NewPointerType(ir.TBuiltinByte, true)
 						expr.Raw = raw
 					} else {
 						c.error(expr.Prefix.Pos(), "invalid string prefix '%s'", prefix)

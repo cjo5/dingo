@@ -1,11 +1,10 @@
 module foo {
-    use ::bar::baz
+    use ::bar::baz // expect-error: cycle detected
 }
 
 module bar {
     use ::foo::baz
 }
 
-// expect-error(2): cycle detected
-// expect(dgc): <re>.*:2:16:baz</re> uses [1]
-// expect(dgc): <re>.*:6:16:baz</re> uses [0]
+// expect-dgc: <re>.*:2:16:baz</re> uses [1]
+// expect-dgc: <re>.*:6:16:baz</re> uses [0]

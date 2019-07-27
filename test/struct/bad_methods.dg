@@ -15,7 +15,7 @@ struct Foo {
         self.a++ // expect-error: expression is read-only
     }
 
-    fun f5(&Foo, self: Int) { // expect(dgc): error(18): redefinition of 'self' <re>.*</re> 
+    fun f5(&Foo, self: Int) { // expect-error: redefinition of 'self' <re>.*</re> 
 
     }
 }

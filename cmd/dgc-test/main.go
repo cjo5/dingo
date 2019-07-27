@@ -9,7 +9,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
-	"strconv"
 	"strings"
 
 	"github.com/cjo5/dingo/internal/backend"
@@ -397,17 +396,6 @@ func compareOutput(expectedOutput []*testOutputPattern, actualOutput []*testOutp
 	}
 }
 
-var expectedArgRegex *regexp.Regexp
-
-func init() {
-	// https://github.com/google/re2/wiki/Syntax
-	// ('+'|'-')? \w+
-	var err error
-	expectedArgRegex, err = regexp.Compile("\\((?:\\+|-)?\\w+\\)")
-	if err != nil {
-		panic(err)
-	}
-}
 func match(lit *string, prefix string) bool {
 	if strings.HasPrefix(*lit, prefix) {
 		(*lit) = (*lit)[len(prefix):]
@@ -434,39 +422,8 @@ func parseTestDescription(comments []*ir.Comment, result *testResult) (compiler 
 					isLineNum = true
 					isCompilerOutput = true
 					pattern.addPart(common.ErrorMsg.String(), nil)
-				}
-
-				rematch := expectedArgRegex.FindString(lit)
-				if len(rematch) > 0 {
-					lit = lit[len(rematch):]
-					rematch = rematch[1 : len(rematch)-1]
-					unknownArg := true
-
-					if isCompilerOutput {
-						if rematch == "_" {
-							unknownArg = false
-							isLineNum = false
-						} else if res, err := strconv.ParseInt(rematch, 10, 32); err == nil {
-							unknownArg = false
-							isLineNum = true
-							if strings.HasPrefix(rematch, "+") || strings.HasPrefix(rematch, "-") {
-								lineNum += int(res)
-							} else {
-								lineNum = int(res)
-							}
-						}
-					} else {
-						if rematch == "dgc" {
-							unknownArg = false
-							isCompilerOutput = true
-						}
-					}
-
-					if unknownArg {
-						result.status = statusInvalid
-						result.addReason("unknown test arg '%s' at '%s'", rematch, comment.Pos)
-						continue
-					}
+				} else if match(&lit, "-dgc") {
+					isCompilerOutput = true
 				}
 
 				if match(&lit, ":") {

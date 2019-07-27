@@ -100,6 +100,12 @@ var (
 	TBuiltinUSize      = Type(NewBasicType(TUSize))
 	TBuiltinFloat32    = Type(NewBasicType(TFloat32))
 	TBuiltinFloat64    = Type(NewBasicType(TFloat64))
+
+	TBuiltinByte  = Type(NewAliasType("Byte", TBuiltinInt8))
+	TBuiltinUByte = Type(NewAliasType("UByte", TBuiltinUInt8))
+	TBuiltinInt   = Type(NewAliasType("Int", TBuiltinInt32))
+	TBuiltinUInt  = Type(NewAliasType("UInt", TBuiltinUInt32))
+	TBuiltinFloat = Type(NewAliasType("Float", TBuiltinFloat32))
 )
 
 // Big ints and floats are used when evaluating constant expressions and checking for overflow.
