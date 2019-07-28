@@ -54,9 +54,9 @@ Modules provide a way to structure code in a hierarchical namespace. Declaration
 
 ```swift
 module foo {             // FQN: foo
-    var bar: Int         // FQN: foo.bar
-    pub module baz {     // FQN: foo.baz
-        pub var qux: Int // FQN: foo.baz.qux
+    var bar: Int         // FQN: foo::bar
+    pub module baz {     // FQN: foo::baz
+        pub var qux: Int // FQN: foo::baz::qux
     }
 }
 ```
@@ -142,9 +142,9 @@ b.dg:
 module foo {
     include "a.dg"
     // The identifiers in a.dg are brought in to the foo module.
-    // FQN: foo.bar
-    // FQN: foo.baz
-    // FQN: foo.baz.qux
+    // FQN: foo::bar
+    // FQN: foo::baz
+    // FQN: foo::baz::qux
 }
 ```
 
@@ -338,8 +338,34 @@ Neither ```Self``` or ```self``` are keywords.
 
 ```swift
 val a: I64 = 5
-val b = a as Int
+val b = a as Int // explicit cast
 ```
+
+### Implicit Type Casting
+
+```none
+F32 to F64
+
+I32 to I64
+I16 to I32
+I8 to I16
+
+U32 to U64
+U32 to I64
+U16 to U32
+U16 to I32
+U8 to U16
+U8 to I16
+
+// T generic type
+
+&var T to &T
+&var [T] to &[T]
+
+T to &T
+```
+
+The relations are transitive.
 
 ## If
 
@@ -420,9 +446,9 @@ Dynamic memory management is currently handled through the C API.
 
 Features to interface with the C ABI and runtime.
 
-**Types**
+### Types
 
-```
+```none
 C_void
 C_char
 C_uchar
@@ -432,14 +458,14 @@ C_int
 C_uint
 C_longlong
 C_ulonglong
-C_USize
+C_usize
 C_float
 C_double
 ```
 
 References are currently used for C pointers, though no pointer arithmetic is allowed.
 
-**Functions**
+### extern
 
 ```swift
 // Functions defined in C can be called from Dingo
@@ -454,7 +480,7 @@ extern fun do_stuff() {
 
 Using ```extern``` on functions will enable C ABI and disable name mangling.
 
-**main**
+### main
 
 ```swift
 
@@ -483,7 +509,7 @@ val b = false
 
 ## Numbers
 
-**Types**
+### Types
 
 ```swift
 // signed integers
@@ -508,14 +534,14 @@ typealias UInt = U32
 typealias Float = F32
 ```
 
-Note that the typealiases are defined this way independently of the platform, unlike the ```C_int```and ```C_float``` types that follow the C ABI.
+Note that the typealiases are defined independently of the platform, unlike the ```C_int```and ```C_float``` types that follow the C ABI.
 
-**Literal Samples**
+### Literal Samples
 
-```swift
+```rust
 15      // plain integer literal
 100_000 // underscores to make large numbers more readable
-100u8   // literals can have any numeric type as a suffix
+100U8   // literals can have any numeric type as a suffix
 0xFF    // hex
 077     // octal
 3.14    // plain floating point literal
@@ -525,7 +551,7 @@ Note that the typealiases are defined this way independently of the platform, un
 
 ## Basic Operators
 
-**Binary Operators**
+### Binary Operators
 
 ```swift
 a + b   // addition
@@ -544,7 +570,7 @@ a and b // logical and
 a or b  // logical or
 ```
 
-**Unary Operators**
+### Unary Operators
 
 ```swift
 -a      // numerical negation
@@ -572,7 +598,7 @@ See [grammar](grammar.md).
 
 ## Operator Precedence
 
-```
+```none
 Precedence  Associativity   Operation
 1           None            (exp) len(a) sizeof(a) literal identifier
 2           Left-to-right   a() a[] a[i] a[i:j] a.b
@@ -588,7 +614,7 @@ Precedence  Associativity   Operation
 
 ## Keywords
 
-```
+```none
 and
 as
 break
