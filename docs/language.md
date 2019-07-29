@@ -344,8 +344,7 @@ val b = a as Int // explicit cast
 ### Implicit Type Casting
 
 ```none
-F32 to F64
-
+// integer casts are transitive, e.g. U8 to U64 or I64 is ok
 I32 to I64
 I16 to I32
 I8 to I16
@@ -357,6 +356,8 @@ U16 to I32
 U8 to U16
 U8 to I16
 
+F32 to F64
+
 // T generic type
 
 &var T to &T
@@ -364,8 +365,6 @@ U8 to I16
 
 T to &T
 ```
-
-The relations are transitive.
 
 ## If
 
