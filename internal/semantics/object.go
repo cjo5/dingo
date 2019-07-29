@@ -95,7 +95,7 @@ func (d *object) addEdge(to *object, edge *depEdge) {
 func (c *checker) initObjectMatrix(modMatrix moduleMatrix) {
 	for CUID, modList := range modMatrix {
 		root := modList.importMap[""]
-		rootScope := root.T.(*ir.ModuleType).Scope
+		rootScope := root.T.(*ir.ModuleType).Scope()
 		c.objectList = newObjectList(modList.filename, CUID, rootScope)
 		for _, mod := range modList.mods {
 			c.scope = mod.builtinScope

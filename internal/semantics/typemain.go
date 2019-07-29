@@ -688,24 +688,20 @@ func (c *checker) resolveScopeLookup(expr *ir.ScopeLookup) {
 		valid := true
 		sym := part.Sym
 		if (i + 1) < len(expr.Parts) {
-			switch tsym := sym.T.(type) {
-			case *ir.ModuleType:
-				c.scope = tsym.Scope
-			case *ir.StructType:
-				if sym.Kind != ir.TypeSymbol {
-					valid = false
-					c.error(part.Pos(), "scope operator cannot be used on struct value")
+			if tsym, ok := ir.ToBaseType(sym.T).(ir.TypeScope); ok {
+				if sym.Kind == ir.TypeSymbol || sym.Kind == ir.ModuleSymbol {
+					c.scope = tsym.Scope()
 				} else {
-					c.scope = tsym.Scope
+					c.error(part.Pos(), "scope operator can only be used on modules and types")
 				}
-			default:
+			} else {
 				valid = false
 				c.error(part.Pos(), "scope operator cannot be used on type '%s'", sym.T)
 			}
 		} else {
 			if sym.IsField() {
 				valid = false
-				c.error(part.Pos(), "scope operator cannot be used to access struct field")
+				c.error(part.Pos(), "scope operator cannot access field")
 			} else {
 				expr.T = sym.T
 			}

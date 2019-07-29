@@ -141,6 +141,10 @@ type Type interface {
 	CastableTo(Type) bool
 }
 
+type TypeScope interface {
+	Scope() *Scope
+}
+
 // Target interface is implemented by the backend and used for platform dependent type information.
 type Target interface {
 	Sizeof(Type) int
@@ -205,7 +209,7 @@ func (t *BasicType) CastableTo(other Type) bool {
 type ModuleType struct {
 	baseType
 	Sym   *Symbol
-	Scope *Scope
+	scope *Scope
 }
 
 func (t *ModuleType) String() string {
@@ -220,6 +224,10 @@ func (t *ModuleType) CastableTo(other Type) bool {
 	return false
 }
 
+func (t *ModuleType) Scope() *Scope {
+	return t.scope
+}
+
 type Field struct {
 	Name string
 	T    Type
@@ -229,8 +237,8 @@ type StructType struct {
 	baseType
 	TypedBody bool
 	Sym       *Symbol
-	Scope     *Scope
 	Fields    []Field
+	scope     *Scope
 }
 
 func (t *StructType) String() string {
@@ -261,6 +269,10 @@ func (t *StructType) FieldIndex(fieldName string) int {
 		}
 	}
 	return -1
+}
+
+func (t *StructType) Scope() *Scope {
+	return t.scope
 }
 
 type ArrayType struct {
@@ -427,13 +439,13 @@ func NewBasicType(kind TypeKind) *BasicType {
 }
 
 func NewModuleType(sym *Symbol, scope *Scope) *ModuleType {
-	t := &ModuleType{Sym: sym, Scope: scope}
+	t := &ModuleType{Sym: sym, scope: scope}
 	t.kind = TModule
 	return t
 }
 
 func NewStructType(sym *Symbol, scope *Scope) *StructType {
-	t := &StructType{Sym: sym, Scope: scope}
+	t := &StructType{Sym: sym, scope: scope}
 	t.kind = TStruct
 	return t
 }

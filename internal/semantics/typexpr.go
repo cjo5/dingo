@@ -257,7 +257,7 @@ func (c *checker) checkDotExpr(expr *ir.DotExpr) ir.Expr {
 			c.nodeError(expr.X, "expression has incomplete type '%s'", expr.X.Type())
 			expr.T = ir.TBuiltinInvalid
 		} else {
-			prevScope := c.setScope(tx.Scope)
+			prevScope := c.setScope(tx.Scope())
 			c.resolveIdent(expr.Name)
 			expr.T = expr.Name.T
 			c.setScope(prevScope)
