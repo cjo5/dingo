@@ -5,7 +5,7 @@
 This is a hobby project intended for learning and experimentation.
 
 ## Examples
-See [examples](examples).
+See [examples](examples) and [lib](std).
 
 ## Installation
 Ensure Go 1.6 or above and subversion are installed, and that GOPATH is properly set.

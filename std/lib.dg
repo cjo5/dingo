@@ -10,8 +10,25 @@ pub module math {
     pub use c::cos
     pub use c::sin
 
-    pub val e: F32 = 2.71828182845904523536028747135266249775724709369995
+    pub val e: F32  = 2.71828182845904523536028747135266249775724709369995
     pub val pi: F32 = 3.14159265358979323846264338327950288419716939937510
+
+    pub val minI8: I8   = -128
+    pub val maxI8: I8   = 127
+    pub val minI16: I16 = -32_768
+    pub val maxI16: I16 = 32_767
+    pub val minI32: I32 = -2_147_483_648
+    pub val maxI32: I32 = 2_147_483_647
+    pub val minI64: I64 = -9_223_372_036_854_775_808
+    pub val maxI64: I64 = 9_223_372_036_854_775_807
+
+    pub val maxU8: U8   = 255
+    pub val maxU16: U16 = 65_535
+    pub val maxU32: U32 = 4_294_967_295
+    pub val maxU64: U64 = 18_446_744_073_709_551_615
+
+    pub val maxF32: F32 = 3.40282346638528859811704183484516925440e+38
+    pub val maxF64: F64 = 1.797693134862315708145274237317043567981e+308
 }
 
 pub module io {
@@ -49,6 +66,11 @@ pub module io {
         } else {
             printu(i as U64)
         }
+    }
+
+    pub fun printuln(i: U64) {
+        printu(i)
+        putchar('\n')
     }
 
     pub fun printu(i: U64) {

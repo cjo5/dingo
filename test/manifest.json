@@ -8,6 +8,7 @@
             "defer.dg",
             "if.dg",
             "incomplete_type.dg",
+            "limits.dg",
             "literals.dg",
             "logic.dg",
             "math.dg",
