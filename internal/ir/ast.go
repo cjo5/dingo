@@ -364,6 +364,17 @@ func (x *BasicLit) AsU64() uint64 {
 	return bigInt.Uint64()
 }
 
+func (x *BasicLit) Negate() {
+	switch raw := x.Raw.(type) {
+	case *big.Int:
+		raw.Neg(raw)
+	case *big.Float:
+		raw.Neg(raw)
+	default:
+		panic(fmt.Sprintf("Raw %T cannot be negated", raw))
+	}
+}
+
 func (x *BasicLit) NegatigeInteger() bool {
 	bigInt := x.Raw.(*big.Int)
 	return bigInt.Sign() < 0
@@ -375,19 +386,19 @@ func (x *BasicLit) PositiveInteger() bool {
 }
 
 func (x *BasicLit) Zero() bool {
-	switch t := x.Raw.(type) {
+	switch raw := x.Raw.(type) {
 	case *big.Int:
-		return t.Uint64() == 0
+		return raw.Uint64() == 0
 	case *big.Float:
-		val, _ := t.Float64()
+		val, _ := raw.Float64()
 		return val == 0
 	}
 	return false
 }
 
 func (x *BasicLit) AsF64() float64 {
-	if t, ok := x.Raw.(*big.Int); ok {
-		return float64(t.Uint64())
+	if raw, ok := x.Raw.(*big.Int); ok {
+		return float64(raw.Uint64())
 	}
 	bigFloat := x.Raw.(*big.Float)
 	val, _ := bigFloat.Float64()

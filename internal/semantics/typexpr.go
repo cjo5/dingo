@@ -162,6 +162,12 @@ func (c *checker) checkUnaryExpr(expr *ir.UnaryExpr) ir.Expr {
 	case token.Sub:
 		if ir.IsNumericType(tx) {
 			expr.T = tx
+			// Temporary hack
+			if lit, ok := expr.X.(*ir.BasicLit); ok {
+				lit.Negate()
+				lit.T = tx
+				return lit
+			}
 		} else {
 			c.error(expr.Pos(), "additive inverse cannot be performed on type '%s'", tx)
 		}
