@@ -46,7 +46,7 @@
 
 ## Semicolons
 
-Semicolons work in a similar way as in Go. That is, the grammar and parser assume that statements are terminated with semicolons; however, the lexer automatically inserts a semicolon in the token stream at the end of a line if it sees a token that can terminate a statement. See [here](https://github.com/cjo5/dingo/blob/d9bde812c35417635c3d221e262d2ec4b61acfe2/internal/frontend/lex.go#L169) for the exact tokens that the lexer checks for.
+Semicolons work in a similar way as in Go. That is, the grammar and parser assume that statements are terminated with semicolons; however, the lexer automatically inserts a semicolon in the token stream at the end of a line if it sees a token that can terminate a statement. See [here](https://github.com/cjo5/dingo/blob/eb389e67264d1fdb209ead4be8d8e9e1c489b8af/internal/frontend/lex.go#L165) for the exact tokens that the lexer checks for.
 
 ## Modules
 
@@ -330,9 +330,7 @@ Foo::set(&var f1, 8, 12)
 
 Values are automatically dereferenced for field access and referenced when calling methods.
 
-```Self``` is a ```typealias``` of the struct type in methods. If the first parameter name is omitted in the function signature, then ```self``` is automatically inserted if the type is the struct (or ```Self```) or a reference to it; that is, the types that can be used with the dot operator. Other than these two conveniences methods are exactly the same as regular functions.
-
-Neither ```Self``` or ```self``` are keywords.
+```Self``` is a ```typealias``` for the struct type in methods. If the first parameter name is omitted in the function signature, then ```self``` is automatically inserted if the type is ```Self``` or a reference to it. Other than these two conveniences methods are exactly the same as regular functions. Neither ```Self``` or ```self``` are keywords.
 
 ## Type Casting
 

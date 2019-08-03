@@ -17,10 +17,10 @@ struct Foo {
         f.inc()
     }
 
-    fun inc_thrice(&var Foo) {
-        self.inc()
-        self.inc()
-        self.inc()
+    fun inc_thrice(f: &var Foo2) {
+        f.inc()
+        f.inc()
+        f.inc()
     }
 
     fun get(&Self) Int {
@@ -28,14 +28,21 @@ struct Foo {
     }
 }
 
+typealias Foo2 = Foo
+
 extern fun main() C_int {
-    val f = Foo(1)
-    f.bar(2)
+    val f0 = Foo(1)
+    f0.bar(2)
     // expect: 1
     // expect: 2
 
+    val f1 = Foo2(2)
+    f1.bar(3)
+    // expect: 2
+    // expect: 3
+
     var f2 = Foo(3)
-    val bar = f.bar
+    val bar = f2.bar
     bar(f2, 4)
     // expect: 3
     // expect: 4

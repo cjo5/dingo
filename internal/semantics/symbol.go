@@ -249,7 +249,7 @@ func (c *checker) patchSelf(decl *ir.FuncDecl, structSym *ir.Symbol) {
 	}
 	if len(tyName) > 0 {
 		selfTyName := ir.FQN(modFQN, ir.SelfType)
-		if tyName == selfTyName || tyName == structSym.FQN() {
+		if tyName == selfTyName {
 			param.Name.Tok = token.Ident
 			param.Name.Literal = ir.Self
 			if !param.Name.Pos().IsValid() {
