@@ -12,20 +12,20 @@ import (
 
 func (c *checker) checkArrayLit(expr *ir.ArrayLit) ir.Expr {
 	expr.Elem = c.checkRootTypeExpr(expr.Elem, true)
-	tpunt := untypedExpr(expr.Elem, nil)
+	tuntyped := checkUntypedExprs(expr.Elem)
 	if expr.Size != nil {
 		expr.Size = c.checkExpr(expr.Size)
-		tpunt = untypedExpr(expr.Size, nil)
+		tuntyped = checkUntyped(expr.Size.Type(), tuntyped)
 	}
 
 	for i, init := range expr.Initializers {
 		init = c.checkExpr(init)
 		expr.Initializers[i] = init
-		tpunt = untypedExpr(init, tpunt)
+		tuntyped = checkUntyped(init.Type(), tuntyped)
 	}
 
-	if tpunt != nil {
-		expr.T = tpunt
+	if tuntyped != nil {
+		expr.T = tuntyped
 		return expr
 	}
 
@@ -94,8 +94,8 @@ func (c *checker) checkBinaryExpr(expr *ir.BinaryExpr) ir.Expr {
 	expr.Left = c.checkExpr(expr.Left)
 	expr.Right = c.checkExpr(expr.Right)
 
-	if tpunt := puntExprs(expr.Left, expr.Right); tpunt != nil {
-		expr.T = tpunt
+	if tuntyped := checkUntypedExprs(expr.Left, expr.Right); tuntyped != nil {
+		expr.T = tuntyped
 		return expr
 	}
 
@@ -153,8 +153,8 @@ func (c *checker) checkUnaryExpr(expr *ir.UnaryExpr) ir.Expr {
 	expr.X = c.checkExpr(expr.X)
 	tx := expr.X.Type()
 
-	if tpunt := puntExprs(expr.X); tpunt != nil {
-		expr.T = tpunt
+	if tuntyped := checkUntypedExprs(expr.X); tuntyped != nil {
+		expr.T = tuntyped
 		return expr
 	}
 
@@ -193,8 +193,8 @@ func (c *checker) checkAddrExpr(expr *ir.AddrExpr) ir.Expr {
 	expr.X = c.checkExpr(expr.X)
 	tx := expr.X.Type()
 
-	if tpunt := puntExprs(expr.X); tpunt != nil {
-		expr.T = tpunt
+	if tuntyped := checkUntypedExprs(expr.X); tuntyped != nil {
+		expr.T = tuntyped
 		return expr
 	}
 
@@ -227,8 +227,8 @@ func (c *checker) checkDerefExpr(expr *ir.DerefExpr) ir.Expr {
 	expr.X = c.checkExpr(expr.X)
 	tx := expr.X.Type()
 
-	if tpunt := puntExprs(expr.X); tpunt != nil {
-		expr.T = tpunt
+	if tuntyped := checkUntypedExprs(expr.X); tuntyped != nil {
+		expr.T = tuntyped
 		return expr
 	}
 
@@ -252,8 +252,8 @@ func (c *checker) checkDotExpr(expr *ir.DotExpr) ir.Expr {
 		expr.X = tryDeref(expr.X)
 	}
 
-	if tpunt := puntExprs(expr.X); tpunt != nil {
-		expr.T = tpunt
+	if tuntyped := checkUntypedExprs(expr.X); tuntyped != nil {
+		expr.T = tuntyped
 		return expr
 	}
 
@@ -286,8 +286,8 @@ func (c *checker) checkIndexExpr(expr *ir.IndexExpr) ir.Expr {
 	expr.Index = c.checkExpr(expr.Index)
 	expr.Index = c.finalizeExpr(expr.Index, nil)
 
-	if tpunt := puntExprs(expr.X, expr.Index); tpunt != nil {
-		expr.T = tpunt
+	if tuntyped := checkUntypedExprs(expr.X, expr.Index); tuntyped != nil {
+		expr.T = tuntyped
 		return expr
 	}
 
@@ -333,8 +333,8 @@ func (c *checker) checkSliceExpr(expr *ir.SliceExpr) ir.Expr {
 		expr.End = c.finalizeExpr(expr.End, nil)
 	}
 
-	if tpunt := puntExprs(expr.X, expr.Start, expr.End); tpunt != nil {
-		expr.T = tpunt
+	if tuntyped := checkUntypedExprs(expr.X, expr.Start, expr.End); tuntyped != nil {
+		expr.T = tuntyped
 		return expr
 	}
 
@@ -418,12 +418,12 @@ func (c *checker) checkSliceExpr(expr *ir.SliceExpr) ir.Expr {
 }
 
 func (c *checker) checkAppExpr(expr *ir.AppExpr) ir.Expr {
-	var tpunt ir.Type
+	var tuntyped ir.Type
 	if isUnknownExprType(expr.X) {
 		expr.X = c.checkExpr2(expr.X, modeExprOrType)
 		tx := expr.X.Type()
 		if isUntyped(tx) {
-			tpunt = tx
+			tuntyped = tx
 		} else {
 			ok := false
 			if tx.Kind() == ir.TFunc {
@@ -445,11 +445,11 @@ func (c *checker) checkAppExpr(expr *ir.AppExpr) ir.Expr {
 
 	for i, arg := range expr.Args {
 		expr.Args[i].Value = c.checkExpr(arg.Value)
-		tpunt = untypedExpr(expr.Args[i].Value, tpunt)
+		tuntyped = checkUntyped(expr.Args[i].Value.Type(), tuntyped)
 	}
 
-	if tpunt != nil {
-		expr.T = tpunt
+	if tuntyped != nil {
+		expr.T = tuntyped
 		return expr
 	}
 
@@ -610,8 +610,8 @@ func (c *checker) checkCastExpr(expr *ir.CastExpr) ir.Expr {
 	expr.ToType = c.checkRootTypeExpr(expr.ToType, true)
 	expr.X = c.checkExpr(expr.X)
 
-	if tpunt := puntExprs(expr.ToType, expr.X); tpunt != nil {
-		expr.T = tpunt
+	if tuntyped := checkUntypedExprs(expr.ToType, expr.X); tuntyped != nil {
+		expr.T = tuntyped
 		return expr
 	}
 
@@ -641,8 +641,8 @@ func (c *checker) checkLenExpr(expr *ir.LenExpr) ir.Expr {
 		expr.X = c.checkExpr(expr.X)
 		expr.X = tryDeref(expr.X)
 	}
-	if tpunt := puntExprs(expr.X); tpunt != nil {
-		expr.T = tpunt
+	if tuntyped := checkUntypedExprs(expr.X); tuntyped != nil {
+		expr.T = tuntyped
 		return expr
 	}
 	switch tx := ir.ToBaseType(expr.X.Type()).(type) {
@@ -659,8 +659,8 @@ func (c *checker) checkLenExpr(expr *ir.LenExpr) ir.Expr {
 
 func (c *checker) checkSizeofExpr(expr *ir.SizeofExpr) ir.Expr {
 	expr.X = c.checkRootTypeExpr(expr.X, true)
-	if tpunt := puntExprs(expr.X); tpunt != nil {
-		expr.T = tpunt
+	if tuntyped := checkUntypedExprs(expr.X); tuntyped != nil {
+		expr.T = tuntyped
 		return expr
 	}
 	tx := expr.X.Type()

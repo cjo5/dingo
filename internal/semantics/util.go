@@ -4,42 +4,14 @@ import (
 	"github.com/cjo5/dingo/internal/ir"
 )
 
-func isTypeMismatch(t1 ir.Type, t2 ir.Type) bool {
-	if isUntyped(t1) || isUntyped(t2) {
-		return false
-	}
-	return !t1.Equals(t2)
-}
-
-func puntExprs(exprs ...ir.Expr) ir.Type {
-	var t ir.Type
-	for _, expr := range exprs {
-		if expr != nil {
-			t = untyped(expr.Type(), t)
-		}
-	}
-	return t
-}
-
-func untyped(t ir.Type, prev ir.Type) ir.Type {
-	if prev == nil || prev.Kind() == ir.TUnknown {
-		if isUntyped(t) {
-			return t
-		}
-	}
-	return prev
-}
-
-func untypedExpr(expr ir.Expr, prev ir.Type) ir.Type {
-	texpr := expr.Type()
-	return untyped(texpr, prev)
-}
-
 func isUntyped(t ir.Type) bool {
 	return isTypeOneOf(t, ir.TUnknown, ir.TInvalid)
 }
 
 func isUntypedExpr(expr ir.Expr) bool {
+	if expr == nil {
+		return false
+	}
 	texpr := expr.Type()
 	return isUntyped(texpr)
 }
@@ -53,13 +25,44 @@ func isUnknownExprType(expr ir.Expr) bool {
 	return isUnknownType(texpr)
 }
 
-func isUnknownExprsType(exprs ...ir.Expr) bool {
-	for _, expr := range exprs {
-		if isUnknownExprType(expr) {
-			return true
+func isInvalidType(t ir.Type) bool {
+	return t.Kind() == ir.TInvalid
+}
+
+func checkUntyped(tys ...ir.Type) ir.Type {
+	var tres ir.Type
+	for _, ty := range tys {
+		if ty != nil {
+			if ty.Kind() == ir.TInvalid {
+				return ty
+			} else if ty.Kind() == ir.TUnknown {
+				tres = ty
+			}
 		}
 	}
-	return false
+	return tres
+}
+
+func checkUntypedExprs(exprs ...ir.Expr) ir.Type {
+	var tres ir.Type
+	for _, expr := range exprs {
+		if expr != nil {
+			texpr := expr.Type()
+			if texpr.Kind() == ir.TInvalid {
+				return texpr
+			} else if texpr.Kind() == ir.TUnknown {
+				tres = texpr
+			}
+		}
+	}
+	return tres
+}
+
+func isTypeMismatch(t1 ir.Type, t2 ir.Type) bool {
+	if isUntyped(t1) || isUntyped(t2) {
+		return false
+	}
+	return !t1.Equals(t2)
 }
 
 func isTypeOneOf(t ir.Type, kinds ...ir.TypeKind) bool {

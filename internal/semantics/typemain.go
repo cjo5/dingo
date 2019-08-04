@@ -39,18 +39,10 @@ func (c *checker) checkIncompleteObject(obj *object) {
 func (c *checker) checkObject(obj *object) {
 	c.object = obj
 	defer c.setScope(c.setScope(obj.parentScope))
+	c.checkDecl(obj.d)
+	c.object.checked = true
 	switch decl := obj.d.(type) {
-	case *ir.ImportDecl:
-		c.object.checked = true
-	case *ir.UseDecl:
-		c.checkUseDecl(decl)
-		c.object.checked = true
-	case *ir.TypeDecl:
-		c.checkTypeDecl(decl)
-		c.object.checked = true
 	case *ir.ValDecl:
-		c.checkValDecl(decl)
-		c.object.checked = true
 		if !isUntyped(decl.Sym.T) {
 			init := decl.Initializer
 			if !decl.Sym.IsConst() {
@@ -58,47 +50,55 @@ func (c *checker) checkObject(obj *object) {
 				decl.Sym.T = ir.TBuiltinInvalid
 			}
 		}
-	case *ir.FuncDecl:
-		c.checkFuncDecl(decl)
-	case *ir.StructDecl:
-		c.object.checked = true
-		c.checkStructDecl(decl)
-	default:
-		panic(fmt.Sprintf("Unhandled decl %T", decl))
 	}
 }
 
 func (c *checker) checkLocalDecl(decl ir.Decl) {
-	switch decl := decl.(type) {
-	case *ir.UseDecl:
-		if c.step == 0 {
+	if c.step == 0 {
+		switch decl := decl.(type) {
+		case *ir.UseDecl:
 			decl.Sym = c.newUseSymbol(decl, c.object.CUID(), c.object.modFQN(), false, false)
+		case *ir.TypeDecl:
+			decl.Sym = c.newLocalTypeDeclSymbol(decl, c.object.CUID(), c.object.modFQN())
+		case *ir.ValDecl:
+			decl.Sym = c.newLocalValDeclSymbol(decl, c.object.CUID(), c.object.modFQN())
+		default:
+			panic(fmt.Sprintf("Unhandled decl %T", decl))
 		}
-		if decl.Sym != nil {
+	}
+	c.checkDecl(decl)
+	if c.step == 0 {
+		sym := decl.Symbol()
+		if sym != nil {
+			sym = c.insertSymbol(c.scope, sym.Name, sym)
+			decl.SetSymbol(sym)
+		}
+	}
+}
+
+func (c *checker) checkDecl(decl ir.Decl) {
+	sym := decl.Symbol()
+	if sym == nil {
+		return
+	}
+	switch decl := decl.(type) {
+	case *ir.ImportDecl:
+		// Nothing to do
+	case *ir.FuncDecl:
+		c.checkFuncDecl(decl)
+	case *ir.StructDecl:
+		c.checkStructDecl(decl)
+	case *ir.UseDecl:
+		if isUnknownType(sym.T) {
 			c.checkUseDecl(decl)
-			if c.step == 0 {
-				decl.Sym = c.insertSymbol(c.scope, decl.Sym.Name, decl.Sym)
-			}
 		}
 	case *ir.TypeDecl:
-		if c.step == 0 {
-			decl.Sym = c.newLocalTypeDeclSymbol(decl, c.object.CUID(), c.object.modFQN())
-		}
-		if decl.Sym != nil {
+		if isUnknownType(sym.T) {
 			c.checkTypeDecl(decl)
-			if c.step == 0 {
-				decl.Sym = c.insertSymbol(c.scope, decl.Sym.Name, decl.Sym)
-			}
 		}
 	case *ir.ValDecl:
-		if c.step == 0 {
-			decl.Sym = c.newLocalValDeclSymbol(decl, c.object.CUID(), c.object.modFQN())
-		}
-		if decl.Sym != nil {
+		if isUnknownType(sym.T) {
 			c.checkValDecl(decl)
-			if c.step == 0 {
-				decl.Sym = c.insertSymbol(c.scope, decl.Sym.Name, decl.Sym)
-			}
 		}
 	default:
 		panic(fmt.Sprintf("Unhandled decl %T", decl))
@@ -106,9 +106,6 @@ func (c *checker) checkLocalDecl(decl ir.Decl) {
 }
 
 func (c *checker) checkUseDecl(decl *ir.UseDecl) {
-	if !isUnknownType(decl.Sym.T) {
-		return
-	}
 	c.resolveScopeLookup(decl.Name)
 	tuse := decl.Name.T
 	if !isUntyped(decl.Name.T) {
@@ -131,9 +128,6 @@ func (c *checker) checkUseDecl(decl *ir.UseDecl) {
 }
 
 func (c *checker) checkTypeDecl(decl *ir.TypeDecl) {
-	if !isUnknownType(decl.Type.Type()) {
-		return
-	}
 	decl.Type = c.checkRootTypeExpr(decl.Type, false)
 	tbase := decl.Type.Type()
 	if isUntyped(tbase) {
@@ -144,17 +138,14 @@ func (c *checker) checkTypeDecl(decl *ir.TypeDecl) {
 }
 
 func (c *checker) checkValDecl(decl *ir.ValDecl) {
-	if !isUnknownType(decl.Sym.T) {
-		return
-	}
 	if decl.Type != nil {
 		decl.Type = c.checkRootTypeExpr(decl.Type, true)
 	}
 	if decl.Initializer != nil {
 		decl.Initializer = c.checkExpr(decl.Initializer)
 	}
-	if tpunt := puntExprs(decl.Type, decl.Initializer); tpunt != nil {
-		decl.Sym.T = tpunt
+	if tuntyped := checkUntypedExprs(decl.Type, decl.Initializer); tuntyped != nil {
+		decl.Sym.T = tuntyped
 		return
 	}
 	tval := ir.TBuiltinInvalid
@@ -225,21 +216,21 @@ func checkCompileTimeConstant(expr ir.Expr) bool {
 func (c *checker) checkFuncDecl(decl *ir.FuncDecl) {
 	defer c.setScope(c.scope)
 	if isUnknownType(decl.Sym.T) {
-		var tpunt ir.Type
+		var tuntyped ir.Type
 		c.setScope(decl.Scope.Parent)
 		for _, param := range decl.Params {
 			if param.Sym != nil {
-				c.checkValDecl(param)
-				tpunt = untyped(param.Sym.T, tpunt)
+				c.checkDecl(param)
+				tuntyped = checkUntyped(param.Sym.T, tuntyped)
 			} else {
-				tpunt = ir.TBuiltinInvalid
+				tuntyped = ir.TBuiltinInvalid
 			}
 		}
 		decl.Return.Type = c.checkRootTypeExpr(decl.Return.Type, false)
 		tret := decl.Return.Type.Type()
-		tpunt = untyped(tret, tpunt)
-		if tpunt != nil {
-			decl.Sym.T = tpunt
+		tuntyped = checkUntyped(tuntyped, tret)
+		if tuntyped != nil {
+			decl.Sym.T = tuntyped
 		} else {
 			var params []ir.Field
 			for _, param := range decl.Params {
@@ -279,19 +270,19 @@ func (c *checker) checkStructDecl(decl *ir.StructDecl) {
 	if tstruct.TypedBody {
 		return
 	}
-	var tpunt ir.Type
+	var tuntyped ir.Type
 	for _, field := range decl.Fields {
 		if field.Sym != nil {
-			c.checkValDecl(field)
-			tpunt = untyped(field.Sym.T, tpunt)
+			c.checkDecl(field)
+			tuntyped = checkUntyped(field.Sym.T, tuntyped)
 		} else {
-			tpunt = ir.TBuiltinInvalid
+			tuntyped = ir.TBuiltinInvalid
 		}
 	}
 	typedBody := true
-	if tpunt != nil {
-		if tpunt.Kind() == ir.TInvalid {
-			decl.Sym.T = tpunt
+	if tuntyped != nil {
+		if isInvalidType(tuntyped) {
+			decl.Sym.T = tuntyped
 			return
 		}
 		typedBody = false
@@ -387,10 +378,10 @@ func (c *checker) checkStmt(stmt ir.Stmt) {
 			c.error(stmt.Pos(), "'%s' can only be used in a loop", stmt.Tok)
 		}
 	case *ir.AssignStmt:
-		if isUnknownExprsType(stmt.Left, stmt.Right) {
+		if isUnknownExprType(stmt.Left) || isUnknownExprType(stmt.Right) {
 			stmt.Left = c.checkExpr(stmt.Left)
 			stmt.Right = c.checkExpr(stmt.Right)
-			if puntExprs(stmt.Left, stmt.Right) != nil {
+			if checkUntypedExprs(stmt.Left, stmt.Right) != nil {
 				return
 			}
 			left := stmt.Left
@@ -533,8 +524,8 @@ func (c *checker) checkRootTypeExpr(expr ir.Expr, checkVoid bool) ir.Expr {
 
 func (c *checker) checkPointerTypeExpr(expr *ir.PointerTypeExpr) ir.Expr {
 	expr.X = c.checkExpr2(expr.X, modeIndirectType)
-	if tpunt := puntExprs(expr.X); tpunt != nil {
-		expr.T = tpunt
+	if tuntyped := checkUntypedExprs(expr.X); tuntyped != nil {
+		expr.T = tuntyped
 		return expr
 	}
 	ro := expr.Decl.Is(token.Val)
@@ -570,8 +561,8 @@ func (c *checker) checkArrayTypeExpr(expr *ir.ArrayTypeExpr) ir.Expr {
 		expr.Size = c.finalizeExpr(expr.Size, nil)
 	}
 	expr.X = c.checkExpr(expr.X)
-	if tpunt := puntExprs(expr.Size, expr.X); tpunt != nil {
-		expr.T = tpunt
+	if tuntyped := checkUntypedExprs(expr.Size, expr.X); tuntyped != nil {
+		expr.T = tuntyped
 		return expr
 	}
 	size := 0
@@ -597,17 +588,16 @@ func (c *checker) checkArrayTypeExpr(expr *ir.ArrayTypeExpr) ir.Expr {
 
 func (c *checker) checkFuncTypeExpr(expr *ir.FuncTypeExpr) ir.Expr {
 	var params []ir.Field
-	var tpunt ir.Type
+	var tuntyped ir.Type
 	for i, param := range expr.Params {
 		expr.Params[i].Type = c.checkRootTypeExpr(param.Type, true)
 		tparam := expr.Params[i].Type.Type()
 		params = append(params, ir.Field{Name: param.Name.Literal, T: tparam})
-		tpunt = untyped(tparam, tpunt)
+		tuntyped = checkUntyped(tparam, tuntyped)
 	}
 	expr.Return.Type = c.checkRootTypeExpr(expr.Return.Type, false)
-	tpunt = untyped(expr.Return.Type.Type(), tpunt)
-	if tpunt != nil {
-		expr.T = tpunt
+	if tuntyped = checkUntyped(expr.Return.Type.Type(), tuntyped); tuntyped != nil {
+		expr.T = tuntyped
 		return expr
 	}
 	cabi := false

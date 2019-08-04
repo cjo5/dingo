@@ -30,6 +30,7 @@ type Decl interface {
 	Node
 	declNode()
 	Symbol() *Symbol
+	SetSymbol(*Symbol)
 }
 
 // Stmt is the main interface for statement nodes.
@@ -87,6 +88,10 @@ func (d *baseDecl) declNode() {}
 
 func (d *baseDecl) Symbol() *Symbol {
 	return d.Sym
+}
+
+func (d *baseDecl) SetSymbol(sym *Symbol) {
+	d.Sym = sym
 }
 
 type ImportDecl struct {
