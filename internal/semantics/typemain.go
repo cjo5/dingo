@@ -217,14 +217,18 @@ func (c *checker) checkFuncDecl(decl *ir.FuncDecl) {
 	defer c.setScope(c.scope)
 	if isUnknownType(decl.Sym.T) {
 		var tuntyped ir.Type
-		c.setScope(decl.Scope.Parent)
+		c.setScope(decl.Scope)
+		sym := decl.Sym
 		for _, param := range decl.Params {
+			c.checkLocalDecl(param)
 			if param.Sym != nil {
-				c.checkDecl(param)
 				tuntyped = checkUntyped(param.Sym.T, tuntyped)
 			} else {
 				tuntyped = ir.TBuiltinInvalid
 			}
+		}
+		if c.step == 0 {
+			c.insertLocalValDeclSymbol(decl.Return, sym.CUID, sym.ModFQN)
 		}
 		decl.Return.Type = c.checkRootTypeExpr(decl.Return.Type, false)
 		tret := decl.Return.Type.Type()
@@ -271,14 +275,21 @@ func (c *checker) checkStructDecl(decl *ir.StructDecl) {
 		return
 	}
 	var tuntyped ir.Type
+	decl.Scope.Parent = c.object.parentScope
+	prevScope := c.setScope(decl.Scope)
 	for _, field := range decl.Fields {
 		if field.Sym != nil {
 			c.checkDecl(field)
+			if isUntyped(field.Sym.T) && c.step > 0 {
+				c.error(field.Sym.Pos, "untyped field")
+			}
 			tuntyped = checkUntyped(field.Sym.T, tuntyped)
 		} else {
 			tuntyped = ir.TBuiltinInvalid
 		}
 	}
+	decl.Scope.Parent = nil
+	c.setScope(prevScope)
 	typedBody := true
 	if tuntyped != nil {
 		if isInvalidType(tuntyped) {
@@ -286,6 +297,7 @@ func (c *checker) checkStructDecl(decl *ir.StructDecl) {
 			return
 		}
 		typedBody = false
+		c.setIncompleteObject()
 	}
 	var fields []ir.Field
 	for _, field := range decl.Fields {
@@ -436,6 +448,19 @@ func (c *checker) checkExpr(expr ir.Expr) ir.Expr {
 		return expr
 	}
 	switch expr := expr.(type) {
+	case *ir.Typeof:
+		if isUnknownExprType(expr.X) {
+			expr.X = c.checkExpr2(expr.X, modeExpr)
+			expr.X = c.finalizeExpr(expr.X, nil)
+			tx := expr.X.Type()
+			if tx.Kind() == ir.TModule {
+				c.nodeError(expr.X, "invalid expression (type '%s')", tx)
+				expr.T = ir.TBuiltinInvalid
+			} else {
+				expr.T = tx
+			}
+		}
+		return expr
 	case *ir.PointerTypeExpr:
 		return c.checkPointerTypeExpr(expr)
 	case *ir.SliceTypeExpr:
@@ -710,14 +735,23 @@ func (c *checker) resolveScopeLookup(expr *ir.ScopeLookup) {
 	}
 }
 
+func (c *checker) maybeConstExpr(ident *ir.Ident) ir.Expr {
+	sym := ident.Sym
+	if sym.IsBuiltin() && sym.IsConst() {
+		res := &ir.ConstExpr{
+			X: c.constMap[sym.Key],
+		}
+		res.T = sym.T
+		res.SetRange(ident.Pos(), ident.EndPos())
+		return res
+	}
+	return ident
+}
+
 func (c *checker) checkIdent(expr *ir.Ident) ir.Expr {
 	c.resolveIdent(expr)
 	if !isUntyped(expr.T) {
-		sym := expr.Sym
-		if sym.IsBuiltin() && sym.IsConst() {
-			// TODO: make copy to set correct pos
-			return c.constMap[sym.Key]
-		}
+		return c.maybeConstExpr(expr)
 	}
 	return expr
 }
@@ -726,13 +760,8 @@ func (c *checker) checkScopeLookup(expr *ir.ScopeLookup) ir.Expr {
 	c.resolveScopeLookup(expr)
 	if !isUntyped(expr.T) {
 		last := expr.Last()
-		sym := last.Sym
-		if sym.IsBuiltin() && sym.IsConst() {
-			// TODO: make copy to set correct pos
-			return c.constMap[sym.Key]
-		}
 		last.SetRange(expr.Pos(), expr.EndPos())
-		return last
+		return c.maybeConstExpr(last)
 	}
 	return expr
 }

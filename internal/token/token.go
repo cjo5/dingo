@@ -73,6 +73,7 @@ const (
 	As
 	Lenof
 	Sizeof
+	Typeof
 	Module
 	Include
 	Import
@@ -155,6 +156,7 @@ var tokens = [...]string{
 	As:        "as",
 	Lenof:     "len",
 	Sizeof:    "sizeof",
+	Typeof:    "typeof",
 	Module:    "module",
 	Include:   "include",
 	Import:    "import",

@@ -120,6 +120,11 @@ func (c *checker) lookup(name string) *ir.Symbol {
 	return nil
 }
 
+func (c *checker) setIncompleteObject() {
+	c.object.incomplete = true
+	c.incomplete[c.object] = true
+}
+
 func (c *checker) tryAddDep(sym *ir.Symbol, pos token.Position) {
 	if sym.Kind != ir.ModuleSymbol && sym.UniqKey > 0 {
 		if obj, ok := c.objectMap[sym.UniqKey]; ok {
@@ -129,8 +134,7 @@ func (c *checker) tryAddDep(sym *ir.Symbol, pos token.Position) {
 			}
 			c.object.addEdge(obj, edge)
 			if !obj.checked || obj.incomplete {
-				c.object.incomplete = true
-				c.incomplete[c.object] = true
+				c.setIncompleteObject()
 			}
 		}
 	}

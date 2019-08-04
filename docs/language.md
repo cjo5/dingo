@@ -332,6 +332,15 @@ Values are automatically dereferenced for field access and referenced when calli
 
 ```Self``` is a ```typealias``` for the struct type in methods. If the first parameter name is omitted in the function signature, then ```self``` is automatically inserted if the type is ```Self``` or a reference to it. Other than these two conveniences methods are exactly the same as regular functions. Neither ```Self``` or ```self``` are keywords.
 
+## Typeof
+
+```swift
+val a: Int
+val b: typeof(a) // b has type Int
+```
+
+```typeof``` takes an expression as an argument and can be used where a normal type can be used. The expression is only type checked and not evaluted anywhere else, i.e. it does not produce a value.
+
 ## Type Casting
 
 ```swift
@@ -638,6 +647,7 @@ sizeof
 struct
 true
 typealias
+typeof
 use
 val
 var

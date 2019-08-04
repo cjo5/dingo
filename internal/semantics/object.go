@@ -157,9 +157,14 @@ func (c *checker) createObjects(decl *ir.TopDecl, CUID int, modFQN string) []*ob
 	case *ir.FuncDecl:
 		def := !decl.SignatureOnly()
 		sym := c.newTopDeclSymbol(ir.FuncSymbol, CUID, modFQN, abi, public, decl.Name.Literal, decl.Name.Pos(), def)
-		decl.Sym = c.insertSymbol(c.scope, sym.Name, sym)
-		if decl.Sym != nil {
-			c.insertFunDeclSignature(decl, c.scope)
+		sym = c.insertSymbol(c.scope, sym.Name, sym)
+		decl.Sym = sym
+		decl.Name.Sym = sym
+		if sym != nil {
+			decl.Scope = ir.NewScope("fun", c.scope, sym.CUID)
+			if decl.Body != nil {
+				decl.Body.Scope = decl.Scope
+			}
 			objects = append(objects, newObject(decl, c.scope, true))
 		}
 	case *ir.StructDecl:

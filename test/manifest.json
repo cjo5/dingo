@@ -15,6 +15,7 @@
             "sizeof.dg",
             "type_in_expr.dg",
             "typealias.dg",
+            "typeof.dg",
             "use_before_decl.dg",
             "void.dg"
         ]

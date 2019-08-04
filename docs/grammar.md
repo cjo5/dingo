@@ -49,8 +49,9 @@ FuncParam           ::= (['val' | 'var'] IDENT ':')? Type
 ## Types
 
 ```
-Type            ::= NestedType | PointerType | ArrayType | FuncType | ScopeLookup
+Type            ::= NestedType | Typeof | PointerType | ArrayType | FuncType | ScopeLookup
 NestedType      ::= '(' Type ')'
+Typeof          ::= 'typeof' '(' Expr ')'
 PointerType     ::= '&' ['val' | 'var'] Type
 ArrayType       ::= '[' Type [':' INTEGER] ']'
 FuncType        ::= Extern? 'fun' ['[' IDENT ']'] FuncSignature
@@ -80,10 +81,10 @@ BinaryOp        ::= 'or | 'and' | '!=' | '==' | '>' | '>=' | '<' | '<='
                     | '-' | '+' | '/' | '%' | '*'
 UnaryOp         ::= ('not' | '-') | ('&' ['val' | 'var'])
 AsExpr          ::= ['as' Type]
-Operand         ::= NestedExpr | LenExpr | SizeExpr | ScopeLookup | Literal
+Operand         ::= NestedExpr | Len | Sizeof | ScopeLookup | Literal
 NestedExpr      ::= '(' Expr ')'
-LenExpr         ::= 'len' '(' Expr ')'
-SizeExpr        ::= 'sizeof' '(' Type ')'
+Len             ::= 'len' '(' Expr ')'
+Sizeof          ::= 'sizeof' '(' Type ')'
 
 ArgList         ::= [ArgExpr {',' ArgExpr} ','?]
 ArgExpr         ::= [IDENT ':'] Expr

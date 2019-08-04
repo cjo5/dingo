@@ -1,0 +1,26 @@
+include "common.dg"
+
+fun add(a: Int, b: typeof(a)) Int {
+    return a + b
+}
+
+struct Foo {
+    var a: typeof(b)
+    var b: typeof(a)
+}
+
+var v1: typeof(v2) = 5
+var v2: typeof(v3) = 4
+var v3: Int = 3
+
+extern fun main() C_int {
+    io::printiln(add(2, 3)) // expect: 5
+    io::printiln(add(v1, v2)) // expect: 9
+    io::printiln(add(v2, v3)) // expect: 7
+
+    val f = Foo(1, 2)
+    io::printiln(f.a) // expect: 1
+    io::printiln(f.b) // expect: 2
+
+    return 0
+}

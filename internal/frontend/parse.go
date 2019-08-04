@@ -786,6 +786,8 @@ func (p *parser) tryParseType(required bool) ir.Expr {
 			t.SetRange(pos, p.pos)
 		}
 		return t
+	} else if p.token.Is(token.Typeof) {
+		return p.parseTypeof()
 	} else if p.token.OneOf(token.Reference) {
 		return p.parsePointerType()
 	} else if p.token.Is(token.Lbrack) {
@@ -799,6 +801,17 @@ func (p *parser) tryParseType(required bool) ir.Expr {
 		panic(parseError(0))
 	}
 	return nil
+}
+
+func (p *parser) parseTypeof() ir.Expr {
+	typeof := &ir.Typeof{}
+	pos := p.pos
+	p.next()
+	p.expect(token.Lparen)
+	typeof.X = p.parseExpr()
+	typeof.SetRange(pos, p.pos)
+	p.expect(token.Rparen)
+	return typeof
 }
 
 func (p *parser) parsePointerType() ir.Expr {

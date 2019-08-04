@@ -183,20 +183,6 @@ func (c *checker) insertLocalValDeclSymbol(decl *ir.ValDecl, CUID int, modFQN st
 	}
 }
 
-func (c *checker) insertFunDeclSignature(decl *ir.FuncDecl, parentScope *ir.Scope) {
-	sym := decl.Sym
-	decl.Name.Sym = sym
-	decl.Scope = ir.NewScope("fun", parentScope, sym.CUID)
-	defer c.setScope(c.setScope(decl.Scope))
-	for _, param := range decl.Params {
-		c.insertLocalValDeclSymbol(param, sym.CUID, sym.ModFQN)
-	}
-	c.insertLocalValDeclSymbol(decl.Return, sym.CUID, sym.ModFQN)
-	if decl.Body != nil {
-		decl.Body.Scope = decl.Scope
-	}
-}
-
 func (c *checker) insertStructDeclBody(decl *ir.StructDecl, methodScope *ir.Scope) {
 	sym := decl.Sym
 	defer c.setScope(c.setScope(decl.Scope))
@@ -204,7 +190,7 @@ func (c *checker) insertStructDeclBody(decl *ir.StructDecl, methodScope *ir.Scop
 	for _, field := range decl.Fields {
 		c.insertLocalValDeclSymbol(field, sym.CUID, sym.ModFQN)
 		if field.Sym != nil {
-			fields = append(fields, ir.Field{Name: field.Sym.Name, T: ir.TBuiltinUnknown})
+			fields = append(fields, ir.Field{Name: field.Name.Literal, T: ir.TBuiltinUnknown})
 		}
 	}
 	for _, method := range decl.Methods {
@@ -212,10 +198,15 @@ func (c *checker) insertStructDeclBody(decl *ir.StructDecl, methodScope *ir.Scop
 		pubField := (method.Flags & ir.AstFlagPublic) != 0
 		name := "dg." + sym.Name + "." + method.Name.Literal
 		sym := c.newTopDeclSymbol(ir.FuncSymbol, sym.CUID, sym.ModFQN, sym.ABI, pubField, name, method.Name.Pos(), !method.SignatureOnly())
-		method.Sym = c.insertSymbol(c.scope, method.Name.Literal, sym)
-		if method.Sym != nil {
-			c.insertFunDeclSignature(method, methodScope)
-			method.Sym.Flags |= ir.SymFlagMethod
+		sym = c.insertSymbol(c.scope, method.Name.Literal, sym)
+		method.Sym = sym
+		method.Name.Sym = sym
+		if sym != nil {
+			sym.Flags |= ir.SymFlagMethod
+			method.Scope = ir.NewScope("method", methodScope, sym.CUID)
+			if method.Body != nil {
+				method.Body.Scope = decl.Scope
+			}
 			if method.SignatureOnly() {
 				c.error(method.Pos(), "method must have a body")
 			}

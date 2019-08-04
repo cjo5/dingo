@@ -241,6 +241,11 @@ func (x *baseExpr) ReadOnly() bool {
 	return false
 }
 
+type Typeof struct {
+	baseExpr
+	X Expr
+}
+
 type PointerTypeExpr struct {
 	baseExpr
 	Decl token.Token
