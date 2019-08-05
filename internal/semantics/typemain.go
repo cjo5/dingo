@@ -279,7 +279,7 @@ func (c *checker) checkStructDecl(decl *ir.StructDecl) {
 	for _, field := range decl.Fields {
 		if field.Sym != nil {
 			// The struct has a dependency on its own fields
-			c.trySetDep(field.Sym)
+			c.trySetDep(field.Sym, false)
 			tuntyped = checkUntyped(field.Sym.T, tuntyped)
 		} else {
 			tuntyped = ir.TBuiltinInvalid
@@ -645,14 +645,14 @@ func (c *checker) resolveIdent(expr *ir.Ident) {
 			return
 		}
 	}
-	c.trySetDep(expr.Sym)
+	c.trySetDep(expr.Sym, true)
 	if isUntyped(expr.Sym.T) {
 		expr.T = expr.Sym.T
 		return
 	}
 	sym := expr.Sym
 	valid := true
-	if c.mode != modeExprOrType {
+	if c.mode != modeBoth {
 		if c.isTypeMode() {
 			if sym.Kind != ir.TypeSymbol {
 				valid = false
@@ -685,7 +685,7 @@ func (c *checker) resolveScopeLookup(expr *ir.ScopeLookup) {
 	defer c.setMode(c.mode)
 	prevMode := c.mode
 	for i, part := range expr.Parts {
-		c.mode = modeExprOrType
+		c.mode = modeBoth
 		if (i + 1) >= len(expr.Parts) {
 			c.mode = prevMode
 		}

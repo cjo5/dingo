@@ -34,8 +34,8 @@ type object struct {
 }
 
 type objectDep struct {
-	obj            *object
-	isIndirectType bool
+	obj    *object
+	isWeak bool
 }
 
 func newObjectList(filename string, CUID int, rootScope *ir.Scope) *objectList {
@@ -95,18 +95,18 @@ func (d *object) uniqKey() ir.SymbolKey {
 	return d.sym().UniqKey
 }
 
-func (d *object) setDep(to *object, isIndirectType bool) {
+func (d *object) setDep(to *object, isWeak bool) {
 	if dep, ok := d.deps[to.sym().UniqKey]; ok {
 		if dep.obj != to {
 			panic("Different objects with same symbol key")
 		}
-		if !isIndirectType {
-			dep.isIndirectType = false
+		if !isWeak {
+			dep.isWeak = false
 		}
 	} else {
 		dep = &objectDep{
-			obj:            to,
-			isIndirectType: isIndirectType,
+			obj:    to,
+			isWeak: isWeak,
 		}
 		d.deps[to.sym().UniqKey] = dep
 	}
@@ -301,7 +301,7 @@ func sortDeps(obj *object, trace *[]*object, sorted *[]ir.Decl) bool {
 
 	for _, key := range keys {
 		dep := obj.deps[key]
-		if isWeakDep(obj, dep) {
+		if dep.isWeak {
 			weak = append(weak, dep.obj)
 			continue
 		}
@@ -330,17 +330,4 @@ func sortDeps(obj *object, trace *[]*object, sorted *[]ir.Decl) bool {
 	}
 
 	return sortOK
-}
-
-func isWeakDep(from *object, dep *objectDep) bool {
-	to := dep.obj
-	switch from.d.(type) {
-	case *ir.FuncDecl:
-		return to.sym().Kind == ir.FuncSymbol
-	case *ir.ValDecl:
-		if to.sym().Kind == ir.TypeSymbol {
-			return dep.isIndirectType
-		}
-	}
-	return false
 }

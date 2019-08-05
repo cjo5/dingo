@@ -190,7 +190,7 @@ func (c *checker) checkUnaryExpr(expr *ir.UnaryExpr) ir.Expr {
 }
 
 func (c *checker) checkAddrExpr(expr *ir.AddrExpr) ir.Expr {
-	expr.X = c.checkExpr(expr.X)
+	expr.X = c.checkExpr2(expr.X, modeIndirectExpr)
 	tx := expr.X.Type()
 
 	if tuntyped := checkUntypedExprs(expr.X); tuntyped != nil {
@@ -320,7 +320,7 @@ func (c *checker) checkIndexExpr(expr *ir.IndexExpr) ir.Expr {
 }
 
 func (c *checker) checkSliceExpr(expr *ir.SliceExpr) ir.Expr {
-	expr.X = c.checkExpr(expr.X)
+	expr.X = c.checkExpr2(expr.X, modeIndirectExpr)
 	expr.X = c.finalizeExpr(expr.X, nil)
 
 	if expr.Start != nil {
@@ -420,7 +420,7 @@ func (c *checker) checkSliceExpr(expr *ir.SliceExpr) ir.Expr {
 func (c *checker) checkAppExpr(expr *ir.AppExpr) ir.Expr {
 	var tuntyped ir.Type
 	if isUnknownExprType(expr.X) {
-		expr.X = c.checkExpr2(expr.X, modeExprOrType)
+		expr.X = c.checkExpr2(expr.X, modeBoth)
 		tx := expr.X.Type()
 		if isUntyped(tx) {
 			tuntyped = tx
@@ -440,6 +440,12 @@ func (c *checker) checkAppExpr(expr *ir.AppExpr) ir.Expr {
 				expr.T = ir.TBuiltinInvalid
 				return expr
 			}
+		}
+	}
+
+	if sym := ir.ExprSymbol(expr.X); sym != nil {
+		if c.object.sym().Kind != ir.FuncSymbol && sym.Kind != ir.FuncSymbol {
+			c.trySetDep(sym, false)
 		}
 	}
 

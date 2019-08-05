@@ -22,9 +22,10 @@ func Check(ctx *common.BuildContext, target ir.Target, fileMatrix ir.FileMatrix)
 
 const (
 	modeExpr int = iota
+	modeIndirectExpr
 	modeType
 	modeIndirectType
-	modeExprOrType
+	modeBoth
 )
 
 type checker struct {
@@ -138,11 +139,33 @@ func (c *checker) setIncompleteObject() {
 	c.incomplete[c.object.sym().UniqKey] = c.object
 }
 
-func (c *checker) trySetDep(sym *ir.Symbol) {
+func (c *checker) isWeakDep(sym *ir.Symbol) bool {
+	isWeak := false
+	switch c.object.sym().Kind {
+	case ir.ModuleSymbol:
+		isWeak = true
+	case ir.FuncSymbol:
+		if sym.Kind == ir.FuncSymbol {
+			isWeak = true
+		}
+	default:
+		if c.mode == modeIndirectType ||
+			c.mode == modeIndirectExpr ||
+			sym.Kind == ir.FuncSymbol {
+			isWeak = true
+		}
+	}
+	return isWeak
+}
+
+func (c *checker) trySetDep(sym *ir.Symbol, checkWeak bool) {
 	if sym.Kind != ir.ModuleSymbol && sym.UniqKey > 0 {
 		if obj, ok := c.objectMap[sym.UniqKey]; ok {
-			isIndirectType := c.mode == modeIndirectType
-			c.object.setDep(obj, isIndirectType)
+			isWeak := false
+			if checkWeak {
+				isWeak = c.isWeakDep(sym)
+			}
+			c.object.setDep(obj, isWeak)
 			if !obj.checked || obj.incomplete {
 				c.setIncompleteObject()
 			}
