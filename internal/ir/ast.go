@@ -555,26 +555,14 @@ func NewDefaultInit(t Type) Expr {
 	return init
 }
 
-func TypeExprToIdent(expr Expr) *Ident {
-	switch t := expr.(type) {
-	case *Ident:
-		return t
-	case *DotExpr:
-		return t.Name
-	case *PointerTypeExpr:
-		return TypeExprToIdent(t.X)
-	case *ArrayTypeExpr:
-		return TypeExprToIdent(t.X)
-	}
-	return nil
-}
-
 func ExprSymbol(expr Expr) *Symbol {
 	switch t := expr.(type) {
 	case *Ident:
 		return t.Sym
 	case *DotExpr:
 		return t.Name.Sym
+	case *ScopeLookup:
+		return t.Last().Sym
 	}
 	return nil
 }
