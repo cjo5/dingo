@@ -6,7 +6,7 @@ fun add(a: Int, b: typeof(a)) Int {
 
 struct Foo {
     var a: typeof(b)
-    var b: typeof(a)
+    var b: Int
 }
 
 var v1: typeof(v2) = 5

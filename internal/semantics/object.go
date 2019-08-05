@@ -2,6 +2,7 @@ package semantics
 
 import (
 	"fmt"
+	"sort"
 
 	"github.com/cjo5/dingo/internal/ir"
 	"github.com/cjo5/dingo/internal/token"
@@ -26,14 +27,14 @@ type object struct {
 	d           ir.Decl
 	parentScope *ir.Scope
 	definition  bool
-	deps        map[*object][]*depEdge
+	deps        map[ir.SymbolKey]*objectDep
 	checked     bool
 	incomplete  bool
 	color       color
 }
 
-type depEdge struct {
-	pos            token.Position
+type objectDep struct {
+	obj            *object
 	isIndirectType bool
 }
 
@@ -62,9 +63,20 @@ func newObject(d ir.Decl, parentScope *ir.Scope, definition bool) *object {
 		d:           d,
 		parentScope: parentScope,
 		definition:  definition,
-		deps:        make(map[*object][]*depEdge),
+		deps:        make(map[ir.SymbolKey]*objectDep),
 		color:       whiteColor,
 	}
+}
+
+func (d *object) sortedDepKeys() []ir.SymbolKey {
+	var keys []ir.SymbolKey
+	for key := range d.deps {
+		keys = append(keys, key)
+	}
+	sort.Slice(keys, func(i, j int) bool {
+		return keys[i] < keys[j]
+	})
+	return keys
 }
 
 func (d *object) sym() *ir.Symbol {
@@ -79,17 +91,25 @@ func (d *object) CUID() int {
 	return d.sym().CUID
 }
 
-func (d *object) uniqKey() int {
+func (d *object) uniqKey() ir.SymbolKey {
 	return d.sym().UniqKey
 }
 
-func (d *object) addEdge(to *object, edge *depEdge) {
-	var edges []*depEdge
-	if existing, ok := d.deps[to]; ok {
-		edges = existing
+func (d *object) setDep(to *object, isIndirectType bool) {
+	if dep, ok := d.deps[to.sym().UniqKey]; ok {
+		if dep.obj != to {
+			panic("Different objects with same symbol key")
+		}
+		if !isIndirectType {
+			dep.isIndirectType = false
+		}
+	} else {
+		dep = &objectDep{
+			obj:            to,
+			isIndirectType: isIndirectType,
+		}
+		d.deps[to.sym().UniqKey] = dep
 	}
-	edges = append(edges, edge)
-	d.deps[to] = edges
 }
 
 func (c *checker) initObjectMatrix(modMatrix moduleMatrix) {
@@ -172,7 +192,7 @@ func (c *checker) createObjects(decl *ir.TopDecl, CUID int, modFQN string) []*ob
 		sym := c.newTopDeclSymbol(ir.TypeSymbol, CUID, modFQN, abi, public, decl.Name.Literal, decl.Name.Pos(), def)
 		decl.Sym = c.insertSymbol(c.scope, sym.Name, sym)
 		if decl.Sym != nil {
-			decl.Scope = ir.NewScope("struct_fields", nil, sym.CUID)
+			decl.Scope = ir.NewScope("struct_base", nil, sym.CUID)
 			if decl.Opaque {
 				if decl.Sym.T.Kind() == ir.TUnknown {
 					tstruct := ir.NewStructType(decl.Sym, decl.Scope)
@@ -186,15 +206,21 @@ func (c *checker) createObjects(decl *ir.TopDecl, CUID int, modFQN string) []*ob
 					Type: ir.NewIdent2(token.Ident, decl.Name.Literal),
 				}
 
-				selfScope := ir.NewScope("struct_self", c.scope, CUID)
+				methodScope := ir.NewScope("struct_methods", c.scope, CUID)
 				selfType.Sym = c.newTopDeclSymbol(ir.TypeSymbol, CUID, modFQN, abi, false, selfType.Name.Literal, token.NoPosition, true)
-				c.insertSymbol(selfScope, selfType.Name.Literal, selfType.Sym)
-				c.insertStructDeclBody(decl, selfScope)
+				c.insertSymbol(methodScope, selfType.Name.Literal, selfType.Sym)
+				c.insertStructDeclBody(decl, methodScope)
 				objects = append(objects, newObject(decl, c.scope, def))
-				objects = append(objects, newObject(selfType, selfScope, true))
+				objects = append(objects, newObject(selfType, methodScope, true))
+				fieldScope := decl.Scope.Fresh("struct_fields", c.scope)
+				for _, field := range decl.Fields {
+					if field.Sym != nil {
+						objects = append(objects, newObject(field, fieldScope, true))
+					}
+				}
 				for _, method := range decl.Methods {
 					if method.Sym != nil {
-						objects = append(objects, newObject(method, c.scope, !method.SignatureOnly()))
+						objects = append(objects, newObject(method, methodScope, !method.SignatureOnly()))
 					}
 				}
 				decl.Methods = nil
@@ -236,7 +262,7 @@ out:
 					}
 
 					s := cycleTrace[i].d.Symbol()
-					line := fmt.Sprintf("  >> [%d] %s:%s uses [%d]", j, s.Pos, s.Name, next)
+					line := fmt.Sprintf("  >> [%d] %s:%s depends on [%d]", j, s.Pos, s.Name, next)
 					lines = append(lines, line)
 				}
 
@@ -248,7 +274,7 @@ out:
 			Filename: objList.filename,
 			CUID:     objList.CUID,
 			Decls:    sortedDecls,
-			Syms:     make(map[int]*ir.Symbol),
+			Syms:     make(map[ir.SymbolKey]*ir.Symbol),
 		}
 		// TODO: fill Syms map when creating the decl list
 		for _, decl := range declList.Decls {
@@ -271,15 +297,17 @@ func sortDeps(obj *object, trace *[]*object, sorted *[]ir.Decl) bool {
 	obj.color = grayColor
 
 	var weak []*object
+	keys := obj.sortedDepKeys()
 
-	for dep, edges := range obj.deps {
-		if isWeakDep(obj, edges, dep) {
-			weak = append(weak, dep)
+	for _, key := range keys {
+		dep := obj.deps[key]
+		if isWeakDep(obj, dep) {
+			weak = append(weak, dep.obj)
 			continue
 		}
 
-		if !sortDeps(dep, trace, sorted) {
-			*trace = append(*trace, dep)
+		if !sortDeps(dep.obj, trace, sorted) {
+			*trace = append(*trace, dep.obj)
 			sortOK = false
 			break
 		}
@@ -304,19 +332,14 @@ func sortDeps(obj *object, trace *[]*object, sorted *[]ir.Decl) bool {
 	return sortOK
 }
 
-func isWeakDep(from *object, edges []*depEdge, to *object) bool {
+func isWeakDep(from *object, dep *objectDep) bool {
+	to := dep.obj
 	switch from.d.(type) {
 	case *ir.FuncDecl:
-		return to.d.Symbol().Kind == ir.FuncSymbol
-	case *ir.StructDecl:
-		weakCount := 0
-		for _, edge := range edges {
-			if edge.isIndirectType {
-				weakCount++
-			}
-		}
-		if weakCount == len(edges) {
-			return true
+		return to.sym().Kind == ir.FuncSymbol
+	case *ir.ValDecl:
+		if to.sym().Kind == ir.TypeSymbol {
+			return dep.isIndirectType
 		}
 	}
 	return false

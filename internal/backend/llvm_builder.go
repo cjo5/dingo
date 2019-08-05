@@ -25,7 +25,7 @@ type llvmCodeBuilder struct {
 
 	mod        llvm.Module
 	declList   *ir.DeclList
-	valueMap   map[int]llvm.Value
+	valueMap   map[ir.SymbolKey]llvm.Value
 	typeMap    llvmTypeMap
 	signature  bool
 	inFunction bool
@@ -196,7 +196,7 @@ func (cb *llvmCodeBuilder) deleteObjects() {
 func (cb *llvmCodeBuilder) buildLLVModule(list *ir.DeclList) bool {
 	cb.mod = llvm.NewModule(list.Filename)
 	cb.declList = list
-	cb.valueMap = make(map[int]llvm.Value)
+	cb.valueMap = make(map[ir.SymbolKey]llvm.Value)
 	cb.typeMap = make(llvmTypeMap)
 	cb.inFunction = false
 	cb.signature = true
@@ -278,6 +278,9 @@ func (cb *llvmCodeBuilder) buildDecl(decl ir.Decl) {
 	case *ir.UseDecl:
 	case *ir.TypeDecl:
 	case *ir.ValDecl:
+		if decl.Sym.IsField() {
+			return
+		}
 		if decl.Sym.IsTopDecl() {
 			cb.buildValTopDecl(decl)
 		} else {

@@ -35,6 +35,16 @@ func (s *Scope) String() string {
 	return buf.String()
 }
 
+func (s *Scope) Fresh(name string, parent *Scope) *Scope {
+	return &Scope{
+		Name:    name,
+		Parent:  parent,
+		CUID:    s.CUID,
+		Defer:   s.Defer,
+		Symbols: s.Symbols,
+	}
+}
+
 func (s *Scope) Insert(alias string, sym *Symbol) *Symbol {
 	var existing *Symbol
 	if existing = s.Symbols[alias]; existing == nil {

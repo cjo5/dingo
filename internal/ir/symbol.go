@@ -18,6 +18,8 @@ const DGABI = "dg"
 // SymbolKind identifies the kind of symbol.
 type SymbolKind int
 
+type SymbolKey int
+
 // Symbol kinds.
 const (
 	ModuleSymbol SymbolKind = iota
@@ -42,11 +44,11 @@ const (
 type Symbol struct {
 	Kind SymbolKind
 	// Every symbol has a unique key.
-	UniqKey int
+	UniqKey SymbolKey
 	// Every symbol _definition_ has a unique key.
 	// That is, if there are multiple declarations for one definition
 	// then the definition + all declaration symbols will share the same key.
-	Key    int
+	Key    SymbolKey
 	CUID   int
 	Public bool
 	ABI    string
@@ -58,7 +60,7 @@ type Symbol struct {
 }
 
 // NewSymbol creates a new symbol.
-func NewSymbol(kind SymbolKind, key int, CUID int, modFQN string, name string, pos token.Position) *Symbol {
+func NewSymbol(kind SymbolKind, key SymbolKey, CUID int, modFQN string, name string, pos token.Position) *Symbol {
 	return &Symbol{
 		Kind:    kind,
 		UniqKey: key,

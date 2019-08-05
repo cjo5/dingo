@@ -6,5 +6,5 @@ module bar {
     use ::foo::baz
 }
 
-// expect-dgc: <re>.*:2:16:baz</re> uses [1]
-// expect-dgc: <re>.*:6:16:baz</re> uses [0]
+// expect-dgc: <re>.*:2:16:baz</re> depends on [1]
+// expect-dgc: <re>.*:6:16:baz</re> depends on [0]

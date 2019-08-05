@@ -1,0 +1,5 @@
+var a: typeof(b) // expect-error: cycle detected
+var b: typeof(a)
+
+// expect-dgc: <re>.*:1:5:a</re> depends on [1]
+// expect-dgc: <re>.*:2:5:b</re> depends on [0]

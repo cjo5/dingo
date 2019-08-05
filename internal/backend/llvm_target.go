@@ -15,7 +15,7 @@ type llvmTarget struct {
 	data    llvm.TargetData
 }
 
-type llvmTypeMap map[int]llvm.Type
+type llvmTypeMap map[ir.SymbolKey]llvm.Type
 
 // NewLLVMTarget creates an LLVM backend target.
 func NewLLVMTarget() ir.Target {

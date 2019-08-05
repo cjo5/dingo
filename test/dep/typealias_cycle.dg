@@ -1,5 +1,5 @@
 typealias A = B // expect-error: cycle detected
 typealias B = A
 
-// expect-dgc: <re>.*:1:11:A</re> uses [1]
-// expect-dgc: <re>.*:2:11:B</re> uses [0]
+// expect-dgc: <re>.*:1:11:A</re> depends on [1]
+// expect-dgc: <re>.*:2:11:B</re> depends on [0]

@@ -1,0 +1,8 @@
+typealias A = B // expect-error: cycle detected
+typealias B = C
+typealias C = A
+
+
+// expect-dgc: <re>.*:1:11:A</re> depends on [1]
+// expect-dgc: <re>.*:2:11:B</re> depends on [2]
+// expect-dgc: <re>.*:3:11:C</re> depends on [0]

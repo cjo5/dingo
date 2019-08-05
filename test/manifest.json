@@ -26,11 +26,12 @@
             "function_signature.dg",
             "function_val.dg",
             "functions.dg",
-            "nested_alias_cycle.dg",
+            "nested_typealias_cycle.dg",
             "struct_cycle.dg",
             "structs.dg",
             "typealias_cycle.dg",
             "typealias.dg",
+            "typeof_cycle.dg",
             "use_cycle.dg"
         ]
     },

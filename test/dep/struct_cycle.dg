@@ -6,5 +6,7 @@ struct Bar {
     var f: Foo
 }
 
-// expect-dgc: <re>.*:1:8:Foo</re> uses [1]
-// expect-dgc: <re>.*:5:8:Bar</re> uses [0]
+// expect-dgc: <re>.*:1:8:Foo</re> depends on [1]
+// expect-dgc: <re>.*:2:9:b</re> depends on [2]
+// expect-dgc: <re>.*:5:8:Bar</re> depends on [3]
+// expect-dgc: <re>.*:6:9:f</re> depends on [0]

@@ -1,6 +1,8 @@
 package semantics
 
 import (
+	"sort"
+
 	"github.com/cjo5/dingo/internal/common"
 	"github.com/cjo5/dingo/internal/ir"
 	"github.com/cjo5/dingo/internal/token"
@@ -31,12 +33,12 @@ type checker struct {
 
 	builtinScope  *ir.Scope
 	objectMatrix  []*objectList
-	currentSymKey int
+	currentSymKey ir.SymbolKey
 
-	objectMap  map[int]*object
-	constMap   map[int]ir.Expr
 	importMap  map[string]*ir.Symbol
-	incomplete map[*object]bool
+	constMap   map[ir.SymbolKey]ir.Expr
+	objectMap  map[ir.SymbolKey]*object
+	incomplete map[ir.SymbolKey]*object
 
 	// Ast traversal state
 	objectList *objectList
@@ -58,14 +60,25 @@ func newChecker(ctx *common.BuildContext, target ir.Target) *checker {
 		ctx:           ctx,
 		target:        target,
 		currentSymKey: 1,
-		objectMap:     make(map[int]*object),
-		constMap:      make(map[int]ir.Expr),
 		importMap:     make(map[string]*ir.Symbol),
-		incomplete:    make(map[*object]bool),
+		constMap:      make(map[ir.SymbolKey]ir.Expr),
+		objectMap:     make(map[ir.SymbolKey]*object),
+		incomplete:    make(map[ir.SymbolKey]*object),
 	}
 }
 
-func (c *checker) nextSymKey() int {
+func (c *checker) sortedIncompleteKeys() []ir.SymbolKey {
+	var keys []ir.SymbolKey
+	for key := range c.incomplete {
+		keys = append(keys, key)
+	}
+	sort.Slice(keys, func(i, j int) bool {
+		return keys[i] < keys[j]
+	})
+	return keys
+}
+
+func (c *checker) nextSymKey() ir.SymbolKey {
 	key := c.currentSymKey
 	c.currentSymKey++
 	return key
@@ -122,17 +135,14 @@ func (c *checker) lookup(name string) *ir.Symbol {
 
 func (c *checker) setIncompleteObject() {
 	c.object.incomplete = true
-	c.incomplete[c.object] = true
+	c.incomplete[c.object.sym().UniqKey] = c.object
 }
 
-func (c *checker) tryAddDep(sym *ir.Symbol, pos token.Position) {
+func (c *checker) trySetDep(sym *ir.Symbol) {
 	if sym.Kind != ir.ModuleSymbol && sym.UniqKey > 0 {
 		if obj, ok := c.objectMap[sym.UniqKey]; ok {
-			edge := &depEdge{
-				pos:            pos,
-				isIndirectType: c.mode == modeIndirectType,
-			}
-			c.object.addEdge(obj, edge)
+			isIndirectType := c.mode == modeIndirectType
+			c.object.setDep(obj, isIndirectType)
 			if !obj.checked || obj.incomplete {
 				c.setIncompleteObject()
 			}

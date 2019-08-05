@@ -16,7 +16,9 @@ func (c *checker) checkTypes() {
 		}
 	}
 	c.step++
-	for decl := range c.incomplete {
+	keys := c.sortedIncompleteKeys()
+	for _, key := range keys {
+		decl := c.incomplete[key]
 		c.checkIncompleteObject(decl)
 	}
 }
@@ -26,12 +28,14 @@ func (c *checker) checkIncompleteObject(obj *object) {
 		return
 	}
 	obj.color = grayColor
-	for dep := range obj.deps {
-		if obj.incomplete {
-			c.checkIncompleteObject(dep)
+	for _, dep := range obj.deps {
+		if dep.obj.incomplete {
+			c.checkIncompleteObject(dep.obj)
 		}
 	}
 	c.objectList = c.objectMatrix[obj.CUID()]
+	obj.checked = false
+	obj.incomplete = false
 	c.checkObject(obj)
 	obj.color = blackColor
 }
@@ -84,10 +88,6 @@ func (c *checker) checkDecl(decl ir.Decl) {
 	switch decl := decl.(type) {
 	case *ir.ImportDecl:
 		// Nothing to do
-	case *ir.FuncDecl:
-		c.checkFuncDecl(decl)
-	case *ir.StructDecl:
-		c.checkStructDecl(decl)
 	case *ir.UseDecl:
 		if isUnknownType(sym.T) {
 			c.checkUseDecl(decl)
@@ -100,6 +100,10 @@ func (c *checker) checkDecl(decl ir.Decl) {
 		if isUnknownType(sym.T) {
 			c.checkValDecl(decl)
 		}
+	case *ir.FuncDecl:
+		c.checkFuncDecl(decl)
+	case *ir.StructDecl:
+		c.checkStructDecl(decl)
 	default:
 		panic(fmt.Sprintf("Unhandled decl %T", decl))
 	}
@@ -111,7 +115,6 @@ func (c *checker) checkUseDecl(decl *ir.UseDecl) {
 	if !isUntyped(decl.Name.T) {
 		last := decl.Name.Last()
 		decl.Sym.Kind = last.Sym.Kind
-		//decl.Sym.CUID = last.Sym.CUID
 		decl.Sym.Key = last.Sym.Key
 		decl.Sym.ABI = last.Sym.ABI
 		decl.Sym.Flags |= (last.Sym.Flags & (ir.SymFlagReadOnly | ir.SymFlagConst))
@@ -214,11 +217,9 @@ func checkCompileTimeConstant(expr ir.Expr) bool {
 }
 
 func (c *checker) checkFuncDecl(decl *ir.FuncDecl) {
-	defer c.setScope(c.scope)
+	defer c.setScope(c.setScope(decl.Scope))
 	if isUnknownType(decl.Sym.T) {
 		var tuntyped ir.Type
-		c.setScope(decl.Scope)
-		sym := decl.Sym
 		for _, param := range decl.Params {
 			c.checkLocalDecl(param)
 			if param.Sym != nil {
@@ -228,6 +229,7 @@ func (c *checker) checkFuncDecl(decl *ir.FuncDecl) {
 			}
 		}
 		if c.step == 0 {
+			sym := decl.Sym
 			c.insertLocalValDeclSymbol(decl.Return, sym.CUID, sym.ModFQN)
 		}
 		decl.Return.Type = c.checkRootTypeExpr(decl.Return.Type, false)
@@ -252,7 +254,6 @@ func (c *checker) checkFuncDecl(decl *ir.FuncDecl) {
 		c.object.checked = true
 	}
 	if !decl.SignatureOnly() {
-		c.setScope(decl.Scope)
 		stmtList(decl.Body.Stmts, c.checkStmt)
 	}
 }
@@ -275,21 +276,15 @@ func (c *checker) checkStructDecl(decl *ir.StructDecl) {
 		return
 	}
 	var tuntyped ir.Type
-	decl.Scope.Parent = c.object.parentScope
-	prevScope := c.setScope(decl.Scope)
 	for _, field := range decl.Fields {
 		if field.Sym != nil {
-			c.checkDecl(field)
-			if isUntyped(field.Sym.T) && c.step > 0 {
-				c.error(field.Sym.Pos, "untyped field")
-			}
+			// The struct has a dependency on its own fields
+			c.trySetDep(field.Sym)
 			tuntyped = checkUntyped(field.Sym.T, tuntyped)
 		} else {
 			tuntyped = ir.TBuiltinInvalid
 		}
 	}
-	decl.Scope.Parent = nil
-	c.setScope(prevScope)
 	typedBody := true
 	if tuntyped != nil {
 		if isInvalidType(tuntyped) {
@@ -297,7 +292,6 @@ func (c *checker) checkStructDecl(decl *ir.StructDecl) {
 			return
 		}
 		typedBody = false
-		c.setIncompleteObject()
 	}
 	var fields []ir.Field
 	for _, field := range decl.Fields {
@@ -650,8 +644,8 @@ func (c *checker) resolveIdent(expr *ir.Ident) {
 			c.nodeError(expr, "unknown identifier '%s'", expr.Literal)
 			return
 		}
-		c.tryAddDep(expr.Sym, expr.Pos())
 	}
+	c.trySetDep(expr.Sym)
 	if isUntyped(expr.Sym.T) {
 		expr.T = expr.Sym.T
 		return

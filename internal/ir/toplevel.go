@@ -57,5 +57,5 @@ type DeclList struct {
 	Filename string
 	CUID     int
 	Decls    []Decl
-	Syms     map[int]*Symbol
+	Syms     map[SymbolKey]*Symbol
 }
