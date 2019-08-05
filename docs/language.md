@@ -14,6 +14,7 @@
 - [Arrays](#arrays)
 - [Slices](#slices)
 - [Structs](#structs)
+- [Typeof](#typeof)
 - [Type Casting](#type-casting)
 - [If](#if)
 - [For / While](#for--while)
@@ -132,7 +133,7 @@ a.dg:
 ```swift
 var bar: Int
 module baz {
-    var qux Int
+    var qux: Int
 }
 ```
 
@@ -337,6 +338,14 @@ Values are automatically dereferenced for field access and referenced when calli
 ```swift
 val a: Int
 val b: typeof(a) // b has type Int
+
+fun foo(c: Int, d: typeof(c)) {}
+
+struct Bar {
+    e: typeof(f)
+    f: Int
+}
+
 ```
 
 ```typeof``` takes an expression as an argument and can be used where a normal type can be used. The expression is only type checked and not evaluted anywhere else, i.e. it does not produce a value.
