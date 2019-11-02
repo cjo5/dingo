@@ -10,12 +10,12 @@ fun print_foo(f: Foo) {
 }
 
 struct Foo {
-    var a: Int
-    var b: Int
-    var c: Int
+    var a: i32
+    var b: i32
+    var c: i32
 }
 
-extern fun main() C_int {
+extern fun main() c_int {
     var f: Foo
 
     f = Foo(a: 1, b: 2, c: 3)

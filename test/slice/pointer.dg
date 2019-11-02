@@ -1,11 +1,11 @@
 include "../common.dg"
 
-extern fun main() C_int {
+extern fun main() c_int {
     var data = 9
     var ptr = &var data
     val slice = &var ptr[:1]
 
-    io::printiln(len(slice) as Int) // expect: 1
+    io::printiln(len(slice) as i32) // expect: 1
     io::printiln(slice[0]) // expect: 9
 
     slice[0]++

@@ -5,6 +5,6 @@ import foo
 use foo::bar::__fqn__ // expect-error: builtin '__fqn__' cannot be brought into scope
 use foo::bar::baz // expect-error: 'baz' is private and cannot be accessed from a different compilation unit
 
-extern fun main() C_int {
+extern fun main() c_int {
     return 0
 }

@@ -1,6 +1,6 @@
 include "../common.dg"
 
-extern fun main() C_int {
+extern fun main() c_int {
     val a = Foo(a: 5)
     f1(a) // expect: 5
     f2(&a) // expect: 5
@@ -25,7 +25,7 @@ fun f3(f: Bar) Bar {
 }
 
 struct Foo {
-    var a: Int
+    var a: i32
 }
 
-typealias Bar = Int
+typealias Bar = i32

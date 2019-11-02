@@ -1,22 +1,22 @@
 include "common.dg"
 
-extern fun main() C_int {
-    io::printuln(math::maxU8) // expect: 255
-    io::printuln(math::maxU16) // expect: 65535
-    io::printuln(math::maxU32) // expect: 4294967295
-    io::printuln(math::maxU64) // expect: 18446744073709551615
+extern fun main() c_int {
+    io::printuln(math::maxu8) // expect: 255
+    io::printuln(math::maxu16) // expect: 65535
+    io::printuln(math::maxu32) // expect: 4294967295
+    io::printuln(math::maxu64) // expect: 18446744073709551615
 
-    io::printiln(math::minI8) // expect: -128
-    io::printiln(math::maxI8) // expect: 127
+    io::printiln(math::mini8) // expect: -128
+    io::printiln(math::maxi8) // expect: 127
 
-    io::printiln(math::minI16) // expect: -32768
-    io::printiln(math::maxI16) // expect: 32767
+    io::printiln(math::mini16) // expect: -32768
+    io::printiln(math::maxi16) // expect: 32767
 
-    io::printiln(math::minI32) // expect: -2147483648
-    io::printiln(math::maxI32) // expect: 2147483647
+    io::printiln(math::mini32) // expect: -2147483648
+    io::printiln(math::maxi32) // expect: 2147483647
 
-    io::printiln(math::minI64) // expect: -9223372036854775808
-    io::printiln(math::maxI64) // expect: 9223372036854775807
+    io::printiln(math::mini64) // expect: -9223372036854775808
+    io::printiln(math::maxi64) // expect: 9223372036854775807
 
     return 0
 }

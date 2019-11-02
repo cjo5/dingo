@@ -46,7 +46,7 @@ module foo {
     }
 }
 
-extern fun main() C_int {
+extern fun main() c_int {
     print_scope_fqn()
     // expect: root
     // expect: root

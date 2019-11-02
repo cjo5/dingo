@@ -45,30 +45,30 @@ const (
 )
 
 var types = [...]string{
-	TUnknown:    "Unknown",
-	TInvalid:    "Invalid",
-	TVoid:       "Void",
-	TBool:       "Bool",
-	TNull:       "Null",
-	TConstInt:   "UntypedInt",
-	TConstFloat: "UntypedFloat",
-	TInt8:       "I8",
-	TUInt8:      "U8",
-	TInt16:      "I16",
-	TUInt16:     "U16",
-	TInt32:      "I32",
-	TUInt32:     "U32",
-	TInt64:      "I64",
-	TUInt64:     "U64",
-	TUSize:      "USize",
-	TFloat32:    "F32",
-	TFloat64:    "F64",
-	TModule:     "Module",
-	TStruct:     "Struct",
-	TArray:      "Array",
-	TSlice:      "Slice",
-	TPointer:    "Pointer",
-	TFunc:       "Fun",
+	TUnknown:    "unknown",
+	TInvalid:    "invalid",
+	TVoid:       "void",
+	TBool:       "bool",
+	TNull:       "null",
+	TConstInt:   "untypedint",
+	TConstFloat: "untypedfloat",
+	TInt8:       "i8",
+	TUInt8:      "u8",
+	TInt16:      "i16",
+	TUInt16:     "u16",
+	TInt32:      "i32",
+	TUInt32:     "u32",
+	TInt64:      "i64",
+	TUInt64:     "u64",
+	TUSize:      "usize",
+	TFloat32:    "f32",
+	TFloat64:    "f64",
+	TModule:     "module",
+	TStruct:     "struct",
+	TArray:      "array",
+	TSlice:      "slice",
+	TPointer:    "pointer",
+	TFunc:       "fun",
 }
 
 func (id TypeKind) String() string {
@@ -101,10 +101,10 @@ var (
 	TBuiltinFloat32    = Type(NewBasicType(TFloat32))
 	TBuiltinFloat64    = Type(NewBasicType(TFloat64))
 
-	TBuiltinByte  = Type(NewAliasType("Byte", TBuiltinUInt8))
-	TBuiltinInt   = Type(NewAliasType("Int", TBuiltinInt32))
-	TBuiltinUInt  = Type(NewAliasType("UInt", TBuiltinUInt32))
-	TBuiltinFloat = Type(NewAliasType("Float", TBuiltinFloat32))
+	TBuiltinByte  = TBuiltinUInt8
+	TBuiltinInt   = TBuiltinInt32
+	TBuiltinUInt  = TBuiltinUInt32
+	TBuiltinFloat = TBuiltinFloat32
 )
 
 // Big ints and floats are used when evaluating constant expressions and checking for overflow.

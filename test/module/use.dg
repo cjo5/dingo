@@ -3,9 +3,9 @@ include "../common.dg"
 import mod1
 
 module foo {
-    var bar: Int = 560
+    var bar: i32 = 560
 
-    fun baz() Int {
+    fun baz() i32 {
        return 501
     }
 }
@@ -16,7 +16,7 @@ struct S {
     }
 }
 
-extern fun main() C_int {
+extern fun main() c_int {
     use S::hello
     hello() // expect: hello
     S::hello() // expect: hello

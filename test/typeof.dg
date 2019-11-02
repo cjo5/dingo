@@ -1,19 +1,19 @@
 include "common.dg"
 
-fun add(a: Int, b: typeof(a)) Int {
+fun add(a: i32, b: typeof(a)) i32 {
     return a + b
 }
 
 struct Foo {
     var a: typeof(b)
-    var b: Int
+    var b: i32
 }
 
 var v1: typeof(v2) = 5
 var v2: typeof(v3) = 4
-var v3: Int = 3
+var v3: i32 = 3
 
-extern fun main() C_int {
+extern fun main() c_int {
     io::printiln(add(2, 3)) // expect: 5
     io::printiln(add(v1, v2)) // expect: 9
     io::printiln(add(v2, v3)) // expect: 7

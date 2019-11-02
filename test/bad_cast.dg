@@ -1,4 +1,4 @@
 fun foo() {
     var a = "a"
-    var b = a as U32 // expect-error: type '&[Byte(U8)]' cannot be cast to 'U32'
+    var b = a as u32 // expect-error: type '&[u8]' cannot be cast to 'u32'
 }

@@ -2,7 +2,7 @@ include "../common.dg"
 
 import mod1
 
-extern fun main() C_int {
+extern fun main() c_int {
     val f1 = mod1::Foo(a: 1)
     io::printiln(f1.a) // expect: 1
     io::printiln(mod1::bar) // expect: 10

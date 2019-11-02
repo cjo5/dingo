@@ -10,43 +10,43 @@ pub module math {
     pub use c::cos
     pub use c::sin
 
-    pub val e: F32  = 2.71828182845904523536028747135266249775724709369995
-    pub val pi: F32 = 3.14159265358979323846264338327950288419716939937510
+    pub val e: f32  = 2.71828182845904523536028747135266249775724709369995
+    pub val pi: f32 = 3.14159265358979323846264338327950288419716939937510
 
-    pub val minI8: I8   = -128
-    pub val maxI8: I8   = 127
-    pub val minI16: I16 = -32_768
-    pub val maxI16: I16 = 32_767
-    pub val minI32: I32 = -2_147_483_648
-    pub val maxI32: I32 = 2_147_483_647
-    pub val minI64: I64 = -9_223_372_036_854_775_808
-    pub val maxI64: I64 = 9_223_372_036_854_775_807
+    pub val mini8: i8   = -128
+    pub val maxi8: i8   = 127
+    pub val mini16: i16 = -32_768
+    pub val maxi16: i16 = 32_767
+    pub val mini32: i32 = -2_147_483_648
+    pub val maxi32: i32 = 2_147_483_647
+    pub val mini64: i64 = -9_223_372_036_854_775_808
+    pub val maxi64: i64 = 9_223_372_036_854_775_807
 
-    pub val maxU8: U8   = 255
-    pub val maxU16: U16 = 65_535
-    pub val maxU32: U32 = 4_294_967_295
-    pub val maxU64: U64 = 18_446_744_073_709_551_615
+    pub val maxu8: u8   = 255
+    pub val maxu16: u16 = 65_535
+    pub val maxu32: u32 = 4_294_967_295
+    pub val maxu64: u64 = 18_446_744_073_709_551_615
 
-    pub val maxF32: F32 = 3.40282346638528859811704183484516925440e+38
-    pub val maxF64: F64 = 1.797693134862315708145274237317043567981e+308
+    pub val maxf32: f32 = 3.40282346638528859811704183484516925440e+38
+    pub val maxf64: f64 = 1.797693134862315708145274237317043567981e+308
 }
 
 pub module io {
     pub use c = ::libc
     pub use c::putchar
 
-    pub fun println(str: &[Byte]) {
+    pub fun println(str: &[u8]) {
         print(str)
         putchar('\n')
     }
 
-    pub fun print(str: &[Byte]) {
-        for i: USize = 0; i < len(str); i++ {
+    pub fun print(str: &[u8]) {
+        for i: usize = 0; i < len(str); i++ {
             putchar(str[i])
         }
     }
 
-    pub fun printbln(b: Bool) {
+    pub fun printbln(b: bool) {
         if b {
             println("true")
         } else {
@@ -54,47 +54,47 @@ pub module io {
         }
     }
 
-    pub fun printiln(i: I64) {
+    pub fun printiln(i: i64) {
         printi(i)
         putchar('\n')
     }
 
-    pub fun printi(i: I64) {
+    pub fun printi(i: i64) {
         if i < 0 {
             putchar('-')
-            printu(-i as U64)
+            printu(-i as u64)
         } else {
-            printu(i as U64)
+            printu(i as u64)
         }
     }
 
-    pub fun printuln(i: U64) {
+    pub fun printuln(i: u64) {
         printu(i)
         putchar('\n')
     }
 
-    pub fun printu(i: U64) {
+    pub fun printu(i: u64) {
         if i >= 10 {
             printu(i/10)
         }
-        putchar(('0' + i%10) as I32)
+        putchar(('0' + i%10) as i32)
     }
 
-    pub fun printft(f: F64) {
+    pub fun printft(f: f64) {
         c::printf(c"%g", f)
     }
 
-    pub fun printftln(f: F64) {
+    pub fun printftln(f: f64) {
         c::printf(c"%g\n", f)
     }
 
-    pub fun readln(buf: &var [Byte], null_terminate: Bool) &var [Byte] {
+    pub fun readln(buf: &var [u8], null_terminate: bool) &var [u8] {
         var max = len(buf)
         if null_terminate and max > 0 {
             max--
         }
         var end = false
-        var n: USize
+        var n: usize
         while n < max and not end {
             val ch = c::getchar()
             if ch == '\r' {
@@ -102,7 +102,7 @@ pub module io {
             } elif ch == '\n' {
                 end = true
             } else {
-                buf[n] = ch as Byte
+                buf[n] = ch as u8
                 n++
             }
         }

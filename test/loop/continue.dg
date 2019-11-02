@@ -1,6 +1,6 @@
 include "../common.dg"
 
-extern fun main() C_int {
+extern fun main() c_int {
     for i = 0; i < 5; i++ {
         if (i % 2) == 0 {
             continue

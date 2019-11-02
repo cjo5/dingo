@@ -1,38 +1,38 @@
 include "common.dg"
 
-extern fun main() C_int {
-    io::printiln(sizeof(I8) as I32) // expect: 1
-    io::printiln(sizeof(I16) as I32) // expect: 2
-    io::printiln(sizeof(I32) as I32) // expect: 4
-    io::printiln(sizeof(I64) as I32) // expect: 8
+extern fun main() c_int {
+    io::printiln(sizeof(i8) as i32) // expect: 1
+    io::printiln(sizeof(i16) as i32) // expect: 2
+    io::printiln(sizeof(i32) as i32) // expect: 4
+    io::printiln(sizeof(i64) as i32) // expect: 8
 
-    typealias MyType = I64
-    io::printiln(sizeof(MyType) as I32) // expect: 8
+    typealias MyType = i64
+    io::printiln(sizeof(MyType) as i32) // expect: 8
 
-    io::printiln(sizeof(U8) as I32) // expect: 1
-    io::printiln(sizeof(U16) as I32) // expect: 2
-    io::printiln(sizeof(U32) as I32) // expect: 4
-    io::printiln(sizeof(U64) as I32) // expect: 8
+    io::printiln(sizeof(u8) as i32) // expect: 1
+    io::printiln(sizeof(u16) as i32) // expect: 2
+    io::printiln(sizeof(u32) as i32) // expect: 4
+    io::printiln(sizeof(u64) as i32) // expect: 8
     
-    io::printiln(sizeof(F32) as I32) // expect: 4
-    io::printiln(sizeof(F64) as I32) // expect: 8
+    io::printiln(sizeof(f32) as i32) // expect: 4
+    io::printiln(sizeof(f64) as i32) // expect: 8
 
-    io::printiln(sizeof(Bool) as I32) // expect: 1
+    io::printiln(sizeof(bool) as i32) // expect: 1
 
-    io::printiln(sizeof([I32:5]) as I32) // expect: 20
+    io::printiln(sizeof([i32:5]) as i32) // expect: 20
 
-    io::printiln(sizeof(&[I32]) as I32) // expect: 16
+    io::printiln(sizeof(&[i32]) as i32) // expect: 16
 
-    io::printiln(sizeof(Foo) as I32) // expect: 16
+    io::printiln(sizeof(Foo) as i32) // expect: 16
 
-    io::printiln(sizeof(&Foo) as I32) // expect: 8
-    io::printiln(sizeof(&U8) as I32) // expect: 8
-    io::printiln(sizeof(&I32) as I32) // expect: 8
+    io::printiln(sizeof(&Foo) as i32) // expect: 8
+    io::printiln(sizeof(&u8) as i32) // expect: 8
+    io::printiln(sizeof(&i32) as i32) // expect: 8
 
     return 0
 }
 
 struct Foo {
-    var a: I32
-    var b: F64
+    var a: i32
+    var b: f64
 }

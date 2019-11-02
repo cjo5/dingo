@@ -1,4 +1,4 @@
-extern fun main() C_int {
+extern fun main() c_int {
     val f1: Foo // expect-error: incomplete type 'Foo'
 
     var f2: Bar
@@ -15,7 +15,7 @@ struct Foo
 struct Bar
 
 struct Bar {
-    var a: Int
+    var a: i32
 }
 
 struct Bar

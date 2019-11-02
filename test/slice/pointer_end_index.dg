@@ -1,4 +1,4 @@
 fun foo() {
-    val a: &Int
-    val b = &a[:] // expect-error: end index is required when slicing type '&Int(I32)'
+    val a: &i32
+    val b = &a[:] // expect-error: end index is required when slicing type '&i32'
 }

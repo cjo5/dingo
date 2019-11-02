@@ -1,6 +1,6 @@
 include "common.dg"
 
-extern fun main() C_int {
+extern fun main() c_int {
     if true {
         io::println("true") // expect: true
     }
@@ -19,7 +19,7 @@ extern fun main() C_int {
         io::println("not b") // expect: not b
     }
 
-    val c = fun() Bool {
+    val c = fun() bool {
         return true
     }
 
@@ -27,7 +27,7 @@ extern fun main() C_int {
         io::println("c") // expect: c
     }
 
-    val d = fun() Bool {
+    val d = fun() bool {
         return false
     }
 
@@ -45,7 +45,7 @@ extern fun main() C_int {
         io::println("not foo.b") // expect: not foo.b
     }
 
-    val bar = [Bool](true, false)
+    val bar = [bool](true, false)
 
     if bar[0] {
         io::println("bar[0]") // expect: bar[0]
@@ -59,6 +59,6 @@ extern fun main() C_int {
 }
 
 struct Foo {
-    var a: Bool
-    var b: Bool
+    var a: bool
+    var b: bool
 }
