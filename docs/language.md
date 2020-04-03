@@ -334,6 +334,16 @@ Values are automatically dereferenced for field access and referenced when calli
 
 ```Self``` is a ```typealias``` for the struct type in methods. If the first parameter name is omitted in the function signature, then ```self``` is automatically inserted if the type is ```Self``` or a reference to it. Other than these two conveniences methods are exactly the same as regular functions. Neither ```Self``` or ```self``` are keywords.
 
+## Sizeof
+
+```rust
+sizeof(i8)      // 1
+sizeof(i64)     // 8
+sizeof([i32:5]) // 4*5 = 20
+```
+
+Get the size of a type in bytes.
+
 ## Typeof
 
 ```rust
@@ -444,16 +454,6 @@ Braces required. ```continue``` and ```break``` as expected.
 
 Defer execution of a statement until the end of the block. If a defer is executed, the deferred statement is guaranteed to be executed at the end of the enclosing scope, regardless of the control flow. The deferred statements are executed in reverse order of the defers.
 
-## Sizeof
-
-```rust
-sizeof(i8)      // 1
-sizeof(i64)     // 8
-sizeof([i32:5]) // 4*5 = 20
-```
-
-Get the size of a type in bytes.
-
 ## Memory Management
 
 Dynamic memory management is currently handled through the C API.
@@ -481,7 +481,7 @@ c_double
 
 References are currently used for C pointers, though no pointer arithmetic is allowed.
 
-### extern
+### Extern
 
 ```rust
 // Functions defined in C can be called from Dingo
@@ -496,7 +496,7 @@ extern fun do_stuff() {
 
 Using ```extern``` on functions will enable C ABI and disable name mangling.
 
-### main
+### Main
 
 ```rust
 
@@ -516,7 +516,7 @@ val a: &[u8] = "Hello"
 val b: &u8 = c"Bye
 ```
 
-## booleans
+## Booleans
 
 ```rust
 val a: bool = true
