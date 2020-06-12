@@ -1,6 +1,6 @@
 # Dingo
 
-[Dingo](docs/language.md) is a statically typed and compiled programming language focused on consistency, fast build times, full memory control, and easy interop from and to C.
+[Dingo](docs/language.md) is a statically typed and compiled programming language with easy interop from and to C. The compiler is written in Go and uses LLVM for machine code generation.
 
 This is a hobby project intended for learning and experimentation.
 
