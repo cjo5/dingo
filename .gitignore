@@ -1,4 +1,7 @@
 *.o
-dgexe
-main
 bin
+dgexe
+dgc
+dgc-test
+LLVM-LIBS
+main
